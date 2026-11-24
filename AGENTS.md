@@ -15,7 +15,7 @@ deployment, tiles or architecture question from memory, read it first.
 | Anything under `frontend/` | [`docs/FRONTEND.md`](docs/FRONTEND.md): Next.js facts, phone layout, overflow, i18n, the shared patterns |
 | Anything under `backend/`, an API route | [`docs/BACKEND.md`](docs/BACKEND.md): commit rule, row-lock order, trailing slash, integration seams |
 | Deployment, env vars, images, a release | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) «Environment and deployment» / «Releases», then [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) (Compose) or [`docs/RAILWAY.md`](docs/RAILWAY.md) |
-| One of the nine visual screens | [`docs/VISUAL_TESTS.md`](docs/VISUAL_TESTS.md) |
+| One of the visual screens | [`docs/VISUAL_TESTS.md`](docs/VISUAL_TESTS.md) |
 
 ## Commands
 

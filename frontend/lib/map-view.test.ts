@@ -113,6 +113,11 @@ describe('chromeFitPadding', () => {
     expect(padding).toEqual({ top: 58, right: 234, bottom: 50, left: 50 })
   })
 
+  it('clears the phone peek at the bottom', () => {
+    // A 200px peek on the map's foot (850): the fitted points end 16px above its top edge.
+    expect(chromeFitPadding(12, map, { foot: box(100, 650, 1200, 200) })).toEqual({ top: 12, right: 12, bottom: 216, left: 12 })
+  })
+
   it('keeps the base where nothing covers the map', () => {
     expect(chromeFitPadding(50, map, { legend: null, topRow: box(1290, 60, 0, 0) })).toEqual({ top: 50, right: 50, bottom: 50, left: 50 })
   })

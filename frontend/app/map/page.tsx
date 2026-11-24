@@ -10,6 +10,8 @@
  */
 
 import { PhoneEventHead } from '@/components/mobile/phone-event-pill'
+import { MapIncidentPeek } from '@/components/mobile/map-incident-peek'
+import { nextPickupId, openPickups } from '@/lib/map-pickups'
 import { IncidentNumber } from "@/components/ui/incident-number"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
@@ -24,7 +26,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollEndFade } from "@/components/ui/scroll-end-fade"
 import { SearchInput } from "@/components/ui/search-input"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
-import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown } from "lucide-react"
+import { FileText, Check, Milestone, Binoculars, Layers, ChevronDown, Truck } from "lucide-react"
 import { WallClock } from "@/components/ui/event-clock"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { colorGroupFor, COLOR_BY_STORAGE_KEY, COLOR_NONE, rekoColorOrder, rekoPersonColor, type ColorByDimension, type ColorGroup } from "@/lib/kanban-utils"
@@ -35,7 +37,7 @@ import { sortForMapList } from "@/lib/map-list-order"
 import { type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
-import { getIncidentRefLabel, getIncidentRefParts, incidentSubject } from "@/lib/incident-types"
+import { getIncidentRefLabel, incidentSubject } from "@/lib/incident-types"
 import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
@@ -489,13 +491,12 @@ export default function MapPage() {
     setShowOnMapId(incidentId)
     setPanTrigger((n) => n + 1)
   }, [])
-  // A row tap on the phone: the sheet, over a map that flies to the Einsatz – also when it was
-  // selected already and the map has been panned away since (the trigger) – and the selection
-  // reaches the other windows, as a marker tap's does.
-  const openPhoneRow = (incidentId: string) => {
+  // The phone's other ways to an Einsatz on the map – a search hit, the Abholung chip: select it
+  // (its peek opens), fly there although it may be selected already, show it whatever the status
+  // filters say, and tell the other windows, as a marker tap does.
+  const focusOnPhoneMap = (incidentId: string) => {
     if (incidentId !== selectedIncidentId) broadcast("incident:selected", incidentId)
-    setPanTrigger((n) => n + 1)
-    openIncidentDetail(incidentId)
+    showPhoneDetailOnMap(incidentId)
   }
 
   // Register command palette (Cmd+K) handlers for the map view
@@ -637,28 +638,33 @@ export default function MapPage() {
   const deepLinkExceptionId =
     [highlightParam, showOnMapId].find((id) => id && id === selectedIncidentId) ?? null
 
-  // Filter incidents based on status group filters and search query
-  const activeIncidents = useMemo(
-    () => {
-      // Filter by status group
-      const filtered = incidents.filter((inc) => {
+  // The Einsätze the map shows: the status group filters (+ the exception above).
+  const shownIncidents = useMemo(
+    () =>
+      incidents.filter((inc) => {
         if (inc.id === deepLinkExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
         return group && statusFilters[group]
-      })
-
-      // Filter by search query
-      if (!searchQuery) return filtered
-
+      }),
+    [incidents, statusFilters, deepLinkExceptionId],
+  )
+  // One search for the rail and the phone's hits: address, title, type or status.
+  const matchesSearch = useCallback(
+    (inc: (typeof incidents)[number]) => {
       const lowerQuery = searchQuery.toLowerCase()
-      return filtered.filter((inc) =>
+      return Boolean(
         (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
         (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
         (isIncidentType(inc.type) && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-        (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
+        (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery)),
       )
     },
-    [incidents, searchQuery, statusFilters, deepLinkExceptionId, tIncidents, tKanban]
+    [searchQuery, tIncidents, tKanban],
+  )
+  // …and the search on top (the desk's header count).
+  const activeIncidents = useMemo(
+    () => (searchQuery ? shownIncidents.filter(matchesSearch) : shownIncidents),
+    [shownIncidents, searchQuery, matchesSearch],
   )
 
   // Toggle status filter
@@ -674,17 +680,7 @@ export default function MapPage() {
   // rows show (`sortForMapList`).
   const { mode: timeMode } = useIncidentTimeMode()
   const sectionedIncidents = useMemo(() => {
-    const searched = !searchQuery
-      ? incidents
-      : incidents.filter((inc) => {
-          const lowerQuery = searchQuery.toLowerCase()
-          return (
-            (inc.location_address && inc.location_address.toLowerCase().includes(lowerQuery)) ||
-            (inc.title && inc.title.toLowerCase().includes(lowerQuery)) ||
-            (isIncidentType(inc.type) && tIncidents(`types.${inc.type}`).toLowerCase().includes(lowerQuery)) ||
-            (isIncidentStatus(inc.status) && tKanban(`columns.${inc.status}`).toLowerCase().includes(lowerQuery))
-          )
-        })
+    const searched = !searchQuery ? incidents : incidents.filter(matchesSearch)
     const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }
     for (const inc of searched) {
       const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
@@ -692,7 +688,28 @@ export default function MapPage() {
     }
     for (const group of Object.keys(sections) as StatusGroup[]) sections[group] = sortForMapList(sections[group], timeMode)
     return sections
-  }, [incidents, searchQuery, tIncidents, tKanban, timeMode])
+  }, [incidents, searchQuery, matchesSearch, timeMode])
+
+  // The phone Lagekarte (owner pick 3A, 24.11.2026): the map fills the screen. The list is the
+  // Einsätze tab; here the search answers with hits in a panel under the field (every status, as
+  // the rail's sections hold them – a hit that is filtered out still shows when picked), and a
+  // pick flies there and opens its peek. The hits close on a pick and on a tap on the map.
+  const [searchHitsOpen, setSearchHitsOpen] = useState(false)
+  const searchHits = useMemo(
+    () => (searchQuery ? [...sectionedIncidents.open, ...sectionedIncidents.active, ...sectionedIncidents.completed] : []),
+    [searchQuery, sectionedIncidents],
+  )
+  const pickSearchHit = (incidentId: string) => {
+    setSearchHitsOpen(false)
+    setSearchQuery("")
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    focusOnPhoneMap(incidentId)
+  }
+  // The count chip's Abholungen – every open one, also on an Einsatz the filters hide: the crew
+  // is still standing at the address.
+  const pickups = useMemo(() => openPickups(operations), [operations])
+  // The selected Einsatz's peek (phone only).
+  const peekOperation = isMobile && selectedIncidentId ? operationsById.get(selectedIncidentId) : undefined
 
 
   // Refresh incidents immediately when map page loads
@@ -823,20 +840,22 @@ export default function MapPage() {
   // `variant="selected"`). Desktop: on the heading's
   // row, right-aligned (the view options of the list below it), so the tool row
   // under it holds only the two editor modes and never wraps 2 + 1 inside the
-  // 320px rail (hill climb r19). Phone: beside the search, one row, and at rest
-  // on the search field's own surface (transparent + the 1px input edge) – the
+  // 320px rail (hill climb r19). Phone: beside the search, floating over the map
+  // in the floating family's card surface (the wash over it when changed) – the
   // muted tool wash beside a white field read as pressed (hill climb r21).
   // 28px tall off the phone (`rounded-sm`: controls under 32px), 44px on it.
+  // The phone's menu also holds the status groups (the desk's are the rail's section headings).
+  const statusFiltered = isMobile && (!statusFilters.open || !statusFilters.active || statusFilters.completed)
   const viewChanged =
-    !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather)
+    !showLabels || (gpsAvailable && (!showAssignmentLines || showDistances)) || showGroupRoutes || colorBy !== 'priority' || (weatherAvailable && showWeather) || statusFiltered
   const viewMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className={`${RAIL_TOOL} max-md:h-11 max-md:shrink-0 max-md:rounded-md max-md:px-3 max-md:text-sm ${
+          className={`${RAIL_TOOL} max-md:h-11 max-md:shrink-0 max-md:rounded-md max-md:px-3 max-md:text-sm max-md:shadow-md max-md:backdrop-blur-sm ${
             viewChanged
-              ? 'border-sel-edge bg-sel-wash text-sel-foreground'
-              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted max-md:border-input max-md:bg-transparent max-md:text-foreground max-md:shadow-xs max-md:dark:bg-input/30'
+              ? 'border-sel-edge bg-sel-wash text-sel-foreground max-md:bg-card max-md:bg-[image:linear-gradient(var(--sel-wash),var(--sel-wash))]'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted max-md:bg-card/95 max-md:text-foreground'
           }`}
           title={t('page.viewMenuLabel')}
         >
@@ -846,6 +865,23 @@ export default function MapPage() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={isMobile ? 'start' : 'end'} collisionPadding={8} className="w-60">
+        {/* The phone has no rail, so its status groups are here: which Einsätze the map shows. */}
+        {isMobile && (
+          <>
+            <DropdownMenuLabel>{t('page.showGroups')}</DropdownMenuLabel>
+            {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => (
+              <DropdownMenuCheckboxItem
+                key={group}
+                checked={statusFilters[group]}
+                onSelect={(e) => { e.preventDefault(); toggleStatusFilter(group) }}
+              >
+                <span className="flex-1">{t(`statusGroups.${group}`)}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">{statusGroupCounts[group]}</span>
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuLabel>{t('page.viewMenuLabel')}</DropdownMenuLabel>
         {/* e.preventDefault keeps the menu open so several options can
             be flipped in one visit (and the legend updates live). */}
@@ -948,6 +984,95 @@ export default function MapPage() {
     </DropdownMenu>
   )
 
+  // The phone Lagekarte's floating chrome (owner pick 3A, 24.11.2026; MapView `floating`).
+  // The search row: the field on the floating family's card surface, «Ansicht» beside it, and
+  // the hits hanging under both.
+  const phoneSearchRow = (
+    <div className="relative min-w-0 flex-1">
+      <div className="flex items-center gap-2">
+        <SearchInput
+          id="map-search-input"
+          containerClassName="min-w-0 flex-1"
+          className="border-border bg-card/95 shadow-md backdrop-blur-sm dark:bg-card/95"
+          placeholder={t('page.searchPlaceholderPhone')}
+          value={searchQuery}
+          onValueChange={(value) => {
+            setSearchQuery(value)
+            setSearchHitsOpen(true)
+          }}
+          onFocus={() => setSearchHitsOpen(true)}
+          aria-controls="map-search-hits"
+        />
+        {viewMenu}
+      </div>
+      {searchHitsOpen && searchQuery && (
+        <ul
+          id="map-search-hits"
+          aria-label={t('page.searchHits')}
+          className="absolute inset-x-0 top-full mt-2 max-h-[min(20rem,50dvh)] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-lg"
+        >
+          {searchHits.map((incident) => (
+            <li key={incident.id}>
+              <button
+                type="button"
+                onClick={() => pickSearchHit(incident.id)}
+                className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-muted"
+              >
+                <PriorityGlyph priority={(incident.priority ?? 'low') as Priority} size="wall" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  <IncidentNumber number={incident.number} className="mr-1.5 text-xs" />
+                  {incident.location_address ? formatLocation(incident.location_address) : incident.title}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {isIncidentStatus(incident.status) ? tKanban(`columns.${incident.status}`) : null}
+                </span>
+              </button>
+            </li>
+          ))}
+          {searchHits.length === 0 && (
+            <li className="px-2 py-3 text-center text-sm text-muted-foreground">{t('page.noSearchHits')}</li>
+          )}
+        </ul>
+      )}
+    </div>
+  )
+  // The count chip under the search: the Einsätze the map shows, and the open Abholungen – a tap
+  // on those goes to the next one (`nextPickupId`), its peek and its chip.
+  const nextPickup = nextPickupId(pickups, selectedIncidentId)
+  const nextPickupOperation = nextPickup ? operationsById.get(nextPickup) : undefined
+  const phoneCountChip = (
+    <div
+      data-testid="map-count-chip"
+      className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card/95 pl-3 pr-1 text-xs font-medium text-foreground shadow-md backdrop-blur-sm"
+    >
+      <span className={`tabular-nums ${nextPickupOperation ? '' : 'pr-2'}`}>
+        {t('page.activeBadge', { count: shownIncidents.length })}
+      </span>
+      {nextPickupOperation && (
+        <>
+          <span aria-hidden="true" className="text-muted-foreground">·</span>
+          <button
+            type="button"
+            onClick={() => focusOnPhoneMap(nextPickupOperation.id)}
+            aria-label={t('page.nextPickup', { incident: getIncidentRefLabel(nextPickupOperation, 40) })}
+            className="flex h-7 items-center gap-1 rounded-full px-2 font-semibold text-warning-foreground hover:bg-muted"
+          >
+            <Truck className="size-3.5" aria-hidden="true" />
+            <span className="tabular-nums">{t('page.pickupCount', { count: pickups.length })}</span>
+          </button>
+        </>
+      )}
+    </div>
+  )
+  const phonePeek = peekOperation ? (
+    <MapIncidentPeek
+      operation={peekOperation}
+      formatLocation={formatLocation}
+      onClose={() => setSelectedIncidentId(null)}
+      onOpenDetail={() => openIncidentDetail(peekOperation.id)}
+    />
+  ) : undefined
+
   return (
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background text-foreground">
@@ -991,8 +1116,10 @@ export default function MapPage() {
         <PhoneEventHead />
 
         <div className={`flex flex-1 overflow-hidden ${isMobile ? 'flex-col' : 'flex-row'}`}>
-          {/* Map - full height on desktop, ~45vh on mobile so the incident list gets real room */}
-          <main className={`p-4 ${isMobile ? 'h-[45vh] flex-shrink-0' : 'flex-1'}`}>
+          {/* The map: beside the rail on the desk. On the phone it fills the screen from under the
+              Ereignis pill to the bottom nav (`--nav-reserve`), edge to edge, with its controls
+              floating on it (owner pick 3A, 24.11.2026) – the Einsätze list is the Einsätze tab. */}
+          <main className={isMobile ? 'mt-3 min-h-0 flex-1 border-t border-border pb-(--nav-reserve)' : 'flex-1 p-4'}>
             <MapView
               onFirstIdle={() => setMapIdle(true)}
               selectedIncidentId={selectedIncidentId}
@@ -1021,14 +1148,23 @@ export default function MapPage() {
               highlightGroupStopId={planningActive ? planningFocusStopId : null}
               onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : handleIncidentClick}
               // Tap-modes: the hover card must not swap in under the finger —
-              // that DOM churn ate the first tap of a Reko un-assign.
-              hoverCardsDisabled={planningActive || rekoModeActive}
+              // that DOM churn ate the first tap of a Reko un-assign. The phone: the
+              // peek tells the Einsatz, the pin keeps its short label.
+              hoverCardsDisabled={isMobile || planningActive || rekoModeActive}
               onGpsAvailabilityChange={setGpsAvailable}
               showWeather={showWeather}
               onWeatherAvailabilityChange={setWeatherAvailable}
+              // The phone: a tap on empty map closes the peek and the search hits.
               onMapClick={
-                planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
+                isMobile
+                  ? () => {
+                      setSelectedIncidentId(null)
+                      setSearchHitsOpen(false)
+                    }
+                  : planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
               }
+              topRightControls={isMobile ? phoneCountChip : undefined}
+              floating={isMobile ? { top: phoneSearchRow, foot: phonePeek } : undefined}
             />
           </main>
 
@@ -1042,23 +1178,19 @@ export default function MapPage() {
               280 and 560 (the grip on its left edge), in every mode. `@container/rail`:
               the panels fit their headers to the rail's width, not the window's. */}
           {!isMobile && (
-            <ResizeGrip
-              resize={railWidth}
-              side="left"
-              label={tPanels('resize.mapRail')}
-              hint={tPanels('resizeHint')}
-            />
-          )}
+          <>
+          <ResizeGrip
+            resize={railWidth}
+            side="left"
+            label={tPanels('resize.mapRail')}
+            hint={tPanels('resizeHint')}
+          />
           <aside
             ref={railRef}
-            className={`@container/rail bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden ${
-              isMobile
-                ? 'flex-1 border-t border-border'
-                : 'border-l border-border flex-shrink-0 w-(--rail-w)'
-            }`}
+            className="@container/rail bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden border-l border-border flex-shrink-0 w-(--rail-w)"
             // Capped by the measured row (railMax above), so a rail dragged to 560 never pushes
             // its own exit button off a narrow screen.
-            style={isMobile ? undefined : railWidth.style}
+            style={railWidth.style}
           >
             <div className={`${planningActive || rekoModeActive ? 'p-4 flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0'}`}>
               {planningActive ? (
@@ -1090,90 +1222,55 @@ export default function MapPage() {
                   container below, so they simply never move. */}
               <div className="flex-shrink-0 p-4 pb-3 border-b border-border/50">
               <div className="mb-3 flex items-center justify-between gap-2">
-                {/* The count only where no header chip says it: from md the
-                    header's «18 Einsätze» does, and the heading repeating it
-                    read twice (hill climb r20). The phone has no header. */}
-                <h2 className="min-w-0 text-lg font-bold">
-                  {isMobile
-                    ? t('page.incidentsHeading', { count: activeIncidents.length })
-                    : t('page.incidentsHeadingPlain')}
-                </h2>
-                {!isMobile && viewMenu}
+                {/* No count: the header's «18 Einsätze» says it, and the heading
+                    repeating it read twice (hill climb r20). */}
+                <h2 className="min-w-0 text-lg font-bold">{t('page.incidentsHeadingPlain')}</h2>
+                {viewMenu}
               </div>
 
               {/* No pill row any more: the list's section headings ARE the
                   status filter (they toggle the same `statusFilters`, list and
                   map together). View options and modes keep their own buttons
-                  below so the control families read apart.
-
-                  Phone: ONE row — the search plus the «Ansicht» menu, the same
-                  «search + one menu» shape as the assignment dialog's «Filtern».
-                  Three buttons above a separate search wrapped to two rows on a
-                  390px screen and ate a third of the list (owner, 02.10.2026).
-                  The two editor modes are desktop-only (owner, 24.11.2026). */}
-              {(isMobile || isEditor) && (
-              <div className={isMobile ? 'flex items-center gap-2' : 'mb-3 flex flex-wrap gap-1.5'}>
-                {isMobile && (
-                  <SearchInput
-                    id="map-search-input"
-                    containerClassName="min-w-0 flex-1"
-                    placeholder={t('page.searchPlaceholder')}
-                    value={searchQuery}
-                    onValueChange={setSearchQuery}
-                  />
-                )}
-                {isMobile && viewMenu}
-
+                  below so the control families read apart. The two editor modes
+                  are desktop-only (owner, 24.11.2026). */}
+              {isEditor && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
                 {/* The two editor modes, as direct buttons — a dropdown for
                     exactly two entries was a click to see two words. Both swap
                     the sidebar for their panel; the same squared tool shape as
                     «Ansicht» so tools read apart from the list's filters. */}
-                {isEditor && !isMobile && (
-                  <>
-                    <button
-                      className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
-                      onClick={() => enterPlanning()}
-                    >
-                      <Milestone className="h-3 w-3" />
-                      {t('page.routePlanning')}
-                    </button>
-                    <button
-                      className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
-                      onClick={() => enterRekoMode()}
-                    >
-                      <Binoculars className="h-3 w-3" />
-                      {t('rekoMode.title')}
-                    </button>
-                  </>
-                )}
+                <button
+                  className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
+                  onClick={() => enterPlanning()}
+                >
+                  <Milestone className="h-3 w-3" />
+                  {t('page.routePlanning')}
+                </button>
+                <button
+                  className={`${RAIL_TOOL} border-border bg-muted/50 text-muted-foreground hover:bg-muted`}
+                  onClick={() => enterRekoMode()}
+                >
+                  <Binoculars className="h-3 w-3" />
+                  {t('rekoMode.title')}
+                </button>
               </div>
               )}
 
-              {/* Search bar (desktop — the phone has it in the row above) */}
-              {!isMobile && (
-                <SearchInput
-                  id="map-search-input"
-                  placeholder={t('page.searchPlaceholder')}
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                  hint={<Kbd>S</Kbd>}
-                />
-              )}
+              <SearchInput
+                id="map-search-input"
+                placeholder={t('page.searchPlaceholder')}
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                hint={<Kbd>S</Kbd>}
+              />
               </div>
 
-              {/* On mobile the fixed bottom navbar overlays the page, so pad the
-                  scrollable list past its measured height (`pb-nav-reserve`) —
-                  otherwise the last incidents sit behind the bar. */}
-              {/* No bottom padding of its own off the phone: the closing
-                  `ScrollEndFade` is the end (r21). On the phone the padding is the
-                  nav's reserve + 12px, and a sticky box stops at the scroller's
-                  padding edge – so the fade takes those 12px back (`-bottom-3`)
-                  and rides on the nav's top edge. */}
-              <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-3 ${isMobile ? 'pb-nav-reserve' : ''}`}>
+              {/* No bottom padding of its own: the closing `ScrollEndFade` is the end (r21). */}
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-3">
               {/* One-line rows in sections. The rail stopped repeating the
                   board's cards: detail lives on the marker's hover card and
                   behind «Details anzeigen» (double-click, or the icon that
-                  appears on hover; a tap on the phone). A section heading toggles its status group
+                  appears on hover). A section heading toggles its status group
                   — for the list AND the map markers. */}
               <div className="space-y-3">
                 {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => {
@@ -1222,18 +1319,12 @@ export default function MapPage() {
                               <div key={incident.id}>
                                 <div
                                   id={`map-incident-card-${incident.id}`}
-                                  // The phone has no hover and no double tap anybody knows of: a
-                                  // tap opens the sheet, and selects, so the map flies there. A
-                                  // marker keeps its select-first tap (phone sweep 24.11.2026).
-                                  onClick={() => (isMobile ? openPhoneRow(incident.id) : handleIncidentClick(incident.id))}
-                                  onDoubleClick={isMobile ? undefined : () => openIncidentDetail(incident.id)}
+                                  onClick={() => handleIncidentClick(incident.id)}
+                                  onDoubleClick={() => openIncidentDetail(incident.id)}
                                   // ONE selected state (A2): the selection wash, nothing else. It
                                   // was a grey wash plus a 2px bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
-                                  // 44px on the phone: the row's time chip is a button the touch
-                                  // rule makes 44px tall, and at 32px it lay over its neighbours'.
-                                  // The ring of the unseen phone detail button (below) is the row's.
-                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors has-[>button.sr-only:focus-visible]:outline-2 has-[>button.sr-only:focus-visible]:outline-offset-2 has-[>button.sr-only:focus-visible]:outline-ring ${
+                                  className={`group relative flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
                                     isSelected ? 'bg-sel-wash' : 'hover:bg-muted/50'
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}
@@ -1255,29 +1346,6 @@ export default function MapPage() {
                                     <IncidentNumber number={incident.number} className="mr-1.5 text-xs" />
                                     {incident.location_address ? formatLocation(incident.location_address) : incident.title}
                                   </span>
-                                  {/* The phone: the row is a div with a click, which VoiceOver
-                                      does not offer as a control – this unseen button, named
-                                      after the row, is the one it announces (sweep A2). */}
-                                  {isMobile ? (
-                                    <button
-                                      type="button"
-                                      data-detail-opener
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        // Focused, so the sheet hands the focus back here (see the card).
-                                        e.currentTarget.focus({ preventScroll: true })
-                                        openPhoneRow(incident.id)
-                                      }}
-                                      className="sr-only"
-                                    >
-                                      {tIncidents('mobileCard.openDetail', {
-                                        incident: getIncidentRefParts({
-                                          number: incident.number,
-                                          location: incident.location_address ? formatLocation(incident.location_address) : incident.title,
-                                        }).head,
-                                      })}
-                                    </button>
-                                  ) : (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
@@ -1295,7 +1363,6 @@ export default function MapPage() {
                                     </TooltipTrigger>
                                     <TooltipContent>{t('page.showDetails')}</TooltipContent>
                                   </Tooltip>
-                                  )}
                                   <IncidentTimeRow
                                     operation={incidentTimeSource(incident)}
                                     colorByAge
@@ -1305,15 +1372,13 @@ export default function MapPage() {
                                 {/* The pickup chip survives — it IS the
                                     «Abholung disponiert» control (decision 24).
                                     On the selected row only: everywhere else
-                                    the row stays one quiet line. A label on the
-                                    phone: its board is read-only (owner,
-                                    14.11.2026), the KP clears it at the desk. */}
+                                    the row stays one quiet line. */}
                                 {isSelected && operation?.pickupNeeded && (
                                   <PickupBadge
                                     requestedAt={operation.pickupRequestedAt}
                                     note={operation.pickupNote}
                                     incidentId={incident.id}
-                                    canEdit={isEditor && !isMobile}
+                                    canEdit={isEditor}
                                     className="mb-1 ml-6 mt-0.5"
                                   />
                                 )}
@@ -1331,12 +1396,14 @@ export default function MapPage() {
                   </p>
                 )}
               </div>
-              <ScrollEndFade surface="panel" className={isMobile ? '-bottom-3' : undefined} />
+              <ScrollEndFade surface="panel" />
               </div>
               </>
               )}
             </div>
           </aside>
+          </>
+          )}
         </div>
 
         {/* The phone's Einsatz detail (see openIncidentDetail) — the same sheet the board's phone

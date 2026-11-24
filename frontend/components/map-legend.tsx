@@ -115,6 +115,7 @@ export function MapLegend({
   staleMinutes = DEFAULT_STALE_MINUTES,
   folded = false,
   onUnfold,
+  floating = false,
 }: {
   colorBy?: ColorByDimension
   colorGroups?: ColorGroup[]
@@ -132,6 +133,9 @@ export function MapLegend({
   folded?: boolean
   /** The pill was pressed while `folded`: the other panel should close. */
   onUnfold?: () => void
+  /** The phone Lagekarte's floating family (MapView `floating`): the pill is a 44px control with
+   *  the family's corner, and pill and panel stand 8px above the 44px ⓘ. */
+  floating?: boolean
 }) {
   const t = useTranslations('map')
   // For priority the markers use the built-in priority colours (static legend
@@ -171,6 +175,7 @@ export function MapLegend({
 
   // `--legend-top` (set by MapView while its top-right chip row holds something): the panel never
   // reaches that row (10px + a 32px chip + a gap), however tall the key grows – it scrolls instead.
+  // On the phone Lagekarte (`floating`) it is 17rem: the panel's top stays under fit-all (202px).
   // `bottom-11 right-2.5`: the legend stands just ABOVE the map's attribution ⓘ (bottom-right,
   // 10px in), never on it. They used to overlap and the ⓘ only won because map controls leaked
   // above everything; now that the map is isolated (MAP_STACKING in base-map.tsx) the legend
@@ -183,7 +188,9 @@ export function MapLegend({
           setOpen(true)
           if (folded) onUnfold?.()
         }}
-        className="absolute bottom-11 right-2.5 z-map-chrome flex h-8 items-center gap-1.5 rounded-full bg-card/95 px-3 text-xs font-medium text-foreground backdrop-blur-sm border border-border shadow-lg hover:bg-card"
+        className={`absolute right-2.5 z-map-chrome flex items-center gap-1.5 bg-card/95 font-medium text-foreground backdrop-blur-sm border border-border hover:bg-card ${
+          floating ? 'bottom-[62px] h-11 rounded-md px-3.5 text-sm shadow-md' : 'bottom-11 h-8 rounded-full px-3 text-xs shadow-lg'
+        }`}
         aria-label={t('legend.show')}
       >
         <List className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -195,7 +202,7 @@ export function MapLegend({
   return (
     // `data-map-legend-panel`: MapView measures the open panel so a fit keeps markers out from
     // under it (`chromeFitPadding`). Width: `--map-chrome-w`, the weather pill's ceiling.
-    <div data-map-legend-panel className="absolute bottom-11 right-2.5 max-h-[calc(100%-var(--legend-top,3.5rem))] w-(--map-chrome-w) overflow-y-auto bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-map-chrome">
+    <div data-map-legend-panel className={`absolute right-2.5 max-h-[calc(100%-var(--legend-top,3.5rem))] w-(--map-chrome-w) overflow-y-auto bg-card/95 backdrop-blur-sm border border-border p-3 shadow-lg z-map-chrome ${floating ? 'bottom-[62px] rounded-md' : 'bottom-11 rounded-lg'}`}>
       <button
         onClick={() => setOpen(false)}
         className="relative hit-area flex items-center justify-between w-full mb-3"

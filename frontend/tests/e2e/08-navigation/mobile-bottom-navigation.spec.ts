@@ -118,7 +118,7 @@ test.describe('Mobile bottom navigation', () => {
   test('the Lagekarte offers no Routenplanung and no Reko-Modus', async ({ authenticatedPage: page }) => {
     await setupBoard(page, 'Mobile Modes', { count: 0 });
     await page.goto('/map?mode=reko');
-    await expect(page.getByRole('heading', { name: /Einsätze/ })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+    await expect(page.getByPlaceholder('Einsatz suchen …')).toBeVisible({ timeout: ROUTE_COMPILE_MS });
     await expect(page.getByRole('heading', { name: 'Reko-Modus' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Ansicht' }).click();
@@ -128,10 +128,11 @@ test.describe('Mobile bottom navigation', () => {
     await expect(menu.getByRole('menuitem', { name: 'Reko-Modus' })).toHaveCount(0);
   });
 
-  // Phone sweep 24.11.2026 (#4, #29): a row tap opens the Einsatz – the double tap nobody knew
-  // of is gone – the sheet's «Auf Karte anzeigen» stays on this page, and the selected row's
-  // Abholung is a label, not the «Abholung disponiert» button (the phone board is read-only).
-  test('a Lagekarte row opens its Einsatz with one tap, and the sheet stays on the Lagekarte', async ({
+  // The full-screen Lagekarte (owner pick 3A, 24.11.2026): a marker tap opens the Einsatz's peek,
+  // «Alle Details» the phone sheet, and the sheet's «Auf Karte anzeigen» stays on this page
+  // (phone sweep #4). The Abholung is a label, never the «Abholung disponiert» button (the phone
+  // board is read-only); the count chip goes to it, and the search finds the Einsatz.
+  test('a Lagekarte marker opens its peek, the peek the sheet, and the sheet stays on the Lagekarte', async ({
     authenticatedPage: page,
   }) => {
     const { incidents } = await setupBoard(page, 'Mobile Karte', { count: 1, layout: 'mobile' });
@@ -142,17 +143,31 @@ test.describe('Mobile bottom navigation', () => {
     expect(pickup.ok()).toBe(true);
     await page.goto('/map');
 
-    const row = page.locator(`#map-incident-card-${incidents[0].id}`);
-    await row.click({ timeout: ROUTE_COMPILE_MS });
+    const peek = page.getByTestId('map-incident-peek');
+    await page.getByRole('button', { name: /^Einsatz: .*Mobile Kartestrasse/ }).click({ timeout: ROUTE_COMPILE_MS });
+    await expect(peek.getByRole('heading', { name: /Mobile Kartestrasse/ })).toBeVisible();
+    await expect(peek.getByText('Abholung')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Abholung disponiert' })).toHaveCount(0);
+
+    await peek.getByRole('button', { name: 'Alle Details' }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByRole('heading', { name: /Mobile Kartestrasse/ })).toBeVisible();
-
     await sheet.getByRole('button', { name: 'Auf Karte anzeigen' }).click();
     await expect(sheet).toHaveCount(0);
     await expect(page).toHaveURL('/map');
-    await expect(row).toHaveAttribute('aria-current', 'true');
-    await expect(page.getByText('Abholung').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /Abholung/ })).toHaveCount(0);
+    await expect(peek).toBeVisible();
+
+    // ✕ closes the peek; the count chip's Abholung brings it back.
+    await peek.getByRole('button', { name: 'Schliessen' }).click();
+    await expect(peek).toHaveCount(0);
+    await page.getByTestId('map-count-chip').getByRole('button', { name: /^Abholung zeigen/ }).click();
+    await expect(peek.getByRole('heading', { name: /Mobile Kartestrasse/ })).toBeVisible();
+
+    // The search finds it too: a hit flies there and opens the peek.
+    await peek.getByRole('button', { name: 'Schliessen' }).click();
+    await page.getByPlaceholder('Einsatz suchen …').fill('Kartestrasse');
+    await page.getByRole('list', { name: 'Suchtreffer' }).getByRole('button', { name: /Mobile Kartestrasse/ }).click();
+    await expect(peek.getByRole('heading', { name: /Mobile Kartestrasse/ })).toBeVisible();
   });
 
   // Owner, sign-off 24.11.2026: an unbreakable address ran under the ✕ plate of the detail head.
