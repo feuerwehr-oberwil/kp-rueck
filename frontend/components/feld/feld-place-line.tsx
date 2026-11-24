@@ -26,8 +26,8 @@ import { BELOW_LINK_PAGE_HEADER_CLASS } from '@/components/link-page/link-page'
 import { useScrolledUnder } from '@/lib/hooks/use-scrolled-under'
 import { cn } from '@/lib/utils'
 
-/** The top bar's height: its 56px row plus the 1px border (`BELOW_LINK_PAGE_HEADER_CLASS`). */
-const TOP_BAR_PX = 57
+/** The top bar's height: its 60px row plus the 1px border (`BELOW_LINK_PAGE_HEADER_CLASS`). */
+const TOP_BAR_PX = 61
 
 export function FeldPlaceLine({
   number,

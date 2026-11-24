@@ -45,6 +45,14 @@ describe('FeldVehicleChecklist', () => {
     ])
   })
 
+  it('offers a saved hand-added vehicle again after its ✕', async () => {
+    // The server leaves a saved hand-added vehicle out of `candidates`; only the row knows it.
+    render({ rows: [vehicle({ vehicle_id: 'h1', name: 'Pio', on_board: false, present: false })], candidates: [] })
+    await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
+    const sheet = await screen.findByRole('dialog')
+    expect(within(sheet).getByRole('button', { name: 'Pio' })).toBeInTheDocument()
+  })
+
   it('offers a removed disponiertes vehicle again, ahead of the rest of the fleet', async () => {
     const onChange = vi.fn()
     render({ rows: [vehicle({ present: false })], candidates: [candidate()], onChange })

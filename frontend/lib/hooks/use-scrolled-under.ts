@@ -16,8 +16,12 @@ export function useScrolledUnder(ref: RefObject<HTMLElement | null>, barHeightPx
   useEffect(() => {
     const el = ref.current
     if (!el || typeof IntersectionObserver === 'undefined') return
-    // The root is the viewport minus the bar: «not intersecting» = hidden under it.
-    const observer = new IntersectionObserver(([entry]) => setUnder(!entry.isIntersecting), {
+    // The root is the viewport minus the bar. «Not intersecting» is hidden under the bar only
+    // when the element ends above the root's top – below the fold is not intersecting too.
+    const observer = new IntersectionObserver(([entry]) => {
+      const rootTop = entry.rootBounds?.top ?? barHeightPx
+      setUnder(!entry.isIntersecting && entry.boundingClientRect.bottom <= rootTop)
+    }, {
       rootMargin: `-${barHeightPx}px 0px 0px 0px`,
     })
     observer.observe(el)

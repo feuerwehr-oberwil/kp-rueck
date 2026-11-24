@@ -68,19 +68,25 @@ export function FeldVehicleChecklist({ rows, candidates = [], drivers = {}, disa
   const present = useMemo(() => rows.filter(row => row.present), [rows])
 
   // Whatever the board disponiert and the crew took out first, then the rest of
-  // the fleet. An added row that was taken out again is a removal in flight:
-  // the vehicle is a candidate, and offered again.
-  const pickable = useMemo(
-    (): FeldAddPickerItem[] => [
+  // the fleet. An added row that was taken out again is a removal in flight and
+  // is offered again – also when it was saved before: the server leaves a saved
+  // hand-added vehicle out of `candidates`, so it comes from the rows.
+  const pickable = useMemo((): FeldAddPickerItem[] => {
+    const fleet = [
+      ...candidates.filter(
+        candidate => !rows.some(row => row.vehicle_id === candidate.vehicle_id && (row.on_board || row.present)),
+      ),
+      ...rows.filter(
+        row => !row.on_board && !row.present && !candidates.some(candidate => candidate.vehicle_id === row.vehicle_id),
+      ),
+    ]
+    return [
       ...rows
         .filter(row => row.on_board && !row.present)
         .map(row => ({ key: row.vehicle_id, name: row.name, group: t('groupDispatched') })),
-      ...candidates
-        .filter(candidate => !rows.some(row => row.vehicle_id === candidate.vehicle_id && (row.on_board || row.present)))
-        .map(candidate => ({ key: candidate.vehicle_id, name: candidate.name, group: t('groupFleet') })),
-    ],
-    [candidates, rows, t],
-  )
+      ...fleet.map(vehicle => ({ key: vehicle.vehicle_id, name: vehicle.name, group: t('groupFleet') })),
+    ]
+  }, [candidates, rows, t])
 
   return (
     <FeldChipList label={t('listLabel')}>

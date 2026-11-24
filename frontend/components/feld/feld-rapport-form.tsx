@@ -830,8 +830,8 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             Dritte speichert" — rather than printed at a crew that cannot act on
             it. The line under the heading is gone, the retention is not. */}
 
-        {/* Name + Telefon (§18.31), side by side under the block's heading –
-            the heading says whose, the placeholders say which. §18.10's one
+        {/* Name + Telefon (§18.31), side by side under the block's heading,
+            each with its small label above (phone forms: labels above the field). §18.10's one
             free-text box was right about Strasse, Ort, Kennzeichen and Typ —
             those really are prose, and they live in the Kurzbericht now — and
             wrong about the number: a phone written inside a paragraph cannot be
@@ -839,7 +839,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             flooded cellar. */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label htmlFor="rapport-owner-name" className="sr-only">
+            <Label htmlFor="rapport-owner-name" className="mb-1 block text-xs text-muted-foreground">
               {t('ownerName')}
             </Label>
             <Input
@@ -853,7 +853,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             />
           </div>
           <div>
-            <Label htmlFor="rapport-owner-phone" className="sr-only">
+            <Label htmlFor="rapport-owner-phone" className="mb-1 block text-xs text-muted-foreground">
               {t('ownerPhone')}
             </Label>
             <Input
