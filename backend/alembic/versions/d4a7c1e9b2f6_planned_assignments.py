@@ -1,7 +1,7 @@
 """planned_assignments: the «Danach» of a resource (Jetzt / Danach, 24.11.2026)
 
 Revision ID: d4a7c1e9b2f6
-Revises: b8e4f2a6c1d7
+Revises: c4f1a7e2d9b3
 Create Date: 2026-11-24 00:00:00.000000
 
 Owner pick 1B: an assignment is Jetzt (incident_assignments / incident_group_assignments) or
@@ -18,7 +18,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "d4a7c1e9b2f6"
-down_revision: str | Sequence[str] | None = "b8e4f2a6c1d7"
+down_revision: str | Sequence[str] | None = "c4f1a7e2d9b3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
