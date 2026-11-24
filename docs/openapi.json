@@ -7112,7 +7112,7 @@
           "assignments"
         ],
         "summary": "Assign Resource",
-        "description": "Assign resource to incident (editor only).\n\nA resource already bound to another incident is rejected with 409\n(``crud.assign_resource`` raises ``ValueError``); the frontend surfaces the\nconflict (vehicles offer a move/keep dialog, personnel/material are filtered\nout of the picker).\n\nA missing incident or resource is a 404 (``LookupError``) — previously the first\ncrashed on a foreign-key violation and the second quietly stored an orphan row.\nA resource ``crud.ensure_assignable`` refuses (archived inventory) is a 409.",
+        "description": "Assign resource to incident (editor only).\n\nA resource that is Jetzt on another Einsatz or Auftrag is a 409 ``resource_busy``\n(owner pick 2B, 24.11.2026: never on two). The board asks first – «Jetzt verschieben»\nreleases it there, «Danach vormerken» plans it (``/planned-assignments/``).\n\nA missing incident or resource is a 404 (``LookupError``) — previously the first\ncrashed on a foreign-key violation and the second quietly stored an orphan row.\nA resource ``crud.ensure_assignable`` refuses (archived inventory) is a 409.",
         "operationId": "assign_resource_api_incidents__incident_id__assign_post",
         "parameters": [
           {
@@ -7566,6 +7566,317 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/planned-assignments/": {
+      "get": {
+        "tags": [
+          "planned-assignments"
+        ],
+        "summary": "List Planned",
+        "description": "The Ereignis's Danach on live holders, each resource's queue in order.",
+        "operationId": "list_planned_api_planned_assignments__get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlannedAssignmentResponse"
+                  },
+                  "title": "Response List Planned Api Planned Assignments  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "planned-assignments"
+        ],
+        "summary": "Plan Resource",
+        "description": "«Danach vormerken» – at the end of the resource's queue (editor only).\n\n404: target or resource unknown. 409 ``plan_refused``: closed target, consumable material,\nalready Jetzt or planned there; 409: ``ensure_assignable`` refused the resource.",
+        "operationId": "plan_resource_api_planned_assignments__post",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlannedAssignmentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannedAssignmentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/planned-assignments/{planned_id}": {
+      "patch": {
+        "tags": [
+          "planned-assignments"
+        ],
+        "summary": "Update Planned",
+        "description": "«Verwerfen» of the «Danach frei» to-do, or its undo (editor only). The plan stays.",
+        "operationId": "update_planned_api_planned_assignments__planned_id__patch",
+        "parameters": [
+          {
+            "name": "planned_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Planned Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlannedAssignmentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlannedAssignmentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "planned-assignments"
+        ],
+        "summary": "Remove Planned",
+        "description": "«Vormerkung löschen» (editor only). 404 when it is gone already.",
+        "operationId": "remove_planned_api_planned_assignments__planned_id__delete",
+        "parameters": [
+          {
+            "name": "planned_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Planned Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/planned-assignments/{planned_id}/promote": {
+      "post": {
+        "tags": [
+          "planned-assignments"
+        ],
+        "summary": "Promote Planned",
+        "description": "«Zuteilen»: the Danach becomes Jetzt (editor only).\n\n404: the plan is gone (answered by somebody else). 409 ``resource_busy``: the resource is\nstill Jetzt elsewhere – release it there first, or wait. Other 409s as the assign routes.",
+        "operationId": "promote_planned_api_planned_assignments__planned_id__promote_post",
+        "parameters": [
+          {
+            "name": "planned_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Planned Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AssignmentResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GroupAssignmentResponse"
+                    }
+                  ],
+                  "title": "Response Promote Planned Api Planned Assignments  Planned Id  Promote Post"
+                }
               }
             }
           },
@@ -27913,6 +28224,170 @@
         "type": "object",
         "title": "PersonnelUpdate",
         "description": "Schema for updating personnel: same field rules as create, every field optional.\n\n`kennung`, `role` and `tags` may be cleared with null; the other columns cannot be empty."
+      },
+      "PlannedAssignmentCreate": {
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "incident_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Group Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resource_type",
+          "resource_id"
+        ],
+        "title": "PlannedAssignmentCreate",
+        "description": "«Danach vormerken»: exactly one of ``incident_id`` / ``incident_group_id``."
+      },
+      "PlannedAssignmentResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "incident_group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Group Id"
+          },
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "personnel",
+              "vehicle",
+              "material"
+            ],
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "planned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Planned At"
+          },
+          "planned_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned By"
+          },
+          "dismissed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed At"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position",
+            "default": 1
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "resource_type",
+          "resource_id",
+          "planned_at"
+        ],
+        "title": "PlannedAssignmentResponse",
+        "description": "A Danach as the board reads it.\n\n``position``: its place in the resource's queue (1 = next). ``ready``: the resource is free\n(Jetzt nowhere) and this is its first Danach – the board shows the «Danach frei» to-do."
+      },
+      "PlannedAssignmentUpdate": {
+        "properties": {
+          "dismissed": {
+            "type": "boolean",
+            "title": "Dismissed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dismissed"
+        ],
+        "title": "PlannedAssignmentUpdate",
+        "description": "«Verwerfen» of the «Danach frei» to-do (true) and its undo (false). The plan stays."
       },
       "PrintBoardRequest": {
         "properties": {

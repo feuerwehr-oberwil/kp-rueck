@@ -3,8 +3,9 @@
 /**
  * «Blumenweg 21 als Stopp in Auftrag Nord aufnehmen?» – a vehicle that drives an Auftrag is
  * being assigned to a lone Einsatz (owner pick #23, 19.11.2026). The usual reading is «that
- * Einsatz belongs on the route», so the question offers that first; «Nur zusätzlich zuweisen»
- * is the plain double booking. Every vehicle path that ends on an ungrouped Einsatz asks it
+ * Einsatz belongs on the route», so the question offers that first; «Danach vormerken» plans
+ * the vehicle for the Einsatz after the Auftrag (it was «Nur zusätzlich zuweisen», a double
+ * booking, until 24.11.2026). Every vehicle path that ends on an ungrouped Einsatz asks it
  * (number keys, picker, drag-drop – `assignVehicleToIncidentWithConflict`), and
  * `components/auftrag-stop-prompt.tsx`, mounted once in the root layout, answers it.
  */
@@ -20,11 +21,8 @@ export interface AuftragStopQuestion {
   /** The vehicle that drives the Auftrag – the server checks it still does. */
   vehicleId: string
   vehicleName: string
-  /** The other holders of the vehicle – further Aufträge, then Einsätze: «Nur zusätzlich
-   *  zuweisen» keeps it there too, so they are on this question, not on a second one after it. */
-  alsoOn: { id: string; label: string }[]
-  /** «Nur zusätzlich zuweisen»: the vehicle onto the Einsatz as well, the Auftrag untouched. */
-  assignOnly: () => Promise<unknown> | unknown
+  /** «Danach vormerken»: the vehicle stays on the Auftrag and is planned for the Einsatz next. */
+  planNext: () => Promise<unknown> | unknown
 }
 
 // One open question at a time; the newest wins, like the status conflict.

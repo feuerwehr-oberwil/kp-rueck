@@ -78,8 +78,8 @@ export function CloseLabel() {
 }
 
 /**
- * A window. `size` is one of the three (S question/picker – the default, M form, L work
- * surface; dialog-frame.ts) and also decides WHERE it opens: S/M hang from a fixed line and
+ * A window. `size` is one of the sizes (S question/picker – the default, M form, C two-choice, L work
+ * surface; dialog-frame.ts) and also decides WHERE it opens: S/M/C hang from a fixed line and
  * grow down, L fills the board. Never give it a width or a position through `className`.
  * `surface` names a work surface: a picker opened while it is on top opens inside it as a
  * step (surface-step.tsx), and Esc then goes back instead of closing.

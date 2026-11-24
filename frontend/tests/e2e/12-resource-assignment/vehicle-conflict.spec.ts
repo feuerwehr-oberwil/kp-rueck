@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/auth.fixture';
 import {
+  API_BASE,
   assignResource,
   assignmentsByEvent,
   cookieHeaderFor,
@@ -16,9 +17,10 @@ import {
  * The number keys quick-assign the fleet to the SELECTED card. When the vehicle
  * already stands on another card of this Ereignis the board raises «TLF ist
  * schon im Einsatz» naming where it is («Bisher») and where it is going
- * («neu»), and the operator picks a card by hand: «Hierher verschieben» takes
- * it off the first card, «Auf beiden führen» keeps the double booking on
- * purpose. Enter and Esc change nothing (owner pick #3, 23.11.2026).
+ * («neu»), and the operator picks a card by hand (owner pick 2B, 24.11.2026 – never on two):
+ * «Jetzt verschieben» takes it off the first card, «Danach vormerken» plans it for the second.
+ * Once the first card lets it go, the second card's band says «DANACH · JETZT FREI» and
+ * «Zuteilen» puts it there. Enter and Esc change nothing (owner pick #3, 23.11.2026).
  *
  * Pinned before the board page was split (2026-09-23): the quick-assign path
  * runs through the page's own conflict wrappers, not only the provider's.
@@ -69,9 +71,9 @@ async function vehicleHolders(page: import('@playwright/test').Page): Promise<st
     .sort();
 }
 
-test('«Hierher verschieben» moves the vehicle off the first card', async ({ authenticatedPage: page }) => {
+test('«Jetzt verschieben» moves the vehicle off the first card', async ({ authenticatedPage: page }) => {
   const prompt = await quickAssignToSecondCard(page);
-  await prompt.getByRole('button', { name: 'Hierher verschieben' }).click();
+  await prompt.getByRole('button', { name: 'Jetzt verschieben' }).click();
   await expect(prompt).toBeHidden();
 
   await expect(card(page, 1)).toContainText(vehicle.name);
@@ -79,16 +81,32 @@ test('«Hierher verschieben» moves the vehicle off the first card', async ({ au
   await expect.poll(() => vehicleHolders(page)).toEqual([board.incidents[1].id]);
 });
 
-test('«Auf beiden führen» keeps the double booking', async ({ authenticatedPage: page }) => {
+test('«Danach vormerken» plans it; once free, «Zuteilen» puts it on the second card', async ({
+  authenticatedPage: page,
+}) => {
   const prompt = await quickAssignToSecondCard(page);
-  await prompt.getByRole('button', { name: 'Auf beiden führen' }).click();
+  await expect(prompt.getByRole('button', { name: /beiden/ })).toHaveCount(0);
+  await prompt.getByRole('button', { name: 'Danach vormerken' }).click();
   await expect(prompt).toBeHidden();
 
-  await expect(card(page, 1)).toContainText(vehicle.name);
-  await expect(card(page, 0)).toContainText(vehicle.name);
-  await expect
-    .poll(() => vehicleHolders(page))
-    .toEqual([board.incidents[0].id, board.incidents[1].id].sort());
+  // Still only on the first card; the second one shows it «Danach».
+  const band = card(page, 1).getByLabel(/Danach vorgemerkt/);
+  await expect(band).toContainText('DANACH');
+  await expect(band).toContainText(vehicle.name);
+  expect(await vehicleHolders(page)).toEqual([board.incidents[0].id]);
+
+  // The first card lets it go (by hand here; completion does the same).
+  const cookieHeader = await cookieHeaderFor(page);
+  const byIncident = await assignmentsByEvent(page.request, cookieHeader, board.eventId);
+  const row = byIncident[board.incidents[0].id].find((r) => r.resource_id === vehicle.id)!;
+  await page.request.post(`${API_BASE}/api/incidents/${board.incidents[0].id}/unassign/${row.id}`, {
+    headers: { cookie: cookieHeader },
+  });
+
+  await expect(band).toContainText('DANACH · JETZT FREI');
+  await band.getByRole('button', { name: 'Zuteilen' }).click();
+  await expect.poll(() => vehicleHolders(page)).toEqual([board.incidents[1].id]);
+  await expect(card(page, 1).getByLabel(/Danach vorgemerkt/)).toHaveCount(0);
 });
 
 test.describe('dismissing the question leaves everything where it was', () => {

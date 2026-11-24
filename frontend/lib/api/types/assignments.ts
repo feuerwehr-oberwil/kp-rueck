@@ -38,3 +38,29 @@ export interface ApiTransferAssignmentsResponse {
   assignment_ids: string[]
   message: string
 }
+
+/** A «Danach» (Jetzt / Danach, 24.11.2026): a resource planned for an Einsatz or an Auftrag
+ *  after its current work. Exactly one of `incident_id` / `incident_group_id`. */
+export interface ApiPlannedAssignment {
+  id: string
+  event_id: string
+  incident_id: string | null
+  incident_group_id: string | null
+  resource_type: 'personnel' | 'vehicle' | 'material'
+  resource_id: string
+  planned_at: string
+  planned_by: string | null
+  /** «Verwerfen» of the «Danach frei» to-do; the plan stays. */
+  dismissed_at: string | null
+  /** Place in the resource's queue, 1 = next. */
+  position: number
+  /** The resource is free (Jetzt nowhere) and this is its first Danach. */
+  ready: boolean
+}
+
+export interface ApiPlannedAssignmentCreate {
+  resource_type: 'personnel' | 'vehicle' | 'material'
+  resource_id: string
+  incident_id?: string
+  incident_group_id?: string
+}

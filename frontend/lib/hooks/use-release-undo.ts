@@ -240,7 +240,7 @@ export function useReleaseUndo() {
   // (the board's command-palette registration does), and a fresh object per
   // render re-ran that effect on every render — an update loop.
   /** Put one released resource back – the same checked path as the toast's
-   *  «Rückgängig» (⌘K's undo uses it for what a «Hierher verschieben» moved). */
+   *  «Rückgängig» (⌘K's undo uses it for what a «Jetzt verschieben» moved). */
   const restore = useCallback((item: Released) => undo([item]), [undo])
 
   return useMemo(

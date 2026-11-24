@@ -34,7 +34,7 @@ export interface UseBoardDispatchInput {
   removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
   removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
   deleteOperation: (operationId: string) => Promise<void>
-  resourceConflict: { resourceType: "personnel" | "vehicle" | "material"; resourceId: string; resourceName: string; targetOperationId: string; targetOperationLabel?: string; conflicts: { operationId: string; operationLabel: string; }[]; customResolve?: (action: "move" | "keep") => Promise<void> | void; } | null
+  resourceConflict: { resourceType: "personnel" | "vehicle" | "material"; resourceId: string; resourceName: string; targetOperationId: string; targetOperationLabel?: string; conflicts: { operationId: string; operationLabel: string; }[]; customResolve?: (action: "move" | "plan") => Promise<void> | void; } | null
   vehicleNeedingDriver: VehicleNeedingDriver | null
   updateOperation: (operationId: string, updates: Partial<Operation>) => void
   fleet: ApiVehicle[]
@@ -233,7 +233,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
       if (outcome.assigned.length > 0) {
         parts.push(tPalette('dispatch.toastAssigned', { names: outcome.assigned.map((resource) => resource.name).join(", ") }))
       }
-      // Said, not hidden: a «Hierher verschieben» took them off somewhere, and
+      // Said, not hidden: a «Jetzt verschieben» took them off somewhere, and
       // «Rückgängig» puts them back there.
       for (const item of outcome.moved) {
         parts.push(tPalette('dispatch.toastMoved', { name: item.name, from: item.targetLabel }))

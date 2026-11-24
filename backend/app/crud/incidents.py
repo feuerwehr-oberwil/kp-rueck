@@ -672,6 +672,7 @@ async def _apply_completion_release(
     """
     from . import assignments as assignments_crud
     from . import group_assignments as group_assignments_crud
+    from . import planned_assignments as planned_crud
 
     released = await assignments_crud.auto_release_incident_resources(
         db=db,
@@ -686,7 +687,11 @@ async def _apply_completion_release(
     )
     incident.group_resources_released = group_released
 
-    transition.released_assignments_json = released + group_entries or None
+    # Its Danach go with it (the queues move up), and the route's when this was its last stop.
+    planned = await planned_crud.drop_for_incident(db, incident.id, current_user, request)
+    planned += await planned_crud.drop_for_group_if_last_stop(db, incident, current_user, request)
+
+    transition.released_assignments_json = released + group_entries + planned or None
 
     # The field's open Meldungen (sentences) close with the place (R13, owner
     # decision); Material, Verstärkung and Abholung stay open on purpose.
@@ -717,6 +722,7 @@ async def _undo_completion_release(
     """
     from . import assignments as assignments_crud
     from . import group_assignments as group_assignments_crud
+    from . import planned_assignments as planned_crud
 
     result = await db.execute(
         select(StatusTransition)
@@ -735,6 +741,7 @@ async def _undo_completion_release(
     entries = completion.released_assignments_json
     await assignments_crud.restore_released_assignments(db, entries, current_user, request)
     group_restored = await group_assignments_crud.restore_released_group_resources(db, entries, current_user, request)
+    await planned_crud.restore_dropped(db, entries, incident.event_id)
     completion.released_assignments_json = None
     # Same flag the release sets: it is what makes the caller broadcast the
     # Auftrag, and the route's card changed here just as much as it did there.

@@ -1,5 +1,5 @@
 /**
- * The three window sizes and the one place every window opens (owner picks 4A and «Fixed top
+ * The window sizes and the one place every window opens (owner picks 4A and «Fixed top
  * edge» / «Always the board, never the trigger», 19.11.2026). `DialogContent` and
  * `AlertDialogContent` take `size` and build their frame from here; a call site never sets a
  * width, a `top` or a `translate` of its own (`dialog-frame.test.ts` holds every call site to
@@ -13,10 +13,14 @@
  *   which was shown and accepted (owner pick «Kurze Formulare = S», 19.11.2026).
  * - **M 672** – real forms (Neuer Einsatz, Person, Ereignis, Reko-Bericht, Ressourcen fehlen,
  *   Appell, Kennzahlen).
+ * - **C 832** – the two-choice question (`ChoiceDialog`: Jetzt verschieben / Danach vormerken,
+ *   In Auftrag aufnehmen / Danach vormerken). Two choice cards side by side, each with a mini
+ *   before/after – at M a mini card had ~125 px and «2 · Mühlemattstra…» was cut (owner,
+ *   sign-off 24.11.2026: «slightly larger modal»). Only `ChoiceDialog` uses it.
  * - **L 1152** – work surfaces (Fahrzeuge / Mannschaft / Material zuweisen, Auftrags-Editor,
  *   Einsatz-Detail), at most the board area less 2rem on every side.
  *
- * Where (desk, ≥768 px): S and M hang from a fixed line 10vh down and grow DOWNWARDS, so a list
+ * Where (desk, ≥768 px): S, M and C hang from a fixed line 10vh down and grow DOWNWARDS, so a list
  * that filters or a field that appears never moves the title or the search. L fills the board
  * area at a fixed height. All three centre on the BOARD – the viewport less the docked
  * notification sidebar (`--notification-sidebar-width`, 0 while it is closed) – whatever opened
@@ -29,18 +33,19 @@
  * Phones (<768 px) keep what they had: centred on the screen, the screen less 1rem a side. A
  * phone form or picker is a bottom sheet anyway (FRONTEND.md «Phone geometry»).
  */
-export type DialogSize = 'sm' | 'md' | 'lg'
+export type DialogSize = 'sm' | 'md' | 'choice' | 'lg'
 
 const FRAME =
   'fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-[calc(100%-2rem)] ' +
   'md:translate-y-0 md:left-[calc((100%_-_var(--notification-sidebar-width,0px))/2)]'
 
-/** S and M on a desk: the top line, and as much room below it as leaves the same gap below. */
+/** S, M and C on a desk: the top line, and as much room below it as leaves the same gap below. */
 const HANG = 'md:top-[10vh] md:[--modal-room:calc(100dvh_-_20vh)]'
 
 const SIZE: Record<DialogSize, string> = {
   sm: `sm:max-w-lg ${HANG}`,
   md: `sm:max-w-[min(42rem,calc(100%_-_2rem))] ${HANG}`,
+  choice: `sm:max-w-[min(52rem,calc(100%_-_2rem))] ${HANG}`,
   lg:
     'h-[88dvh] sm:max-w-[min(72rem,calc(100%_-_2rem))] md:top-8 md:h-[calc(100dvh_-_4rem)] ' +
     'md:max-w-[min(72rem,calc(100%_-_var(--notification-sidebar-width,0px)_-_4rem))]',

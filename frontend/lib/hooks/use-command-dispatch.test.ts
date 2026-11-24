@@ -183,7 +183,7 @@ describe("runDispatch", () => {
     expect(b.order).toEqual(["assign:TLF", "late-question:TLF", "late-answer:TLF", "assign:Muster Peter"])
   })
 
-  it("remembers where «Hierher verschieben» took a resource from", async () => {
+  it("remembers where «Jetzt verschieben» took a resource from", async () => {
     const elsewhere = operation({ id: "inc-12", number: 12, crew: [crewMember("Muster Peter", MUSTER.id)] })
     const b = board(operation(), { askFor: ["Muster Peter"], others: [elsewhere] })
     const outcome = await runDispatch(command(), b.deps)
