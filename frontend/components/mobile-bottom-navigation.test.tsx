@@ -50,6 +50,9 @@ vi.mock('@/lib/hooks/use-field-requests', () => ({
   useBellCount: () => ({ count: meldungen.bell }),
 }))
 vi.mock('@/components/alarm-inbox/alarm-inbox-button', () => ({ useNewAlarmCount: () => meldungen.alarms }))
+// «Zu erledigen»: what makes the tile loud (owner pick 24.11.2026 – the tile is the phone's bell).
+const todos = vi.hoisted(() => ({ current: { count: 0, overdue: false } }))
+vi.mock('@/lib/hooks/use-todos', () => ({ useTodos: () => todos.current }))
 
 const EDITOR_ENTRIES = ['Links & QR', 'Verlauf', 'Kennzahlen', 'Fahrzeuge', 'Drucken']
 
@@ -153,6 +156,21 @@ describe('MobileBottomNavigation tabs', () => {
     expect(screen.getByTestId('meldungen-badge')).toHaveTextContent('9+')
     await userEvent.click(tile)
     expect(screen.getByTestId('meldungen-sheet')).toBeDefined()
+  })
+
+  // Owner pick 24.11.2026: the phone has no header bell, so the tile must be seen when to-dos wait.
+  it('turns the tile into the loud bell while to-dos wait – amber, then red after 5\'', () => {
+    meldungen.bell = 3
+    todos.current = { count: 2, overdue: false }
+    const { unmount } = renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    expect(screen.getByRole('button', { name: /2 zu erledigen/ })).toBeDefined()
+    expect(screen.getByTestId('meldungen-badge')).toHaveTextContent('2')
+    expect(screen.getByTestId('meldungen-badge')).toHaveAttribute('data-todo', 'open')
+    unmount()
+    todos.current = { count: 2, overdue: true }
+    renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    expect(screen.getByTestId('meldungen-badge')).toHaveAttribute('data-todo', 'overdue')
+    todos.current = { count: 0, overdue: false }
   })
 
   // The Alarmeingang refuses viewers: its alarms are no count of theirs.

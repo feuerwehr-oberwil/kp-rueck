@@ -27566,6 +27566,8 @@
           "reko_arrived",
           "training_emergency",
           "vehicle_arrived",
+          "gps_arrival",
+          "gps_release",
           "rapport_submitted",
           "field_arrived",
           "field_complete",
@@ -28362,6 +28364,18 @@
             "type": "boolean",
             "title": "Ready",
             "default": false
+          },
+          "ready_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready Since"
           }
         },
         "type": "object",

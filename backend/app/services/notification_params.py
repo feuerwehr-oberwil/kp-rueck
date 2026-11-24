@@ -165,6 +165,17 @@ def vehicle_returned(vehicle: str) -> Built:
     return (f"{vehicle} zurück im Magazin", {"variant": "returned", "vehicle": vehicle})
 
 
+def gps_arrival_todo(vehicle: str, place: str) -> Built:
+    """``gps_arrival`` – a to-do («Zu erledigen», owner rule 24.11.2026: what the system starts is
+    a bell row with its buttons, never a popup): GPS sees the vehicle at its Schadenplatz."""
+    return (f"{vehicle} ist bei {place} – auf «Im Einsatz»?", {"vehicle": vehicle, "place": place})
+
+
+def gps_release_todo(vehicle: str, place: str) -> Built:
+    """``gps_release`` – a to-do: the vehicle is back at the Magazin, still on ``place``."""
+    return (f"{vehicle} zurück im Magazin – von {place} freigeben?", {"vehicle": vehicle, "place": place})
+
+
 # --- Reko -------------------------------------------------------------------------------
 
 #: Reko danger flags (``RekoReport.dangers_json`` keys) as the German sentence names them.

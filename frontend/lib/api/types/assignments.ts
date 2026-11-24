@@ -56,6 +56,8 @@ export interface ApiPlannedAssignment {
   position: number
   /** The resource is free (Jetzt nowhere) and this is its first Danach. */
   ready: boolean
+  /** When it became ready (the resource's last release, or the planning if later); null while not. */
+  ready_since: string | null
 }
 
 export interface ApiPlannedAssignmentCreate {

@@ -114,3 +114,5 @@ class PlannedAssignmentResponse(BaseModel):
     dismissed_at: datetime | None = None
     position: int = 1
     ready: bool = False
+    #: When it became ready (the resource's last release, or the planning if later); null while not.
+    ready_since: datetime | None = None

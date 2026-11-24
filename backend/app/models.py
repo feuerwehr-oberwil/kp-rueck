@@ -2053,7 +2053,9 @@ class Notification(Base):
             # no incident: it concerns the door, not a Schadenplatz.
             "'feld_code_rotated', "
             # 15' before a checked-in person's planned «geht um» (`planned_until`).
-            "'personnel_leaving'"
+            "'personnel_leaving', "
+            # «Zu erledigen» (24.11.2026): GPS questions as bell to-dos, not popups.
+            "'gps_arrival', 'gps_release'"
             ")",
             name="valid_notification_type",
         ),

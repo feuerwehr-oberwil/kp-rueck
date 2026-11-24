@@ -107,8 +107,12 @@ async def test_queue_ready_and_promote(editor_client: AsyncClient, test_event: E
 
     # Freed by completion (owner pick 4: Abgeschlossen) – only the first Danach is ready.
     await _status(editor_client, a, "incoming", "complete")
-    ready = {p["id"]: p["ready"] for p in await _list(editor_client, test_event)}
-    assert ready == {first["id"]: True, second["id"]: False}
+    listed = await _list(editor_client, test_event)
+    assert {p["id"]: p["ready"] for p in listed} == {first["id"]: True, second["id"]: False}
+    # The bell's 5' clock starts at the release, not at the planning.
+    since = {p["id"]: p["ready_since"] for p in listed}
+    assert since[first["id"]] is not None and since[first["id"]] >= first["planned_at"]
+    assert since[second["id"]] is None
 
     promoted = await editor_client.post(f"/api/planned-assignments/{first['id']}/promote")
     assert promoted.status_code == 200, promoted.text
