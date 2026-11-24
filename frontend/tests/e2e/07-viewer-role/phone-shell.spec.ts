@@ -166,7 +166,13 @@ test.describe('Viewer role — the phone shell', () => {
     // --- The Lagekarte and «Alle Ereignisse» are the viewer's too ---
     await bottomNav(viewer).locator('a[href="/map"]').click();
     await expect(viewer).toHaveURL('/map', { timeout: ROUTE_COMPILE_MS });
-    await expect(viewer.getByText(fixture.address).first()).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+    // The phone Lagekarte is the map alone (#390): the viewer finds the Einsatz through its
+    // floating search, whose hits list the address.
+    const mapSearch = viewer.getByPlaceholder('Einsatz suchen …');
+    await expect(mapSearch).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+    await mapSearch.fill(fixture.address);
+    await expect(viewer.getByText(fixture.address).first()).toBeVisible();
+    await viewer.keyboard.press('Escape');
     await viewer.goto('/events');
     await expect(viewer.getByRole('heading', { level: 1, name: 'Ereignisse' })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
     await expect(viewer.getByRole('button', { name: /Neues Ereignis/ })).toHaveCount(0);
