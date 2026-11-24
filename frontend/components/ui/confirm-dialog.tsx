@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useFocusOnEnable } from '@/lib/hooks/use-focus-on-enable'
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** Who closes the dialog. Exactly one of the two. */
@@ -61,6 +62,9 @@ type ConfirmDialogProps = ConfirmDialogClosing & {
    *  nothing by itself — the handler decides what happens next; while it runs (a
    *  promise) every answer waits. */
   extraAction?: { label: string; onSelect: () => Promise<void> | void }
+  /** The main answer is not available: `'waiting'` (spinner) while something outside the
+   *  dialog loads, `true` when it cannot be given. The other answers stay live. */
+  confirmDisabled?: boolean | 'waiting'
 }
 
 /**
@@ -120,10 +124,15 @@ export function ConfirmDialog({
   initialFocus = variant === 'destructive' ? 'cancel' : 'confirm',
   children,
   extraAction,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const t = useTranslations('common.deleteConfirmDialog')
   const [busy, setBusy] = useState<'confirm' | 'extra' | null>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
+
+  // A main answer that becomes available again while the dialog is open (an answer ran,
+  // `confirmDisabled` lifted) takes the focus back, so Enter gives it.
+  useFocusOnEnable(confirmRef, open && initialFocus === 'confirm' && busy === null && confirmDisabled === false)
 
   /**
    * Runs one answer. With `onOpenChange`, a confirm closes only once the handler
@@ -189,10 +198,10 @@ export function ConfirmDialog({
               e.preventDefault()
               void answer('confirm', onConfirm)
             }}
-            disabled={busy !== null}
+            disabled={busy !== null || confirmDisabled !== false}
             className={cn(buttonVariants({ variant }))}
           >
-            {busy === 'confirm' ? (
+            {busy === 'confirm' || confirmDisabled === 'waiting' ? (
               <ShellLoader className="mr-2 h-4 w-4" />
             ) : (
               confirmIcon && <span className="mr-2 flex shrink-0 [&_svg]:size-4">{confirmIcon}</span>

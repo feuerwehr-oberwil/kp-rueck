@@ -48,7 +48,7 @@ import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { auftragTakesAssignments, takesAssignments } from "@/lib/assignable"
-import { useCompletionRequests } from "@/lib/hooks/use-completion-request"
+import { useCompletionBoard } from "@/lib/hooks/use-completion-request"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import type { Incident } from "@/lib/types/incidents"
 
@@ -103,8 +103,8 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
  */
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
-  const { operations, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
-  const { groups, getGroupResources, unassignResource, refreshGroups } = useGroups()
+  const { operations, isLoaded: operationsLoaded, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
+  const { groups, isLoaded: groupsLoaded, getGroupResources, unassignResource, refreshGroups } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -250,8 +250,21 @@ export function useIncidentDialogs() {
   }, [refreshOperations, refreshGroups, groups, t, transfer, operations, formatLocation])
 
   // «Einsatz abschliessen» from the GPS release prompt (root layout): the usual close flow,
-  // also for an Einsatz of the Ereignis the prompt just switched to.
-  useCompletionRequests(isEditor ? statusWorkflow.requestCompletion : null, { eventId: selectedEvent?.id, operations })
+  // offered once this board has the Einsatz – and for a stop, its Auftrag with the
+  // assignments, which the material question reads. `groupsLoaded` is per Ereignis.
+  const completionBoard = useMemo(() => {
+    if (!isEditor) return null
+    return {
+      eventId: selectedEvent?.id ?? null,
+      loaded: operationsLoaded && groupsLoaded,
+      has: (incidentId: string) => {
+        const operation = operations.find((candidate) => candidate.id === incidentId)
+        return Boolean(operation && groupsLoaded && (!operation.groupId || groups.some((group) => group.id === operation.groupId)))
+      },
+      run: statusWorkflow.requestCompletion,
+    }
+  }, [groups, groupsLoaded, isEditor, operations, operationsLoaded, selectedEvent?.id, statusWorkflow.requestCompletion])
+  useCompletionBoard(completionBoard)
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –
    *  spread onto it. Editor-only, like everything the layer opens. */

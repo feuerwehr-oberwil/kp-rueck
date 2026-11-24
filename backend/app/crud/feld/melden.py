@@ -21,8 +21,9 @@ tree to the next is doing.
 Three cases, in the order they are tried:
 
 1. the person is on an Auftrag — on one of its stops *or* on the route itself
-   (``_current_route``) → append a stop, mirroring every stop's resources up to
-   route level so the new one arrives with the whole squad.
+   (``_current_route``) → append a stop, mirroring every open stop's resources up
+   to route level so the new one arrives with the whole squad. An Auftrag whose
+   stops are all closed takes no new stop: case 3.
 2. the person is on a standalone Schadenplatz → open an Auftrag, the job they
    are on becomes stop 1 and the new one stop 2, and the active assignments are
    **mirrored** to route level (see ``group_assignments.mirror_to_auftrag``).
@@ -57,8 +58,8 @@ from ...services.audit import log_action
 from ...services.duplicates import merge_report
 from ...services.notification_service import create_field_notification
 from ..assignments import ResourceNotAssignableError, ensure_assignable
-from ..group_assignments import mirror_to_auftrag
-from ..locking import lock_resources
+from ..group_assignments import auftrag_is_closed, mirror_to_auftrag
+from ..locking import lock_groups, lock_resources
 from .reports import _location
 
 #: What happened to the new Schadenplatz, so the phone can say so in one line.
@@ -123,11 +124,14 @@ async def _current_route(
     return result.scalars().first()
 
 
-async def _group_stop_ids(db: AsyncSession, group_id: uuid.UUID) -> list[uuid.UUID]:
-    """Every live stop of this Auftrag, in route order."""
+async def _open_stop_ids(db: AsyncSession, group_id: uuid.UUID) -> list[uuid.UUID]:
+    """Every live stop of this Auftrag that is not closed, in route order.
+
+    A closed stop's remaining rows are material left on site – not the squad's.
+    """
     result = await db.execute(
         select(Incident.id)
-        .where(Incident.group_id == group_id, Incident.deleted_at.is_(None))
+        .where(Incident.group_id == group_id, Incident.deleted_at.is_(None), Incident.status != "complete")
         .order_by(Incident.group_position)
     )
     return list(result.scalars().all())
@@ -303,9 +307,17 @@ async def _take_over(
     # Auftrag arrived here as "on nothing".
     group_id = current.group_id if current is not None else await _current_route(db, event_id, person.id)
 
-    # 1. Already on a route: one more stop, and the route's resources cover it.
+    # 1. Already on a route: one more stop, and the route's resources cover it –
+    # unless every stop of it is closed (the crew can still be on it): a finished
+    # route takes no new stop (Sol review B round 2), so they report as on nothing.
+    # Checked under the Auftrag's lock, which the stop attach and the mirroring
+    # below need anyway. The incident is ours (just inserted, nobody can wait on
+    # it), so the Auftrag lock after it keeps the order.
     if group_id is not None:
-        stop_ids = await _group_stop_ids(db, group_id)
+        await lock_groups(db, [group_id])
+        if await auftrag_is_closed(db, group_id):
+            return await _take_over_alone(db, event_id, person, incident)
+        stop_ids = await _open_stop_ids(db, group_id)
         max_pos = await db.scalar(
             select(Incident.group_position)
             .where(Incident.group_id == group_id, Incident.deleted_at.is_(None))
@@ -320,9 +332,9 @@ async def _take_over(
         # owns nobody, so a new stop appended here would arrive empty and the
         # crew standing on it would be the only people who could not see it.
         # Mirroring first is what makes "the route's resources cover it" true,
-        # and it reads every stop rather than only the one the reporter is
+        # and it reads every open stop rather than only the one the reporter is
         # standing on: the squad's vehicle can be booked on stop 1 while they
-        # are working stop 3.
+        # are working stop 3. A closed stop holds only what stayed on site.
         await mirror_to_auftrag(db, group_id, *stop_ids)
         await db.flush()
         return "stop"
@@ -344,6 +356,16 @@ async def _take_over(
         await db.flush()
         return "auftrag"
 
+    return await _take_over_alone(db, event_id, person, incident)
+
+
+async def _take_over_alone(
+    db: AsyncSession,
+    event_id: uuid.UUID,
+    person: Personnel,
+    incident: Incident,
+) -> TakeoverMode:
+    """`_take_over`'s last case: the reporter (and what they drive) on the new Schadenplatz."""
     # 3. On nothing: just this person, and whatever they drive. New assignments,
     # so `ensure_assignable` decides – but a refusal skips that resource instead of
     # losing the Meldung: a TLF marked «nicht einsatzbereit» stays off the card, and

@@ -1428,7 +1428,10 @@
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen",
-      "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen"
+      "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen",
+      "openEvent": "Ereignis öffnen",
+      "openEventFailed": "Ereignis nicht geöffnet – erneut versuchen",
+      "notOnBoard": "Einsatz nicht gefunden – im Board öffnen"
     },
     "quickAdd": {
       "networkErrorTitle": "Netzwerkfehler",

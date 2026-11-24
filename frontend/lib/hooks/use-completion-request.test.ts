@@ -1,54 +1,46 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { requestCompletion, useCompletionRequests } from './use-completion-request'
+import { type CompletionBoard, completionReadiness, requestCompletion, useCompletionBoard } from './use-completion-request'
 
-const board = (eventId: string, ...ids: string[]) => ({ eventId, operations: ids.map((id) => ({ id })) })
+const board = (eventId: string, loaded: boolean, ...ids: string[]): CompletionBoard => ({
+  eventId,
+  loaded,
+  has: (incidentId) => ids.includes(incidentId),
+  run: vi.fn(),
+})
 
-describe('useCompletionRequests', () => {
-  it('runs a request for an Einsatz on the board, and stops on unmount', () => {
-    const run = vi.fn()
-    const { unmount } = renderHook(() => useCompletionRequests(run, board('e1', 'i1', 'i2')))
+describe('completionReadiness', () => {
+  it.each([
+    ['ready: the board has the Einsatz', board('e1', true, 'i1'), 'e1', 'ready'],
+    ['ready, whatever the looked-up Ereignis', board('e1', true, 'i1'), undefined, 'ready'],
+    ['otherEvent: another Ereignis is on screen', board('e2', true), 'e1', 'otherEvent'],
+    ['loading: its Ereignis is on screen, still loading', board('e1', false), 'e1', 'loading'],
+    ['missing: its Ereignis is loaded without it', board('e1', true), 'e1', 'missing'],
+    ['missing: unknown Ereignis, not on the loaded board', board('e2', true), undefined, 'missing'],
+  ] as const)('%s', (_name, offered, eventId, expected) => {
+    expect(completionReadiness(offered, 'i1', eventId)).toBe(expected)
+  })
 
-    expect(requestCompletion({ incidentId: 'i1', eventId: 'e1' })).toBe(true)
+  it('is missing without a board', () => {
+    expect(completionReadiness(null, 'i1', 'e1')).toBe('missing')
+  })
+})
+
+describe('requestCompletion', () => {
+  it('runs on the offered board when it has the Einsatz, and stops on unmount', () => {
+    const offered = board('e1', true, 'i1')
+    const { unmount } = renderHook(() => useCompletionBoard(offered))
+
+    expect(requestCompletion('i2')).toBe(false)
+    expect(requestCompletion('i1')).toBe(true)
     unmount()
-    expect(requestCompletion({ incidentId: 'i2', eventId: 'e1' })).toBe(false)
+    expect(requestCompletion('i1')).toBe(false)
 
-    expect(run.mock.calls).toEqual([['i1']])
+    expect(vi.mocked(offered.run).mock.calls).toEqual([['i1']])
   })
 
-  it('keeps a request of the Ereignis being switched to until the board has the Einsatz', () => {
-    const run = vi.fn()
-    const { rerender } = renderHook((props) => useCompletionRequests(run, props), { initialProps: board('e2') })
-
-    expect(requestCompletion({ incidentId: 'i1', eventId: 'e1' })).toBe(true)
-    rerender(board('e1'))
-    expect(run).not.toHaveBeenCalled()
-    rerender(board('e1', 'i1'))
-
-    expect(run.mock.calls).toEqual([['i1']])
-  })
-
-  it('drops a waiting request once another Ereignis is selected', () => {
-    const run = vi.fn()
-    const { rerender } = renderHook((props) => useCompletionRequests(run, props), { initialProps: board('e1') })
-
-    requestCompletion({ incidentId: 'i1', eventId: 'e1' })
-    rerender(board('e2'))
-    rerender(board('e1', 'i1'))
-
-    expect(run).not.toHaveBeenCalled()
-  })
-
-  it('does not take a request it cannot place, nor any without a handler (a viewer)', () => {
-    const run = vi.fn()
-    const { rerender } = renderHook(({ on }) => useCompletionRequests(on ? run : null, board('e1', 'i1')), {
-      initialProps: { on: true },
-    })
-
-    expect(requestCompletion({ incidentId: 'i9' })).toBe(false)
-    rerender({ on: false })
-    expect(requestCompletion({ incidentId: 'i1', eventId: 'e1' })).toBe(false)
-
-    expect(run).not.toHaveBeenCalled()
+  it('offers nothing for a viewer (null)', () => {
+    renderHook(() => useCompletionBoard(null))
+    expect(requestCompletion('i1')).toBe(false)
   })
 })

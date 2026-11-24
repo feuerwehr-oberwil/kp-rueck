@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, screen } from '@testing-library/react'
+import { act, cleanup, renderHook, screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
 /**
@@ -37,7 +37,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { GpsArrivalPrompt } from '@/components/gps-arrival-prompt'
 import { GpsReleasePrompt } from '@/components/gps-release-prompt'
-import { onCompletionRequest } from '@/lib/hooks/use-completion-request'
+import { type CompletionBoard, useCompletionBoard } from '@/lib/hooks/use-completion-request'
 
 afterEach(() => {
   cleanup()
@@ -74,54 +74,77 @@ describe.each(PROMPTS)('%s', (_name, Prompt, event) => {
   })
 })
 
-// Owner feedback 23.11.2026 #13: «Einsatz abschliessen» is always the main answer, and it
-// hands over to the board's close flow (which asks about the material).
+// Owner feedback 23.11.2026 #13: «Einsatz abschliessen» is the main answer once the board on
+// screen has the Einsatz, and it hands over to the board's close flow (which asks about the
+// material). Sol review B round 2: nothing is queued across an Ereignis switch.
 describe('GpsReleasePrompt main answer', () => {
+  const run = vi.fn()
+  afterEach(() => run.mockClear())
+
+  const offer = (eventId: string, loaded: boolean, ...ids: string[]) => {
+    const board = (props: { eventId: string; loaded: boolean; ids: string[] }): CompletionBoard => ({
+      eventId: props.eventId,
+      loaded: props.loaded,
+      has: (incidentId) => props.ids.includes(incidentId),
+      run,
+    })
+    const hook = renderHook((props) => useCompletionBoard(board(props)), { initialProps: { eventId, loaded, ids } })
+    return (next: string, nextLoaded: boolean, ...nextIds: string[]) =>
+      act(() => hook.rerender({ eventId: next, loaded: nextLoaded, ids: nextIds }))
+  }
+
   const open = async () => {
     renderWithIntl(<GpsReleasePrompt />)
     await act(async () => {
       await handlers.get('gps_release_prompt')?.({ assignment_id: 'a1', incident_id: 'i1', vehicle_name: 'TLF' })
     })
-    return screen.getByRole('button', { name: 'Einsatz abschliessen' })
   }
 
-  it('is «Einsatz abschliessen», which hands the Einsatz to the board\'s close flow', async () => {
-    const asked = vi.fn(() => true)
-    const stop = onCompletionRequest(asked)
-    const main = await open()
+  it('is «Einsatz abschliessen» when the board has the Einsatz, and runs its close flow', async () => {
+    offer('e1', true, 'i1')
+    await open()
+    const main = screen.getByRole('button', { name: 'Einsatz abschliessen' })
     expect(main).toHaveFocus()
     expect(screen.getByRole('button', { name: 'Nur TLF freigeben' })).toBeInTheDocument()
 
     await act(async () => main.click())
 
-    expect(asked).toHaveBeenCalledWith({ incidentId: 'i1', eventId: 'e1' })
+    expect(run).toHaveBeenCalledWith('i1')
     expect(selected.setSelectedEvent).not.toHaveBeenCalled()
     expect(screen.queryByRole('alertdialog')).toBeNull()
-    stop()
   })
 
-  // Review B: with another Ereignis open, Enter used to dismiss the prompt and close nothing.
-  it('switches to the Einsatz\'s Ereignis first when another one is open', async () => {
+  // Review B round 2: the queued close ran before the Auftrag loaded and dismissed the prompt.
+  it('offers «Ereignis öffnen» for another Ereignis and stays open until that board has the Einsatz', async () => {
     selected.eventId = 'e2'
-    const asked = vi.fn(() => true)
-    const stop = onCompletionRequest(asked)
-    const main = await open()
+    const board = offer('e2', true)
+    await open()
+
+    await act(async () => screen.getByRole('button', { name: 'Ereignis öffnen' }).click())
+    expect(selected.setSelectedEvent).toHaveBeenCalledWith({ converted: 'e1' })
+    expect(run).not.toHaveBeenCalled()
+
+    board('e1', false)
+    expect(screen.getByRole('button', { name: 'Einsatz abschliessen' })).toBeDisabled()
+
+    board('e1', true, 'i1')
+    const main = screen.getByRole('button', { name: 'Einsatz abschliessen' })
+    expect(main).toBeEnabled()
+    expect(main).toHaveFocus()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
 
     await act(async () => main.click())
-
-    expect(selected.setSelectedEvent).toHaveBeenCalledWith({ converted: 'e1' })
-    expect(asked).toHaveBeenCalledWith({ incidentId: 'i1', eventId: 'e1' })
+    expect(run).toHaveBeenCalledWith('i1')
     expect(screen.queryByRole('alertdialog')).toBeNull()
-    stop()
   })
 
-  it('stays open when no board takes the request', async () => {
-    const stop = onCompletionRequest(() => false)
-    const main = await open()
+  it('says so when the loaded board has not the Einsatz, and stays open', async () => {
+    offer('e1', true)
+    await open()
 
-    await act(async () => main.click())
-
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
-    stop()
+    expect(screen.getByRole('status')).toHaveTextContent('Einsatz nicht gefunden – im Board öffnen')
+    expect(screen.getByRole('button', { name: 'Einsatz abschliessen' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Nur TLF freigeben' })).toBeEnabled()
+    expect(run).not.toHaveBeenCalled()
   })
 })

@@ -1491,7 +1491,10 @@
       "decline": "Ne pas libérer",
       "releaseOnly": "Libérer uniquement {vehicle}",
       "completeIncident": "Clôturer l’intervention",
-      "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là"
+      "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là",
+      "openEvent": "Ouvrir l’événement",
+      "openEventFailed": "Événement non ouvert – réessayer",
+      "notOnBoard": "Intervention introuvable – l’ouvrir sur le tableau"
     },
     "quickAdd": {
       "networkErrorTitle": "Erreur de réseau",
