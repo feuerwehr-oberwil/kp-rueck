@@ -551,6 +551,20 @@ describe('/feld remembers the open Schadenplatz across a reload', () => {
     expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
   })
 
+  // Phone sweep 24.11.2026: the edge swipe on a Schadenplatz left /feld instead of going back.
+  it('the back gesture on a Schadenplatz returns to the list, and forgets it like «Zurück»', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+    await user.click(await screen.findByText('Baumgasse 7'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Baumgasse\s7/ })).toBeInTheDocument())
+
+    window.history.back()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument())
+    expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument()
+    expect(screen.getByText('Baumgasse 7')).toBeInTheDocument()
+    expect(document.cookie).not.toContain('feld-selected-incident=inc-2')
+  })
+
   it('drops a remembered Schadenplatz that is no longer assigned to this person', async () => {
     document.cookie = 'feld-selected-incident=inc-weg;path=/feld'
     document.cookie = 'feld-selected-person=p-1;path=/feld'
@@ -672,6 +686,20 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
     expect(screen.queryByTestId('feld-rapport-form')).not.toBeInTheDocument()
   })
 
+  it('says at the row when the form could not be opened, and tries again', async () => {
+    setParams({ token: 'feld-token' })
+    mintFeldRekoLink.mockRejectedValueOnce(new TypeError('Load failed'))
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByText('Hauptstrasse 1'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Reko-Formular konnte nicht geöffnet werden.')
+    expect(routerPush).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+    await waitFor(() => expect(routerPush).toHaveBeenCalledTimes(1))
+  })
+
   it('mints the form token on the tap, not on render', async () => {
     // It is short-lived and one is enough per filing: minting while the row is
     // merely *shown* would spend one every ten seconds on the poll.
@@ -680,6 +708,94 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
 
     await screen.findByText('Hauptstrasse 1')
     expect(mintFeldRekoLink).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * A cellar or a dead spot (phone sweep 24.11.2026). An offline GET resolves to nothing
+ * (`lib/api/http.ts`), which is what these mocks answer. The rows stay and the page says how old
+ * they are; with nothing loaded yet it says it could not load, never «kein Auftrag».
+ */
+describe('/feld without a connection', () => {
+  const answer = {
+    personnel_id: 'p-1',
+    personnel_name: 'Muster Hans',
+    personnel_role: 'Offizier',
+    event_id: 'e-1',
+    event_name: 'Sturm Oberwil',
+    assignments: [assignment()],
+    message_chips: [],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    forgetDevice()
+    seedDevice()
+    setParams({ token: 'feld-token' })
+  })
+
+  it('keeps the rows after a failed refresh and says since when', async () => {
+    getFeldAssignments.mockResolvedValueOnce(answer).mockResolvedValue(undefined)
+    renderWithIntl(<FeldPage />)
+    await screen.findByText('Hauptstrasse 1')
+    expect(screen.queryByText(/Keine Verbindung/)).not.toBeInTheDocument()
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(await screen.findByText(/^Keine Verbindung – Stand \d\d:\d\d$/)).toBeInTheDocument()
+    expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument()
+  })
+
+  it('an older load failing after a newer one landed does not bring the band back', async () => {
+    let failOld: (err: Error) => void = () => {}
+    getFeldAssignments
+      .mockResolvedValueOnce(answer)
+      .mockReturnValueOnce(new Promise((_, reject) => { failOld = reject }))
+      .mockResolvedValueOnce(answer)
+    renderWithIntl(<FeldPage />)
+    await screen.findByText('Hauptstrasse 1')
+
+    act(() => {
+      window.dispatchEvent(new Event('focus')) // the old one, still out
+      window.dispatchEvent(new Event('focus')) // the new one, lands
+    })
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledTimes(3))
+    await act(async () => failOld(new ApiError('Service Unavailable', 503)))
+    expect(screen.queryByText(/Keine Verbindung/)).not.toBeInTheDocument()
+  })
+
+  it('no poll starts while a load is still out – on a slow link each would supersede the last', async () => {
+    getFeldAssignments.mockResolvedValueOnce(answer).mockReturnValueOnce(new Promise(() => {}))
+    vi.useFakeTimers({ toFake: ['setInterval'] })
+    try {
+      renderWithIntl(<FeldPage />)
+      await screen.findByText('Hauptstrasse 1')
+      act(() => {
+        window.dispatchEvent(new Event('focus')) // out, never answers
+      })
+      expect(getFeldAssignments).toHaveBeenCalledTimes(2)
+      act(() => {
+        vi.advanceTimersByTime(30_000)
+      })
+      expect(getFeldAssignments).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a first load that failed is not an empty list, and «Erneut versuchen» loads it', async () => {
+    getFeldAssignments.mockResolvedValueOnce(undefined).mockResolvedValue(answer)
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Deine Schadenplätze konnten nicht geladen werden.')
+    expect(screen.queryByText(/Noch kein Auftrag|sobald du zugewiesen/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Einchecken' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
+    expect(await screen.findByText('Hauptstrasse 1')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 

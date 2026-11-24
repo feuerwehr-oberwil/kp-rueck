@@ -287,7 +287,7 @@ function FeldCodeScreen({
   if (codeError?.kind === 'expired' || codeError?.kind === 'reopen') {
     const reopen = codeError.kind === 'reopen'
     return (
-      <div className="min-h-screen bg-background flex flex-col justify-center p-6">
+      <div className="min-h-dvh bg-background flex flex-col justify-center p-6">
         <div className="mx-auto w-full max-w-xs">
           <h1 className="mb-6 text-center text-2xl font-semibold">
             {t(reopen ? 'code.reopenTitle' : 'code.expiredTitle')}

@@ -43,7 +43,12 @@ change. Read the section you touch. The visual rules and their reasons are
     above the keyboard.
   - The sheet opens without focusing a field (no keyboard until a tap). It gets grip +
     swipe-to-dismiss for free. The swipe closes through `onOpenChange`, so a form with unsaved
-    input guards that (`useUnsavedChangesWarning`).
+    input guards that (`useUnsavedChangesWarning`). A row or a button starts the pull too (a tap
+    stays a tap); a field, a slider or a map never does (`lib/sheet-swipe.ts`).
+  - One head for every phone sheet: a `gap-0 p-0` `SheetContent`, a `SheetHeader` with no
+    className (24px in, no hairline, the title at its own size), then a `SheetBody` (`px-6`) that
+    scrolls. The head never scrolls away; the ✕ is the 36px muted plate (globals.css). A footer
+    sheet keeps its `px-6 py-4` frame with a `p-0` header – the same lines.
   - Fields that are not the operator's own data (Meldung, Einsatzort, Melder, Telefon) carry
     `autoComplete="off"`, or iOS offers «AutoFill Contact».
 - **Phone forms: labels ABOVE their field**, never beside it. `DetailField`, `DetailToggle`,
@@ -58,6 +63,10 @@ change. Read the section you touch. The visual rules and their reasons are
   funnel is a `DropdownMenu` of checkable rows with counts, with «Alle zeigen» first while
   something is ticked. On = `variant="selected"`, with the ticks named in its `aria-label` and in
   a «Gefiltert: …» line. Its width never changes.
+- **A page level deeper (a step, a detail over a list) is one history entry**
+  (`useHistoryLevel` in `lib/hooks/use-history-level.ts`), so the phone's back gesture steps up
+  one level instead of leaving the page. Its in-page «Zurück» calls what the hook returns.
+  Today: /alarm's review step, the /feld Schadenplatz.
 
 ## Overflow
 - **Nothing overflows sideways – check with `pnpm overflow-scan`** (`frontend/scripts/overflow-scan.mjs`,
