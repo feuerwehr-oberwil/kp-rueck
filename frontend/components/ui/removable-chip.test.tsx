@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Info } from "lucide-react"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
@@ -220,5 +220,35 @@ describe("RemovableChip with a mouse menu (the vehicle chip, owner pick 2B)", ()
     expect(stay).toHaveAttribute("aria-checked", "false")
     await userEvent.click(stay)
     expect(onToggleStay).toHaveBeenCalledTimes(1)
+  })
+
+  it("«contextmenu»: the chip is a tab stop, and Shift+F10 or the menu key opens its menu", async () => {
+    setPointerFine(true)
+    const { onParentClick, onParentContextMenu } = renderVehicleChip("contextmenu")
+    const chip = screen.getByRole("button", { name: "TLF" })
+    expect(chip).toHaveAttribute("tabindex", "0")
+
+    chip.focus()
+    await userEvent.keyboard("{Shift>}{F10}{/Shift}")
+    expect(await screen.findByRole("menu", { name: "TLF" })).toBeInTheDocument()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument())
+    expect(chip).toHaveFocus()
+
+    await userEvent.keyboard("{ContextMenu}")
+    expect(await screen.findByRole("menu", { name: "TLF" })).toBeInTheDocument()
+    expect(onParentClick).not.toHaveBeenCalled()
+    expect(onParentContextMenu).not.toHaveBeenCalled()
+  })
+
+  it("a touch long-press is the card's: the chip lets its contextmenu through and opens nothing", async () => {
+    setPointerFine(false)
+    const { onParentContextMenu } = renderVehicleChip("contextmenu")
+    const chip = screen.getByRole("button", { name: "TLF" })
+    // The finger is still down when the browser sends `contextmenu`.
+    await userEvent.pointer({ keys: "[TouchA>]", target: chip })
+    fireEvent.contextMenu(chip)
+    expect(onParentContextMenu).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
   })
 })

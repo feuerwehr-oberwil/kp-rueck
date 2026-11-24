@@ -543,3 +543,17 @@ describe('the «Am Warten» / «Nachbarhilfe» note popover', () => {
     expect(screen.queryByRole('button', { name: /Am Warten/ })).not.toBeInTheDocument()
   })
 })
+
+describe('the card menu from the keyboard', () => {
+  it.each([['Shift+F10', '{Shift>}{F10}{/Shift}'], ['the menu key', '{ContextMenu}']])(
+    '%s on the focused card opens the card menu, not the detail',
+    async (_name, keys) => {
+      const onClick = vi.fn()
+      renderWithIntl(card(CARD_VIEW_PRESETS.standard, operation(), { onClick, onToggleAmWarten: vi.fn() }))
+      screen.getByTestId('incident-card').focus()
+      await userEvent.keyboard(keys)
+      expect(await screen.findByRole('menuitem', { name: 'Als Am Warten markieren' })).toBeInTheDocument()
+      expect(onClick).not.toHaveBeenCalled()
+    },
+  )
+})

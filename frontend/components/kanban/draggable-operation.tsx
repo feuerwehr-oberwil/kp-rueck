@@ -39,6 +39,7 @@ import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
+import { isContextMenuKey, openContextMenuAt } from "@/lib/keyboard-context-menu"
 import { cn } from "@/lib/utils"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { formatDurationHours } from "@/lib/duration"
@@ -553,6 +554,7 @@ function DraggableOperationBase({
             // here rather than by the global listener so it follows FOCUS, not
             // the pointer: stopping propagation keeps the window-level
             // hover-Enter from opening a different card than the focused one.
+            // Shift+F10 / the menu key do what a right-click does: the card menu.
             onKeyDown={(e) => {
               // Only when the CARD itself has focus. React's onKeyDown also sees
               // what bubbles up from the Reko and Rapport buttons, the «+N»
@@ -562,6 +564,12 @@ function DraggableOperationBase({
               // Letting those through also sends them to the window listener,
               // where `isActivationTarget` already skips them.
               if (e.target !== e.currentTarget) return
+              if (isContextMenuKey(e)) {
+                e.preventDefault()
+                e.stopPropagation()
+                openContextMenuAt(e.currentTarget)
+                return
+              }
               if (e.key !== 'Enter' && e.key !== ' ') return
               e.preventDefault()
               e.stopPropagation()

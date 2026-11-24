@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
+import { isContextMenuKey } from "@/lib/keyboard-context-menu"
 import { cn } from "@/lib/utils"
 
 /** One row of the chip menu above the destructive «remove» row. */
@@ -30,7 +31,8 @@ export interface ChipMenuAction {
 
 /** How a mouse opens the chip menu. `click`: click or right-click (the chip has no other
  *  click – detail, Auftrag). `contextmenu`: right-click only (the card, where a click opens
- *  the detail). Touch always opens it with a tap. */
+ *  the detail). Touch always opens it with a tap; a touch long-press stays the card's. The
+ *  keyboard opens it on the focused chip with Enter, Space, ↓, Shift+F10 or the menu key. */
 export type ChipMouseMenu = "click" | "contextmenu"
 
 interface RemovableChipProps {
@@ -258,6 +260,8 @@ function ChipWithMenu({
   const t = useTranslations("kanban.chipMenu")
   const [open, setOpen] = useState(false)
   const chipRef = useRef<HTMLSpanElement>(null)
+  // The pointer that last pressed the chip – `contextmenu` from a finger is not ours.
+  const lastPointerType = useRef<string | null>(null)
   const labelId = useId()
   const actions = menuActions ?? []
   const destructiveLabel = removeLabel ?? removeTitle ?? t("remove")
@@ -282,10 +286,15 @@ function ChipWithMenu({
           opensOnClick && "cursor-pointer",
         )}
         title={title}
-        role={opensOnClick ? "button" : undefined}
-        tabIndex={opensOnClick ? 0 : undefined}
+        // Focusable in both modes: in «contextmenu» mode the keyboard has no other way
+        // to this menu (the card's own keys open the card's).
+        role="button"
+        tabIndex={0}
         aria-haspopup="menu"
         aria-expanded={open}
+        onPointerDown={(e) => {
+          lastPointerType.current = e.pointerType
+        }}
         onClick={(e) => {
           if (!opensOnClick || !ownEvent(e)) return
           // The chip's own action, not the block's around it (the card opens
@@ -297,13 +306,18 @@ function ChipWithMenu({
         // own trigger, which this event no longer reaches).
         onContextMenu={(e) => {
           if (!ownEvent(e)) return
+          // A touch long-press is the card's: browsers that send `contextmenu` for it
+          // would open this menu while the card's Radix long-press opens the card's. The
+          // chip keeps its tap (above). Read from the pointerdown – a React
+          // `contextmenu` carries no pointer type.
+          if (lastPointerType.current === "touch") return
           e.preventDefault()
           e.stopPropagation()
           setOpen(true)
         }}
         onKeyDown={(e) => {
-          if (!opensOnClick || e.target !== e.currentTarget) return
-          if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+          if (e.target !== e.currentTarget) return
+          if (isContextMenuKey(e) || e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
             e.preventDefault()
             e.stopPropagation()
             setOpen(true)
