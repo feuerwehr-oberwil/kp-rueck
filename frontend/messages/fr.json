@@ -3457,6 +3457,7 @@
       "notesShort": "Remarques",
       "kpStand": "Au PC – état {time}",
       "kpNothing": "Rien n’est encore arrivé au PC.",
+      "kpEarlier": "Au PC : le dernier état envoyé.",
       "draftLive": "Brouillon · part en continu",
       "sendNowShort": "Envoyer"
     },

@@ -2918,6 +2918,7 @@
       "notesShort": "Notizen",
       "kpStand": "Beim KP – Stand {time}",
       "kpNothing": "Beim KP ist noch nichts angekommen.",
+      "kpEarlier": "Beim KP: der zuletzt gesendete Stand.",
       "draftLive": "Entwurf · geht laufend mit",
       "sendNowShort": "Jetzt senden"
     },

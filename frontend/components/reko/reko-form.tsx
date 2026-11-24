@@ -85,6 +85,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   const [isMarkingArrived, setIsMarkingArrived] = useState(false)
   const [arrivedAt, setArrivedAt] = useState<Date | null>(null)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  // The link opened on a report the KP already has: until this phone saves once, the footer
+  // must not say «nothing has arrived» – the KP holds the loaded state.
+  const [serverHasReport, setServerHasReport] = useState(false)
   /**
    * Something is on this phone that the KP has not got.
    *
@@ -265,6 +268,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
         setDrafts(store)
         setSyncedData(serverData)
         setFormData(serverData)
+        setServerHasReport(Object.keys(changedFields(INITIAL_FORM_DATA, serverData)).length > 0)
         try {
           const candidates = store.read().filter(version => {
             const desired = applyDraft(serverData, version.draft.changes)
@@ -607,7 +611,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
               {lastSaved ? (
                 <>
                   <CloudCheck className={`h-4 w-4 shrink-0 ${dirty ? 'text-muted-foreground' : 'text-success'}`} aria-hidden />
-                  <span className="min-w-0 truncate">{t('kpStand', { time: formatTime(lastSaved, intlLocale) })}</span>
+                  <span className="min-w-0 truncate" title={t('kpStand', { time: formatTime(lastSaved, intlLocale) })}>
+                    {t('kpStand', { time: formatTime(lastSaved, intlLocale) })}
+                  </span>
                   <span className="ml-auto shrink-0 text-xs text-muted-foreground">{t('draftLive')}</span>
                 </>
               ) : (
@@ -620,7 +626,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
               <p className="min-w-0 flex-1">
                 <span className="block font-medium">{t('unsentTitle')}</span>
                 <span className="block text-xs">
-                  {lastSaved ? t('kpStand', { time: formatTime(lastSaved, intlLocale) }) : t('kpNothing')}
+                  {lastSaved
+                    ? t('kpStand', { time: formatTime(lastSaved, intlLocale) })
+                    : serverHasReport ? t('kpEarlier') : t('kpNothing')}
                 </span>
               </p>
               <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={isSaving} onClick={() => saveDraft()}>

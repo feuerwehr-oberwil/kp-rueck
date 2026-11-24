@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { SearchInput } from '@/components/ui/search-input'
+import { FormMessage, fieldMessageProps, formMessageId } from '@/components/ui/form-message'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Check, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,9 @@ import { sortByName } from '@/lib/roster-order'
 import { PlannedTimeChip, PlannedTimePicker } from '@/components/attendance/planned-time'
 import { cn } from '@/lib/utils'
 
+
+/** The name search, which is also the guest door's name field. */
+const SEARCH_ID = 'check-in-search'
 export default function CheckInPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
@@ -50,6 +54,9 @@ function CheckInKiosk({ token }: { token: string | null }) {
   // The guest row's own double-tap guard: state for the disabled look, a ref for the
   // second tap that lands before React re-renders.
   const [addingGuest, setAddingGuest] = useState(false)
+  // A name the guest door refused (422): said under the search field, not as a toast; it goes
+  // when the name is edited or the row is tapped again.
+  const [guestNameError, setGuestNameError] = useState<string | null>(null)
   const addingGuestRef = useRef(false)
 
   const loadPersonnel = useCallback(async () => {
@@ -155,6 +162,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
     if (!token || addingGuestRef.current) return
     addingGuestRef.current = true
     setAddingGuest(true)
+    setGuestNameError(null)
     try {
       const person = await apiClient.checkInGuest(token, name)
       rosterRevision.current++
@@ -166,7 +174,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
       // 409 («Bitte beim KP melden») and 429 («Zu viele Anfragen …») carry their own sentence;
       // 422 is a name the door does not take (invisible characters); anything else is the toggle's.
       if (error instanceof ApiError && (error.status === 409 || error.status === 429)) toast.error(error.message)
-      else if (error instanceof ApiError && error.status === 422) toast.error(t('guestNameRefused'))
+      else if (error instanceof ApiError && error.status === 422) setGuestNameError(t('guestNameRefused'))
       else toast.error(t('statusError'), { description: t('statusErrorDescription') })
     } finally {
       addingGuestRef.current = false
@@ -229,10 +237,16 @@ function CheckInKiosk({ token }: { token: string | null }) {
         <SearchInput
           size="lg"
           placeholder={t('searchPlaceholder')}
+          id={SEARCH_ID}
           value={searchTerm}
-          onValueChange={setSearchTerm}
+          onValueChange={(value) => {
+            setSearchTerm(value)
+            setGuestNameError(null)
+          }}
           className="h-12 text-lg"
+          {...fieldMessageProps(SEARCH_ID, guestNameError ? 'error' : null)}
         />
+        <FormMessage id={formMessageId(SEARCH_ID)}>{guestNameError}</FormMessage>
 
         {/* Quick Add Personnel Component */}
         {isEditor && !loading && eventId && <QuickAddPersonnel

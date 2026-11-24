@@ -63,6 +63,9 @@ import { LinkPageFooter } from '@/components/link-page/link-page-footer'
  *  A callback ref – it runs once, when the panel mounts. */
 const revealPanel = (el: HTMLElement | null) => el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
 const focusOnMount = (el: HTMLElement | null) => el?.focus()
+// The panel's own heading takes the focus without a jump, so `revealPanel`'s smooth scroll
+// still carries the eye there and Tab goes on into the panel, not past it to the footer.
+const focusInPlace = (el: HTMLElement | null) => el?.focus({ preventScroll: true })
 
 /**
  * Which follow-up panel is open. Exactly one at a time, so the phone never
@@ -734,7 +737,7 @@ export function FeldActions({
       {/* --- Freitext-Meldung ------------------------------------------------ */}
       {panel === 'message' && (
         <div ref={revealPanel} className="rounded-lg border border-border p-3 space-y-3">
-          <p className="text-sm font-medium">{t('messageTitle')}</p>
+          <p ref={focusInPlace} tabIndex={-1} className="text-sm font-medium outline-none">{t('messageTitle')}</p>
           {/* The two requests the KP has to ACT on, structured (R13): what and
               how many, so the board reads «Tauchpumpe ×2», not prose. Fixed
               buttons, not station chips — they open a picker. */}
