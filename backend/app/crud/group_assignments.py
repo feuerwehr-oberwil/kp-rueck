@@ -194,7 +194,7 @@ async def assign_group_resource(
     # its stop list holds still until the commit.
     ensure_assignable(resource, event=event, auftrag_closed=await auftrag_is_closed(db, group_id))
     if exclusive:
-        await ensure_not_busy(db, resource, resource_type, group_id=group_id)
+        await ensure_not_busy(db, resource, resource_type, event_id=group.event_id, group_id=group_id)
 
     existing = await db.execute(
         select(IncidentGroupAssignment)

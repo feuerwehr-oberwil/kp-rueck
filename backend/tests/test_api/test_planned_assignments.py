@@ -198,3 +198,16 @@ async def test_viewer_cannot_plan(viewer_client: AsyncClient, three, test_person
         json={"resource_type": "personnel", "resource_id": str(test_personnel.id), "incident_id": str(b.id)},
     )
     assert response.status_code == 403
+
+
+async def test_another_ereignis_never_binds(
+    editor_client: AsyncClient, db_session: AsyncSession, test_user: User, three, test_personnel: Personnel
+):
+    """The roster is shared: a person on an open training Ereignis is free for this one."""
+    a, _, _ = three
+    other = Event(id=uuid4(), name="Übung", training_flag=True)
+    db_session.add(other)
+    await db_session.commit()
+    training = await _incident(db_session, other, test_user, "Übungsweg 1")
+    assert await _assign(editor_client, training, "personnel", test_personnel.id) == 200
+    assert await _assign(editor_client, a, "personnel", test_personnel.id) == 200

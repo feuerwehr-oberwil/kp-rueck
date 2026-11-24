@@ -208,7 +208,7 @@ async def assign_resource(
         raise LookupError(f"event {incident.event_id} does not exist")
     ensure_assignable(resource, event=event, incident=incident)
     if exclusive:
-        await ensure_not_busy(db, resource, resource_type, incident_id=incident_id)
+        await ensure_not_busy(db, resource, resource_type, event_id=incident.event_id, incident_id=incident_id)
 
     # Use FOR UPDATE to lock rows and prevent race conditions
     # This ensures that if two concurrent requests try to assign the same

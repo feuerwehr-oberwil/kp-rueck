@@ -69,10 +69,14 @@ def never_binds(resource: AssignableResource | None) -> bool:
 
 
 async def jetzt_holders(
-    db: AsyncSession, resource_type: str, resource_ids: list[uuid.UUID]
+    db: AsyncSession, event_id: uuid.UUID, resource_type: str, resource_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, list[JetztHolder]]:
-    """Every holder each resource is Jetzt on: active crew/vehicle/material rows on a live
-    Einsatz (Reko rows excluded) and active rows on a live Auftrag."""
+    """Every holder each resource is Jetzt on IN THIS EREIGNIS: active crew/vehicle/material rows
+    on a live Einsatz (Reko rows excluded) and active rows on a live Auftrag.
+
+    Scoped to the Ereignis on purpose: the roster and the fleet are shared, and a training
+    Ereignis left open must neither block a live assignment nor hold a Danach back – the board
+    only ever shows (and asks about) its own Ereignis."""
     found: dict[uuid.UUID, list[JetztHolder]] = {rid: [] for rid in resource_ids}
     if not resource_ids:
         return found
@@ -86,6 +90,7 @@ async def jetzt_holders(
             IncidentAssignment.purpose != "reko",
             Incident.deleted_at.is_(None),
             Incident.merged_into_id.is_(None),
+            Incident.event_id == event_id,
         )
     )
     for rid, incident_id, title, address in incident_rows.tuples():
@@ -98,6 +103,7 @@ async def jetzt_holders(
             IncidentGroupAssignment.resource_id.in_(resource_ids),
             IncidentGroupAssignment.unassigned_at.is_(None),
             IncidentGroup.deleted_at.is_(None),
+            IncidentGroup.event_id == event_id,
         )
     )
     for rid, group_id, name in group_rows.tuples():
@@ -110,10 +116,12 @@ async def ensure_not_busy(
     resource: AssignableResource,
     resource_type: str,
     *,
+    event_id: uuid.UUID,
     incident_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
 ) -> None:
-    """Refuse a new Jetzt while the resource is Jetzt anywhere else (owner pick 2B: never on two).
+    """Refuse a new Jetzt while the resource is Jetzt anywhere else in the Ereignis (owner pick 2B:
+    never on two).
 
     Call with the resource row locked: every writer of its assignment rows holds that lock, so the
     answer cannot change before the caller's insert. A Reko row on a Reko assignment does not go
@@ -124,7 +132,7 @@ async def ensure_not_busy(
     """
     if never_binds(resource):
         return
-    holders = (await jetzt_holders(db, resource_type, [resource.id]))[resource.id]
+    holders = (await jetzt_holders(db, event_id, resource_type, [resource.id]))[resource.id]
     others = [
         h
         for h in holders
@@ -201,7 +209,7 @@ async def plan_resource(
     ensure_assignable(resource, event=event, incident=incident)
     if never_binds(resource):
         raise PlanRefusedError("Verbrauchsmaterial wird nicht vorgemerkt – es kann auf mehreren Einsätzen sein.")
-    holders = (await jetzt_holders(db, resource_type, [resource_id]))[resource_id]
+    holders = (await jetzt_holders(db, event_id, resource_type, [resource_id]))[resource_id]
     if any(h.holder_id in (incident_id, group_id) for h in holders):
         raise PlanRefusedError(f"«{resource.name}» ist hier schon im Einsatz.")
     already = await db.scalar(
@@ -451,7 +459,7 @@ async def list_for_event(db: AsyncSession, event_id: uuid.UUID) -> list[PlannedV
     busy: dict[tuple[str, uuid.UUID], bool] = {}
     for resource_type in ("personnel", "vehicle", "material"):
         ids = sorted({r.resource_id for r in rows if r.resource_type == resource_type})
-        for rid, holders in (await jetzt_holders(db, resource_type, ids)).items():
+        for rid, holders in (await jetzt_holders(db, event_id, resource_type, ids)).items():
             busy[(resource_type, rid)] = bool(holders)
     seen: dict[tuple[str, uuid.UUID], int] = {}
     views = []
