@@ -332,7 +332,7 @@ export function IncidentPickerDialog({
     <ConfirmDialog
       open={askMove}
       onOpenChange={setAskMove}
-      title={tDash("distributeConfirmTitle")}
+      title={tDash("distributeConfirmTitle", { auftrag: targetGroup?.name ?? "" })}
       description={t("moveConfirm", { count: moving.length, names: movingNames, to: targetGroup?.name ?? "" })}
       confirmText={tDash("distributeConfirmAction")}
       // A move out of another Auftrag: Enter keeps to Abbrechen.
