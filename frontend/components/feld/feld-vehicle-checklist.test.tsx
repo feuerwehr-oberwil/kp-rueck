@@ -27,95 +27,66 @@ function render(props: Partial<React.ComponentProps<typeof FeldVehicleChecklist>
 }
 
 describe('FeldVehicleChecklist', () => {
-  it('gives a row to the disponierten only — the fleet is not a checklist', () => {
-    render({ rows: [vehicle()], candidates: [candidate()] })
-
-    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeChecked()
-    expect(screen.queryByRole('checkbox', { name: /ADL Oberwil/ })).not.toBeInTheDocument()
+  it('gives a chip to the disponierten only, with the driver beside the name', () => {
+    render({ candidates: [candidate()], drivers: { f1: 'Dürring Jan' } })
+    const list = screen.getByRole('list', { name: 'Fahrzeuge' })
+    expect(within(list).getByText('Dürring Jan', { exact: false })).toBeInTheDocument()
+    expect(within(list).getByText('TLF Oberwil', { exact: false })).toBeInTheDocument()
+    expect(within(list).queryByText('ADL Oberwil')).toBeNull()
   })
 
-  it('unticks exactly the row that was clicked', async () => {
+  it('the ✕ unticks exactly that vehicle', async () => {
     const onChange = vi.fn()
-    render({ rows: [vehicle(), vehicle({ vehicle_id: 'f2', name: 'MTW Oberwil' })], onChange })
-
-    await userEvent.click(screen.getByRole('checkbox', { name: /TLF Oberwil/ }))
-
+    render({ rows: [vehicle(), vehicle({ vehicle_id: 'f2', name: 'Pio' })], onChange })
+    await userEvent.click(screen.getByRole('button', { name: 'Pio entfernen' }))
     expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ vehicle_id: 'f1', present: false }),
-      expect.objectContaining({ vehicle_id: 'f2', present: true }),
+      vehicle(),
+      { vehicle_id: 'f2', name: 'Pio', present: false, on_board: true },
     ])
   })
 
-  it('keeps an unticked disponiertes vehicle in place — a nein is a correction', () => {
-    render({ rows: [vehicle({ present: false })] })
-    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).not.toBeChecked()
+  it('offers a removed disponiertes vehicle again, ahead of the rest of the fleet', async () => {
+    const onChange = vi.fn()
+    render({ rows: [vehicle({ present: false })], candidates: [candidate()], onChange })
+    expect(screen.queryByText('TLF Oberwil')).toBeNull()
+    expect(screen.getByText('Kein Fahrzeug erfasst.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
+    const sheet = await screen.findByRole('dialog')
+    const text = sheet.textContent ?? ''
+    expect(text.indexOf('Disponiert')).toBeLessThan(text.indexOf('TLF Oberwil'))
+    expect(text.indexOf('TLF Oberwil')).toBeLessThan(text.indexOf('ADL Oberwil'))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'TLF Oberwil' }))
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
+    expect(onChange).toHaveBeenCalledWith([vehicle()])
   })
 
   it('adds a vehicle that came along without anybody disponierend it', async () => {
     const onChange = vi.fn()
     render({ candidates: [candidate()], onChange })
-
     await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
     const sheet = await screen.findByRole('dialog')
     await userEvent.click(within(sheet).getByRole('button', { name: 'ADL Oberwil' }))
     await userEvent.click(within(sheet).getByRole('button', { name: 'Fertig (1)' }))
-
     expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ vehicle_id: 'f1' }),
+      vehicle(),
       { vehicle_id: 'c1', name: 'ADL Oberwil', present: true, on_board: false },
     ])
-  })
-
-  it('takes an added vehicle back off the list by unticking, not by dropping it', async () => {
-    // Same reason as in the Personal section: a row the payload never mentions
-    // survives the save's reconciliation, so a dropped row is a lost removal.
-    const onChange = vi.fn()
-    render({
-      rows: [vehicle(), vehicle({ vehicle_id: 'c1', name: 'ADL Oberwil', on_board: false })],
-      onChange,
-    })
-    const row = screen.getByText('ADL Oberwil').closest('div')
-    await userEvent.click(within(row as HTMLElement).getByRole('button'))
-    expect(onChange).toHaveBeenCalledWith([
-      expect.objectContaining({ vehicle_id: 'f1' }),
-      expect.objectContaining({ vehicle_id: 'c1', present: false, on_board: false }),
-    ])
-  })
-
-  it('hides a removed row and offers the vehicle again', async () => {
-    render({
-      rows: [vehicle(), vehicle({ vehicle_id: 'c1', name: 'ADL Oberwil', present: false, on_board: false })],
-      candidates: [candidate()],
-    })
-    expect(screen.queryByText('ADL Oberwil')).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
-    expect(within(await screen.findByRole('dialog')).getByRole('button', { name: 'ADL Oberwil' })).toBeInTheDocument()
-  })
-
-  it('says so when the board disponiert nothing — and keeps the fleet folded', () => {
-    // Unlike the Appell in the Personal section: "kein Fahrzeug" is a normal,
-    // often correct answer for a Schadenplatz.
-    render({ rows: [], candidates: [candidate()] })
-    expect(screen.queryByRole('button', { name: 'ADL Oberwil' })).not.toBeInTheDocument()
-  })
-
-  it('does not offer a tick or the picker to a read-only mount', () => {
-    render({ disabled: true, candidates: [candidate()] })
-    expect(screen.getByRole('checkbox', { name: /TLF Oberwil/ })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Fahrzeug hinzufügen' })).not.toBeInTheDocument()
   })
 
   it('offers no typed vehicle: a rapport row is a fleet vehicle or nothing', async () => {
     render({ candidates: [candidate()] })
     await userEvent.click(screen.getByRole('button', { name: 'Fahrzeug hinzufügen' }))
     const sheet = await screen.findByRole('dialog')
-    await userEvent.type(within(sheet).getByPlaceholderText('Fahrzeug suchen …'), 'Pikett-Auto')
-    expect(within(sheet).queryByRole('button', { name: /hinzufügen/ })).not.toBeInTheDocument()
-    expect(within(sheet).getByText('Keine Treffer für «Pikett-Auto»')).toBeInTheDocument()
+    await userEvent.type(within(sheet).getByPlaceholderText('Fahrzeug suchen …'), 'Privatauto')
+    expect(within(sheet).queryByRole('button', { name: /Privatauto/ })).toBeNull()
   })
 
-  it('has no button when the whole fleet is already on the list', () => {
-    render({ candidates: [] })
-    expect(screen.queryByRole('button', { name: 'Fahrzeug hinzufügen' })).not.toBeInTheDocument()
+  it('has no add chip when the whole fleet is already on the list, and none read-only', () => {
+    const { unmount } = render({ candidates: [] })
+    expect(screen.queryByRole('button', { name: 'Fahrzeug hinzufügen' })).toBeNull()
+    unmount()
+    render({ candidates: [candidate()], disabled: true })
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })

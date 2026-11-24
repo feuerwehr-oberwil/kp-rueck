@@ -7,7 +7,6 @@ import type {
 } from '@/lib/api/types'
 import {
   EMPTY_RAPPORT_FORM,
-  groupMaterialsByLocation,
   hasContent,
   isCorrected,
   mergeDraft,
@@ -81,8 +80,8 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       board_personnel_count: 6,
       material_name_suggestions: ['Nassauger', 'Tauchpumpe TP-4'],
       personnel_candidates: [],
-      vehicle_drivers: {},
       vehicle_candidates: [],
+      vehicle_drivers: {},
     },
     ...overrides,
   }
@@ -276,27 +275,6 @@ describe('toFormData / toUpdate', () => {
       { vehicle_id: 'f1', present: false },
       { vehicle_id: 'f2', present: true },
     ])
-  })
-})
-
-describe('groupMaterialsByLocation', () => {
-  it('keeps the depot order the server sent', () => {
-    const groups = groupMaterialsByLocation([
-      material({ assignment_id: 'a1', location: 'Magazin A' }),
-      material({ assignment_id: 'a2', location: 'Magazin A', name: 'Nassauger' }),
-      material({ assignment_id: 'a3', location: 'Magazin B', name: 'Motorsäge' }),
-    ])
-    expect(groups.map(group => group.location)).toEqual(['Magazin A', 'Magazin B'])
-    expect(groups[0].rows).toHaveLength(2)
-  })
-
-  it('puts units the board dropped in a block of their own, at the end', () => {
-    const groups = groupMaterialsByLocation([
-      material({ assignment_id: 'a1', location: 'Magazin A' }),
-      material({ assignment_id: 'a2', location: null, on_board: false, name: 'Schlauch', used: true }),
-    ])
-    expect(groups).toHaveLength(2)
-    expect(groups[1].onBoard).toBe(false)
   })
 })
 

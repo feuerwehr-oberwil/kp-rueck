@@ -30,6 +30,15 @@
  * never creates an empty rapport and never stamps a KP editor onto a crew's.
  * Because no KP save ever carries `is_draft: true`, no late KP autosave can
  * un-submit anything, which is the bug `isSubmittingRef` exists for.
+ *
+ * **The two mounts are shaped differently, too.** `/feld` is ONE open card
+ * (owner pick 1B «Compact chips», 24.11.2026 – «make simpler, one page»):
+ * Kurzbericht · Mannschaft · Fahrzeuge · Material · Fotos · Eigentümer /
+ * Geschädigte · Übergeben an, split by thin rules, the three lists as chips.
+ * The folds it had before cost a tap per block and hid what was filled. The
+ * KP's incident detail keeps its Kurzbericht open and its other blocks folded
+ * (`FeldSection dense`): there the form is one of four things in a ~500px tab
+ * column. The chips are the same on both.
  */
 
 import { formatDateTime, formatTime } from '@/lib/format-time'
@@ -58,7 +67,7 @@ import type {
   ApiRapportUpdate,
 } from '@/lib/api/types'
 import { telHref } from '@/lib/phone'
-import { sanitizePhoneInput } from '@/lib/utils'
+import { cn, sanitizePhoneInput } from '@/lib/utils'
 import {
   derivePersonnelCount,
   EMPTY_RAPPORT_FORM,
@@ -106,7 +115,7 @@ interface FeldRapportFormProps {
    *  stealing focus from somebody who is reading is its own bug. */
   autoFocusKurzbericht?: boolean
   /** Imperative counterpart for a form that is ALREADY mounted: increment to
-   *  unfold the Kurzbericht block and put the caret in it — the journey's
+   *  scroll to the Kurzbericht and put the caret in it — the journey's
    *  «Rapport erfassen» button. 0 / undefined = never fired. */
   focusKurzberichtSignal?: number
 }
@@ -131,57 +140,92 @@ function localStorageKey(incidentId: string): string {
   return `feld-rapport-${incidentId}`
 }
 
+/** Class the jump puts on a block: the shared «this one» ring (globals.css). */
+const JUMP_RING_CLASS = 'this-one-ring'
+/** The ring's 1.9 s plus a beat; also how long the reduced-motion static ring stays. */
+const JUMP_RING_MS = 2000
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 /**
- * One block of the rapport — folded on the phone, plainly open in the KP.
+ * One block of the rapport: open with a heading, or – `fold`, the KP's lists –
+ * a `FeldSection` that states what is in it.
+ *
+ * An open block is also where «take me there» lands (the Abschluss question's
+ * rows, the journey's «Rapport erfassen»): increment `jumpSignal` and the block
+ * scrolls to just under the sticky bars (`scroll-mt-28`: the top bar plus the
+ * Schadenplatz line), rings twice in ink and – with `jumpFocus` – puts the caret
+ * at the end of its first text field. A checklist block leaves `jumpFocus` off:
+ * its first control is a chip, not the answer.
  *
  * Module level on purpose: declared inside the form it would be a new component
  * type on every render, and React would remount the whole block — which on a
  * form means the input being typed into loses focus mid-word.
  */
 function RapportSection({
-  collapsible,
-  dense = false,
+  fold = false,
   title,
   summary,
   state,
-  openSignal,
   jumpSignal,
-  jumpFocus,
+  jumpFocus = false,
+  className,
   children,
 }: {
-  collapsible: boolean
-  /** Desktop scale — see FeldSection. */
-  dense?: boolean
-  title: string
-  summary: string
-  state: FeldSectionState
-  /** Forwarded to FeldSection — imperative unfold. */
-  openSignal?: number
-  /** Forwarded to FeldSection — land here from the Abschluss question. */
+  fold?: boolean
+  /** Shown as the heading; a block with only a labelled field passes none. */
+  title?: string
+  /** The folded block's one line — only read with `fold`. */
+  summary?: string
+  state?: FeldSectionState
   jumpSignal?: number
   jumpFocus?: boolean
+  className?: string
   children: React.ReactNode
 }) {
-  if (!collapsible) {
+  const ref = useRef<HTMLElement>(null)
+
+  // Reads the CURRENT `jumpFocus` without re-running the jump when it changes.
+  const land = useEffectEvent((el: HTMLElement) => {
+    el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+    // Class, not state, so the same row tapped twice restarts the beats. The
+    // section's className never changes between renders, so React leaves it be.
+    el.classList.remove(JUMP_RING_CLASS)
+    void el.offsetWidth
+    el.classList.add(JUMP_RING_CLASS)
+    const ringTimer = setTimeout(() => el.classList.remove(JUMP_RING_CLASS), JUMP_RING_MS)
+    if (jumpFocus) {
+      const field = el.querySelector<HTMLInputElement | HTMLTextAreaElement>('textarea, input')
+      field?.focus({ preventScroll: true })
+      // …with the caret AFTER what is already written, not at offset 0.
+      const end = field?.value.length ?? 0
+      field?.setSelectionRange(end, end)
+    }
+    return () => {
+      clearTimeout(ringTimer)
+      el.classList.remove(JUMP_RING_CLASS)
+    }
+  })
+  useEffect(() => {
+    const el = ref.current
+    if (!jumpSignal || !el) return
+    return land(el)
+  }, [jumpSignal])
+
+  if (fold) {
     return (
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">{title}</h3>
+      <FeldSection title={title ?? ''} summary={summary ?? ''} state={state ?? 'optional'} dense>
         {children}
-      </section>
+      </FeldSection>
     )
   }
   return (
-    <FeldSection
-      title={title}
-      summary={summary}
-      state={state}
-      dense={dense}
-      openSignal={openSignal}
-      jumpSignal={jumpSignal}
-      jumpFocus={jumpFocus}
-    >
+    <section ref={ref} className={cn('scroll-mt-28 space-y-2', className)}>
+      {title && <h3 className="text-sm font-semibold">{title}</h3>}
       {children}
-    </FeldSection>
+    </section>
   )
 }
 
@@ -517,20 +561,14 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     field.setSelectionRange(end, end)
   }, [autoFocusKurzbericht, disabled, isLoading])
 
-  // «Rapport erfassen» on the journey: unfold the Kurzbericht (the section
-  // gets the same signal) and put the caret in it. Delayed past the unfold and
-  // the smooth scroll — focusing a still-hidden textarea does nothing.
+  // «Rapport erfassen» on the journey: the same landing as the Abschluss
+  // question's Kurzbericht row — scroll there, ring it, caret at the end. A
+  // signal that fires while the rapport still loads lands once the block mounts.
+  const jumpToKurzbericht = useEffectEvent(() => jumpTo('kurzbericht'))
   useEffect(() => {
-    if (!focusKurzberichtSignal || disabled || isLoading) return
-    const timer = setTimeout(() => {
-      const field = kurzberichtRef.current
-      if (!field) return
-      field.focus()
-      const end = field.value.length
-      field.setSelectionRange(end, end)
-    }, 400)
-    return () => clearTimeout(timer)
-  }, [focusKurzberichtSignal, disabled, isLoading])
+    if (!focusKurzberichtSignal || disabled) return
+    jumpToKurzbericht()
+  }, [focusKurzberichtSignal, disabled])
 
   if (isLoading) {
     return (
@@ -559,26 +597,23 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const submitted = !rapport.is_draft
   const readOnly = Boolean(disabled)
 
-  // Folded blocks on the phone (§ the /feld length problem: 4.1 screens with
-  // everything open).
-  const collapsible = !isKp
-
-  // The KP mount folds too now — but only the LISTS. Inside the incident detail
-  // this form is one of four things in a tab, in a column of ~500px, and «kein
-  // Rapport» still produced a Materialliste, a Mannschaftsliste, a
-  // Fahrzeugliste, a photo block and an Eigentümer block to scroll past. Folded,
-  // each states what is in it, which answers «habe ich das schon ausgefüllt?»
-  // without opening anything.
-  //
-  // Kurzbericht stays open on both mounts: it is the one block a rapport really
-  // wants filled, and on the KP side it is what somebody dictating over the
+  // The KP mount folds its LISTS. Inside the incident detail this form is one
+  // of four things in a tab, in a column of ~500px, and «kein Rapport» still
+  // produced a Materialliste, a Mannschaftsliste, a Fahrzeugliste, a photo
+  // block and an Eigentümer block to scroll past. Folded, each states what is
+  // in it, which answers «habe ich das schon ausgefüllt?» without opening
+  // anything. Kurzbericht stays open: it is what somebody dictating over the
   // radio types into first.
-  const foldLists = true
+  //
+  // `/feld` folds nothing any more (owner pick 1B, 24.11.2026): the chips made
+  // the lists short enough that the whole rapport is one card, and a fold there
+  // was one more tap with a wet thumb.
+  const foldLists = isKp
+  // On /feld the blocks sit in one card, split by thin rules.
+  const blockClass = isKp ? undefined : 'rounded-xl px-3 py-3'
 
-
-
-  // What each closed block says about itself. A fold that hides the answer to
-  // "habe ich das schon ausgefüllt?" would just move the scrolling into taps.
+  // What each closed KP block says about itself — and what the Abschluss
+  // question counts.
   const materialCount =
     formData.materials.filter(row => row.used || row.left_on_site).length + formData.extra_materials.length
   const peopleCount = derivePersonnelCount(formData)
@@ -662,16 +697,13 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           two centimetres above it is a form field that asks to be read and then
           answers nothing. */}
 
+      <div className={isKp ? 'space-y-3' : 'divide-y divide-border/60 rounded-xl border border-border bg-card/50'}>
       {/* ------------------------------------------------- Kurzbericht */}
       <RapportSection
-        collapsible={collapsible}
         title={t('sections.kurzbericht')}
-        summary={kurzberichtSummary || t('summary.kurzberichtEmpty')}
-        // The one block a rapport really wants filled.
-        state={kurzberichtSummary ? 'filled' : 'todo'}
-        openSignal={focusKurzberichtSignal}
         jumpSignal={jumps.kurzbericht}
         jumpFocus
+        className={blockClass}
       >
         {/* No dictation tip under the box. Every phone keyboard has had a
             microphone key for a decade; the people who use it already do, and
@@ -680,77 +712,59 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           ref={kurzberichtRef}
           value={formData.kurzbericht}
           disabled={readOnly}
-          rows={isKp ? 3 : 5}
+          rows={3}
           placeholder={t('kurzberichtPlaceholder')}
           onChange={e => update('kurzbericht', e.target.value)}
         />
-        {showHandover && (
-          <div className="space-y-1.5">
-            <Label htmlFor="rapport-handover" className="text-xs text-muted-foreground">
-              {t('handedOverTo')}
-            </Label>
-            <Input
-              id="rapport-handover"
-              value={formData.handed_over_to}
-              disabled={readOnly}
-              placeholder={t('handedOverToPlaceholder')}
-              onChange={e => update('handed_over_to', e.target.value)}
-            />
-          </div>
-        )}
       </RapportSection>
 
       {/* ---------------------------------------------------- Personal */}
-      {/* Its own section since the three lists became one grammar. "Mannschaft
-          und Fahrzeuge" was one block for a historical reason — it used to be
-          headed "Kostenpflicht" and wanted two numbers — and the only place the
-          two ever meant something together was the summary line «5 Personen · 1
-          Fahrzeug». Mensch und Fahrzeug are not one list, and each section now
-          carries its own count in its own header. */}
+      {/* Its own section since the three lists became one grammar: Mensch und
+          Fahrzeug are not one list, and each section carries its own count. */}
       <RapportSection
-        collapsible={foldLists}
-        dense={isKp}
+        fold={foldLists}
         title={t('sections.personnel')}
         summary={peopleCount > 0 ? t('summary.personnel', { count: peopleCount }) : t('summary.personnelEmpty')}
         // Prefilled from the board, so it is normally already right — the
-        // summary is what lets a crew confirm that without opening it.
+        // summary is what lets the KP confirm that without opening it.
         state={peopleCount > 0 ? 'filled' : 'todo'}
         jumpSignal={jumps.personnel}
+        className={blockClass}
       >
-        <div className="space-y-2">
-          <FeldPersonnelChecklist
-            rows={formData.personnel}
-            extra={formData.extra_personnel}
-            candidates={rapport.prefill.personnel_candidates ?? []}
-            disabled={readOnly}
-            onChange={(rows: ApiRapportPersonnelRow[]) => update('personnel', rows)}
-            onExtraChange={(entries: ApiRapportExtraPersonnel[]) => update('extra_personnel', entries)}
-          />
-          {/* The divergence is itself information: it says the board was behind
-              reality, and the export prints it as such. It matters more now that
-              the list is only the aufgebotenen — this rapport feeds paid hours,
-              and the one failure mode of a shorter list is a name nobody
-              remembered to add back. Read off the list, never off a typed
-              number. */}
-          {isCorrected(derivePersonnelCount(formData), boardPersonnel) && (
-            <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
-          )}
-        </div>
+        <FeldPersonnelChecklist
+          rows={formData.personnel}
+          extra={formData.extra_personnel}
+          candidates={rapport.prefill.personnel_candidates ?? []}
+          leaderId={rapport.prefill.leader_personnel_id}
+          disabled={readOnly}
+          onChange={(rows: ApiRapportPersonnelRow[]) => update('personnel', rows)}
+          onExtraChange={(entries: ApiRapportExtraPersonnel[]) => update('extra_personnel', entries)}
+        />
+        {/* The divergence is itself information: it says the board was behind
+            reality, and the export prints it as such. It matters more now that
+            the list is only the aufgebotenen — this rapport feeds paid hours,
+            and the one failure mode of a shorter list is a name nobody
+            remembered to add back. Read off the list, never off a typed
+            number. */}
+        {isCorrected(peopleCount, boardPersonnel) && (
+          <p className="text-xs text-muted-foreground">{t('fromBoard', { count: boardPersonnel })}</p>
+        )}
       </RapportSection>
 
       {/* --------------------------------------------------- Fahrzeuge */}
       <RapportSection
-        collapsible={foldLists}
-        dense={isKp}
+        fold={foldLists}
         title={t('sections.vehicles')}
         summary={vehicleCount > 0 ? t('summary.vehicles', { count: vehicleCount }) : t('summary.vehiclesEmpty')}
         // «Kein Fahrzeug» is a normal, often correct answer for a Schadenplatz —
         // zu Fuss or privat angefahren — so this never nags.
         state={vehicleCount > 0 ? 'filled' : 'optional'}
+        className={blockClass}
       >
         <FeldVehicleChecklist
           rows={formData.vehicles}
           candidates={rapport.prefill.vehicle_candidates ?? []}
+          drivers={rapport.prefill.vehicle_drivers}
           disabled={readOnly}
           onChange={(rows: ApiRapportVehicleRow[]) => update('vehicles', rows)}
         />
@@ -758,24 +772,20 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
 
       {/* ---------------------------------------------------- Material */}
       <RapportSection
-        collapsible={foldLists}
-        dense={isKp}
+        fold={foldLists}
         title={t('material.title')}
         summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
         // An empty material list is not a gap — the board simply never got the
         // material (see the checklist's own empty state), so it never nags.
         state={materialCount > 0 ? 'filled' : 'optional'}
         jumpSignal={jumps.material}
+        className={blockClass}
       >
         <FeldMaterialChecklist
           rows={formData.materials}
           extraMaterials={formData.extra_materials}
           suggestions={rapport.prefill.material_name_suggestions ?? []}
           disabled={readOnly}
-          // ALWAYS: the section around it carries the title in both shapes —
-          // folded on /feld, as a plain heading in the KP mount — and the
-          // checklist's own one made the modal read «Material / Material».
-          hideHeading
           onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
           onExtraMaterialsChange={entries => update('extra_materials', entries)}
         />
@@ -784,11 +794,11 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ---------------------------------------------------------- Fotos */}
       {transport.photos && (
         <RapportSection
-          collapsible={foldLists}
-          dense={isKp}
+          fold={foldLists}
           title={t('sections.photos')}
           summary={photos.length > 0 ? t('summary.photos', { count: photos.length }) : t('summary.photosEmpty')}
           state={photos.length > 0 ? 'filled' : 'optional'}
+          className={blockClass}
         >
           <PhotoUpload
             photos={photos}
@@ -800,17 +810,17 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
         </RapportSection>
       )}
 
-      {/* --------------------------------- Eigentümer-/Halterdaten */}
+      {/* --------------------------------- Eigentümer / Geschädigte */}
       {showOwnerBlock && (
       <RapportSection
-        collapsible={foldLists}
-        dense={isKp}
+        fold={foldLists}
         title={t('sections.owner')}
         summary={ownerSummary || t('summary.ownerEmpty')}
         // Only some Schadenplätze have an owner to note at all.
         state={ownerSummary ? 'filled' : 'optional'}
         jumpSignal={jumps.owner}
         jumpFocus
+        className={blockClass}
       >
         {/* The first citizen PII in kp-rueck (§9): names, home addresses and
             plates of people who are not members. It lives with the incident and
@@ -820,64 +830,93 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             Dritte speichert" — rather than printed at a crew that cannot act on
             it. The line under the heading is gone, the retention is not. */}
 
-        {rapport.prefill.melder_name && (
-          <Button type="button" variant="outline" size="sm" disabled={readOnly} onClick={takeOverMelder}>
-            <Copy className="size-3.5" />
-            {t('takeOverMelder', { name: rapport.prefill.melder_name })}
-          </Button>
-        )}
-
-        {/* Name + Telefon (§18.31). §18.10's one free-text box was right about
-            Strasse, Ort, Kennzeichen and Typ — those really are prose, and they
-            live in the Kurzbericht now — and wrong about the number: a phone
-            written inside a paragraph cannot be dialled, which is the entire
-            reason for writing down who owns the flooded cellar. Deliberately
-            the same two shapes, the same input treatment and the same `tel:`
-            affordance the incident already gives the Melder. */}
-        <div className="space-y-1.5">
-          <Label htmlFor="rapport-owner-name" className="text-xs text-muted-foreground">
-            {t('ownerName')}
-          </Label>
-          <Input
-            id="rapport-owner-name"
-            value={formData.owner_name}
-            disabled={readOnly}
-            maxLength={200}
-            placeholder={t('ownerNamePlaceholder')}
-            onChange={e => update('owner_name', e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="rapport-owner-phone" className="text-xs text-muted-foreground">
+        {/* Name + Telefon (§18.31), side by side under the block's heading –
+            the heading says whose, the placeholders say which. §18.10's one
+            free-text box was right about Strasse, Ort, Kennzeichen and Typ —
+            those really are prose, and they live in the Kurzbericht now — and
+            wrong about the number: a phone written inside a paragraph cannot be
+            dialled, which is the entire reason for writing down who owns the
+            flooded cellar. */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor="rapport-owner-name" className="sr-only">
+              {t('ownerName')}
+            </Label>
+            <Input
+              id="rapport-owner-name"
+              value={formData.owner_name}
+              disabled={readOnly}
+              maxLength={200}
+              autoComplete="off"
+              placeholder={t('ownerNamePlaceholder')}
+              onChange={e => update('owner_name', e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="rapport-owner-phone" className="sr-only">
               {t('ownerPhone')}
             </Label>
+            <Input
+              id="rapport-owner-phone"
+              type="tel"
+              inputMode="tel"
+              value={formData.owner_phone}
+              disabled={readOnly}
+              maxLength={50}
+              autoComplete="off"
+              placeholder={t('ownerPhonePlaceholder')}
+              onChange={e => update('owner_phone', sanitizePhoneInput(e.target.value))}
+            />
+          </div>
+        </div>
+
+        {(rapport.prefill.melder_name || telHref(formData.owner_phone)) && (
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            {/* One tap that PREFILLS, never equates — see `takeOverMelder`. */}
+            {rapport.prefill.melder_name && (
+              <button
+                type="button"
+                disabled={readOnly}
+                onClick={takeOverMelder}
+                className="inline-flex min-w-0 cursor-pointer items-center gap-1.5 text-left text-sm font-medium underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Copy className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0 break-words">{t('takeOverMelder', { name: rapport.prefill.melder_name })}</span>
+              </button>
+            )}
             {/* Somebody rings from the pavement when nobody answers the door —
                 the same affordance the Melder gets on the board and on /feld. */}
             {telHref(formData.owner_phone) && (
               <a
                 href={telHref(formData.owner_phone) ?? undefined}
-                className="inline-flex items-center gap-1 text-xs font-medium text-foreground underline underline-offset-2 hover:decoration-2"
+                className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-foreground underline underline-offset-2 hover:decoration-2"
               >
-                <Phone className="h-3 w-3" />
+                <Phone className="size-3.5" aria-hidden="true" />
                 {t('ownerCall')}
               </a>
             )}
           </div>
-          <Input
-            id="rapport-owner-phone"
-            type="tel"
-            inputMode="tel"
-            value={formData.owner_phone}
-            disabled={readOnly}
-            maxLength={50}
-            placeholder={t('ownerPhonePlaceholder')}
-            onChange={e => update('owner_phone', sanitizePhoneInput(e.target.value))}
-          />
-        </div>
+        )}
       </RapportSection>
       )}
+
+      {/* ------------------------------------------------ Übergeben an */}
+      {showHandover && (
+        <RapportSection className={blockClass}>
+          <Label htmlFor="rapport-handover" className="text-xs text-muted-foreground">
+            {t('handedOverTo')}
+          </Label>
+          <Input
+            id="rapport-handover"
+            value={formData.handed_over_to}
+            disabled={readOnly}
+            autoComplete="off"
+            placeholder={t('handedOverToPlaceholder')}
+            onChange={e => update('handed_over_to', e.target.value)}
+          />
+        </RapportSection>
+      )}
+      </div>
 
       {/* ---------------------------------------------------- Abschluss */}
       <div className="space-y-2">

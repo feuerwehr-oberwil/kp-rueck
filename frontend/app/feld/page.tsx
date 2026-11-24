@@ -266,7 +266,7 @@ function FeldSurface() {
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
-  // «Rapport erfassen» on the journey: each increment unfolds the Kurzbericht
+  // «Rapport erfassen» on the journey: each increment scrolls to the Kurzbericht
   // and focuses it. Reset on incident switch so a remounted form does not
   // steal focus from somebody who merely opened another Schadenplatz.
   const [rapportFocusSignal, setRapportFocusSignal] = useState(0)
@@ -1308,16 +1308,11 @@ function FeldSurface() {
                 onReported={applyFieldReport}
                 // The journey's third step: carries the eye to the form below
                 // — only when that form is actually mounted on this page.
+                // The form scrolls to its Kurzbericht, rings it and puts the
+                // caret in it (`focusKurzberichtSignal`).
                 onOpenRapport={
                   assignmentRapportApplies(selectedAssignment)
-                    ? () => {
-                        document
-                          .getElementById('feld-rapport-section')
-                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                        // …and open the Kurzbericht with the caret in it — a
-                        // scroll to a page of folded blocks was half the trip.
-                        setRapportFocusSignal(signal => signal + 1)
-                      }
+                    ? () => setRapportFocusSignal(signal => signal + 1)
                     : undefined
                 }
               />
@@ -1364,7 +1359,7 @@ function FeldSurface() {
               </section>
             )}
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
-              <section id="feld-rapport-section" className="scroll-mt-4 space-y-3">
+              <section className="space-y-3">
                 <h2 className="type-label px-1 text-muted-foreground">{t('detail.rapportTitle')}</h2>
                 <FeldRapportForm
                   key={selectedAssignment.incident_id}

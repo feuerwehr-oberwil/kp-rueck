@@ -200,12 +200,6 @@ describe('the /feld mount keeps its "I am done" moment', () => {
   })
 })
 
-/** On /feld the blocks are folded (one screen instead of four), so anything
- *  below the fold is opened first — the same tap the crew makes. */
-async function openSection(name: RegExp) {
-  await userEvent.click(await screen.findByRole('button', { name }))
-}
-
 describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
   it('offers a tel: link as soon as the number is dialable', async () => {
     // The entire reason the phone is its own field: somebody rings from the
@@ -214,7 +208,6 @@ describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
     const load = vi.fn().mockResolvedValue(rapport({ exists: true, owner_phone: '079 111 22 33' }))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await openSection(/Eigentümer- \/ Halterdaten/)
     const link = await screen.findByRole('link', { name: /Anrufen/ })
     expect(link).toHaveAttribute('href', 'tel:0791112233')
   })
@@ -241,7 +234,6 @@ describe('Eigentümer / Halter is a name and a phone (§18.31)', () => {
     )
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await openSection(/Eigentümer- \/ Halterdaten/)
     await userEvent.click(await screen.findByRole('button', { name: /Melder übernehmen/ }))
 
     // The crew's own words about who owns the place beat a name the dispatcher
@@ -300,54 +292,37 @@ describe('a filed rapport on /feld (the amend flow)', () => {
 })
 
 /**
- * The phone folds, the KP does not.
- *
- * `/feld` had grown to 4.1 phone screens with every block of the rapport open at
- * once — a crew scrolled past four of them to reach the one they needed. Folded,
- * each block has to keep saying what is inside it, or the scrolling has merely
- * turned into tapping.
+ * /feld is ONE open card (owner pick 1B «Compact chips», 24.11.2026): no fold
+ * to open, the lists as chips. The KP keeps its Kurzbericht open and folds the
+ * lists – there the form is one of four things in a ~500px tab column.
  */
-describe('the rapport is folded into blocks on /feld', () => {
-  it('starts closed, and every block summarises itself', async () => {
+describe('the /feld rapport is one open card', () => {
+  it('shows every block at once, the lists as chips', async () => {
     const load = vi.fn().mockResolvedValue(
       rapport({
         exists: true,
         kurzbericht: 'Keller ausgepumpt',
         personnel: [
-          { personnel_id: 'p-1', name: 'Meier Andrea', present: true, on_board: true },
+          { personnel_id: 'p-1', name: 'Gatti Olivier', present: true, on_board: true },
           { personnel_id: 'p-2', name: 'Suter Raoul', present: false, on_board: true },
         ],
         vehicles: [{ vehicle_id: 'v-1', name: 'Pio', present: true, on_board: true }],
+        prefill: { ...rapport().prefill, leader_personnel_id: 'p-1', vehicle_drivers: { 'v-1': 'Dürring Jan' } },
       }),
     )
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    // Closed: the fields are still mounted (half-typed text survives a fold)
-    // but nothing of them is on screen…
-    await screen.findByRole('button', { name: /Kurzbericht/ })
-    expect(screen.getByPlaceholderText('Lage, Tätigkeit, Material')).not.toBeVisible()
-    // …but what it contains is still readable without opening anything.
-    expect(screen.getByRole('button', { name: /Kurzbericht/ })).toHaveTextContent('Keller ausgepumpt')
-    // Three sections now, each with its own count: «Mannschaft und Fahrzeuge»
-    // was one block for a historical reason and made «1 Fahrzeug» something the
-    // reader had to pick out of a compound line.
-    //
-    // The two headings and the two summary lines are NEW message keys. Until
-    // the German catalogue carries them, next-intl renders the key path — the
-    // patterns match either spelling on purpose, so this spec does not have to
-    // be written twice.
-    expect(screen.getByRole('button', { name: /Mannschaft/ })).toHaveTextContent(
-      /1 Person|summary\.personnel/,
-    )
-    expect(screen.getByRole('button', { name: /Fahrzeuge/ })).toHaveTextContent(
-      /1 Fahrzeug|summary\.vehicles/,
-    )
-    expect(screen.getByRole('button', { name: /Material/ })).toHaveTextContent('kein Material erfasst')
-
-    await userEvent.click(screen.getByRole('button', { name: /Kurzbericht/ }))
-    const box = screen.getByPlaceholderText('Lage, Tätigkeit, Material')
-    expect(box).toBeVisible()
-    expect(box).toHaveValue('Keller ausgepumpt')
+    expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Material')).toHaveValue('Keller ausgepumpt')
+    // Nothing to unfold.
+    expect(document.querySelector('[aria-expanded]')).toBeNull()
+    const crew = screen.getByRole('list', { name: 'Mannschaft' })
+    expect(within(crew).getByText('Gatti Olivier')).toBeVisible()
+    expect(within(crew).getByText('EL')).toBeVisible()
+    // Taken out of the list, not shown as an unticked row.
+    expect(within(crew).queryByText('Suter Raoul')).toBeNull()
+    expect(within(screen.getByRole('list', { name: 'Fahrzeuge' })).getByText(/Dürring Jan/)).toBeVisible()
+    expect(screen.getByLabelText('Eigentümer / Halter')).toBeVisible()
+    expect(screen.getByLabelText('Übergeben an (optional)')).toBeVisible()
   })
 
   it('folds the KP mount\'s LISTS but never its Kurzbericht', async () => {
@@ -358,10 +333,9 @@ describe('the rapport is folded into blocks on /feld', () => {
     expect(await screen.findByPlaceholderText('Lage, Tätigkeit, Material')).toBeVisible()
     expect(screen.queryByRole('button', { name: /Kurzbericht/ })).toBeNull()
 
-    // …while the lists state what is in them and stay out of the way. In the
-    // detail this form is one of four things in a tab, not a page of its own.
-    const material = screen.getByRole('button', { name: /Material/ })
-    expect(material).toBeInTheDocument()
+    // …while the lists state what is in them and stay out of the way.
+    const material = screen.getByRole('button', { name: /^Material/ })
+    expect(material).toHaveTextContent('kein Material erfasst')
     await userEvent.click(material)
     expect(await screen.findByText('Kein Material erfasst.')).toBeVisible()
   })
@@ -387,15 +361,14 @@ describe('the crew count is reconciled against the board', () => {
     const load = vi.fn().mockResolvedValue(withCrew(false, 1))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await userEvent.click(await screen.findByRole('button', { name: /Mannschaft/ }))
-    expect(screen.getByText('vom Board: 1')).toBeVisible()
+    expect(await screen.findByText('vom Board: 1')).toBeVisible()
   })
 
   it('stays quiet while the two agree — a marker that always shows is not a signal', async () => {
     const load = vi.fn().mockResolvedValue(withCrew(true, 1))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
-    await userEvent.click(await screen.findByRole('button', { name: /Mannschaft/ }))
+    await screen.findByRole('list', { name: 'Mannschaft' })
     expect(screen.queryByText(/vom Board/)).toBeNull()
   })
 })
@@ -516,9 +489,10 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     expect(within(dialog).getByRole('button', { name: 'Ohne Kurzbericht und Mannschaft abschliessen' })).toBeInTheDocument()
   })
 
-  it('a row lands on its section: unfolded, ringed, and the caret in its text field', async () => {
+  it('a row lands on its block: scrolled to, ringed, and the caret in its text field', async () => {
     const save = vi.fn()
     const load = vi.fn().mockResolvedValue(rapport({ personnel: crew }))
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save }} />)
 
     await screen.findByRole('button', { name: 'Rapport abschliessen' })
@@ -529,13 +503,27 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull()
     const box = screen.getByPlaceholderText('Lage, Tätigkeit, Material')
     await vi.waitFor(() => expect(box).toHaveFocus())
-    expect(box).toBeVisible()
     expect(box.closest('section')).toHaveClass('this-one-ring')
+    expect(scrollIntoView.mock.contexts).toContain(box.closest('section'))
+    scrollIntoView.mockRestore()
     // Going there is not going ahead.
     expect(save).not.toHaveBeenCalled()
   })
 
-  it('a checklist section opens and rings, but takes no focus', async () => {
+  it('«Rapport erfassen» on the journey lands on the Kurzbericht, caret after the text', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ kurzbericht: 'Ast entfernt' }))
+    const transport = { load, save: vi.fn() }
+    const { rerender } = renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={transport} />)
+    const box = (await screen.findByPlaceholderText('Lage, Tätigkeit, Material')) as HTMLTextAreaElement
+    expect(box).not.toHaveFocus()
+
+    rerender(<FeldRapportForm incidentId="inc-1" transport={transport} focusKurzberichtSignal={1} />)
+    await vi.waitFor(() => expect(box).toHaveFocus())
+    expect(box.selectionStart).toBe('Ast entfernt'.length)
+    expect(box.closest('section')).toHaveClass('this-one-ring')
+  })
+
+  it('a checklist block rings, but takes no focus', async () => {
     const load = vi.fn().mockResolvedValue(rapport({ personnel: crew }))
     renderWithIntl(<FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} />)
 
@@ -544,10 +532,8 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     const dialog = await screen.findByRole('alertdialog')
     await userEvent.click(within(dialog).getByRole('button', { name: /^Material/ }))
 
-    // Not «Material hinzufügen», the picker button inside the section.
-    const header = screen.getByRole('button', { name: /^Material(?! hinzufügen)/ })
-    await vi.waitFor(() => expect(header.closest('section')).toHaveClass('this-one-ring'))
-    expect(header).toHaveAttribute('aria-expanded', 'true')
-    expect(header.closest('section')?.contains(document.activeElement)).toBe(false)
+    const block = screen.getByRole('list', { name: 'Material' }).closest('section')
+    await vi.waitFor(() => expect(block).toHaveClass('this-one-ring'))
+    expect(block?.contains(document.activeElement)).toBe(false)
   })
 })
