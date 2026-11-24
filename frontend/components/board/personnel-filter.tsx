@@ -150,7 +150,17 @@ export function PersonnelFilterButton({
           </Button>
         </PopoverTrigger>
       </ShortcutTooltip>
-      <PopoverContent align="start" side="right" className="w-80 space-y-3 p-3.5">
+      {/* Keys typed in here stay here: the board's shortcuts listen on window, and ↓ would move
+          the board selection instead of scrolling the popover. Escape still bubbles, so the
+          popover closes as usual. */}
+      <PopoverContent
+        align="start"
+        side="right"
+        className="w-80 space-y-3 p-3.5"
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") event.stopPropagation()
+        }}
+      >
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">{t("title")}</h2>
           {changed && (
