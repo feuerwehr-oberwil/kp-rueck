@@ -309,9 +309,9 @@ export function PersonnelSidebar({
                   <div className="space-y-0.5">
                     {people.map((person) => (
                       /* The row answers where the person is — completely.
-                         An anchor rather than a trigger: the card keeps
-                         its own click handler, which decides between a
-                         direct jump and this list. */
+                         An anchor rather than a trigger: the row's click
+                         (`handlePersonClick`) opens this popover, one place
+                         or many. */
                       <Popover
                         key={person.id}
                         open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}

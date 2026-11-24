@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { type Person, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentRefLabel } from "@/lib/incident-types"
-import { soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { REKO_TARGET, RESOURCES_TARGET, type PersonNowLink } from "@/lib/detail-target"
 import { type FooterSheet } from "@/components/board/board-footer"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
@@ -100,9 +100,9 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   }, [operations, groups, getGroupResources, groupNames, tCommon, tPopover, tLeader])
 
   /**
-   * Everywhere this person is held, functions included — what a click on the row (and ⌘K)
-   * decides with: one place to go jumps there (`soleDestination`), anything else opens the
-   * popover. The special functions come straight out of the context (they are already on
+   * Everywhere this person is held, functions included — what ⌘K decides with: one place to
+   * go jumps there (`soleDestination`), anything else opens the sidebar on the person. The
+   * special functions come straight out of the context (they are already on
    * the person) instead of a per-click API fetch.
    */
   const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
@@ -205,19 +205,12 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   /**
    * A sidebar person row answers «wo ist diese Person?» — always.
    *
-   * Every early return here used to be a click that did nothing: a free person
-   * failed the occupancy gate, and an occupied one with no listable binding (the
-   * Reko-Person who is not on an incident yet) fell through the second. The
-   * popover now opens in both cases and says so in words; only the one-incident
-   * shortcut still jumps straight to the card, which is what operators know.
+   * The click always opens the person popover, one place or many (owner pick A,
+   * 24.11.2026): the one-place shortcut jumped to the card and skipped what the popover
+   * offers (functions, Abmelden). The popover's place row still links
+   * to the card. Material rows keep their jump (`handleMaterialClick` in app/page.tsx).
    */
-  const handlePersonClick = (person: Person) => {
-    const bindings = collectPersonBindings(person)
-    const only = soleDestination(bindings)
-    if (only) {
-      followBinding(only)
-      return
-    }
+  const handlePersonClick = (person: Pick<Person, "id">) => {
     setBindingsPopover({ kind: "person", id: person.id })
   }
 
