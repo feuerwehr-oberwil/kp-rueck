@@ -538,6 +538,29 @@ describe("GroupsProvider — assign / unassign route resources", () => {
     await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
   })
 
+  // Sol review E round 3: a staged «Hierher verschieben» whose Auftrag holder was released
+  // elsewhere meanwhile goes on with the assign – the 404 says the resource is free already.
+  it("counts a 404 on unassign as released, without a toast", async () => {
+    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
+    getIncidentGroups.mockResolvedValue([
+      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "personnel", resource_id: "p1" })] }),
+    ])
+    unassignGroupResource.mockRejectedValueOnce(new ApiError("Zuweisung nicht gefunden", 404, true))
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
+
+    getIncidentGroups.mockResolvedValueOnce([apiGroup({ assignments: [] })])
+    let ok: boolean | undefined
+    await act(async () => {
+      ok = await result.current.unassignResource(GROUP_ID, "a1")
+    })
+
+    expect(ok).toBe(true)
+    expect(toastError).not.toHaveBeenCalled()
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
+  })
+
   it("getGroupResources splits the route's assignments by kind", async () => {
     getIncidentGroups.mockResolvedValue([
       apiGroup({

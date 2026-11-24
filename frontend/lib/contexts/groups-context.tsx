@@ -78,7 +78,8 @@ interface GroupsContextType {
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
   /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
   assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
-  /** Release a route-owned resource by its group-assignment id. */
+  /** Release a route-owned resource by its group-assignment id. True also when the server
+   *  answers 404: the assignment or the Auftrag is gone, so the resource is free already. */
   unassignResource: (groupId: string, assignmentId: string) => Promise<boolean>
   /** «bleibt vor Ort» / «kehrt zurück» for a route vehicle – optimistic, reverts with a toast. */
   setRouteDriverStay: (groupId: string, assignmentId: string, driverStay: boolean) => Promise<boolean>
@@ -725,6 +726,10 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         await refreshGroups()
         return true
       } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          await refreshGroups()
+          return true
+        }
         console.error("Failed to release route resource:", error)
         setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
         toast.error(translateOutsideReact("notifications.groups.unassignFailed"))

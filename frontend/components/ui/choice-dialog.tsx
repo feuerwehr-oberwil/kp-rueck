@@ -39,6 +39,8 @@ export interface Choice {
  * - Two choice cards side by side (stacked on a phone), each with a mini before/after diagram
  *   and one sentence of the consequence. One click on a card, or its letter, runs it.
  * - The only footer button is Abbrechen: ink, focused on open, so Enter and Esc change nothing.
+ * - Capped at `modal-h-tall`: on a short screen only the cards scroll (`data-slot="choice-cards"`),
+ *   the title and Abbrechen stay in view (Sol review E round 3).
  *
  * The CALLER closes it, like `ConfirmDialog` with `onCancel`: every answer changes the caller's
  * state, Abbrechen / Esc call `onCancel`. While an answer runs every button waits; a rejecting
@@ -91,7 +93,7 @@ export function ChoiceDialog({
   return (
     <AlertDialog open onOpenChange={(next) => !next && !busy && onCancel()}>
       {/* Radix AlertDialog focuses Abbrechen on open: Enter = nichts ändern. */}
-      <AlertDialogContent size="md" onKeyDown={onKeyDown}>
+      <AlertDialogContent size="md" className="modal-h-tall grid-rows-[auto_minmax(0,1fr)_auto]" onKeyDown={onKeyDown}>
         <AlertDialogHeader>
           <AlertDialogTitle className={icon ? 'flex items-center gap-2' : undefined}>
             {icon && <span className="flex shrink-0">{icon}</span>}
@@ -99,7 +101,8 @@ export function ChoiceDialog({
           </AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/* The one scroller; `-m-1 p-1` keeps the cards' focus ring inside its clip. */}
+        <div data-slot="choice-cards" className="-m-1 grid min-h-0 gap-3 overflow-y-auto p-1 sm:grid-cols-2">
           {choices.map((choice) => (
             <button
               key={choice.shortcut}

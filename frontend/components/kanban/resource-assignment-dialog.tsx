@@ -9,6 +9,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { SurfaceStep, SurfaceStepEscHint, useOpeningSurface } from "@/components/ui/surface-step"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertTriangle, Truck, Footprints, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -218,8 +219,12 @@ export function ResourceAssignmentDialog({
   // dialog is open) was wiping the user's in-progress ticks — boxes appeared to
   // untick themselves. Guarding on the false→true edge keeps selections stable.
   const wasOpenRef = useRef(false)
+  // Counts the openings, so a «Fertig» that finishes after a close and reopen leaves the new
+  // picker open (`handleConfirm`).
+  const openSession = useRef(0)
   useEffect(() => {
     if (open && !wasOpenRef.current) {
+      openSession.current++
       setSelectedPersonnel(new Set(assignedPersonnelIds))
       setSelectedMaterials(new Set(assignedMaterials))
       stagedMoves.current.clear()
@@ -375,7 +380,8 @@ export function ResourceAssignmentDialog({
    * «Fertig» for one ticked resource: free it from the holders a staged move leaves. Resolves
    * false when a release fails (its context toasts it): the caller then skips the assign, so
    * «Hierher verschieben» never ends as a double booking, and the holders not yet freed stay
-   * staged for the next «Fertig».
+   * staged for the next «Fertig». A holder that no longer holds it (released elsewhere since
+   * the prompt; an Auftrag release the server answers 404) counts as freed – no new question.
    */
   const releaseStaged = async (resourceType: 'personnel' | 'material', resourceId: string): Promise<boolean> => {
     const bindings = stagedMoves.current.get(resourceId)
@@ -385,21 +391,43 @@ export function ResourceAssignmentDialog({
     while (bindings.length > 0) {
       const binding = bindings[0]
       const freed =
-        binding.kind === 'incident'
+        !stillHeld(binding, resourceType, resourceId) ||
+        (binding.kind === 'incident'
           ? resourceType === 'material'
             ? await removeMaterial(binding.id, resourceId)
             : await removeCrew(binding.id, resourceId)
           : binding.assignmentId
             ? await unassignResource(binding.id, binding.assignmentId)
-            : true
+            : true)
       if (!freed) return false
       bindings.shift()
     }
     stagedMoves.current.delete(resourceId)
     return true
   }
+  /** Whether the board still shows `binding` holding the resource. */
+  const stillHeld = (binding: Binding, resourceType: 'personnel' | 'material', resourceId: string): boolean => {
+    if (binding.kind === 'route') {
+      return groups.some((g) => g.id === binding.id && g.assignments.some((a) => a.id === binding.assignmentId))
+    }
+    const op = operations.find((o) => o.id === binding.id)
+    if (!op) return false
+    return resourceType === 'material'
+      ? op.materialAssignments.has(resourceId)
+      : op.crew.some((m) => m.personnelId === resourceId)
+  }
   // One «Fertig» at a time: a second click while releases run would free and assign twice.
+  // The ref answers synchronously (a double click); `saving` freezes the picker meanwhile – no
+  // tick, no close – so what «Fertig» commits is what the operator sees.
   const committing = useRef(false)
+  const [saving, setSaving] = useState(false)
+  const close = () => {
+    if (!committing.current) onOpenChange(false)
+  }
+  const onOpenChangeUnlessSaving = (next: boolean) => {
+    if (next) onOpenChange(true)
+    else close()
+  }
 
   // Materials bound to ANOTHER incident/Auftrag (never the current target —
   // anything in assignedMaterials is "here"). Status doubles as a fallback flag
@@ -601,6 +629,7 @@ export function ResourceAssignmentDialog({
   }
 
   const handleTogglePersonSelection = (person: Person) => {
+    if (committing.current) return
     // Deselecting is always immediate.
     if (selectedPersonnel.has(person.id)) {
       setSelectedPersonnel(prev => {
@@ -658,6 +687,7 @@ export function ResourceAssignmentDialog({
 
   // Toggle selection for materials (local state only, doesn't call API)
   const handleToggleMaterialSelection = (material: Material) => {
+    if (committing.current) return
     // Deselecting is always immediate.
     if (selectedMaterials.has(material.id)) {
       setSelectedMaterials(prev => {
@@ -684,7 +714,7 @@ export function ResourceAssignmentDialog({
   // Toggle all materials in a group at once (group headers pass FREE ids only —
   // occupied-elsewhere items are excluded and stay individual-confirm-only)
   const handleToggleGroupSelection = (groupMaterialIds: string[]) => {
-    if (groupMaterialIds.length === 0) return
+    if (groupMaterialIds.length === 0 || committing.current) return
     setSelectedMaterials(prev => {
       const next = new Set(prev)
       const allSelected = groupMaterialIds.every(id => next.has(id))
@@ -814,7 +844,7 @@ export function ResourceAssignmentDialog({
                 // Closed the normal way first (the board's close handler resumes
                 // any status gate), then the sheet with the link opens.
                 onClick: () => {
-                  onOpenChange(false)
+                  close()
                   onShowCheckIn()
                 },
               } satisfies EmptyStateAction)
@@ -913,50 +943,52 @@ export function ResourceAssignmentDialog({
     }
     if (committing.current) return
     committing.current = true
+    setSaving(true)
+    const session = openSession.current
     let released = true
+    try {
+      // Process crew changes
+      if (resourceType === 'crew') {
+        const currentAssigned = new Set(assignedPersonnelIds)
+        const toAdd = [...selectedPersonnel].filter(id => !currentAssigned.has(id))
+        const toRemove = [...currentAssigned].filter(id => !selectedPersonnel.has(id))
 
-    // Process crew changes
-    if (resourceType === 'crew') {
-      const currentAssigned = new Set(assignedPersonnelIds)
-      const toAdd = [...selectedPersonnel].filter(id => !currentAssigned.has(id))
-      const toRemove = [...currentAssigned].filter(id => !selectedPersonnel.has(id))
+        // Add new assignments
+        for (const id of toAdd) {
+          const person = personnel.find(p => p.id === id)
+          if (!person) continue
+          if (await releaseStaged('personnel', person.id)) onAssignPerson(person.id, person.name, operationId)
+          else released = false
+        }
 
-      // Add new assignments
-      for (const id of toAdd) {
-        const person = personnel.find(p => p.id === id)
-        if (!person) continue
-        if (await releaseStaged('personnel', person.id)) onAssignPerson(person.id, person.name, operationId)
-        else released = false
+        // Remove unselected
+        for (const id of toRemove) {
+          onRemovePerson(operationId, id)
+        }
       }
 
-      // Remove unselected
-      for (const id of toRemove) {
-        onRemovePerson(operationId, id)
-      }
+      // Process material changes
+      if (resourceType === 'materials') {
+        const currentAssigned = new Set(assignedMaterials)
+        const toAdd = [...selectedMaterials].filter(id => !currentAssigned.has(id))
+        const toRemove = [...currentAssigned].filter(id => !selectedMaterials.has(id))
 
+        // Add new assignments
+        for (const id of toAdd) {
+          if (await releaseStaged('material', id)) onAssignMaterial(id, operationId)
+          else released = false
+        }
+
+        // Remove unselected
+        for (const id of toRemove) {
+          onRemoveMaterial(operationId, id)
+        }
+      }
+    } finally {
+      committing.current = false
+      setSaving(false)
     }
-
-    // Process material changes
-    if (resourceType === 'materials') {
-      const currentAssigned = new Set(assignedMaterials)
-      const toAdd = [...selectedMaterials].filter(id => !currentAssigned.has(id))
-      const toRemove = [...currentAssigned].filter(id => !selectedMaterials.has(id))
-
-      // Add new assignments
-      for (const id of toAdd) {
-        if (await releaseStaged('material', id)) onAssignMaterial(id, operationId)
-        else released = false
-      }
-
-      // Remove unselected
-      for (const id of toRemove) {
-        onRemoveMaterial(operationId, id)
-      }
-
-    }
-
-    committing.current = false
-    if (released) onOpenChange(false)
+    if (released && session === openSession.current) onOpenChange(false)
   }
 
   const getDialogTitle = () => {
@@ -1487,14 +1519,16 @@ export function ResourceAssignmentDialog({
   const footerButtons = (
     <>
       {(resourceType === 'crew' || resourceType === 'materials') && (
-        <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <Button variant="outline" disabled={saving} onClick={close}>
           {t('common.cancel')}
         </Button>
       )}
       <Button
-        onClick={resourceType === 'vehicles' ? () => onOpenChange(false) : handleConfirm}
+        onClick={resourceType === 'vehicles' ? close : handleConfirm}
+        disabled={saving}
         className="hover-delight"
       >
+        {saving && <ShellLoader className="size-4" />}
         {t('common.done')}
         {hasPendingChanges && (resourceType === 'crew' || resourceType === 'materials') && (
           <span className="ml-1.5 px-1.5 py-0.5 text-2xs bg-action-foreground/20 rounded">
@@ -1516,7 +1550,7 @@ export function ResourceAssignmentDialog({
   // keyboard until a tap. The ✕ is centred on the title line: 20px top padding + half its
   // 22px line = 31px.
   const sheet = (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChangeUnlessSaving}>
       <SheetContent side="bottom" className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]" onKeyDown={onPickerKeyDown}>
         <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
           <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{getDialogTitle()}</SheetTitle>
@@ -1533,7 +1567,7 @@ export function ResourceAssignmentDialog({
   )
 
   const dialog = (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChangeUnlessSaving}>
       {/* Fixed (definite) height (size L): gives flex-1 a real basis so the list scrolls
           internally instead of overflowing, and keeps the dialog the same size as
           you switch quick filters so the top doesn't jump. overflow-hidden clips.
@@ -1584,7 +1618,7 @@ export function ResourceAssignmentDialog({
       host={stepHost}
       title={getDialogTitle()}
       description={getDialogDescription()}
-      onBack={() => onOpenChange(false)}
+      onBack={close}
       surface={getDialogTitle()}
       testId="assignment-step"
     >
