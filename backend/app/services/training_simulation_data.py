@@ -672,12 +672,15 @@ def generate_dangers(incident_type: str | None = None) -> dict[str, Any]:
 def generate_effort(text: str, level: float | None = None) -> dict[str, Any]:
     """People and hours for this Reko text (`REKO_EFFORT`). `level` places a water or oil
     scene in its range by the figure the crew found (0 = floor, 1 = ceiling); without
-    one, any value in the range."""
+    one, any value in the range. Hours come in quarter hours below one hour, half hours
+    above."""
     min_p, max_p, min_h, max_h = REKO_EFFORT[text]
     if level is None:
-        people, hours = random.randint(min_p, max_p), random.randint(min_h, max_h)
+        people, raw_hours = random.randint(min_p, max_p), random.uniform(min_h, max_h)
     else:
-        people, hours = round(min_p + level * (max_p - min_p)), round(min_h + level * (max_h - min_h))
+        people, raw_hours = round(min_p + level * (max_p - min_p)), min_h + level * (max_h - min_h)
+    step = 0.25 if raw_hours < 1 else 0.5
+    hours = min(max(round(raw_hours / step) * step, min_h), max_h)
     return {
         "personnel_count": people,
         "vehicles_needed": [],

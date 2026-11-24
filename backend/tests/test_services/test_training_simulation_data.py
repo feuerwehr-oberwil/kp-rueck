@@ -79,7 +79,8 @@ def test_every_reko_text_has_its_effort():
     texts = illustrated_summaries()
     assert texts == REKO_EFFORT.keys(), "Add or drop the text's people/hours in training_reko_effort.py"
     for text, (min_p, max_p, min_h, max_h) in REKO_EFFORT.items():
-        assert 1 <= min_p <= max_p and 1 <= min_h <= max_h, text
+        assert 1 <= min_p <= max_p and 0.25 <= min_h <= max_h, text
+        assert min_h % 0.25 == 0 and max_h % 0.25 == 0, text
 
 
 def test_a_water_figure_picks_the_picture_of_its_depth(tmp_path, monkeypatch):
@@ -261,10 +262,11 @@ class TestGenerateRekoReportData:
                 assert min_p <= data["effort_json"]["personnel_count"] <= max_p, data["summary_text"]
                 assert min_h <= data["effort_json"]["estimated_duration_hours"] <= max_h, data["summary_text"]
 
-    @pytest.mark.parametrize(("depth", "people", "hours"), [(5, 2, 1), (20, 4, 2), (50, 5, 3)])
+    # Owner 24.11.2026: a film of water is one person with the Nasssauger for half an hour.
+    @pytest.mark.parametrize(("depth", "people", "hours"), [(5, 1, 0.5), (20, 3, 2), (50, 5, 3)])
     def test_the_found_water_depth_places_the_effort_in_its_range(self, depth, people, hours):
         text = "Ganzer Keller unter Wasser, Kühltruhe und Kartons stehen im Wasser. Mehrere Räume betroffen."
-        assert REKO_EFFORT[text] == (2, 5, 1, 3)
+        assert REKO_EFFORT[text] == (1, 5, 0.5, 3)
         effort = generate_effort(text, _figure_level("elementar_water", f"Vor Ort ~{depth}cm."))
         assert (effort["personnel_count"], effort["estimated_duration_hours"]) == (people, hours)
 
