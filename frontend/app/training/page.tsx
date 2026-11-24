@@ -3,19 +3,74 @@
 import { ProtectedRoute } from "@/components/protected-route"
 import { PageNavigation } from "@/components/page-navigation"
 import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
-import { TrainingControls } from "@/components/training-controls"
-import { TrainingCheckinCard } from "@/components/training-checkin-card"
-import { TrainingSimulationControls } from "@/components/training-simulation-controls"
-import { TrainingGpsSimulation } from "@/components/training-gps-simulation"
 import { TrainingBand } from "@/components/training-mode-chrome"
+import { RegieIncidents } from "@/components/training/regie-incidents"
+import { RegiePrepare } from "@/components/training/regie-prepare"
+import { RegieProvider, useRegie } from "@/components/training/regie-provider"
+import { RegieStoerung } from "@/components/training/regie-stoerung"
+import { RegieSwitches } from "@/components/training/regie-switches"
+import { PausedNote, RegieTimeline, RegieTitle } from "@/components/training/regie-timeline"
 import { useEvent } from "@/lib/contexts/event-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { LoadingStatus } from "@/components/ui/shell-loader"
 
+/** The Regie's body once its state is in: two columns on a desk (xl), one on the phone. */
+function RegieBody() {
+  const t = useTranslations("training")
+  const { state, failed, reload } = useRegie()
+
+  if (!state) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+        {failed ? (
+          <>
+            <p className="text-sm text-muted-foreground">{t("regie.loadFailed")}</p>
+            <Button variant="outline" onClick={() => void reload().catch(() => {})}>
+              {t("regie.retry")}
+            </Button>
+          </>
+        ) : (
+          <LoadingStatus size="surface" className="text-sm">{t("page.loading")}</LoadingStatus>
+        )}
+      </main>
+    )
+  }
+
+  return (
+    <>
+      {/* Desktop (xl): left = run the drill (switches, timeline, Störung), right = the incidents
+          and the preparation. Below xl one column in that order; the Störung button stands in
+          the footer above the bottom nav, in flow, so it never covers the last row. */}
+      <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <div className="mx-auto flex max-w-2xl flex-col gap-4 xl:grid xl:max-w-7xl xl:grid-cols-2 xl:items-start xl:gap-6">
+          <div className="flex min-w-0 flex-col gap-4">
+            <RegieSwitches />
+            <PausedNote />
+            <RegieTimeline />
+            <RegieStoerung className="hidden xl:flex" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <RegieIncidents />
+            <RegiePrepare />
+          </div>
+        </div>
+      </main>
+      <div className="shrink-0 border-t border-border/60 bg-background px-4 py-2 xl:hidden">
+        <RegieStoerung />
+      </div>
+    </>
+  )
+}
+
+/**
+ * Übungs-Steuerung «Regie» (`/training`): the trainer runs the drill from here – from a
+ * phone during the Übung, from a desk too. Only for a training Ereignis.
+ */
 export default function TrainingPage() {
   const t = useTranslations("training")
   const { selectedEvent, isEventLoaded } = useEvent()
@@ -65,42 +120,23 @@ export default function TrainingPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-full flex-col bg-background text-foreground">
-        {/* Same warning strip as the board and the wall display — this console
-            only ever opens on a training Ereignis, and it says so the same way.
-            Fixed and out of flow, like everywhere else, so the four surfaces
-            cannot drift apart by 3px. */}
-        <TrainingBand />
-        <header className="flex items-center justify-between border-b border-border/50 bg-header px-4 sm:px-6 py-2 min-h-14">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{t("common.title")}</h1>
-          <PageNavigation
-            currentPage="training"
-            hasSelectedEvent={!!selectedEvent}
-          />
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-nav-reserve md:pb-8">
-          {/* Desktop (xl+): two columns so the whole console fits with minimal
-              scrolling — left is "prepare the exercise" (generation incl.
-              Automatik + Personal einchecken), right is "run the field"
-              (Nächste Aktionen + GPS drives), the pair a trainer actually works
-              during a drill. Below xl everything stacks. */}
-          <div className="mx-auto max-w-4xl xl:max-w-7xl">
-            <div className="flex flex-col gap-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6">
-              <div className="flex flex-col gap-4">
-                <TrainingControls />
-                <TrainingCheckinCard />
-              </div>
-              <div className="flex flex-col gap-4">
-                <TrainingSimulationControls />
-                <TrainingGpsSimulation />
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <MobileBottomNavigation currentPage="training" />
-      </div>
+      <RegieProvider eventId={selectedEvent.id}>
+        {/* The page ends at the bottom nav (its measured height), so the footer stands on it. */}
+        <div className="flex h-full flex-col bg-background pb-[var(--nav-reserve,0px)] text-foreground">
+          {/* Same warning strip as the board and the wall display: this console only ever
+              opens on a training Ereignis, and it says so the same way. */}
+          <TrainingBand />
+          <header className="flex items-center justify-between gap-2 border-b border-border/50 bg-header px-4 sm:px-6 py-2 min-h-14">
+            <RegieTitle />
+            <PageNavigation
+              currentPage="training"
+              hasSelectedEvent={!!selectedEvent}
+            />
+          </header>
+          <RegieBody />
+          <MobileBottomNavigation currentPage="training" />
+        </div>
+      </RegieProvider>
     </ProtectedRoute>
   )
 }
