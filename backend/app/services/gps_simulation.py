@@ -15,6 +15,10 @@ Movement model: straight line from start to target with a realistic speed profil
 cruise (default 40 km/h), linear deceleration over the final stretch, then parked
 at the target with speed 0. Positions are a pure function of elapsed time, so the
 10s poll cadence needs no incremental state.
+
+Pause (the Regie's ⏸, `services/training_regie.py`): ``pause()`` freezes the registry's
+clock, so every drive stands where it is with speed 0; ``resume()`` shifts each drive's
+``started_at`` by the pause, so it rolls on from the same spot.
 """
 
 import asyncio
@@ -22,7 +26,7 @@ import contextlib
 import logging
 import math
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -75,6 +79,7 @@ class SimulatedDrive:
     kind: str  # 'incident' | 'magazin'
     cruise_kmh: float
     started_at: datetime
+    incident_id: uuid.UUID | None = None  # the incident this drive goes to or comes home from
 
     @property
     def total_m(self) -> float:
@@ -144,6 +149,29 @@ class GpsSimulation:
     def __init__(self) -> None:
         self._drives: dict[str, SimulatedDrive] = {}  # key: vehicle_name.lower()
         self._lock = asyncio.Lock()
+        self.paused_at: datetime | None = None
+
+    def clock(self) -> datetime:
+        """The drives' time: frozen at the pause while the Übung is paused, else now."""
+        return self.paused_at or datetime.now(UTC)
+
+    async def pause(self, at: datetime | None = None) -> None:
+        """Freeze every drive in place (no-op when already paused)."""
+        async with self._lock:
+            if self.paused_at is None:
+                self.paused_at = at or datetime.now(UTC)
+        await self._broadcast_status()
+
+    async def resume(self) -> None:
+        """Unfreeze: shift each drive's start by the pause, so it continues where it stood."""
+        async with self._lock:
+            if self.paused_at is None:
+                return
+            shift = datetime.now(UTC) - self.paused_at
+            for drive in self._drives.values():
+                drive.started_at += shift
+            self.paused_at = None
+        await self._broadcast_status()
 
     def any_active(self) -> bool:
         return bool(self._drives)
@@ -156,11 +184,14 @@ class GpsSimulation:
         drive = self._drives.get(vehicle_name.lower())
         if not drive:
             return None
-        lat, lng, _ = drive.position_at(datetime.now(UTC))
+        lat, lng, _ = drive.position_at(self.clock())
         return lat, lng
 
     async def start(self, drive: SimulatedDrive) -> None:
         async with self._lock:
+            if self.paused_at is not None:
+                # Started during a pause: it waits at its start until the resume.
+                drive.started_at = self.paused_at
             self._drives[drive.vehicle_name.lower()] = drive
         logger.info(
             "GPS simulation: %s -> %s (%.0f m at %.0f km/h)",
@@ -182,21 +213,10 @@ class GpsSimulation:
             old = self._drives.get(vehicle_name.lower())
             if old is None:
                 return None
-            now = datetime.now(UTC)
+            now = self.clock()
             dist_done, _ = old._distance_and_speed(max(0.0, (now - old.started_at).total_seconds()))
             v = max(5.0, speed_kmh) / 3.6
-            new = SimulatedDrive(
-                vehicle_id=old.vehicle_id,
-                vehicle_name=old.vehicle_name,
-                start_lat=old.start_lat,
-                start_lng=old.start_lng,
-                target_lat=old.target_lat,
-                target_lng=old.target_lng,
-                target_label=old.target_label,
-                kind=old.kind,
-                cruise_kmh=speed_kmh,
-                started_at=now - timedelta(seconds=dist_done / v),
-            )
+            new = replace(old, cruise_kmh=speed_kmh, started_at=now - timedelta(seconds=dist_done / v))
             self._drives[vehicle_name.lower()] = new
         logger.info("GPS simulation: %s speed -> %.0f km/h", new.vehicle_name, speed_kmh)
         await self._broadcast_status()
@@ -223,7 +243,7 @@ class GpsSimulation:
         """
         from ..traccar import VehiclePosition
 
-        now = datetime.now(UTC)
+        now = self.clock()
         expired = [key for key, d in self._drives.items() if d.expired(now)]
         for key in expired:
             drive = self._drives.pop(key, None)
@@ -255,9 +275,9 @@ class GpsSimulation:
                     status="online",
                     latitude=lat,
                     longitude=lng,
-                    speed=speed,
+                    speed=0.0 if self.paused_at else speed,
                     course=_bearing_deg(drive.start_lat, drive.start_lng, drive.target_lat, drive.target_lng),
-                    last_update=now,
+                    last_update=datetime.now(UTC),
                     address=None,
                 )
             )

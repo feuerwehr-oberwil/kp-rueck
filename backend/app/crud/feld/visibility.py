@@ -432,6 +432,27 @@ def _rapport_state(report: SchadenplatzReport | None) -> str:
     return "draft" if report.is_draft else "submitted"
 
 
+async def event_vehicle_drivers(db: AsyncSession, event_id: uuid.UUID) -> dict[uuid.UUID, str]:
+    """Who drives what in this Ereignis: {vehicle_id: driver name}.
+
+    One query for the whole fleet: the driver is set per event
+    (`EventSpecialFunction`), not per Schadenplatz. Read by the /feld briefing
+    («TLF · Fahrer: …») and by the rapport prefill («Pio · Dürring Jan»).
+    """
+    rows = await db.execute(
+        select(EventSpecialFunction.vehicle_id, Personnel.name)
+        .join(Personnel, Personnel.id == EventSpecialFunction.personnel_id)
+        .where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.function_type == "driver",
+            EventSpecialFunction.vehicle_id.is_not(None),
+        )
+    )
+    # The `is not None` mirrors the WHERE above; it is there so the key type is
+    # a plain UUID rather than an optional one.
+    return {vehicle_id: name for vehicle_id, name in rows.tuples().all() if vehicle_id is not None}
+
+
 async def get_incident_leaders(
     db: AsyncSession,
     incident_ids: list[uuid.UUID],

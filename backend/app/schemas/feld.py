@@ -770,6 +770,10 @@ class RapportPrefill(BaseModel):
     # out, so the same name is never offered twice.
     personnel_candidates: list[RapportPersonnelCandidate] = []
     vehicle_candidates: list[RapportVehicleCandidate] = []
+    # Who drives each vehicle in this Ereignis, {vehicle_id: name} — the driver
+    # beside the vehicle's name on its chip. Orientation only: the rapport stores
+    # which vehicles were there, never who drove them.
+    vehicle_drivers: dict[UUID, str] = {}
 
 
 class SchadenplatzRapport(BaseModel):

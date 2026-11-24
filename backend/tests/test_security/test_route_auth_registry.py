@@ -43,7 +43,9 @@ FELD_UNLOCK = Gate(
 FELD_PICKER = Gate("unlocked Feld token not yet bound to a person: the five-minute picker grant", require_feld_claims)
 FELD_DEVICE = Gate("Feld token bound to one person, with a live device claim", require_feld_claims)
 PRINT_AGENT = Gate("X-Agent-Token = PRINT_AGENT_TOKEN, 403 while the token is unset", require_print_agent)
-GEOCODING = Gate("session, or a live person-bound Feld claim", require_geocoding_access)
+GEOCODING = Gate(
+    "session, a live person-bound Feld claim, or a live /alarm link (X-Intake-Token)", require_geocoding_access
+)
 BOARD_OR_VIEWER = Gate("session, or a viewer link token", require_board_or_viewer_token)
 WEBHOOK = Gate("shared webhook secret (`check_webhook_secret`), refused while no secret exists")
 STANDBY_BOX = Gate(

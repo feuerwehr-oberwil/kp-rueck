@@ -18,6 +18,7 @@ import { ApiError } from '@/lib/api/types'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { sortByName } from '@/lib/roster-order'
 import { PlannedTimeChip, PlannedTimePicker } from '@/components/attendance/planned-time'
+import { cn } from '@/lib/utils'
 
 export default function CheckInPage() {
   const searchParams = useSearchParams()
@@ -238,72 +239,77 @@ function CheckInKiosk({ token }: { token: string | null }) {
         ) : (
           filteredPersonnel.map(person => {
             const isDisabled = person.checked_in && person.is_assigned
+            const stateId = `checkin-state-${person.id}`
+            // One card, one toggle: the button is the name, stretched over the whole card
+            // (`after:inset-0`), so a tap anywhere checks in or out. The «bis» chip is the only
+            // thing above it – inside the card, right of the state pill. It used to hang under
+            // the card, between two people (owner, 24.11.2026).
             return (
-              <div key={person.id}>
-                <button
-                  onClick={() => toggleCheckIn(person)}
-                  disabled={isDisabled || retrying}
-                  className={`
-                    w-full flex items-center gap-4 p-4 rounded-lg border-2 transition-all
-                    ${
-                      isDisabled
-                        ? 'border-border bg-muted/40 cursor-not-allowed opacity-75'
-                        : person.checked_in
-                        ? 'border-sel-edge bg-sel-wash'
-                        : 'border-border bg-card hover:border-muted-foreground'
-                    }
-                  `}
-                >
-                  {/* Check Icon */}
-                  <div className="flex-shrink-0">
-                    {person.checked_in ? (
-                      <CheckCircle className="h-8 w-8 text-sel-foreground" />
+              <div
+                key={person.id}
+                data-testid="checkin-card"
+                className={cn(
+                  'relative flex items-center gap-4 rounded-lg border-2 p-4 transition-all',
+                  isDisabled
+                    ? 'border-border bg-muted/40 opacity-75'
+                    : person.checked_in
+                      ? 'border-sel-edge bg-sel-wash'
+                      : 'border-border bg-card hover:border-muted-foreground',
+                )}
+              >
+                {/* Check Icon */}
+                <div className="flex-shrink-0">
+                  {person.checked_in ? (
+                    <CheckCircle className="h-8 w-8 text-sel-foreground" />
+                  ) : (
+                    <Circle className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+
+                {/* Name, then the state pill – under the name on a phone, beside it from `sm`.
+                    Beside it on a 393px row the pill kept its width and «Bendik-Dimitrijević
+                    Alexandra» broke over three lines (phone sweep 14.11.2026). */}
+                <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleCheckIn(person)}
+                    disabled={isDisabled || retrying}
+                    aria-describedby={stateId}
+                    className="min-w-0 break-words text-left text-lg font-semibold after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"
+                  >
+                    <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
+                  </button>
+                  <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+                    {person.is_assigned ? (
+                      <span id={stateId} className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                        {t('badgeAssigned')}
+                      </span>
+                    ) : person.checked_in ? (
+                      <span id={stateId} className="bg-sel-wash text-sel-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                        {t('badgeCheckedIn')}
+                      </span>
                     ) : (
-                      <Circle className="h-8 w-8 text-muted-foreground" />
+                      <span id={stateId} className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
+                        {t('badgeNotCheckedIn')}
+                      </span>
+                    )}
+                    {/* Somebody here can say until when (#3): a bottom sheet sets it – the KP's
+                        pickers then show «bis 22:00». Not for anybody not in yet: at the door,
+                        they are arriving now. `relative` lifts it above the stretched toggle. */}
+                    {person.checked_in && (
+                      <PlannedTimePicker
+                        kind="until"
+                        value={person.planned_until}
+                        other={person.planned_from}
+                        title={tPlan('titleUntil', { name: person.name })}
+                        hint={tPlan('hintSelf')}
+                        fieldLabel={tPlan('selfUntil')}
+                        onSave={(iso) => setUntil(person, iso)}
+                        trigger={<PlannedTimeChip at={person.planned_until} disabled={retrying} className="relative" />}
+                      />
                     )}
                   </div>
-
-                  {/* Name, then the state pill – under the name on a phone, beside it from `sm`.
-                      Beside it on a 393px row the pill kept its width and «Bendik-Dimitrijević
-                      Alexandra» broke over three lines (phone sweep 14.11.2026). */}
-                  <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <div className="min-w-0 break-words font-semibold text-lg">
-                      <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
-                    </div>
-                    <div className="flex shrink-0 whitespace-nowrap">
-                      {person.is_assigned ? (
-                        <span className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                          {t('badgeAssigned')}
-                        </span>
-                      ) : person.checked_in ? (
-                        <span className="bg-sel-wash text-sel-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                          {t('badgeCheckedIn')}
-                        </span>
-                      ) : (
-                        <span className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                          {t('badgeNotCheckedIn')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-                {/* Somebody here can say until when (#3): one chip under their row, a bottom sheet
-                    to set it – the KP's pickers then show «bis 22:00». Not for anybody not in yet:
-                    at the door, they are arriving now. */}
-                {person.checked_in && (
-                  <div className="mt-1 flex justify-end">
-                    <PlannedTimePicker
-                      kind="until"
-                      value={person.planned_until}
-                      other={person.planned_from}
-                      title={tPlan('titleUntil', { name: person.name })}
-                      hint={tPlan('hintSelf')}
-                      fieldLabel={tPlan('selfUntil')}
-                      onSave={(iso) => setUntil(person, iso)}
-                      trigger={<PlannedTimeChip at={person.planned_until} disabled={retrying} />}
-                    />
-                  </div>
-                )}
+                </div>
               </div>
             )
           })
