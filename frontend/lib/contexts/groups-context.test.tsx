@@ -232,6 +232,33 @@ describe("GroupsProvider — createGroup optimistic + reconcile", () => {
   })
 })
 
+// Sol review B round 3: `isLoaded` turns true after a failed load too, so the GPS prompt
+// read an Auftrag that never arrived as «not on the board».
+describe("GroupsProvider — loadFailed", () => {
+  it("is set while no load got through, and cleared by a refresh that does", async () => {
+    getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
+    const { result } = await renderLoaded()
+    expect(result.current.loadFailed).toBe(true)
+
+    getIncidentGroups.mockResolvedValueOnce([apiGroup()])
+    await act(async () => {
+      await result.current.refreshGroups()
+    })
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.groups).toHaveLength(1)
+  })
+
+  it("stays clear when a later reload fails – the loaded Aufträge still stand", async () => {
+    getIncidentGroups.mockResolvedValueOnce([apiGroup()])
+    const { result } = await renderLoaded()
+    getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
+    await act(async () => {
+      await result.current.refreshGroups()
+    })
+    expect(result.current.loadFailed).toBe(false)
+  })
+})
+
 describe("GroupsProvider — group_update WS event", () => {
   it("refreshes the list when a group_update broadcast arrives", async () => {
     const { result } = await renderLoaded()

@@ -79,18 +79,29 @@ describe.each(PROMPTS)('%s', (_name, Prompt, event) => {
 // material). Sol review B round 2: nothing is queued across an Ereignis switch.
 describe('GpsReleasePrompt main answer', () => {
   const run = vi.fn()
-  afterEach(() => run.mockClear())
+  const retry = vi.fn().mockResolvedValue(undefined)
+  afterEach(() => {
+    run.mockClear()
+    retry.mockClear()
+  })
 
-  const offer = (eventId: string, loaded: boolean, ...ids: string[]) => {
-    const board = (props: { eventId: string; loaded: boolean; ids: string[] }): CompletionBoard => ({
+  type Offered = { eventId: string; loaded: boolean; ids: string[]; failed?: boolean }
+  const offerBoard = (initialProps: Offered) => {
+    const board = (props: Offered): CompletionBoard => ({
       eventId: props.eventId,
       loaded: props.loaded,
+      failed: props.failed ?? false,
       has: (incidentId) => props.ids.includes(incidentId),
       run,
+      retry,
     })
-    const hook = renderHook((props) => useCompletionBoard(board(props)), { initialProps: { eventId, loaded, ids } })
+    const hook = renderHook((props) => useCompletionBoard(board(props)), { initialProps })
+    return (next: Offered) => act(() => hook.rerender(next))
+  }
+  const offer = (eventId: string, loaded: boolean, ...ids: string[]) => {
+    const rerender = offerBoard({ eventId, loaded, ids })
     return (next: string, nextLoaded: boolean, ...nextIds: string[]) =>
-      act(() => hook.rerender({ eventId: next, loaded: nextLoaded, ids: nextIds }))
+      rerender({ eventId: next, loaded: nextLoaded, ids: nextIds })
   }
 
   const open = async () => {
@@ -146,5 +157,23 @@ describe('GpsReleasePrompt main answer', () => {
     expect(screen.getByRole('button', { name: 'Einsatz abschliessen' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Nur TLF freigeben' })).toBeEnabled()
     expect(run).not.toHaveBeenCalled()
+  })
+
+  // Sol review B round 3: a failed load read as «Einsatz nicht gefunden», with no way back.
+  it('says the load failed and retries it, then offers the close', async () => {
+    const board = offerBoard({ eventId: 'e1', loaded: true, ids: [], failed: true })
+    await open()
+
+    expect(screen.getByRole('status')).toHaveTextContent('Laden fehlgeschlagen – erneut versuchen')
+    await act(async () => screen.getByRole('button', { name: 'Erneut laden' }).click())
+    expect(retry).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+
+    board({ eventId: 'e1', loaded: true, ids: ['i1'] })
+    const main = screen.getByRole('button', { name: 'Einsatz abschliessen' })
+    expect(main).toBeEnabled()
+    expect(screen.queryByRole('status')).toBeNull()
+    await act(async () => main.click())
+    expect(run).toHaveBeenCalledWith('i1')
   })
 })

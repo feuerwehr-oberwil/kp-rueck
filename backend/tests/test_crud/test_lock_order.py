@@ -4,7 +4,8 @@ Auftrag before incident before resource: completing a stop used to lock the stop
 then its Auftrag while a reorder locked them the other way round (audit 2026-10, F08),
 an archive did not lock the resource an assignment was being written for (F02),
 writers of several resources locked them in their own order, and a personnel delete
-wrote the incidents pointing at the person only after locking the person.
+wrote the incidents pointing at the person only after locking the person, and a /feld
+takeover inserted its Meldung (key-sharing the reporter) before locking their Auftrag.
 Independent, committed sessions (pattern from ``test_group_stop_undo_guard.py``) –
 only a genuine second transaction shows who waits for whom.
 """
@@ -20,6 +21,7 @@ import pytest_asyncio
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app import schemas
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
 from app.crud import group_assignments as group_assignments_crud
@@ -27,7 +29,8 @@ from app.crud import groups as groups_crud
 from app.crud import incidents as incidents_crud
 from app.crud import materials as materials_crud
 from app.crud import personnel as personnel_crud
-from app.crud.locking import lock_incident_with_group, lock_resource
+from app.crud.feld.melden import create_field_report
+from app.crud.locking import lock_groups, lock_incident_with_group, lock_resource
 from app.models import (
     AuditLog,
     AuftragTemplate,
@@ -319,3 +322,67 @@ async def test_two_restores_serialize_and_recognize_their_shared_pump(board: Boa
             )
         )
         assert set(deployed_on) == set(ids)
+
+
+async def _report_and_take_over(board: Board, db: AsyncSession) -> tuple[Incident, str]:
+    """The /feld «Wir übernehmen» of ``board.person_id``, in ``db``."""
+    person = await db.get(Personnel, board.person_id)
+    assert person is not None
+    payload = schemas.FeldIncidentCreate(title="Baum", type="elementarereignis", priority="medium", take_over=True)
+    return await create_field_report(db, board.event_id, person, payload, _request())
+
+
+async def test_a_field_takeover_queues_behind_a_board_assignment_instead_of_deadlocking(board: Board):
+    async with board.sessions() as db:
+        db.add(
+            IncidentGroupAssignment(
+                incident_group_id=board.group_id, resource_type="personnel", resource_id=board.person_id
+            )
+        )
+        await db.commit()
+
+    async with board.sessions() as assigning, board.sessions() as reporting:
+        # A board assignment holds the reporter's Auftrag and is about to lock the person.
+        await lock_groups(assigning, [board.group_id])
+        report = asyncio.create_task(_report_and_take_over(board, reporting))
+        await _wait_until_blocked(board.sessions)
+
+        # The report must be queued for the Auftrag, not key-sharing the person already.
+        person = await asyncio.wait_for(lock_resource(assigning, "personnel", board.person_id), timeout=5)
+        assert person is not None
+        await assigning.commit()
+
+        incident, mode = await asyncio.wait_for(report, timeout=10)
+        await reporting.commit()
+
+    assert mode == "stop"
+    assert incident.group_id == board.group_id
+
+
+async def test_a_field_takeover_onto_an_auftrag_deleted_meanwhile_takes_it_on_alone(board: Board):
+    async with board.sessions() as db:
+        db.add(IncidentAssignment(incident_id=board.stop_id, resource_type="personnel", resource_id=board.person_id))
+        await db.commit()
+
+    async with board.sessions() as deleting, board.sessions() as reporting:
+        user = await deleting.get(User, board.user_id)
+        assert user is not None
+        # The Auftrag is being deleted: it is locked and its stop already detached.
+        assert await groups_crud.soft_delete_group(deleting, board.group_id, user, _request()) is not None
+        report = asyncio.create_task(_report_and_take_over(board, reporting))
+        await _wait_until_blocked(board.sessions)
+        await deleting.commit()
+
+        incident, mode = await asyncio.wait_for(report, timeout=10)
+        await reporting.commit()
+
+    # Not a stop of the deleted Auftrag: the reporter is on the new Schadenplatz alone.
+    assert mode == "solo"
+    assert incident.group_id is None
+    async with board.sessions() as db:
+        crew = await db.scalars(
+            select(IncidentAssignment.resource_id).where(
+                IncidentAssignment.incident_id == incident.id, IncidentAssignment.unassigned_at.is_(None)
+            )
+        )
+        assert list(crew) == [board.person_id]

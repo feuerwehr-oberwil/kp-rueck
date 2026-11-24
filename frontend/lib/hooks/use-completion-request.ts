@@ -8,7 +8,8 @@ import { useEffect, useSyncExternalStore } from 'react'
  *
  * Nothing is held across an Ereignis switch (Sol review B round 2): the prompt reads
  * whether the board on screen can run the close flow for its Einsatz now, and offers
- * «Ereignis öffnen» until it can.
+ * «Ereignis öffnen» until it can. A board whose load failed says so and offers a retry
+ * (Sol review B round 3) – not «Einsatz nicht gefunden».
  *
  *   useCompletionBoard(isEditor ? board : null)                    // the page's dialog layer
  *   const readiness = useCompletionReadiness(incidentId, eventId)  // the prompt
@@ -19,8 +20,12 @@ import { useEffect, useSyncExternalStore } from 'react'
 export interface CompletionBoard {
   /** The Ereignis on screen. */
   eventId: string | null
-  /** Its board (Einsätze and Aufträge) finished loading. */
+  /** Its board (Einsätze and Aufträge) finished loading – successfully or not. */
   loaded: boolean
+  /** A part of it never arrived (its loads failed): lacking the Einsatz says nothing. */
+  failed: boolean
+  /** Fetch the board again. */
+  retry: () => Promise<void>
   /** The close flow has all it reads: the Einsatz, and for a stop its Auftrag with the assignments. */
   has: (incidentId: string) => boolean
   run: (incidentId: string) => void
@@ -29,9 +34,10 @@ export interface CompletionBoard {
 /**
  * Where the prompt's Einsatz stands against the board on screen:
  * 'ready' – the close flow can run · 'otherEvent' – it belongs to another Ereignis ·
- * 'loading' – the board is still loading · 'missing' – the board is loaded and has it not.
+ * 'loading' – the board is still loading · 'failed' – the board's load failed ·
+ * 'missing' – the board is loaded and has it not.
  */
-export type CompletionReadiness = 'ready' | 'otherEvent' | 'loading' | 'missing'
+export type CompletionReadiness = 'ready' | 'otherEvent' | 'loading' | 'failed' | 'missing'
 
 let current: CompletionBoard | null = null
 const listeners = new Set<() => void>()
@@ -53,6 +59,11 @@ export function requestCompletion(incidentId: string): boolean {
   return true
 }
 
+/** Fetch the board on screen again (the prompt's retry after a failed load). */
+export function retryCompletionBoard(): Promise<void> {
+  return current?.retry() ?? Promise.resolve()
+}
+
 /** `eventId` is the Einsatz's Ereignis, undefined when the prompt could not look it up. */
 export function completionReadiness(
   board: CompletionBoard | null,
@@ -62,7 +73,8 @@ export function completionReadiness(
   if (!board) return 'missing'
   if (board.has(incidentId)) return 'ready'
   if (eventId && eventId !== board.eventId) return 'otherEvent'
-  return board.loaded ? 'missing' : 'loading'
+  if (!board.loaded) return 'loading'
+  return board.failed ? 'failed' : 'missing'
 }
 
 /** The prompt's side: re-renders whenever the board on screen changes. */

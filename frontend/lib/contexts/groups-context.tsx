@@ -51,8 +51,10 @@ const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials
 interface GroupsContextType {
   /** Aufträge of the selected event, in `position` order. */
   groups: IncidentGroup[]
-  /** True once the first load has resolved (gate empty states on this). */
+  /** True once the first load has resolved (gate empty states on this) – failed loads too. */
   isLoaded: boolean
+  /** No load of this Ereignis's Aufträge got through yet: an empty list says nothing. */
+  loadFailed: boolean
   refreshGroups: () => Promise<void>
   createGroup: (input: CreateGroupInput) => Promise<IncidentGroup | null>
   updateGroup: (id: string, input: UpdateGroupInput) => Promise<boolean>
@@ -146,6 +148,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadedEventId, setLoadedEventId] = useState<string | null>(null)
+  // The Ereignis whose Aufträge never arrived: its loads so far all failed (`loadFailed`).
+  const [failedEventId, setFailedEventId] = useState<string | null>(null)
+  const hasSnapshotRef = useRef(false)
   /**
    * The FULL roster, for name resolution only.
    *
@@ -197,8 +202,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       groupsRef.current = next
       setGroups(next)
       hasShownErrorRef.current = false
+      hasSnapshotRef.current = true
+      setFailedEventId(null)
     } catch (error) {
       console.error("Failed to load Aufträge:", error)
+      if (activeEventIdRef.current === eventId && !hasSnapshotRef.current) setFailedEventId(eventId)
       if (!hasShownErrorRef.current) {
         hasShownErrorRef.current = true
         toast.error(translateOutsideReact("notifications.groups.loadFailedTitle"), {
@@ -233,6 +241,8 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     setGroups([])
     setIsLoaded(false)
     setLoadedEventId(null)
+    setFailedEventId(null)
+    hasSnapshotRef.current = false
     lastSyncVersionRef.current = null
   }, [authReady, scopeEventId])
 
@@ -268,9 +278,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       groupsRef.current = next
       setGroups(next)
       hasShownErrorRef.current = false
+      hasSnapshotRef.current = true
+      setFailedEventId(null)
       lastSyncVersionRef.current = versionSnapshot?.version ?? null
     } catch (error) {
       console.error("Failed to load Aufträge:", error)
+      if (activeEventIdRef.current === eventId && !hasSnapshotRef.current) setFailedEventId(eventId)
     } finally {
       if (activeEventIdRef.current === eventId) {
         setIsLoaded(true)
@@ -837,6 +850,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [groups, selectedEventId],
   )
   const loaded = isLoaded && loadedEventId === selectedEventId
+  const loadFailed = failedEventId !== null && failedEventId === selectedEventId
 
   // Memoised: this provider re-renders on every board change (it reads the operations
   // context), and every card reads this value – a fresh literal re-rendered them all.
@@ -844,6 +858,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     () => ({
       groups: scopedGroups,
       isLoaded: loaded,
+      loadFailed,
       refreshGroups,
       createGroup,
       updateGroup,
@@ -865,6 +880,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [
       scopedGroups,
       loaded,
+      loadFailed,
       refreshGroups,
       createGroup,
       updateGroup,

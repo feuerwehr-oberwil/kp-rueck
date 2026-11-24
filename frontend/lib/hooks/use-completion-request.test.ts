@@ -5,9 +5,12 @@ import { type CompletionBoard, completionReadiness, requestCompletion, useComple
 const board = (eventId: string, loaded: boolean, ...ids: string[]): CompletionBoard => ({
   eventId,
   loaded,
+  failed: false,
   has: (incidentId) => ids.includes(incidentId),
   run: vi.fn(),
+  retry: vi.fn(),
 })
+const failedBoard = (eventId: string, ...ids: string[]): CompletionBoard => ({ ...board(eventId, true, ...ids), failed: true })
 
 describe('completionReadiness', () => {
   it.each([
@@ -17,6 +20,8 @@ describe('completionReadiness', () => {
     ['loading: its Ereignis is on screen, still loading', board('e1', false), 'e1', 'loading'],
     ['missing: its Ereignis is loaded without it', board('e1', true), 'e1', 'missing'],
     ['missing: unknown Ereignis, not on the loaded board', board('e2', true), undefined, 'missing'],
+    ['failed: its Ereignis is on screen, its load failed', failedBoard('e1'), 'e1', 'failed'],
+    ['ready, after a failed load that had it', failedBoard('e1', 'i1'), 'e1', 'ready'],
   ] as const)('%s', (_name, offered, eventId, expected) => {
     expect(completionReadiness(offered, 'i1', eventId)).toBe(expected)
   })

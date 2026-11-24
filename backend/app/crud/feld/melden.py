@@ -29,6 +29,9 @@ Three cases, in the order they are tried:
    **mirrored** to route level (see ``group_assignments.mirror_to_auftrag``).
 3. the person is on nothing → assign them, plus the vehicle they drive. No
    Auftrag: a route with one stop is a name for a thing that already has one.
+
+The Auftrag and Einsatz of cases 1 and 2 are locked before the Meldung's row is
+inserted (``_lock_takeover_target``); one that changed while we waited is case 3.
 """
 
 import uuid
@@ -59,7 +62,7 @@ from ...services.duplicates import merge_report
 from ...services.notification_service import create_field_notification
 from ..assignments import ResourceNotAssignableError, ensure_assignable
 from ..group_assignments import auftrag_is_closed, mirror_to_auftrag
-from ..locking import lock_groups, lock_resources
+from ..locking import lock_incidents_with_groups, lock_resources
 from .reports import _location
 
 #: What happened to the new Schadenplatz, so the phone can say so in one line.
@@ -70,14 +73,15 @@ async def _current_work(
     db: AsyncSession,
     event_id: uuid.UUID,
     personnel_id: uuid.UUID,
-) -> Incident | None:
-    """The Schadenplatz this person is working right now, if any.
+) -> tuple[uuid.UUID, uuid.UUID | None] | None:
+    """The Schadenplatz this person is working right now, if any: (its id, its Auftrag).
 
     Active crew rows only: a released row is a place they have left, and a Reko
-    auftrag is not work they can bring a second stop into.
+    auftrag is not work they can bring a second stop into. Columns, not the entity,
+    so a read after a lock sees the committed Auftrag (the identity map would not).
     """
     result = await db.execute(
-        select(Incident)
+        select(Incident.id, Incident.group_id)
         .join(IncidentAssignment, IncidentAssignment.incident_id == Incident.id)
         .where(
             Incident.event_id == event_id,
@@ -90,7 +94,8 @@ async def _current_work(
         .order_by(IncidentAssignment.assigned_at.desc())
         .limit(1)
     )
-    return result.scalars().first()
+    row = result.first()
+    return (row[0], row[1]) if row is not None else None
 
 
 async def _current_route(
@@ -114,6 +119,7 @@ async def _current_route(
         .join(IncidentGroupAssignment, IncidentGroupAssignment.incident_group_id == IncidentGroup.id)
         .where(
             IncidentGroup.event_id == event_id,
+            IncidentGroup.deleted_at.is_(None),
             IncidentGroupAssignment.resource_type == "personnel",
             IncidentGroupAssignment.resource_id == personnel_id,
             IncidentGroupAssignment.unassigned_at.is_(None),
@@ -122,6 +128,47 @@ async def _current_route(
         .limit(1)
     )
     return result.scalars().first()
+
+
+async def _takeover_target(
+    db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID
+) -> tuple[uuid.UUID | None, uuid.UUID | None]:
+    """(the Schadenplatz they work, the Auftrag it is on) – either may be ``None``.
+
+    The route they are on, whether that shows as a stop assignment or only as a
+    route-level one. Without the second lookup a squad assigned to the Auftrag
+    arrived in `_take_over` as "on nothing".
+    """
+    work = await _current_work(db, event_id, personnel_id)
+    if work is not None:
+        return work
+    return None, await _current_route(db, event_id, personnel_id)
+
+
+async def _lock_takeover_target(
+    db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID
+) -> tuple[Incident | None, uuid.UUID | None]:
+    """`_takeover_target`, locked – call it BEFORE the Meldung's row is inserted.
+
+    The insert takes a key-share lock on the reporter's personnel row (the FK). A
+    board assignment that holds their Auftrag or Einsatz and waits for the person
+    (``FOR UPDATE``) would then wait for us while we wait for it (Sol review B
+    round 3). Locked first, the order of ``crud/locking.py`` holds: Auftrag →
+    Einsatz → person.
+
+    Read unlocked, locked, then read again: a target that changed in between – the
+    Auftrag deleted (its stops detached), the reporter released or moved – is no
+    target, and the reporter takes the Meldung on alone. Returns the locked
+    Einsatz (refreshed) and the locked Auftrag id.
+    """
+    seen = await _takeover_target(db, event_id, personnel_id)
+    current_id, group_id = seen
+    if current_id is None and group_id is None:
+        return None, None
+    locked = await lock_incidents_with_groups(db, [current_id] if current_id is not None else [], [group_id])
+    if await _takeover_target(db, event_id, personnel_id) != seen:
+        return None, None
+    return (locked.get(current_id) if current_id is not None else None), group_id
 
 
 async def _open_stop_ids(db: AsyncSession, group_id: uuid.UUID) -> list[uuid.UUID]:
@@ -198,6 +245,9 @@ async def create_field_report(
     # because "this was a phone call" is provenance and provenance is never
     # faked from the client.
     took_a_call = payload.as_phone_call and await _holds(db, event_id, person.id, "telefondienst")
+    taking_over = payload.take_over and merge_target is None
+    # Before the insert below – see `_lock_takeover_target`.
+    current, group_id = await _lock_takeover_target(db, event_id, person.id) if taking_over else (None, None)
 
     incident = Incident(
         title=payload.title,
@@ -232,8 +282,8 @@ async def create_field_report(
         await merge_report(
             db, report=incident, target=merge_target, user=None, request=request, reporter_name=person.name
         )
-    elif payload.take_over:
-        mode = await _take_over(db, event_id, person, incident)
+    elif taking_over:
+        mode = await _take_over(db, event_id, person, incident, current, group_id)
         # "Wir übernehmen das gleich" means somebody is on the way to it, so it
         # does not sit in Eingegangen waiting to be disponiert — the crew just
         # disponierte it themselves. Left as `incoming` this reads on the board
@@ -299,22 +349,20 @@ async def _take_over(
     event_id: uuid.UUID,
     person: Personnel,
     incident: Incident,
+    current: Incident | None,
+    group_id: uuid.UUID | None,
 ) -> TakeoverMode:
-    """Put this crew on the new Schadenplatz — see the module docstring."""
-    current = await _current_work(db, event_id, person.id)
-    # The route they are on, whether that shows as a stop assignment or only as
-    # a route-level one. Without the second lookup a squad assigned to the
-    # Auftrag arrived here as "on nothing".
-    group_id = current.group_id if current is not None else await _current_route(db, event_id, person.id)
+    """Put this crew on the new Schadenplatz — see the module docstring.
 
+    ``current`` / ``group_id``: what the reporter works on, already locked by
+    `_lock_takeover_target`.
+    """
     # 1. Already on a route: one more stop, and the route's resources cover it –
     # unless every stop of it is closed (the crew can still be on it): a finished
     # route takes no new stop (Sol review B round 2), so they report as on nothing.
     # Checked under the Auftrag's lock, which the stop attach and the mirroring
-    # below need anyway. The incident is ours (just inserted, nobody can wait on
-    # it), so the Auftrag lock after it keeps the order.
+    # below need anyway.
     if group_id is not None:
-        await lock_groups(db, [group_id])
         if await auftrag_is_closed(db, group_id):
             return await _take_over_alone(db, event_id, person, incident)
         stop_ids = await _open_stop_ids(db, group_id)

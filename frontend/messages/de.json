@@ -1431,7 +1431,9 @@
       "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen",
       "openEvent": "Ereignis öffnen",
       "openEventFailed": "Ereignis nicht geöffnet – erneut versuchen",
-      "notOnBoard": "Einsatz nicht gefunden – im Board öffnen"
+      "notOnBoard": "Einsatz nicht gefunden – im Board öffnen",
+      "loadFailed": "Laden fehlgeschlagen – erneut versuchen",
+      "retryLoad": "Erneut laden"
     },
     "quickAdd": {
       "networkErrorTitle": "Netzwerkfehler",

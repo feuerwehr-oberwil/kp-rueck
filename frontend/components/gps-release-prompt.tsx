@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { Truck } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
-import { requestCompletion, useCompletionReadiness } from "@/lib/hooks/use-completion-request"
+import { requestCompletion, retryCompletionBoard, useCompletionReadiness } from "@/lib/hooks/use-completion-request"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { apiEventToEvent, useEvent } from "@/lib/contexts/event-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -45,8 +45,9 @@ interface ReleasePrompt {
  * the board on screen has the Einsatz – and for a stop, its Auftrag with the assignments
  * (`useCompletionReadiness`). An Einsatz of another Ereignis gets «Ereignis öffnen» first;
  * the prompt stays open while that board loads. One the loaded board has not says so in
- * the prompt – never a silent dismiss. «Nur {vehicle} freigeben» is the line above
- * «Nicht freigeben».
+ * the prompt – never a silent dismiss. A board whose load failed says that instead, and
+ * the main answer is «Erneut laden» (Sol review B round 3). «Nur {vehicle} freigeben» is
+ * the line above «Nicht freigeben».
  */
 export function GpsReleasePrompt() {
   const t = useTranslations('incidents.gpsRelease')
@@ -138,6 +139,12 @@ export function GpsReleasePrompt() {
     }
   }
 
+  const main = readiness === 'otherEvent'
+    ? { text: t('openEvent'), run: handleOpenEvent }
+    : readiness === 'failed'
+      ? { text: t('retryLoad'), run: retryCompletionBoard }
+      : { text: t('completeIncident'), run: handleComplete }
+
   return (
     <ConfirmDialog
       open
@@ -151,11 +158,13 @@ export function GpsReleasePrompt() {
       })}
       extraAction={{ label: t('releaseOnly', { vehicle: prompt.vehicleName }), onSelect: handleRelease }}
       cancelText={t('decline')}
-      confirmText={readiness === 'otherEvent' ? t('openEvent') : t('completeIncident')}
-      onConfirm={readiness === 'otherEvent' ? handleOpenEvent : handleComplete}
+      confirmText={main.text}
+      onConfirm={main.run}
       confirmDisabled={readiness === 'loading' ? 'waiting' : readiness === 'missing'}
     >
-      {readiness === 'missing' && <p role="status" className="text-sm text-warning">{t('notOnBoard')}</p>}
+      {(readiness === 'missing' || readiness === 'failed') && (
+        <p role="status" className="text-sm text-warning">{t(readiness === 'missing' ? 'notOnBoard' : 'loadFailed')}</p>
+      )}
     </ConfirmDialog>
   )
 }

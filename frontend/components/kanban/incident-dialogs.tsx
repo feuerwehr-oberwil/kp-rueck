@@ -103,8 +103,8 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
  */
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
-  const { operations, isLoaded: operationsLoaded, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
-  const { groups, isLoaded: groupsLoaded, getGroupResources, unassignResource, refreshGroups } = useGroups()
+  const { operations, isLoaded: operationsLoaded, boardNeverLoaded, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
+  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, getGroupResources, unassignResource, refreshGroups } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -251,19 +251,22 @@ export function useIncidentDialogs() {
 
   // «Einsatz abschliessen» from the GPS release prompt (root layout): the usual close flow,
   // offered once this board has the Einsatz – and for a stop, its Auftrag with the
-  // assignments, which the material question reads. `groupsLoaded` is per Ereignis.
+  // assignments, which the material question reads. `groupsLoaded` is per Ereignis. Both
+  // «loaded» flags turn true after a failed load too: `failed` tells the prompt so.
   const completionBoard = useMemo(() => {
     if (!isEditor) return null
     return {
       eventId: selectedEvent?.id ?? null,
       loaded: operationsLoaded && groupsLoaded,
+      failed: boardNeverLoaded || groupsLoadFailed,
+      retry: async () => void (await Promise.all([refreshOperations(), refreshGroups()])),
       has: (incidentId: string) => {
         const operation = operations.find((candidate) => candidate.id === incidentId)
         return Boolean(operation && groupsLoaded && (!operation.groupId || groups.some((group) => group.id === operation.groupId)))
       },
       run: statusWorkflow.requestCompletion,
     }
-  }, [groups, groupsLoaded, isEditor, operations, operationsLoaded, selectedEvent?.id, statusWorkflow.requestCompletion])
+  }, [boardNeverLoaded, groups, groupsLoadFailed, groupsLoaded, isEditor, operations, operationsLoaded, refreshGroups, refreshOperations, selectedEvent?.id, statusWorkflow.requestCompletion])
   useCompletionBoard(completionBoard)
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –

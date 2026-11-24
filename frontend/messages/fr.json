@@ -1494,7 +1494,9 @@
       "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là",
       "openEvent": "Ouvrir l’événement",
       "openEventFailed": "Événement non ouvert – réessayer",
-      "notOnBoard": "Intervention introuvable – l’ouvrir sur le tableau"
+      "notOnBoard": "Intervention introuvable – l’ouvrir sur le tableau",
+      "loadFailed": "Échec du chargement – réessayer",
+      "retryLoad": "Recharger"
     },
     "quickAdd": {
       "networkErrorTitle": "Erreur de réseau",
