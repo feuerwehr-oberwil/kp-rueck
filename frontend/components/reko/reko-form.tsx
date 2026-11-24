@@ -1,7 +1,7 @@
 'use client'
 
 import { formatTime } from '@/lib/format-time'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, Binoculars, MapPin, Check, CircleCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
+import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation, type ApiRekoReportResponse } from '@/lib/api-client'
 import { ApiError } from '@/lib/api/types'
 import { LinkInvalidCard } from '@/components/link-page/link-page'
 import {
@@ -29,13 +29,19 @@ import { unmutedToast } from '@/lib/toast-lifetime'
 import { getApiUrl } from '@/lib/env'
 import { RekoDummyGenerator } from '@/components/reko-dummy-generator'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
 
 // The field page is the SHELL: the token, the incident header, the arrival
-// ping, the localStorage draft and the 30 s autosave. The fields themselves are
-// `RekoReportForm`, which the board's incident detail mounts too — one component
+// ping, the localStorage draft, the 30 s autosave and the photo viewer. The
+// fields themselves are `RekoReportForm`, which the board's incident detail mounts too — one component
 // and two mounts, because a second form drifts and the KP path is then the one
 // that quietly loses a field (plan 26 §5.1).
 const INITIAL_FORM_DATA: RekoFormData = EMPTY_REKO_FORM
+
+/** A photo of the report through this link's own door (`?reko_token=`): the page has no session. */
+function linkPhotoUrl(incidentId: string, token: string, filename: string): string {
+  return `${getApiUrl()}/api/photos/${incidentId}/${encodeURIComponent(filename)}?${new URLSearchParams({ reko_token: token })}`
+}
 
 export default function RekoForm() {
   const params = useSearchParams()
@@ -259,8 +265,8 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
           setArrivedAt(new Date(data.arrived_at))
         }
 
-        // A report belongs to one form link. The old incident-wide key cannot identify its author.
-        const store = new ReportDrafts(data.id)
+        // The incident's one report, as the person this link names left it on this phone.
+        const store = new ReportDrafts(data.id, personnelId)
         const serverData = toRekoFormData(data)
         setDrafts(store)
         setSyncedData(serverData)
@@ -331,7 +337,18 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
     if (drafts && syncedData && !recovery.length) persist(drafts, syncedData, formData, attempts)
   }, [drafts, syncedData, recovery, formData, attempts])
 
-  function acknowledged(form: RekoFormData, sent: StoredRevision | null | undefined) {
+  /**
+   * The server answered the save that carried `form`. Its report – the KP's edits since
+   * included – becomes the baseline and the form, with what the crew typed while the save
+   * was on its way laid over it (the board's rule, `use-reko-autosave`; Sol review G round 2,
+   * S2). The photo list stays the form's own: upload and delete answers feed it.
+   */
+  function acknowledged(form: RekoFormData, sent: StoredRevision | null | undefined, report: ApiRekoReportResponse) {
+    const server = toRekoFormData(report)
+    setFormData(current => ({
+      ...applyDraft(server, changedFields(form, current)),
+      photos_json: current.photos_json,
+    }))
     // The request may finish after the component unmounts, when no effect can do this.
     // Retire the exact revision sent; a later keystroke already has its own storage key.
     if (sent) {
@@ -345,7 +362,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
       restored.current = null
     }
     rememberAttempts([])
-    setSyncedData(form)
+    setSyncedData(server)
     setUnsent(false)
   }
 
@@ -363,12 +380,12 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   async function saveDraft() {
     if (!dirty || !changes || !syncedData || saving.current || isSubmittingRef.current || !incidentId || !token) return
     const sent = sending(syncedData, changes)
-    const request = apiClient.saveRekoDraft(incidentId, token, changes).then(() => formData)
-    saving.current = request
+    const answer = apiClient.saveRekoDraft(incidentId, token, changes)
+    // A submit waiting on this save diffs against the form as sent – or, failed, as synced.
+    saving.current = answer.then(() => formData, () => syncedData)
     setIsSaving(true)
     try {
-      await request
-      acknowledged(formData, sent)
+      acknowledged(formData, sent, await answer)
       setLastSaved(new Date())
     } catch (error) {
       console.error('Auto-save failed:', error)
@@ -411,11 +428,10 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
 
     try {
       // Serialize final submission after an earlier autosave, even when its response is delayed.
-      const baseline = (await saving.current?.catch(() => syncedData)) ?? syncedData
+      const baseline = (await saving.current) ?? syncedData
       const fields = changedFields(baseline, formData, latestAttempts.current.at(-1))
       const sent = sending(baseline, fields)
-      await apiClient.submitRekoReport(incidentId, token, fields)
-      acknowledged(formData, sent)
+      acknowledged(formData, sent, await apiClient.submitRekoReport(incidentId, token, fields))
 
       // Intentionally keep isSubmitting/isSubmittingRef true on success so the
       // button stays disabled and no auto-save can fire until the redirect.
@@ -447,6 +463,14 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
       setIsSubmitting(false)
     }
   }
+
+  // The page's own photo viewer – no incident surface around it provides one. It loads each
+  // photo through the link's door plus `view=full`, so every open is logged (`fullViewSrc`).
+  const viewerPhotos = useMemo(() => ({
+    reko: incidentId && token ? formData.photos_json.map(filename => ({
+      group: 'reko' as const, filename, src: linkPhotoUrl(incidentId, token, filename), by: assignedPersonnelName, at: null,
+    })) : [],
+  }), [formData.photos_json, incidentId, token, assignedPersonnelName])
 
   if (isLoading) {
     return (
@@ -502,136 +526,138 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Training Mode Dummy Data Generator */}
-      <RekoDummyGenerator
-        isTraining={isTraining}
-        onGenerate={handleGenerateDummyData}
-      />
+    <PhotoViewerProvider incidentLabel={incidentDetails.location || incidentTitle} fallback={viewerPhotos}>
+      <div className="space-y-5">
+        {/* Training Mode Dummy Data Generator */}
+        <RekoDummyGenerator
+          isTraining={isTraining}
+          onGenerate={handleGenerateDummyData}
+        />
 
-      {/* Incident Info */}
-      <div className="rounded-lg bg-secondary/50 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <span className="font-medium">{incidentDetails.location || incidentTitle}</span>
-          {assignedPersonnelName && (
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Binoculars className="h-4 w-4" />
-              <span>{assignedPersonnelName}</span>
+        {/* Incident Info */}
+        <div className="rounded-lg bg-secondary/50 p-4">
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-medium">{incidentDetails.location || incidentTitle}</span>
+            {assignedPersonnelName && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Binoculars className="h-4 w-4" />
+                <span>{assignedPersonnelName}</span>
+              </div>
+            )}
+          </div>
+          {incidentDetails.description && (
+            <p className="text-sm text-muted-foreground mt-2">
+              {incidentDetails.description}
+            </p>
+          )}
+          {incidentDetails.contact && (
+            <div className="mt-2 pt-2 border-t border-border/50">
+              <span className="text-sm text-muted-foreground">{t('contactLabel')}</span>
+              <a
+                href={telHref(incidentDetails.contact) ?? undefined}
+                className="text-sm font-medium text-foreground underline underline-offset-2 hover:decoration-2"
+              >
+                {incidentDetails.contact}
+              </a>
             </div>
           )}
         </div>
-        {incidentDetails.description && (
-          <p className="text-sm text-muted-foreground mt-2">
-            {incidentDetails.description}
-          </p>
-        )}
-        {incidentDetails.contact && (
-          <div className="mt-2 pt-2 border-t border-border/50">
-            <span className="text-sm text-muted-foreground">{t('contactLabel')}</span>
-            <a
-              href={telHref(incidentDetails.contact) ?? undefined}
-              className="text-sm font-medium text-foreground underline underline-offset-2 hover:decoration-2"
-            >
-              {incidentDetails.contact}
-            </a>
-          </div>
-        )}
-      </div>
 
-      {/* Arrival Ping Button */}
-      <Button
-        type="button"
-        onClick={handleMarkArrived}
-        disabled={isMarkingArrived || !!arrivedAt}
-        variant={arrivedAt ? "secondary" : "default"}
-        size="lg"
-        className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : ''}`}
-      >
-        {isMarkingArrived ? (
-          <>
-            <ShellLoader className="h-5 w-5" />
-            {t('markingArrival')}
-          </>
-        ) : arrivedAt ? (
-          <>
-            <Check className="h-5 w-5" />
-            {t('arrivalReported', { time: formatTime(arrivedAt, intlLocale) })}
-          </>
-        ) : (
-          <>
-            <MapPin className="h-5 w-5" />
-            {t('imOnSite')}
-          </>
-        )}
-      </Button>
-
-      {/* The field set itself — the SAME component the board's incident detail
-          mounts, with a different transport and identity (plan 26 §5.1). The
-          shell above (header, arrival ping, dummy generator) is what differs;
-          the fields must not. */}
-      <RekoReportForm
-        incidentId={incidentId!}
-        value={formData}
-        onChange={setFormData}
-        mount="feld"
-        isSubmitting={isSubmitting}
-        busy={isSaving}
-        onSubmit={handleSubmit}
-        photos={{
-          url: (filename) => `${getApiUrl()}/api/photos/${incidentId}/${encodeURIComponent(filename)}?${new URLSearchParams({ reko_token: token! })}`,
-          upload: async (file, onProgress) =>
-            (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
-          remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
-        }}
-        footer={
-          /* Three honest states instead of one friendly lie. The question at a
-             Schadenplatz is never «wurde gespeichert?» — localStorage answers
-             that on every keystroke — it is whether the KP has it or whether it
-             is still on this phone. «Jetzt zum KP senden» is the same button
-             the Rapport form calls `sendChanges`; one pattern, two forms. */
-          !unsent || !dirty ? (
-            <div className="space-y-1 text-center">
-              {lastSaved && !dirty && (
-                <p className="text-sm">
-                  {t('syncedAt', {
-                    time: formatTime(lastSaved, intlLocale),
-                  })}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">{lastSaved && !dirty ? t('syncedHint') : t('autoSave')}</p>
-            </div>
-          ) : online ? (
-            <div className="space-y-2">
-              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-                <p className="font-medium">{t('unsentTitle')}</p>
-                <p className="mt-0.5">
-                  {lastSaved
-                    ? t('unsentBody', {
-                        time: formatTime(lastSaved, intlLocale),
-                      })
-                    : t('unsentBodyNever')}
-                </p>
-                <p className="mt-1 text-xs opacity-90">{t('unsentReassurance')}</p>
-              </div>
-              <Button type="button" className="w-full" disabled={isSaving} onClick={() => saveDraft()}>
-                {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
-                {t('sendNow')}
-              </Button>
-            </div>
+        {/* Arrival Ping Button */}
+        <Button
+          type="button"
+          onClick={handleMarkArrived}
+          disabled={isMarkingArrived || !!arrivedAt}
+          variant={arrivedAt ? "secondary" : "default"}
+          size="lg"
+          className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : ''}`}
+        >
+          {isMarkingArrived ? (
+            <>
+              <ShellLoader className="h-5 w-5" />
+              {t('markingArrival')}
+            </>
+          ) : arrivedAt ? (
+            <>
+              <Check className="h-5 w-5" />
+              {t('arrivalReported', { time: formatTime(arrivedAt, intlLocale) })}
+            </>
           ) : (
-            /* No network is not a fault and gets no red: it is a cellar, and it
-               ends by itself. The one instruction that matters is to leave the
-               form open, because closing it is what would actually cost the
-               text. */
-            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-              <p className="font-medium">{t('offlineTitle')}</p>
-              <p className="mt-0.5">{t('offlineBody')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>
-            </div>
-          )
-        }
-      />
-    </div>
+            <>
+              <MapPin className="h-5 w-5" />
+              {t('imOnSite')}
+            </>
+          )}
+        </Button>
+
+        {/* The field set itself — the SAME component the board's incident detail
+            mounts, with a different transport and identity (plan 26 §5.1). The
+            shell above (header, arrival ping, dummy generator) is what differs;
+            the fields must not. */}
+        <RekoReportForm
+          incidentId={incidentId!}
+          value={formData}
+          onChange={setFormData}
+          mount="feld"
+          isSubmitting={isSubmitting}
+          busy={isSaving}
+          onSubmit={handleSubmit}
+          photos={{
+            url: (filename) => linkPhotoUrl(incidentId!, token!, filename),
+            upload: async (file, onProgress) =>
+              (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
+            remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
+          }}
+          footer={
+            /* Three honest states instead of one friendly lie. The question at a
+               Schadenplatz is never «wurde gespeichert?» — localStorage answers
+               that on every keystroke — it is whether the KP has it or whether it
+               is still on this phone. «Jetzt zum KP senden» is the same button
+               the Rapport form calls `sendChanges`; one pattern, two forms. */
+            !unsent || !dirty ? (
+              <div className="space-y-1 text-center">
+                {lastSaved && !dirty && (
+                  <p className="text-sm">
+                    {t('syncedAt', {
+                      time: formatTime(lastSaved, intlLocale),
+                    })}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">{lastSaved && !dirty ? t('syncedHint') : t('autoSave')}</p>
+              </div>
+            ) : online ? (
+              <div className="space-y-2">
+                <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
+                  <p className="font-medium">{t('unsentTitle')}</p>
+                  <p className="mt-0.5">
+                    {lastSaved
+                      ? t('unsentBody', {
+                          time: formatTime(lastSaved, intlLocale),
+                        })
+                      : t('unsentBodyNever')}
+                  </p>
+                  <p className="mt-1 text-xs opacity-90">{t('unsentReassurance')}</p>
+                </div>
+                <Button type="button" className="w-full" disabled={isSaving} onClick={() => saveDraft()}>
+                  {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
+                  {t('sendNow')}
+                </Button>
+              </div>
+            ) : (
+              /* No network is not a fault and gets no red: it is a cellar, and it
+                 ends by itself. The one instruction that matters is to leave the
+                 form open, because closing it is what would actually cost the
+                 text. */
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+                <p className="font-medium">{t('offlineTitle')}</p>
+                <p className="mt-0.5">{t('offlineBody')}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>
+              </div>
+            )
+          }
+        />
+      </div>
+    </PhotoViewerProvider>
   )
 }
 

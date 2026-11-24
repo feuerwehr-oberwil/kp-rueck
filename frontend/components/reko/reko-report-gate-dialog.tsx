@@ -14,6 +14,8 @@ import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/lib/contexts/auth-context'
 import type { Operation } from '@/lib/contexts/operations-context'
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
+import { rekoPhotoUrl } from '@/lib/reko-photos'
 
 /**
  * «Reko-Bericht · {Einsatz}» – the gate of a card moved into «Reko abgeschlossen» without a
@@ -107,6 +109,12 @@ export function RekoReportGateDialog({
     }),
     [incidentId],
   )
+  // The gate's own photo viewer, through the session's door (`?view=full`, logged).
+  const viewerPhotos = useMemo(() => ({
+    reko: form.photos_json.map(filename => ({
+      group: 'reko' as const, filename, src: rekoPhotoUrl(incidentId, filename), by: null, at: null,
+    })),
+  }), [form.photos_json, incidentId])
 
   /** The main answer: the newest form on the server first (`flush` sends a waiting save),
    *  then the move – below, once the sync line says the saves settled. */
@@ -156,7 +164,7 @@ export function RekoReportGateDialog({
         </Button>
       </div>
     ) : (
-      <>
+      <PhotoViewerProvider incidentLabel={location} fallback={viewerPhotos}>
         <RekoReportForm
           incidentId={incidentId}
           value={form}
@@ -171,7 +179,7 @@ export function RekoReportGateDialog({
             {hasRekoContent(form) && <> {t('draftStays')}</>}
           </p>
         )}
-      </>
+      </PhotoViewerProvider>
     )
 
   // «Ohne Bericht» while «Einsatz relevant?» is open: the move files nothing.

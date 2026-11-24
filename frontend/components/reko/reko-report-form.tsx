@@ -27,6 +27,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useId, useState } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
+import { usePhotoViewer } from '@/lib/hooks/use-photo-viewer'
 import { useTranslations } from 'next-intl'
 import { Check, Send } from 'lucide-react'
 
@@ -122,8 +123,6 @@ interface RekoReportFormProps {
   onChange: Dispatch<SetStateAction<RekoFormData>>
   /** The mount's photo door, if it has one. */
   photos?: PhotoTransport
-  /** Open a photo in the incident's viewer (board mount; `PhotoUpload.onOpenPhoto`). */
-  onOpenPhoto?: (filename: string) => void
   /** The field mount's «Bericht senden». The board's mount saves as it goes and has
    *  no submit: it passes none, and draws its sync line in its own header. */
   onSubmit?: () => void | Promise<void>
@@ -151,9 +150,12 @@ export function RekoReportForm({
   busy = false,
   disabled = false,
   footer,
-  onOpenPhoto,
 }: RekoReportFormProps) {
   const t = useTranslations('reko.form')
+  // A thumbnail opens the viewer its mount provides (`PhotoViewerProvider`): the board
+  // detail's, or the own one of the /reko form and the KP's Reko gate.
+  const viewPhoto = usePhotoViewer()
+  const onOpenPhoto = viewPhoto ? (filename: string) => viewPhoto('reko', filename) : undefined
   const isKp = mount === 'kp'
   // The phone gets thumb-sized controls in the rain; the KP gets a column in a
   // tab and a mouse. Same fields, same order, same component — only the shape

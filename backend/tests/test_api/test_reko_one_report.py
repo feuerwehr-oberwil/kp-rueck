@@ -14,7 +14,7 @@ from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, Notification, RekoReport, RekoReportChange, User
+from app.models import Event, Incident, Notification, Personnel, RekoReport, RekoReportChange, User
 from app.services.tokens import generate_form_token
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.api]
@@ -209,3 +209,47 @@ async def test_the_chronik_shows_the_change_with_its_author(
     assert (event["old_value"], event["new_value"]) == (None, True)
     assert event["source"] == "kp"
     assert event["actor_name"] == (test_editor.display_name or test_editor.username)
+
+
+async def test_the_filing_line_names_who_filed_not_who_opened(
+    db_session: AsyncSession, test_event: Event, incident_id: UUID, test_editor: User, test_admin: User
+):
+    # Sol review G round 2, S4: operator A opens the draft, operator B's save files it.
+    from app import schemas
+    from app.crud import reko as crud
+    from app.services.audit_export_service import collect_event_report_data
+    from app.services.rapport_rows import reko_filing_lines
+    from app.services.reko_history import RekoAuthor
+
+    opened = await crud.get_or_create_kp_reko_report(db_session, incident_id, test_editor)
+    await crud.update_reko_report(
+        db_session, opened.id, schemas.RekoReportUpdate(summary_text="Keller"), author=RekoAuthor.kp(test_editor)
+    )
+    report, filed_now = await crud.update_reko_report(
+        db_session, opened.id, schemas.RekoReportUpdate(is_relevant=True), author=RekoAuthor.kp(test_admin), submit=True
+    )
+    await db_session.commit()
+    assert filed_now and report.submitted_by_user_id == test_admin.id
+
+    data = await collect_event_report_data(db_session, test_event.id)
+    [line] = reko_filing_lines(data, next(r for r in data.reko_reports if r.id == report.id))
+    assert line.startswith(f"Erfasst im KP durch {test_admin.username} (Funkmeldung)")
+
+
+async def test_a_crew_filing_names_the_person_who_filed(
+    db_session: AsyncSession, incident_id: UUID, test_personnel: Personnel
+):
+    # S4, field side: the draft was stamped with whoever opened it; the filer's link names another.
+    from app import schemas
+    from app.crud import reko as crud
+    from app.services.reko_history import RekoAuthor
+
+    filer = Personnel(id=uuid4(), name="Anna Beispiel", role="Gruppenführer", status="available")
+    db_session.add(filer)
+    await db_session.commit()
+    token = generate_form_token(str(incident_id), "reko")
+    opened = await crud.get_or_create_reko_report(db_session, incident_id, token, test_personnel.id)
+    report, _ = await crud.update_reko_report(
+        db_session, opened.id, schemas.RekoReportUpdate(is_relevant=True), author=RekoAuthor.feld(filer.id), submit=True
+    )
+    assert (report.submitted_by_personnel_id, report.submitted_by_user_id) == (filer.id, None)

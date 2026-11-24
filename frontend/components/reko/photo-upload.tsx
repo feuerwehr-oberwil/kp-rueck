@@ -184,7 +184,7 @@ interface PhotoUploadProps {
    */
   dense?: boolean
   /** Open a stored photo in the incident's viewer (`components/photos/photo-viewer.tsx`).
-   *  Absent where no viewer is mounted (the field forms): the thumbnails stay pictures. */
+   *  Absent where no viewer is mounted: the thumbnails stay pictures. */
   onOpenPhoto?: (filename: string) => void
 }
 

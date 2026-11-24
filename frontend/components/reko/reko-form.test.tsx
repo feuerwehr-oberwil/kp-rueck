@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, screen, within } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { ApiError } from '@/lib/api/types'
@@ -58,6 +58,17 @@ describe('RekoForm — a dead link', () => {
 })
 
 describe('field report autosave', () => {
+  /** The report as the server has it: what the last form load returned, each save on top. */
+  let row: Record<string, unknown> = {}
+  /** The server's answer to a save: the whole report, the saved fields merged in. */
+  function serverAnswer(_incident: string, _token: string, changes: Record<string, unknown>) {
+    row = { ...row, ...changes }
+    return row
+  }
+  beforeEach(() => {
+    saveRekoDraft.mockImplementation(async (...args: Parameters<typeof serverAnswer>) => serverAnswer(...args))
+    submitRekoReport.mockImplementation(async (...args: Parameters<typeof serverAnswer>) => serverAnswer(...args))
+  })
   afterEach(() => {
     saveRekoDraft.mockReset()
     submitRekoReport.mockReset()
@@ -65,13 +76,11 @@ describe('field report autosave', () => {
     vi.useRealTimers()
   })
 
-  async function openReport(token: string, reportId: string | null, summary = 'Vom KP erfasst') {
-    params.value = new URLSearchParams({ incident_id: 'same-incident', token })
+  async function openReport(token: string, reportId: string | null, summary = 'Vom KP erfasst', personnelId?: string) {
+    params.value = new URLSearchParams({ incident_id: 'same-incident', token, ...(personnelId && { personnel_id: personnelId }) })
     if (reportId) {
-      getRekoForm.mockResolvedValueOnce({
-        id: reportId, summary_text: summary, is_relevant: true,
-        updated_at: '2025-01-01T00:00:00Z',
-      })
+      row = { id: reportId, summary_text: summary, is_relevant: true, updated_at: '2025-01-01T00:00:00Z' }
+      getRekoForm.mockResolvedValueOnce(row)
     } else {
       getRekoForm.mockRejectedValueOnce(new TypeError('Offline'))
     }
@@ -89,7 +98,8 @@ describe('field report autosave', () => {
     const first = await openReport('link-a', 'report-a')
     const second = await openReport('link-a', 'report-a')
     let acknowledge!: () => void
-    saveRekoDraft.mockImplementationOnce(() => new Promise<void>(resolve => { acknowledge = resolve }))
+    saveRekoDraft.mockImplementationOnce((...args: Parameters<typeof serverAnswer>) =>
+      new Promise(resolve => { acknowledge = () => resolve(serverAnswer(...args)) }))
     fireEvent.change(within(first.container).getByDisplayValue('Vom KP erfasst'), { target: { value: 'Erster Stand' } })
     await tick()
     fireEvent.change(within(second.container).getByDisplayValue('Vom KP erfasst'), { target: { value: 'Notiz im zweiten Tab' } })
@@ -115,12 +125,10 @@ describe('field report autosave', () => {
       expect(screen.getByDisplayValue('A')).toBeInTheDocument()
     }
     if (path === 'submit') {
-      submitRekoReport.mockResolvedValue({})
       await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Reko-Bericht übermitteln' })) })
       expect(submitRekoReport).toHaveBeenCalledWith('same-incident', 'link-a', { summary_text: 'A' })
     } else {
-      saveRekoDraft.mockResolvedValueOnce({})
-      await tick()
+        await tick()
       expect(saveRekoDraft).toHaveBeenLastCalledWith('same-incident', 'link-a', { summary_text: 'A' })
     }
   })
@@ -137,14 +145,12 @@ describe('field report autosave', () => {
     first.unmount()
     await openReport('link-a', 'report-a', 'B')
     expect(screen.getByDisplayValue('A')).toBeInTheDocument()
-    saveRekoDraft.mockResolvedValue({})
     await tick()
     expect(saveRekoDraft).toHaveBeenLastCalledWith('same-incident', 'link-a', { summary_text: 'A' })
   })
 
   it('lets the crew recover each unsent version without erasing the other one', async () => {
     vi.useFakeTimers()
-    saveRekoDraft.mockResolvedValue({})
     const first = await openReport('link-a', 'report-a')
     const second = await openReport('link-a', 'report-a')
     fireEvent.change(within(first.container).getByDisplayValue('Vom KP erfasst'), { target: { value: 'Westseite' } })
@@ -167,7 +173,8 @@ describe('field report autosave', () => {
     vi.useFakeTimers()
     const view = await openReport('link-a', 'report-a', 'A')
     let acknowledge!: () => void
-    saveRekoDraft.mockImplementationOnce(() => new Promise<void>(resolve => { acknowledge = resolve }))
+    saveRekoDraft.mockImplementationOnce((...args: Parameters<typeof serverAnswer>) =>
+      new Promise(resolve => { acknowledge = () => resolve(serverAnswer(...args)) }))
     fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
     await tick()
     view.unmount()
@@ -186,7 +193,6 @@ describe('field report autosave', () => {
     await tick()
     expect(saveRekoDraft).toHaveBeenCalledWith('same-incident', 'link-a', { dangers_json: { fire_danger: true } })
     fireEvent.click(hazard)
-    saveRekoDraft.mockResolvedValue({})
     await tick()
     expect(saveRekoDraft).toHaveBeenLastCalledWith('same-incident', 'link-a', { dangers_json: { fire_danger: false } })
   })
@@ -205,24 +211,22 @@ describe('field report autosave', () => {
 
   it('keeps an offline draft when the server also edited that field, until the crew chooses', async () => {
     vi.useFakeTimers()
-    localStorage.setItem('reko-report-draft-report-a', JSON.stringify({
+    localStorage.setItem('reko-report-draft-report-a@link/offline', JSON.stringify({
       previous: { summary_text: 'Alter Stand' }, changes: { summary_text: 'Notizen vom Gerät' },
     }))
     await openReport('link-a', 'report-a')
     await tick()
     expect(saveRekoDraft).not.toHaveBeenCalled()
-    expect(localStorage.getItem('reko-report-draft-report-a')).toContain('Notizen vom Gerät')
+    expect(localStorage.getItem('reko-report-draft-report-a@link/offline')).toContain('Notizen vom Gerät')
     fireEvent.click(screen.getByRole('button', { name: 'Entwurf vom Gerät verwenden' }))
     expect(screen.getByDisplayValue('Notizen vom Gerät')).toBeInTheDocument()
-    saveRekoDraft.mockResolvedValue({})
     await tick()
     expect(saveRekoDraft).toHaveBeenCalledWith('same-incident', 'link-a', { summary_text: 'Notizen vom Gerät' })
-    expect(localStorage.getItem('reko-report-draft-report-a')).toBeNull()
+    expect(localStorage.getItem('reko-report-draft-report-a@link/offline')).toBeNull()
   })
 
   it('recovers only this report’s edits and sends only changed fields once', async () => {
     vi.useFakeTimers()
-    saveRekoDraft.mockResolvedValue({})
     const first = await openReport('link-a', 'report-a')
     fireEvent.change(screen.getByDisplayValue('Vom KP erfasst'), { target: { value: 'Erster Trupp' } })
     first.unmount()
@@ -237,6 +241,52 @@ describe('field report autosave', () => {
     expect(saveRekoDraft).toHaveBeenCalledWith('same-incident', 'link-a', { summary_text: 'Erster Trupp' })
     await tick()
     expect(saveRekoDraft).toHaveBeenCalledTimes(1)
+  })
+
+  // Sol review G round 2, S1: one report per incident, but a phone handed on is a new author.
+  it('does not restore what another person left unsent on this phone', async () => {
+    vi.useFakeTimers()
+    const first = await openReport('link-a', 'report-a', 'Vom KP erfasst', 'person-a')
+    fireEvent.change(screen.getByDisplayValue('Vom KP erfasst'), { target: { value: 'Notiz von A' } })
+    first.unmount()
+    const next = await openReport('link-b', 'report-a', 'Vom KP erfasst', 'person-b')
+    expect(screen.getByDisplayValue('Vom KP erfasst')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Entwurf vom Gerät verwenden' })).toBeNull()
+    await tick()
+    expect(saveRekoDraft).not.toHaveBeenCalled()
+    next.unmount()
+    await openReport('link-a', 'report-a', 'Vom KP erfasst', 'person-a')
+    expect(screen.getByDisplayValue('Notiz von A')).toBeInTheDocument()
+  })
+
+  // S2: the KP edits the same report – a save's answer brings that in, unsent typing stays.
+  it('takes the KP’s edits from a save’s answer and keeps what is typed meanwhile', async () => {
+    vi.useFakeTimers()
+    await openReport('link-a', 'report-a', 'A')
+    let acknowledge!: () => void
+    saveRekoDraft.mockImplementationOnce((...args: Parameters<typeof serverAnswer>) =>
+      new Promise(resolve => { acknowledge = () => resolve(serverAnswer(...args)) }))
+    fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
+    await tick()
+    fireEvent.change(screen.getByDisplayValue('B'), { target: { value: 'C' } })
+    row = { ...row, additional_notes: 'Zufahrt über Hof (KP)' }
+    await act(async () => { acknowledge() })
+    expect(screen.getByDisplayValue('Zufahrt über Hof (KP)')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('C')).toBeInTheDocument()
+    await tick()
+    expect(saveRekoDraft).toHaveBeenLastCalledWith('same-incident', 'link-a', { summary_text: 'C' })
+  })
+
+  // S3: the /reko page has no incident surface around it – the form brings its own viewer.
+  it('opens a photo in the viewer through the link’s own door, logged as a full view', async () => {
+    params.value = new URLSearchParams({ incident_id: 'same-incident', token: 'link-a' })
+    getRekoForm.mockResolvedValueOnce({ id: 'report-a', photos_json: ['keller.jpg'], updated_at: '2025-01-01T00:00:00Z' })
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Foto 1 öffnen' }))
+    const viewer = screen.getByTestId('photo-viewer')
+    const src = decodeURIComponent(within(viewer).getAllByRole('img')[0].getAttribute('src') ?? '')
+    expect(src).toContain('/api/photos/same-incident/keller.jpg?reko_token=link-a&view=full')
   })
 })
 

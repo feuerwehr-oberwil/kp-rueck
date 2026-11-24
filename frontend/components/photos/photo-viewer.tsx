@@ -6,7 +6,9 @@
  * ones.
  *
  * One viewer per incident surface: `PhotoViewerProvider` wraps the board detail, the phone
- * sheet and the /display modal. The parts that show thumbnails hand it their photos
+ * sheet and the /display modal – and, with no such surface around them, the /reko form, the
+ * /feld Rapport and the KP's Reko gate (Sol review G round 2, S3), each with its photos'
+ * own door (form token, feld two-step, session). The parts that show thumbnails hand it their photos
  * (`useRegisterPhotos`) and open it on a tap (`usePhotoViewer`, both `lib/hooks/use-photo-viewer.ts`). It lines them up Reko first,
  * then Rapport (`lib/photo-lightbox.ts`), so the arrows run through every photo of the
  * incident, and the desktop strip groups them «Reko · 3 | Rapport · 2».
@@ -15,8 +17,6 @@
  * Phone: swipe left/right, page dots, pull down to close. The image loads from the thumbnail's
  * URL plus `view=full` (`fullViewSrc`, unoptimized), which the server never lets the browser
  * cache – so the photo endpoint logs every open (`view_photo`).
- * Without a provider (the /feld and /reko forms) nothing opens and the thumbnails stay as
- * they were.
  */
 
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'

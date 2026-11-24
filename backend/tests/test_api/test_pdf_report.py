@@ -170,6 +170,7 @@ class TestRekoProvenanceInTheReport:
         report = self._report(
             test_incident,
             created_by_user_id=test_editor.id,
+            submitted_by_user_id=test_editor.id,
             updated_by_user_id=test_editor.id,
         )
         text = self._pdf_text(test_event, test_incident, report, users=(test_editor,))
@@ -250,6 +251,7 @@ class TestRekoProvenanceUsersAreLoaded:
             token="test-token",
             is_draft=False,
             created_by_user_id=test_editor.id,
+            submitted_by_user_id=test_editor.id,
             updated_by_user_id=test_editor.id,
             arrived_at=datetime(2026, 6, 1, 19, 10, tzinfo=UTC),
             arrived_reported_by_user_id=test_editor.id,

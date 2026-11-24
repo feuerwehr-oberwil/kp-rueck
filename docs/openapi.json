@@ -12953,7 +12953,7 @@
           "feld"
         ],
         "summary": "Serve Feld Photo",
-        "description": "Read a rapport photo back on `/feld` — the crew looking at what it shot.\n\n`GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path\nand requires a session; `/feld` has none, which is why the phone got a\nbroken image where its own photo should be. The answer is NOT to drop the\ncredential from that endpoint — a rapport photo can be a citizen's cellar.\nIt is the same two-step every other handler in this module runs, so a photo\nis readable exactly by someone who holds the event's link AND is assigned to\nthat Schadenplatz.\n\n``photos_json`` is checked as well as the disk: the assignment says which\nincident you may look at, the report says which files belong to it. Neither\nalone is enough — `get_photo_path` only proves a file exists on disk under\nthat incident's directory.",
+        "description": "Read a rapport photo back on `/feld` — the crew looking at what it shot.\n\n`GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path\nand requires a session; `/feld` has none, which is why the phone got a\nbroken image where its own photo should be. The answer is NOT to drop the\ncredential from that endpoint — a rapport photo can be a citizen's cellar.\nIt is the same two-step every other handler in this module runs, so a photo\nis readable exactly by someone who holds the event's link AND is assigned to\nthat Schadenplatz.\n\n``photos_json`` is checked as well as the disk: the assignment says which\nincident you may look at, the report says which files belong to it. Neither\nalone is enough — `get_photo_path` only proves a file exists on disk under\nthat incident's directory.\n\nThe thumbnail may come from the phone's cache; the viewer asks with ``?view=full``,\nanswered ``no-store`` and logged as ``view_photo`` like the board's route (Sol review G\nround 2, S3).",
         "operationId": "serve_feld_photo_api_feld_incidents__incident_id__photos__filename__get",
         "parameters": [
           {
@@ -12986,6 +12986,25 @@
               "title": "Personnel Id"
             },
             "description": "Who is looking"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "full",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`full`: the in-app viewer – never cached, so every open is a logged view",
+              "title": "View"
+            },
+            "description": "`full`: the in-app viewer – never cached, so every open is a logged view"
           },
           {
             "name": "token",

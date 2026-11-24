@@ -157,7 +157,6 @@ export default function RekoReportSection({
 
   // The incident's viewer gets the photos this block shows: the form's on the board, the
   // filed report's elsewhere.
-  const openPhoto = usePhotoViewer()
   const filed = report && !report.is_draft ? report : null
   const shownPhotos = canEdit ? formData.photos_json : (filed?.photos_json ?? [])
   useRegisterPhotos('reko', shownPhotos.map(filename => ({
@@ -224,7 +223,6 @@ export default function RekoReportSection({
         value={formData}
         onChange={setFormData}
         photos={photoTransport}
-        onOpenPhoto={openPhoto ? filename => openPhoto('reko', filename) : undefined}
         mount="kp"
       />
     </div>

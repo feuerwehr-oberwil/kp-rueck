@@ -25,6 +25,10 @@ The fold, per incident that has more than one report:
 that the field's edits also move `updated_at`. Backfilled from `updated_at` where a KP
 user amended.
 
+`submitted_by_user_id` is new: the operator whose save filed the report – with one report
+per incident, whoever opened the draft is not who filed it. Backfilled from
+`created_by_user_id` on filed reports no crew filed (until now one person did both).
+
 Revision ID: c4f1a7e2d9b3
 Revises: b8e4f2a6c1d7
 """
@@ -129,6 +133,19 @@ def upgrade() -> None:
 
     op.add_column("reko_reports", sa.Column("updated_by_user_at", sa.DateTime(timezone=True), nullable=True))
     op.execute("UPDATE reko_reports SET updated_by_user_at = updated_at WHERE updated_by_user_id IS NOT NULL")
+    op.add_column("reko_reports", sa.Column("submitted_by_user_id", postgresql.UUID(as_uuid=True), nullable=True))
+    op.create_foreign_key(
+        "fk_reko_reports_submitted_by_user_id",
+        "reko_reports",
+        "users",
+        ["submitted_by_user_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+    op.execute(
+        "UPDATE reko_reports SET submitted_by_user_id = created_by_user_id"
+        " WHERE NOT is_draft AND submitted_by_personnel_id IS NULL"
+    )
 
     op.create_table(
         "reko_report_changes",
@@ -169,6 +186,8 @@ def downgrade() -> None:
         WHERE f.id = r.id AND f.kept
         """
     )
+    op.drop_constraint("fk_reko_reports_submitted_by_user_id", "reko_reports", type_="foreignkey")
+    op.drop_column("reko_reports", "submitted_by_user_id")
     op.drop_column("reko_reports", "updated_by_user_at")
     op.execute(
         """

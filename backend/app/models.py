@@ -1284,6 +1284,12 @@ class RekoReport(Base):
     # When `updated_by_user_id` last wrote. `updated_at` moves with every write, the
     # field's too, so «Ergänzt im KP durch … um …» needs the KP's own time.
     updated_by_user_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The operator whose save filed the report (draft → filed), NULL when a form link filed
+    # it. Whoever opened the draft is not who filed it: one report serves the incident, so
+    # «Erfasst im KP durch …» names this one (Sol review G round 2, S4).
+    submitted_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     # The arrival's OWN author, for the same reason the Schadenplatz-Rapport keeps
     # `arrived_by_user_id` apart from its created_by pair: the KP can now create a
     # report before anybody is on site, so reading the arrival off the creator

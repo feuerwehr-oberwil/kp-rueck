@@ -141,7 +141,9 @@ async def update_reko_report(
         author: Who wrote it. A KP author stamps ``updated_by_user_id`` (+ its time) and
             nothing else, so a crew-filed report keeps its ``submitted_by_personnel_id``
             (§5.3). Every field that moved gets its Chronik row (`reko_history`).
-        submit: If True, files a draft (no-op on a filed report)
+        submit: If True, files a draft (no-op on a filed report). The filing names its
+            author: ``submitted_by_user_id`` for the KP, ``submitted_by_personnel_id`` (when
+            the link names a person) for the field – not whoever opened the draft (S4).
 
     Returns:
         The report, and whether THIS write filed it (draft → filed, read under the row
@@ -179,6 +181,9 @@ async def update_reko_report(
     if filed_now:
         report.is_draft = False
         report.submitted_at = now
+        report.submitted_by_user_id = author.user_id
+        if author.personnel_id is not None:
+            report.submitted_by_personnel_id = author.personnel_id
 
     if author.user_id is not None:
         report.updated_by_user_id = author.user_id

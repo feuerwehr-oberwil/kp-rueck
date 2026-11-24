@@ -199,8 +199,8 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // upload's own answer is the newer truth and an autosave that started before
   // it must not roll the list back.
   const [photos, setPhotos] = useState<string[]>([])
-  // The incident's viewer, where one is mounted (the board's Rapport tab): these photos
-  // join the Reko ones there. Nothing on /feld.
+  // The incident's viewer: the board's (these photos join the Reko ones there), or the one
+  // /feld mounts around this form.
   const openPhoto = usePhotoViewer()
   const photoUrl = transport.photos?.url
   useRegisterPhotos('rapport', photos.map(filename => ({

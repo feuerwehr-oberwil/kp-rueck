@@ -75,22 +75,27 @@ export interface RecoverableDraft {
 }
 
 // Each write gets a fresh key, including repeated edits in a single tab. Acknowledging a
-// revision can therefore never delete a newer one. The unversioned per-report key is read
-// for upgrades. Incident-wide drafts predate report attribution and cannot be restored here.
+// revision can therefore never delete a newer one.
+//
+// Keyed by report AND by the person the link names (`personnel_id`; `link` for a link that
+// names nobody). Since one report serves the whole incident, a phone handed to the next crew
+// member must not restore – and send under their name – what the previous one left unsent
+// (Sol review G round 2, S1). Older keys (per report only, or incident-wide) cannot say whose
+// they are and are not read.
 export class ReportDrafts {
   private readonly prefix: string
   private own: StoredRevision | null = null
   private currentData: string | null = null
 
-  constructor(reportId: string) {
-    this.prefix = `reko-report-draft-${reportId}`
+  constructor(reportId: string, personnelId: string | null) {
+    this.prefix = `reko-report-draft-${reportId}@${personnelId ?? 'link'}`
   }
 
   read(): RecoverableDraft[] {
     const versions = new Map<string, RecoverableDraft>()
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key !== this.prefix && !key?.startsWith(this.prefix + '/')) continue
+      if (!key?.startsWith(this.prefix + '/')) continue
       const raw = localStorage.getItem(key)
       if (!raw) continue
       try {
@@ -138,7 +143,7 @@ export class ReportDrafts {
   }
 
   private remove(revision: StoredRevision) {
-    // The equality check also protects the old unversioned key from a changed legacy value.
+    // Only the revision as it was read: a key rewritten since is left alone.
     if (localStorage.getItem(revision.key) === revision.raw) localStorage.removeItem(revision.key)
   }
 }
