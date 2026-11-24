@@ -468,9 +468,13 @@ export default function MapPage() {
   }, [router, isMobile])
   // The phone sheet's «Auf Karte anzeigen» from here: the Lagekarte is this page, so it closes
   // the sheet and flies to the marker instead of loading `/map?highlight=` over itself.
+  // It also rides the filter exception below, so an Einsatz that turned «Beendet» while the
+  // sheet was open still shows when the map flies to it.
+  const [showOnMapId, setShowOnMapId] = useState<string | null>(null)
   const showPhoneDetailOnMap = useCallback((incidentId: string) => {
     setPhoneDetailId(null)
     setSelectedIncidentId(incidentId)
+    setShowOnMapId(incidentId)
     setPanTrigger((n) => n + 1)
   }, [])
   // A row tap on the phone: the sheet, over a map that flies to the Einsatz – also when it was
@@ -616,9 +620,10 @@ export default function MapPage() {
   // is filtered out. It rides as a one-time exception ON TOP of the filters —
   // the filter toggles themselves stay untouched (Bastian's decided behavior).
   // The exception lasts exactly as long as that incident stays selected;
-  // picking anything else lets the normal filters take over again.
+  // picking anything else lets the normal filters take over again. The phone sheet's
+  // «Auf Karte anzeigen» (`showOnMapId`) is the same act without the URL.
   const deepLinkExceptionId =
-    highlightParam && selectedIncidentId === highlightParam ? highlightParam : null
+    [highlightParam, showOnMapId].find((id) => id && id === selectedIncidentId) ?? null
 
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(

@@ -98,15 +98,19 @@ export function MapPickerModal({
     return DEFAULT_CENTER_LATLNG
   }, [selectedLat, selectedLon, initialLat, initialLon])
 
-  // Reset state when modal opens with new initial values
-  useEffect(() => {
+  // Each open starts on the caller's point. Reset during the render that opens, not in an
+  // effect after it: the map reads `initialViewState` once, when it mounts in that same render,
+  // and would otherwise frame the point a cancelled pick left behind.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
     if (open) {
       setSelectedLat(initialLat ?? null)
       setSelectedLon(initialLon ?? null)
       setGeocodedAddress(null)
       setPinMoved(false)
     }
-  }, [open, initialLat, initialLon])
+  }
 
   // Cancel obsolete pin lookups, including retries, when the pin moves or the dialog closes.
   useEffect(() => {
