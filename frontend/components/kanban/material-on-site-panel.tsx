@@ -131,15 +131,18 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
             const isConfirming = !!assignmentId && confirming?.assignmentId === assignmentId
             return (
             <li key={entry.materialId}>
-              <div className="flex items-end gap-1">
+              <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => onOpenIncident(entry.incidentId)}
                 title={t("rowTitle", { name: entry.name, address: entry.address ?? "–" })}
                 className="flex min-w-0 flex-1 flex-col gap-0.5 rounded px-1.5 py-1 text-left hover:bg-muted/60"
               >
+                {/* Name and place wrap (two lines each) rather than cut: beside «Abgeholt»
+                    and with the detail open the aside is narrow, and «Tauchpumpe S…» did not
+                    say which pump (sign-off 24.11.). */}
                 <span className="flex items-baseline gap-2">
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                  <span className="min-w-0 flex-1 line-clamp-2 break-words text-xs font-medium text-foreground">
                     {entry.name}
                   </span>
                   {/* Age, not a clock time: "seit 6h 12'" is the number that
@@ -150,7 +153,7 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
                     </span>
                   )}
                 </span>
-                <span className="truncate text-[11px] text-muted-foreground">
+                <span className="line-clamp-2 break-words text-[11px] text-muted-foreground">
                   {entry.address ?? t("unknownAddress")}
                 </span>
               </button>
@@ -158,7 +161,8 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
                 <Button
                   variant="outline"
                   size="xs"
-                  className="mb-0.5 min-h-6 shrink-0 rounded-sm px-1.5 py-0"
+                  // The button's own padding, and the row's inset from the aside edge.
+                  className="mr-1.5 min-h-7 shrink-0 rounded-sm py-0"
                   aria-label={t("collectLabel", { name: entry.name })}
                   onClick={() => setConfirming({ assignmentId, at: new Date() })}
                 >
