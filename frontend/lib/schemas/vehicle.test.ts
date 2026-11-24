@@ -104,6 +104,10 @@ describe("vehicleUpdateFor", () => {
     expect(vehicleUpdateFor(opened, { ...opened })).toEqual({});
   });
 
+  it("never sends a type – the dialog has no field for it", () => {
+    expect(vehicleUpdateFor({ ...opened, type: "" }, { ...opened, type: "", name: "TLF 2" })).toEqual({ name: "TLF 2" });
+  });
+
   it("sends the readiness when it was changed here", () => {
     expect(vehicleUpdateFor(opened, { ...opened, status: "unavailable" })).toEqual({ status: "unavailable" });
   });

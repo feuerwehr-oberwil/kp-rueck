@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -19,7 +19,8 @@ from fastapi import (
     status,
 )
 from sqlalchemy import func as sa_func
-from sqlalchemy import select
+from sqlalchemy import literal, select
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -106,6 +107,19 @@ def _count_and_latest(
     return (
         select(sa_func.count()).select_from(stamp.class_).where(*where).scalar_subquery(),
         select(sa_func.max(stamp)).where(*where).scalar_subquery(),
+    )
+
+
+def _fingerprint(
+    row_id: InstrumentedAttribute[uuid.UUID], fields: list[InstrumentedAttribute[Any]], *where: ColumnElement[bool]
+) -> ScalarSelect[str]:
+    """md5 over `fields` of the matching rows, ordered by `row_id` – a part of `get_sync_version`
+    for edits that change neither a count nor a timestamp."""
+    row = sa_func.concat_ws(":", row_id, *fields)
+    return (
+        select(sa_func.md5(sa_func.coalesce(sa_func.string_agg(row, aggregate_order_by(literal(","), row_id)), "")))
+        .where(*where)
+        .scalar_subquery()
     )
 
 
@@ -213,13 +227,30 @@ async def get_sync_version(
     # fallback poll saw «same version» while another desk marked a vehicle not ready or
     # checked somebody out – and certified the stale board as current. Station-wide tables
     # count for every Ereignis.
-    inputs: list[ScalarSelect[int] | ScalarSelect[datetime]] = [
+    inputs: list[ScalarSelect[int] | ScalarSelect[datetime] | ScalarSelect[str]] = [
         *_count_and_latest(models.Vehicle.updated_at),
         *_count_and_latest(models.Personnel.updated_at),
         *_count_and_latest(models.Material.updated_at),
         *_count_and_latest(models.Setting.updated_at),
         *_count_and_latest(models.EventAttendance.updated_at, models.EventAttendance.event_id == event_id),
         *_count_and_latest(models.EventSpecialFunction.assigned_at, models.EventSpecialFunction.event_id == event_id),
+    ]
+    # A flag-only edit of a live assignment («bleibt vor Ort», a new EL, the Reko's purpose)
+    # moves no count and no timestamp: a fingerprint of those fields does.
+    ia, ga = models.IncidentAssignment, models.IncidentGroupAssignment
+    inputs += [
+        _fingerprint(
+            ia.id,
+            [ia.driver_stay, ia.is_leader, ia.purpose, ia.reko_position],
+            ia.incident_id.in_(select(models.Incident.id).where(models.Incident.event_id == event_id)),
+            ia.unassigned_at.is_(None),
+        ),
+        _fingerprint(
+            ga.id,
+            [ga.driver_stay, ga.is_leader],
+            ga.incident_group_id.in_(select(models.IncidentGroup.id).where(models.IncidentGroup.event_id == event_id)),
+            ga.unassigned_at.is_(None),
+        ),
     ]
     inputs_row = (await db.execute(select(*inputs))).one()
     inputs_str = "-".join(value.isoformat() if isinstance(value, datetime) else str(value or 0) for value in inputs_row)

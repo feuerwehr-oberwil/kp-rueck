@@ -155,16 +155,20 @@ export function useBoardSync(input: BoardSyncInput) {
   // with the effect's — and the two copies had already drifted once (see
   // `rekoDangerTypes`).
   const reloadSchedulerRef = useRef<ReloadScheduler | null>(null)
-  // How the newest load that finished ended: applied (true) or failed (false). A load
-  // dropped as outdated leaves it alone.
-  const lastLoadOkRef = useRef(true)
+  // How the newest load that finished ended. «discarded»: a mutation landed while it
+  // fetched, so its snapshot was dropped and a replay is due.
+  const lastLoadOutcomeRef = useRef<"applied" | "failed" | "discarded">("applied")
   // Resolves true when the board on screen is now the server's, false when the load failed
-  // (the banner then says since when it is old). R / F5 say «Aktualisiert» only on true.
+  // (the banner then says since when it is old). R / F5 say «Aktualisiert» only on true. A
+  // load dropped for a newer mutation is asked again – a few times, then it counts as failed.
   const refreshOperations = useCallback(async (): Promise<boolean> => {
     const scheduler = reloadSchedulerRef.current
     if (scheduler) {
-      await scheduler.request()
-      return lastLoadOkRef.current
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await scheduler.request()
+        if (lastLoadOutcomeRef.current !== "discarded") return lastLoadOutcomeRef.current === "applied"
+      }
+      return false
     }
     // No sync effect running: signed out, or no Ereignis selected – nothing to be stale about.
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
@@ -345,6 +349,7 @@ export function useBoardSync(input: BoardSyncInput) {
         // optimistic state is newer than this snapshot. Discard the stale
         // result and replay once the mutation's cooldown clears.
         if (mutationEpochRef.current !== epochAtStart) {
+          lastLoadOutcomeRef.current = "discarded"
           pendingReplayRef.current = true
           replayPendingUpdatesRef.current?.()
           return
@@ -374,17 +379,20 @@ export function useBoardSync(input: BoardSyncInput) {
         setLastSyncAt(new Date())
         setLoadError(null)
         isInitialLoadRef.current = false
-        lastLoadOkRef.current = true
+        lastLoadOutcomeRef.current = "applied"
         stopPollingIfSocketCarries()
 
         // Store the version snapshot taken before the data fetch (null forces
         // the next poll tick to reload — fails toward freshness). Only here: the
-        // version names the board ON SCREEN, so only an applied snapshot sets it.
-        lastSyncVersionRef.current = versionSnapshot?.version ?? null
+        // version names the board ON SCREEN, so only an applied snapshot sets it –
+        // and not while the settings or the Restliste on screen are older than it
+        // (their fetch failed and the previous value stayed).
+        lastSyncVersionRef.current =
+          settings !== undefined && restliste !== undefined ? versionSnapshot?.version ?? null : null
       } catch (error) {
         if (!isCurrentLoad()) return
         console.error("Failed to load data:", error)
-        lastLoadOkRef.current = false
+        lastLoadOutcomeRef.current = "failed"
         // What is on screen is older than any version: the next poll tick must load,
         // never certify it with «same version» (a refused drag stays wrong otherwise).
         lastSyncVersionRef.current = null

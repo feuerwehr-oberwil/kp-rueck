@@ -58,13 +58,11 @@ export function vehicleFormValuesFor(vehicle: ApiVehicle): VehicleFormValues {
  * the dialog was open (hunt 2026-11-24). Empty = nothing to send.
  */
 export function vehicleUpdateFor(opened: VehicleFormValues, values: VehicleFormValues): ApiVehicleUpdate {
-  const before = { ...opened, type: vehicleTypeFor(opened) };
-  const after = { ...values, type: vehicleTypeFor(values) };
+  // No `type`: the form has no field for it – the name fallback (`vehicleTypeFor`) is for a create.
   const update: ApiVehicleUpdate = {};
-  if (after.name !== before.name) update.name = after.name;
-  if (after.type !== before.type) update.type = after.type;
-  if (after.display_order !== before.display_order) update.display_order = after.display_order;
-  if (after.status !== before.status) update.status = after.status;
-  if (after.radio_call_sign !== before.radio_call_sign) update.radio_call_sign = after.radio_call_sign;
+  if (values.name !== opened.name) update.name = values.name;
+  if (values.display_order !== opened.display_order) update.display_order = values.display_order;
+  if (values.status !== opened.status) update.status = values.status;
+  if (values.radio_call_sign !== opened.radio_call_sign) update.radio_call_sign = values.radio_call_sign;
   return update;
 }

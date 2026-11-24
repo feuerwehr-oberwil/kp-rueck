@@ -492,6 +492,28 @@ describe("OperationsProvider — the board never looks current when it is not", 
     await expect(outcome).resolves.toBe(true)
   })
 
+  it("a refresh whose snapshot a newer edit dropped waits for the snapshot that lands", async () => {
+    const { result } = await renderLoaded()
+
+    let settled = false
+    let outcome: Promise<boolean> = Promise.resolve(false)
+    act(() => {
+      outcome = result.current.refreshOperations().then((ok) => {
+        settled = true
+        return ok
+      })
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    // Another desk's «bleibt vor Ort» lands while the refresh fetches: its snapshot is dropped.
+    act(() => ws.emit("assignment_update", { action: "driver_stay", data: { id: "a1", incident_id: "1", driver_stay: true } }))
+    await answer([incident("1")])
+    expect(settled).toBe(false)
+
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await expect(outcome).resolves.toBe(true)
+  })
+
   it("a «bleibt vor Ort» from another desk is not turned back by a reload that read before it", async () => {
     const tlf = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
     const assignment = (driverStay: boolean) => ({

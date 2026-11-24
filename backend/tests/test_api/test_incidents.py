@@ -162,11 +162,12 @@ async def test_sync_version_not_shadowed_by_incident_id_route(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.parametrize("change", ["readiness", "checkout"])
+@pytest.mark.parametrize("change", ["readiness", "checkout", "driver_stay"])
 async def test_sync_version_sees_readiness_and_attendance(
     editor_client: AsyncClient, test_event: Event, test_vehicle, test_personnel, test_incident: Incident, change: str
 ):
-    """The REST fallback polls this version: a change it misses stays off the board."""
+    """The REST fallback polls this version: a change it misses stays off the board – also a
+    flag-only edit of an assignment («bleibt vor Ort»), which moves no count or timestamp."""
 
     async def version() -> str:
         response = await editor_client.get("/api/incidents/sync-version", params={"event_id": str(test_event.id)})
@@ -177,12 +178,20 @@ async def test_sync_version_sees_readiness_and_attendance(
     event = {"event_id": str(test_event.id)}
     if change == "checkout":
         assert (await editor_client.post(f"{checkin}/in", params=event)).status_code == 200
+    if change == "driver_stay":
+        vehicle = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
+        assigned = await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=vehicle)
+        assert assigned.status_code == 200
     before = await version()
 
     if change == "readiness":
         response = await editor_client.put(f"/api/vehicles/{test_vehicle.id}", json={"out_of_service": True})
-    else:
+    elif change == "checkout":
         response = await editor_client.post(f"{checkin}/out", params=event)
+    else:
+        response = await editor_client.patch(
+            f"/api/incidents/{test_incident.id}/assignments/{assigned.json()['id']}", json={"driver_stay": True}
+        )
     assert response.status_code == 200
 
     assert await version() != before
