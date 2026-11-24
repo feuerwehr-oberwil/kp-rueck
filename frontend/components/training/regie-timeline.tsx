@@ -221,7 +221,8 @@ export function RegieRunStrip() {
   if (!state) return null
   const paused = !!state.paused_at
   // The server's un-paused run time, ticking on from when it came (`clock` stands still while paused).
-  const running = state.running_seconds == null ? null : state.running_seconds * 1000 + (clock - receivedAt)
+  // The page clock can lag the answer until its next tick: never count backwards from it.
+  const running = state.running_seconds == null ? null : state.running_seconds * 1000 + Math.max(0, clock - receivedAt)
   const title =
     running === null
       ? t('titleIdle')
