@@ -721,6 +721,9 @@ class RapportPersonnelCandidate(BaseModel):
     personnel_id: UUID
     name: str
     kennung: str | None = None  # tells two people of the same name apart
+    # Grad and tags, so the add-picker finds «Gfr» or «Atemschutz» like every person picker.
+    role: str | None = None
+    tags: list[str] = []
     checked_in: bool = False
 
 

@@ -350,7 +350,7 @@ function FeldSurface() {
   /**
    * What an empty list means for THIS person.
    *
-   * "Noch kein Auftrag" is right for a crew waiting to be sent somewhere and
+   * "Noch kein Einsatz" is right for a crew waiting to be sent somewhere and
    * wrong for everybody with a role: somebody on the phone desk or running the
    * board has not been told nothing, they are doing the thing this page has no
    * rows for. Telling them they have no job reads as the app not knowing what
@@ -1536,7 +1536,7 @@ function FeldSurface() {
             out on a Schadenplatz gets it after their own work — see below. */}
         {!hasOwnWork && materialSection}
 
-        {/* "Noch kein Auftrag" is for somebody whose page is otherwise empty.
+        {/* "Noch kein Einsatz" is for somebody whose page is otherwise empty.
             A Materialwart reading a full table of material has not been told
             nothing — telling them they have no job would contradict the screen
             they are looking at. */}

@@ -24,12 +24,12 @@
       },
       "share-feld-link": {
         "title": "Partager le lien Terrain",
-        "description": "Les équipes signalent depuis le lieu, remplissent le rapport et voient leurs missions",
+        "description": "Les équipes signalent depuis le lieu, remplissent le rapport et voient leurs interventions",
         "note": "Pour chaque équipe qui part · 1 impression par véhicule · le code Terrain va sur la même affiche"
       },
       "assign-reko": {
-        "title": "Désigner les officiers de reconnaissance",
-        "details": "{count, plural, one {# officier de reconnaissance attribué} other {# officiers de reconnaissance attribués}}",
+        "title": "Désigner les personnes de reconnaissance",
+        "details": "{count, plural, one {# personne de reconnaissance désignée} other {# personnes de reconnaissance désignées}}",
         "description": "Au moins 1 personne pour la reconnaissance"
       },
       "assign-drivers": {
@@ -64,7 +64,7 @@
       "copyLink": "Copier le lien",
       "openVehicles": "Ouvrir les véhicules",
       "openAttendance": "Ouvrir l’appel",
-      "chooseReko": "Choisir les officiers de reconnaissance"
+      "chooseReko": "Choisir les personnes de reconnaissance"
     },
     "setup": {
       "title": "Liste de contrôle de mise en place",
@@ -101,8 +101,8 @@
       "optional": "Facultatif"
     },
     "rekoPicker": {
-      "title": "Choisir les officiers de reconnaissance",
-      "description": "Choisis une personne présente et marque-la comme reconnaissance – plusieurs à la suite si besoin. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "title": "Choisir les personnes de reconnaissance",
+      "description": "Choisis une personne présente et marque-la comme reconnaissance – plusieurs à la suite si besoin. Les adresses s'attribuent via l’éditeur de reconnaissance sur la carte.",
       "marked": "{name} marqué comme reconnaissance",
       "failed": "Échec. Réessaie.",
       "done": "Terminé"
@@ -130,7 +130,7 @@
         "canTitle": "Ce que tu peux essayer",
         "canIncidents": "Saisir des interventions, les prioriser et les faire avancer dans les phases d’engagement",
         "canResources": "Engager du personnel, des véhicules et du matériel",
-        "canMap": "Planifier des lieux, des missions et des itinéraires sur la carte",
+        "canMap": "Planifier des lieux et des missions sur la carte",
         "canWorkflows": "Tester les rapports de reconnaissance et d’autres déroulements d’intervention",
         "knowTitle": "Bon à savoir",
         "knowDescription": "Toutes les données sont synthétiques et sans rapport avec de vraies interventions. L’alarmement externe et les systèmes raccordés sont désactivés dans la démo.",
@@ -215,6 +215,7 @@
       "vehicleStatus": "État des véhicules",
       "auftraege": "Ouvrir les missions",
       "print": "Imprimer et exporter",
+      "groupPersons": "Personnel",
       "groupAuftraege": "Missions",
       "refreshData": "Actualiser les données",
       "groupView": "Vue",
@@ -1181,8 +1182,8 @@
       "failed": "L'annonce n'a pas pu être envoyée.",
       "confirm": {
         "none": "Annonce transmise au PC",
-        "stop": "Ajouté comme étape à votre mandat",
-        "auftrag": "Mandat ouvert – vous avez deux étapes",
+        "stop": "Ajouté comme étape à votre mission",
+        "auftrag": "Mission ouverte – vous avez deux étapes",
         "solo": "Annonce transmise – vous êtes assignés"
       },
       "titlePhone": "Annonce téléphonique",
@@ -1222,7 +1223,7 @@
       "checkIn": "S'enregistrer",
       "checkOut": "Je rentre",
       "here": "Présent",
-      "hereNoJob": "Pas encore de mandat"
+      "hereNoJob": "Pas encore d’intervention"
     },
     "material": {
       "title": "Matériel",
@@ -1361,7 +1362,7 @@
       "high": "Haute"
     },
     "assignReko": {
-      "title": "Attribuer le personnel de reconnaissance",
+      "title": "Attribuer une personne de reconnaissance",
       "incidentLabel": "Intervention : {title}",
       "loadError": "Échec du chargement des personnes de reconnaissance",
       "assignErrorTitle": "Échec de l’attribution",
@@ -1369,7 +1370,7 @@
       "loading": "Chargement …",
       "retry": "Réessayer",
       "emptyTitle": "Aucune personne de reconnaissance disponible",
-      "emptyHint": "Ou : clic droit sur une personne dans la barre latérale → « Attribuer à la reconnaissance ».",
+      "emptyHint": "Ou : clic droit sur une personne dans la barre latérale → « Reconnaissance ».",
       "markExisting": "Marquer une personne comme reconnaissance",
       "markSearchPlaceholder": "Rechercher une personne …",
       "markAllReko": "Toutes les personnes présentes sont déjà marquées comme reconnaissance.",
@@ -1809,7 +1810,7 @@
       "onlyAssignedVehicles": "Attribués uniquement",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
-      "openRoutenEditor": "Ouvrir l’éditeur d’itinéraire",
+      "openRoutenEditor": "Ouvrir l’éditeur de mission",
       "newIncident": "Nouvelle intervention",
       "telefondienst": "Service téléphonique",
       "kommandoposten": "Poste de commandement",
@@ -1846,7 +1847,7 @@
     },
     "dashboard": {
       "loading": "Chargement …",
-      "stopsAddedToast": "{count, plural, one {# étape ajoutée à l’itinéraire} other {# étapes ajoutées à l’itinéraire}}",
+      "stopsAddedToast": "{count, plural, one {# étape ajoutée à la mission} other {# étapes ajoutées à la mission}}",
       "distributedToast": "Réparti dans la mission « {name} »",
       "noEventSelected": "Aucun événement sélectionné",
       "training": "Exercice",
@@ -2015,7 +2016,7 @@
       "auftragContext": "Mission « {name} » · étape {pos}/{total}",
       "copyWhatsapp": "Copier le message WhatsApp",
       "sendDivera": "Envoyer la convocation",
-      "auftragBatchQuestion": "Le mandat « {name} » compte {count} autres étapes que personne n’a encore prises.",
+      "auftragBatchQuestion": "La mission « {name} » compte {count} autres étapes que personne n’a encore prises.",
       "auftragBatchAction": "{count, plural, one {Engager aussi l’autre étape} other {Engager aussi les # autres étapes}}",
       "auftragBatchDone": "{count, plural, one {# étape supplémentaire engagée} other {# étapes supplémentaires engagées}}"
     },
@@ -2115,7 +2116,7 @@
       "moreActions": "Autres actions"
     },
     "detail": {
-      "rekoAuftrag": "Attribution de la reco",
+      "rekoAuftrag": "Reconnaissance",
       "groups": {
         "kraefte": "Moyens"
       },
@@ -2273,14 +2274,14 @@
     },
     "auftraege": {
       "title": "Missions",
-      "description": "Regrouper plusieurs interventions en un itinéraire ordonné et le confier à une équipe.",
+      "description": "Regrouper plusieurs interventions en étapes ordonnées d’une mission et la confier à une équipe.",
       "newAuftrag": "Nouvelle mission",
       "templatesLabel": "Modèles :",
       "defaultName": "Mission {n}",
       "namePlaceholder": "Nom de la mission",
       "create": "Créer",
       "cancel": "Annuler",
-      "empty": "Aucune mission pour l’instant. Crées-en une pour regrouper des interventions en itinéraire.",
+      "empty": "Aucune mission pour l’instant. Crées-en une pour regrouper des interventions en étapes.",
       "noStops": "Aucune étape pour l’instant. Fais glisser des cartes ici ou ajoute une étape.",
       "noSquad": "aucune équipe",
       "persLabel": "{count} pers",
@@ -2290,10 +2291,10 @@
       "rename": "Renommer",
       "delete": "Supprimer la mission",
       "addStop": "Ajouter une étape",
-      "routenEditor": "Éditeur d’itinéraire",
+      "routenEditor": "Éditeur de mission",
       "stopsCount": "Interventions attribuées ({count})",
       "deleteTitle": "Supprimer la mission ?",
-      "deleteDescription": "Les interventions restent sur le tableau. Seul l’itinéraire est supprimé.",
+      "deleteDescription": "Les interventions restent sur le tableau. Seule la mission est supprimée.",
       "deleteConfirm": "Supprimer",
       "map": "Carte",
       "dragStop": "Déplacer l’étape",
@@ -2328,7 +2329,7 @@
       "change": "Statut : {label} – modifier"
     },
     "routenEditorModal": {
-      "title": "Éditeur d’itinéraire",
+      "title": "Éditeur de mission",
       "description": "Ordonner les étapes sur la carte : cliquer pour ajouter, glisser pour réordonner, optimiser.",
       "mapHeading": "Carte",
       "emptyState": "Aucune étape pour l’instant – clique sur la carte ou utilise « Ajouter une étape ».",
@@ -2340,7 +2341,7 @@
       "noStops": "Aucune étape dans cette mission pour l’instant.",
       "mapLoading": "Chargement de la carte …",
       "dragStop": "Déplacer l’étape",
-      "noCoords": "Cette étape n’a pas de coordonnées et ne figure pas sur l’itinéraire.",
+      "noCoords": "Cette étape n’a pas de coordonnées et ne figure pas sur la ligne.",
       "noCoordsBadge": "sans lieu",
       "removeStop": "Retirer de la mission",
       "contextOpen": "Ouvert",
@@ -2371,7 +2372,7 @@
     },
     "auftragPicker": {
       "title": "Répartir sur une mission",
-      "description": "Rattacher l’intervention à une mission. Elle sera déplacée comme étape dans l’itinéraire.",
+      "description": "Rattacher l’intervention à une mission. Elle sera déplacée comme étape dans la mission.",
       "empty": "Aucune mission pour l’instant. Crées-en une nouvelle.",
       "alreadyHere": "déjà ici",
       "stopCount": "{count, plural, one {# étape} other {# étapes}}",
@@ -2626,13 +2627,13 @@
       "groupRoutes": "Missions",
       "groupRoutesColorHint": "Colore la carte par mission",
       "colorByRoutesOverride": "Défini par « Missions » – la coloration précédente est rétablie à la désactivation.",
-      "routePlanning": "Planification d’itinéraire",
+      "routePlanning": "Éditeur de mission",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
       "modes": "Mode"
     },
     "planning": {
-      "title": "Planification d’itinéraire",
+      "title": "Éditeur de mission",
       "exit": "Terminer",
       "selectGroupPlaceholder": "Choisir une mission …",
       "newAuftrag": "Nouvelle mission",
@@ -2646,13 +2647,13 @@
       "addStopHint": "Un clic sur la carte place une nouvelle étape.",
       "addingStop": "Ajout de l’étape …",
       "noStops": "Aucune étape dans cette mission pour l’instant.",
-      "stopAdded": "Étape ajoutée à l’itinéraire.",
-      "stopAlreadyOnRoute": "Cette intervention est déjà sur l’itinéraire.",
+      "stopAdded": "Étape ajoutée à la mission.",
+      "stopAlreadyOnRoute": "Cette intervention est déjà dans la mission.",
       "noGroups": "Aucune mission pour l’instant",
       "stopCount": "{count, plural, one {# étape} other {# étapes}}",
       "startLabel": "Départ · {start}",
       "addStopMapHint": "Clic sur la carte",
-      "exitLabel": "Terminer la planification d’itinéraire"
+      "exitLabel": "Quitter l’éditeur de mission"
     },
     "view": {
       "markerAria": "Intervention : {label}",
@@ -2756,7 +2757,7 @@
       "auftrag": "Mission"
     },
     "rekoMode": {
-      "title": "Mode reconnaissance",
+      "title": "Éditeur de reconnaissance",
       "exit": "Terminé",
       "hintSelect": "Choisis une personne de reconnaissance, puis touche les interventions sur la carte.",
       "hintAssign": "Toucher une intervention : attribuer {name}, comme numéro suivant. Toucher une intervention déjà attribuée : retirer l’attribution.",
@@ -3042,7 +3043,7 @@
       "copyFailed": "Non copié",
       "noEventSelected": "Aucun événement sélectionné",
       "dashboardCopiedTitle": "Lien du tableau copié",
-      "dashboardCopiedDescription": "Le personnel de reconnaissance peut voir ses attributions"
+      "dashboardCopiedDescription": "Les personnes de reconnaissance voient leurs reconnaissances"
     },
     "whatsapp": {
       "copiedTitle": "Copié dans le presse-papiers",
@@ -3897,7 +3898,7 @@
           "repairableBadge": "Réparable ensuite",
           "orphanedLabel": "Attributions pointant ensuite dans le vide",
           "orphanedActiveLabel": "dont actives sur des interventions en cours",
-          "groupOrphanedLabel": "Attributions de missions pointant ensuite dans le vide",
+          "groupOrphanedLabel": "Ressources de missions pointant ensuite dans le vide",
           "groupOrphanedActiveLabel": "dont actives sur des missions en cours",
           "consequencesHint": "Les attributions renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'attribution en place – sur une intervention qui continue.",
           "consequencesBlockedHint": "Libérer les attributions, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",

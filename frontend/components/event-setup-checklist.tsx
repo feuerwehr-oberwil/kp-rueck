@@ -468,14 +468,14 @@ export function EventSetupChecklist({
 }
 
 /**
- * The «Reko-Offiziere wählen» picker behind the checklist row of the same name.
+ * The «Reko-Personen wählen» picker behind the checklist row of the same name.
  *
  * Mounted by the page, not by the checklist: the checklist lives in a footer sheet,
  * and a modal opened from inside one is unmounted the moment the sheet closes
  * under it (same reason the Divera confirmation is page-owned).
  *
  * Marks people via the SAME call every other surface uses
- * (`assignSpecialFunction(…, 'reko')` — the context menu, the map's Reko-Modus,
+ * (`assignSpecialFunction(…, 'reko')` — the context menu, the map's Reko-Editor,
  * the assign dialog), so the checklist's auto-tick sees it on the next poll.
  * Stays open after each mark: a station usually names two or three Reko at
  * once, and a marked person drops out of the candidate list by itself. The

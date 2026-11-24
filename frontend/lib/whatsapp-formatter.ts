@@ -199,8 +199,8 @@ export function formatWhatsAppMessage({
   }
 
   const body = renderMessageTemplate(template || DEFAULT_WHATSAPP_INCIDENT_TEMPLATE, values)
-  // Prepend the route context so the recipient sees this is one stop of a route.
+  // Prepend the Auftrag context so the recipient sees this is one stop of an Auftrag.
   return auftrag
-    ? `📋 Auftrag «${auftrag.name}» · Stop ${auftrag.stopPos}/${auftrag.stopTotal}\n\n${body}`
+    ? `📋 Auftrag «${auftrag.name}» · Stopp ${auftrag.stopPos}/${auftrag.stopTotal}\n\n${body}`
     : body
 }

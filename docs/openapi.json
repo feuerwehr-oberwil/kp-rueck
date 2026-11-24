@@ -28323,6 +28323,25 @@
             ],
             "title": "Kennung"
           },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
           "checked_in": {
             "type": "boolean",
             "title": "Checked In",
