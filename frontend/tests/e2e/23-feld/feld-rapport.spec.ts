@@ -79,7 +79,13 @@ const created: { events: string[]; personnel: string[] } = { events: [], personn
 async function arrangeField(
   page: Page,
   prefix: string,
-  options: { incidents?: number; withCrew?: boolean } = {},
+  options: {
+    incidents?: number
+    withCrew?: boolean
+    /** Runs after an incident got its crew, before the next one does – a person is Jetzt on one
+     *  Einsatz only (owner pick 2B, 24.11.2026), so a crew moves on only once released there. */
+    afterCrew?: (incident: TestIncident, index: number) => Promise<void>
+  } = {},
 ): Promise<FieldFixture> {
   const cookieHeader = await cookieHeaderFor(page);
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -112,10 +118,11 @@ async function arrangeField(
     personnel.push(leader, crew);
     created.personnel.push(leader.id, crew.id);
 
-    for (const incident of incidents) {
+    for (const [index, incident] of incidents.entries()) {
       const leaderAssignment = await assignPersonnel(page.request, cookieHeader, incident.id, leader.id);
       await assignPersonnel(page.request, cookieHeader, incident.id, crew.id);
       await pinLeader(page.request, cookieHeader, incident.id, leaderAssignment.id);
+      await options.afterCrew?.(incident, index);
     }
   }
 
@@ -227,15 +234,19 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
     authenticatedPage,
     browser,
   }) => {
-    const fixture = await arrangeField(authenticatedPage, 'Feld-EL', { incidents: 2 });
-    const [leader, crew] = fixture.personnel;
-    const [running, finished] = fixture.incidents;
-
     // Completing an incident releases every assignment, which erases `is_leader`
     // from all of them. Only `Incident.leader_personnel_id` survives that — and
-    // this is the incident whose rapport is still owed.
+    // this is the incident whose rapport is still owed. It is completed before the
+    // crew goes on to the next one: nobody is Jetzt on two Einsätze (pick 2B).
     const cookieHeader = await cookieHeaderFor(authenticatedPage);
-    await setIncidentStatus(authenticatedPage.request, cookieHeader, finished.id, 'active', 'complete');
+    const fixture = await arrangeField(authenticatedPage, 'Feld-EL', {
+      incidents: 2,
+      afterCrew: async (incident, index) => {
+        if (index === 0) await setIncidentStatus(authenticatedPage.request, cookieHeader, incident.id, 'active', 'complete');
+      },
+    });
+    const [leader, crew] = fixture.personnel;
+    const [finished, running] = fixture.incidents;
 
     const { page: phone, feld } = await fieldPhone(browser, fixture.link, fixture.code);
     try {
