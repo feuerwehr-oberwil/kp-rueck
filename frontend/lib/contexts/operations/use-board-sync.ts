@@ -166,6 +166,8 @@ export function useBoardSync(input: BoardSyncInput) {
     if (scheduler) {
       for (let attempt = 0; attempt < 3; attempt++) {
         await scheduler.request()
+        // Another Ereignis (or a sign-out) replaced this scheduler: nothing was refreshed.
+        if (reloadSchedulerRef.current !== scheduler) return false
         if (lastLoadOutcomeRef.current !== "discarded") return lastLoadOutcomeRef.current === "applied"
       }
       return false
