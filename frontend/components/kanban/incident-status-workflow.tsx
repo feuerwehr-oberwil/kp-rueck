@@ -419,10 +419,19 @@ export function useIncidentStatusWorkflow({
     // does, and the route is not being completed — so this list is empty by
     // construction. Those are exactly the routes the next-stop offer below was
     // built for, which is why an empty list must not keep the gate shut.
+    // The last open stop of an Auftrag also frees the route's squad (the server's
+    // `auto_release_group_resources_if_last_stop`: every other stop `complete`), so the
+    // list names them too – the gate is the confirmation for everybody it frees.
+    const auftrag = findAuftragForStop(groups, operation)
+    const routeSquad = auftrag && auftrag.stopIds.every(
+      (stopId) => stopId === operation.id || (operations.find((o) => o.id === stopId)?.status ?? "complete") === "complete",
+    )
+      ? getGroupResources(auftrag.id)
+      : null
     const release: CompletionRelease = {
       operationId: operation.id,
-      crew: operation.crew.map(personInline),
-      vehicles: operation.vehicles.map(vehicleLabel),
+      crew: [...operation.crew.map(personInline), ...(routeSquad?.personnel.map((person) => person.name) ?? [])],
+      vehicles: [...operation.vehicles.map(vehicleLabel), ...(routeSquad?.vehicles.map((vehicle) => vehicle.name) ?? [])],
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
@@ -430,7 +439,6 @@ export function useIncidentStatusWorkflow({
     // the next stop, and the Geräte go with it. So the question belongs to the
     // LAST stop of an Auftrag only — everywhere else the route keeps its
     // material exactly as it is (nothing here unassigns it).
-    const auftrag = findAuftragForStop(groups, operation)
     const asksAboutMaterial = routeContinuationFor(operation)
       ? false
       : auftrag
@@ -945,6 +953,9 @@ export function IncidentStatusWorkflowDialogs({
   // open for material alone) and how many units still need an answer.
   const release = controller.completionRelease
   const materialCount = controller.materialDecisionItems.length
+  // The rapport read matters only for a unit somebody could answer (not a consumable).
+  const waitsForAnswers =
+    controller.materialAnswersLoading && controller.materialDecisionItems.some((item) => !item.consumable)
   const correction = controller.statusCorrectionPrompt
   // …and, when the finished card is a stop with route left ahead of it, what
   // the Auftrag continues with. Then the gate is not an Abschluss at all.
@@ -1126,7 +1137,8 @@ export function IncidentStatusWorkflowDialogs({
         // answer and only appears mid-route: closing the stop stays the single
         // obvious click it was, because the squad may just as well be standing
         // down and the next stop may be one the KP dispatches deliberately.
-        extraAction={nextStopOffer ? {
+        // Same readiness as the main answer (mid-route the list is empty, so it is ready).
+        extraAction={nextStopOffer && !waitsForAnswers && controller.materialUnanswered === 0 ? {
           label: tCompletion("stopConfirmAndNext"),
           onSelect: () => confirmCompletion(nextStopOffer),
         } : undefined}
@@ -1141,7 +1153,7 @@ export function IncidentStatusWorkflowDialogs({
         onConfirm={() => confirmCompletion(null)}
         // Waits for the rapport's answers, then for every unit nobody answered: «Magazin»
         // is never assumed (hunt 2026-11-24).
-        confirmDisabled={controller.materialAnswersLoading ? "waiting" : controller.materialUnanswered > 0}
+        confirmDisabled={waitsForAnswers ? "waiting" : controller.materialUnanswered > 0}
       >
         {/* Where the squad goes now — named, because «der nächste Stopp» is
             an address somebody has to read out over the radio. */}
@@ -1156,7 +1168,7 @@ export function IncidentStatusWorkflowDialogs({
         {/* What the completion hands back, by name (owner pick «Dialog mit Freigabeliste»,
             hunt 2026-11-24): label │ value rows, read off the card – which still holds
             them, because nothing is released before «Abschliessen». */}
-        {release && (
+        {(release || controller.completionFromStatus) && (
           <dl className="divide-y border-y text-sm">
             {controller.completionFromStatus && (
               <div className="flex gap-3 py-2">
@@ -1166,13 +1178,13 @@ export function IncidentStatusWorkflowDialogs({
                 </dd>
               </div>
             )}
-            {release.crew.length > 0 && (
+            {release && release.crew.length > 0 && (
               <div className="flex gap-3 py-2">
                 <dt className="w-28 flex-shrink-0 text-muted-foreground">{tCompletion("crewReleased")}</dt>
                 <dd className="min-w-0">{release.crew.join(", ")}</dd>
               </div>
             )}
-            {release.vehicles.length > 0 && (
+            {release && release.vehicles.length > 0 && (
               <div className="flex gap-3 py-2">
                 <dt className="w-28 flex-shrink-0 text-muted-foreground">
                   {tCompletion("vehiclesReleased", { count: release.vehicles.length })}
@@ -1180,7 +1192,7 @@ export function IncidentStatusWorkflowDialogs({
                 <dd className="min-w-0">{release.vehicles.join(", ")}</dd>
               </div>
             )}
-            {materialCount > 0 && (
+            {release && materialCount > 0 && (
               <div className="flex gap-3 py-2">
                 <dt className="w-28 flex-shrink-0 text-muted-foreground">{tCompletion("materialLabel")}</dt>
                 <dd className="min-w-0">

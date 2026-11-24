@@ -174,11 +174,16 @@ export default function EventsPage() {
   // archiving: it offers «Erneut laden», and the main answer says it skips the
   // check – the checkout is then the operator's explicit choice.
   const [archiveCheck, setArchiveCheck] = useState<
-    { state: 'loading' } | { state: 'failed' } | { state: 'done'; restliste: ApiEventRestliste }
+    { state: 'loading' } | { state: 'failed'; eventId: string } | { state: 'done'; eventId: string; restliste: ApiEventRestliste }
   >({ state: 'loading' })
   const [archiveCheckAttempt, setArchiveCheckAttempt] = useState(0)
   const [archiveCheckout, setArchiveCheckout] = useState(true)
-  const archiveRestliste = archiveCheck.state === 'done' ? archiveCheck.restliste : null
+  // A result belongs to the Ereignis it was fetched for: reopened for another one, the
+  // dialog shows «loading» from its first frame, not the previous answer.
+  const archiveCheckState =
+    archiveCheck.state !== 'loading' && archiveCheck.eventId === targetEvent?.id ? archiveCheck.state : 'loading'
+  const archiveRestliste =
+    archiveCheck.state === 'done' && archiveCheckState === 'done' ? archiveCheck.restliste : null
 
   useEffect(() => {
     if (!showArchiveDialog || !targetEvent) return
@@ -188,10 +193,14 @@ export default function EventsPage() {
     setArchiveCheckout(true)
     apiClient.getEventRestliste(targetEvent.id)
       .then((restliste) => {
-        if (current) setArchiveCheck(restliste ? { state: 'done', restliste } : { state: 'failed' })
+        if (current) {
+          setArchiveCheck(
+            restliste ? { state: 'done', eventId: targetEvent.id, restliste } : { state: 'failed', eventId: targetEvent.id },
+          )
+        }
       })
       .catch(() => {
-        if (current) setArchiveCheck({ state: 'failed' })
+        if (current) setArchiveCheck({ state: 'failed', eventId: targetEvent.id })
       })
     return () => {
       current = false
@@ -291,7 +300,7 @@ export default function EventsPage() {
       await archiveEvent(targetEvent.id, {
         // Unknown attendance (failed check): the checkbox is the whole answer.
         checkoutAttendees:
-          archiveCheckout && (archiveCheck.state === 'failed' || (archiveRestliste?.attendees_present ?? 0) > 0),
+          archiveCheckout && (archiveCheckState === 'failed' || (archiveRestliste?.attendees_present ?? 0) > 0),
       })
       setTargetEvent(null)
     } catch (error) {
@@ -784,9 +793,9 @@ export default function EventsPage() {
         title={t('archiveDialog.title')}
         description={t('archiveDialog.question', { name: targetEvent?.name ?? '' })}
         cancelText={t('archiveDialog.cancel')}
-        confirmDisabled={archiveCheck.state === 'loading' ? 'waiting' : false}
+        confirmDisabled={archiveCheckState === 'loading' ? 'waiting' : false}
         confirmText={
-          archiveCheck.state === 'failed'
+          archiveCheckState === 'failed'
             ? t('archiveDialog.confirmUnchecked')
             : archiveRestliste &&
           (archiveRestliste.open_incidents.length > 0 ||
@@ -799,10 +808,10 @@ export default function EventsPage() {
         onConfirm={handleArchive}
       >
         <div className="space-y-3">
-          {archiveCheck.state === 'loading' && (
+          {archiveCheckState === 'loading' && (
             <p className="text-sm text-muted-foreground">{t('archiveDialog.checking')}</p>
           )}
-          {archiveCheck.state === 'failed' && (
+          {archiveCheckState === 'failed' && (
             <>
               <div className="flex items-baseline gap-2.5 rounded-lg border bg-muted/40 p-3 text-sm">
                 <span className="size-2 shrink-0 self-center rounded-full bg-warning" aria-hidden />
@@ -810,7 +819,10 @@ export default function EventsPage() {
                 <button
                   type="button"
                   className="whitespace-nowrap text-xs underline underline-offset-2 hover:text-foreground/80"
-                  onClick={() => setArchiveCheckAttempt((attempt) => attempt + 1)}
+                  onClick={() => {
+                    setArchiveCheck({ state: 'loading' })
+                    setArchiveCheckAttempt((attempt) => attempt + 1)
+                  }}
                 >
                   {t('archiveDialog.retryCheck')}
                 </button>

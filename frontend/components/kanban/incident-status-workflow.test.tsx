@@ -323,6 +323,25 @@ describe("shared incident detail status workflow", () => {
     expect(confirmed.changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
   })
 
+  it("on the last open stop, holds and names the route's squad – the server frees it too", () => {
+    const routeSquad: GroupResources = {
+      personnel: [{ assignmentId: "a1", resourceId: "p1", name: "Roth Til" }],
+      vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF" }],
+      materials: [],
+    }
+    const { result, changeStatusToTop } = renderWorkflow(
+      operation({ id: "stop-2", groupId: "g1", status: "active" }),
+      routeSquad,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
+    )
+
+    act(() => result.current.requestCompletion("stop-2"))
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.completionRelease).toMatchObject({ crew: ["Roth Til"], vehicles: ["TLF"] })
+  })
+
   it("discards local decisions when the material decision is cancelled", () => {
     const { result } = renderWorkflow(operation({ status: "returning", materials: ["material-1"] }))
 
@@ -641,11 +660,12 @@ describe("the material gate takes the crew's word for it", () => {
     act(() => busy.result.current.requestCompletion("stop-1"))
     expect(busy.result.current.materialDecisionOperation).toBeNull()
 
-    // The last stop of a route with no material of its own: an Abschluss that
-    // hands nothing back is still a one-gesture move.
+    // The last stop of a route whose squad is already off it: an Abschluss that
+    // hands nothing back is still a one-gesture move. (With a squad still on the
+    // route the last stop frees it – see «names the route's squad».)
     const lastStop = renderWorkflow(
       operation({ id: "stop-2", groupId: "g1", status: "returning" }),
-      routeResources,
+      emptyGroupResources,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
       [operation({ id: "stop-1", groupId: "g1", status: "complete" })],

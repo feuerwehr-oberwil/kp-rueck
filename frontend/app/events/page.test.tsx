@@ -15,12 +15,14 @@ import { toast } from 'sonner'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Event } from '@/lib/types/incidents'
+import type { ApiEventRestliste } from '@/lib/api/types/feld'
 
 const archiveEvent = vi.hoisted(() => vi.fn())
 const deleteEvent = vi.hoisted(() => vi.fn())
 const createEvent = vi.hoisted(() => vi.fn())
 const role = vi.hoisted(() => ({ isAdmin: true }))
-const EMPTY_RESTLISTE = vi.hoisted(() => ({
+const EMPTY_RESTLISTE = vi.hoisted((): ApiEventRestliste => ({
+  event_id: 'evt-active',
   missing_rapport: [],
   material_on_site: [],
   open_pickups: [],
