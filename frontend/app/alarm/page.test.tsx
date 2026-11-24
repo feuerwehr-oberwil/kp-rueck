@@ -128,6 +128,19 @@ describe('AlarmPage', () => {
     expect(screen.getByRole('button', { name: 'Alarm absenden' })).toBeEnabled()
   })
 
+  it('a send that fails after the back gesture still says so on the form', async () => {
+    const user = userEvent.setup()
+    let fail: (err: Error) => void = () => {}
+    createIntakeAlarm.mockReturnValue(new Promise((_, reject) => { fail = reject }))
+    await renderForm()
+    await sendAlarm(user, 'Baum auf der Fahrbahn')
+
+    window.history.back()
+    await screen.findByLabelText(/Meldung/)
+    fail(new NetworkError())
+    expect(await screen.findByRole('alert')).toHaveTextContent('Bitte per Funk oder Telefon an den KP melden.')
+  })
+
   it('keeps the server\'s own reason when it refused the alarm', async () => {
     const user = userEvent.setup()
     createIntakeAlarm.mockRejectedValue(new ApiError('Demo-Modus: Maximale Anzahl Einsätze (50) erreicht.', 403))

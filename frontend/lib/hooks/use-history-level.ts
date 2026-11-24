@@ -29,7 +29,8 @@ function topLevel(): string | null {
  *
  * When the level closes some other way (sent, forgotten, the page left) while its entry is still
  * on top, the hook walks back over it, so no dead back press stays behind. An entry left over from
- * a reload is reused rather than stacked on.
+ * a reload is reused rather than stacked on. Not handled: Forward onto a closed level's entry shows
+ * the level below (one dead back press), as does a reload on a level.
  */
 export function useHistoryLevel(open: boolean, onBack: () => void): () => void {
   const leave = useEffectEvent(onBack)
@@ -39,8 +40,18 @@ export function useHistoryLevel(open: boolean, onBack: () => void): () => void {
   useEffect(() => {
     if (!open) return
     const top = topLevel()
+    // Chromium skips back over an entry pushed before the page was ever touched (its history
+    // manipulation intervention): a level opened by a restore on load would be a back that leaves
+    // the page anyway, and a trap entry behind it. Such a level lives in memory only; `back()`
+    // still works. (No `userActivation` – jsdom, an old browser – pushes.)
+    const untouched = typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive === false
+    const remount = top !== null && top === level.current.leaving
+    if (untouched && !remount) {
+      level.current = { at: null, leaving: null }
+      return
+    }
     let id: string
-    if (top !== null && top === level.current.leaving) {
+    if (remount) {
       // StrictMode's dev remount: the clean-up just ran, its walk-back has not – stay on the entry.
       id = top
     } else {

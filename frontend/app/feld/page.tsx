@@ -313,6 +313,9 @@ function FeldSurface() {
   /** What the last load asked for – «Erneut versuchen» after a failed first load, when a device
    *  restored from its cookie has no `selectedPerson` yet (that comes with the answer). */
   const lastLoad = useRef<{ personnelId: string; token: string } | null>(null)
+  /** Counts loads: only the newest one may write. A poll still retrying in a dead spot must not
+   *  bring «Keine Verbindung» back over a refresh that already landed, nor rows over a forget. */
+  const loadGeneration = useRef(0)
   const [meldenOpen, setMeldenOpen] = useState(false)
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
@@ -430,6 +433,7 @@ function FeldSurface() {
     setViewMode('code')
     setSyncedAt(null)
     setSyncFailed(false)
+    loadGeneration.current += 1
     clearCookie(PERSON_COOKIE, FELD_COOKIE_SCOPE)
     clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
     clearFeldName()
@@ -475,10 +479,13 @@ function FeldSurface() {
     const activeToken = options?.token ?? token
     if (!activeToken) return
     lastLoad.current = { personnelId, token: activeToken }
+    const generation = ++loadGeneration.current
+    const superseded = () => generation !== loadGeneration.current
     const silent = options?.silent === true
     if (!silent) setLoadingAssignments(true)
     try {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
+      if (superseded()) return
       setAssignments(data.assignments)
       setMessageChips(data.message_chips ?? [])
       setDriverMessageChips(data.driver_message_chips ?? [])
@@ -520,6 +527,7 @@ function FeldSurface() {
       })
     } catch (err) {
       console.error('Failed to load field assignments:', err)
+      if (superseded()) return
       // 401 means this device was logged out from the board ("alle Geräte
       // abmelden"). The credential is gone, so the honest move is back to the
       // code — not an empty list that looks like "you have nothing to do".
@@ -671,6 +679,9 @@ function FeldSurface() {
    * detail is forgotten for the same reason – the way back is the list.
    */
   const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
+    // One open at a time: a second tap would mint a second link, and a slow one would still
+    // navigate after the crew had opened another row.
+    if (rekoOpening && !rekoOpening.failed) return
     if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson && linkToken) {
       // The row says it is opening, and on a failure says so with a retry (crosscheck A3): the
       // tap used to do nothing visible until the link came back, and nothing at all if it did not.
@@ -692,7 +703,7 @@ function FeldSurface() {
     setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
     writeCookie(INCIDENT_COOKIE, assignment.incident_id, FELD_COOKIE_SCOPE)
-  }, [token, selectedPerson, linkToken, router])
+  }, [token, selectedPerson, linkToken, router, rekoOpening])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
    *  is also what forgets it — otherwise the back button would be undone by the
@@ -702,10 +713,6 @@ function FeldSurface() {
     setSelectedIncidentId(null)
     clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
   }, [])
-  /** The detail is one history entry over the list, however it opened (a tap, the cookie, the
-   *  slip): the phone's back gesture returns to the list instead of leaving /feld, and the
-   *  header's ← walks the same history (phone sweep 24.11.2026). */
-  const backToList = useHistoryLevel(viewMode === 'detail', leaveAssignment)
 
   // (The person is no longer restored from the picker: since plan 26 a returning
   // device holds a *bound* token and the mount effect above uses it directly, so
@@ -852,6 +859,11 @@ function FeldSurface() {
     () => assignments.find(a => a.incident_id === selectedIncidentId) ?? null,
     [assignments, selectedIncidentId],
   )
+  /** The detail is one history entry over the list (phone sweep 24.11.2026): the phone's back
+   *  gesture returns to the list instead of leaving /feld, and the header's ← walks the same
+   *  history. Open only while the detail shows – a Schadenplatz the poll took away drops back
+   *  to the list, and its entry with it. */
+  const backToList = useHistoryLevel(viewMode === 'detail' && selectedAssignment !== null, leaveAssignment)
 
   /**
    * The feed: one list, sorted by what is next (plan 26, decision 8).

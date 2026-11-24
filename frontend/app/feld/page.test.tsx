@@ -747,6 +747,24 @@ describe('/feld without a connection', () => {
     expect(screen.getByText('Hauptstrasse 1')).toBeInTheDocument()
   })
 
+  it('an older load failing after a newer one landed does not bring the band back', async () => {
+    let failOld: (err: Error) => void = () => {}
+    getFeldAssignments
+      .mockResolvedValueOnce(answer)
+      .mockReturnValueOnce(new Promise((_, reject) => { failOld = reject }))
+      .mockResolvedValueOnce(answer)
+    renderWithIntl(<FeldPage />)
+    await screen.findByText('Hauptstrasse 1')
+
+    act(() => {
+      window.dispatchEvent(new Event('focus')) // the old one, still out
+      window.dispatchEvent(new Event('focus')) // the new one, lands
+    })
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledTimes(3))
+    await act(async () => failOld(new ApiError('Service Unavailable', 503)))
+    expect(screen.queryByText(/Keine Verbindung/)).not.toBeInTheDocument()
+  })
+
   it('a first load that failed is not an empty list, and «Erneut versuchen» loads it', async () => {
     getFeldAssignments.mockResolvedValueOnce(undefined).mockResolvedValue(answer)
     const user = userEvent.setup()

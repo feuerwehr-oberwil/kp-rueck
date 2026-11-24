@@ -49,4 +49,19 @@ describe('useHistoryLevel', () => {
     expect(window.history.state).not.toEqual({ kpLevel: 'from-before-the-reload' })
     expect(hasLevel()).toBe(true)
   })
+
+  it('pushes nothing on a page nobody has touched yet – Chromium would skip that entry', () => {
+    vi.stubGlobal('navigator', { ...navigator, userActivation: { hasBeenActive: false, isActive: false } })
+    try {
+      const onBack = vi.fn()
+      const before = window.history.length
+      const { result } = renderHook(() => useHistoryLevel(true, onBack))
+      expect(window.history.length).toBe(before)
+      // The in-page «Zurück» still goes down, in memory.
+      result.current()
+      expect(onBack).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })

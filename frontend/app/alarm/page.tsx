@@ -676,6 +676,19 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
     }
   }
 
+  /** The send's outcome, on whichever step is showing: the back gesture can return to the form
+   *  while the request is still out, and its failure must still be read there. */
+  const errorBox = error && (
+    <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+      {error.kind === 'refused' ? error.message : (
+        <>
+          <p className="font-medium">{editing ? t('correctError') : t('submitError')}</p>
+          <p className="mt-1">{t('submitErrorHint')}</p>
+        </>
+      )}
+    </div>
+  )
+
   // ------------------------------------------------------------- review
   // What was typed, as a plain list. Nothing here is a control: the way to
   // change something is the one button that says so, because a review screen
@@ -704,16 +717,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           ))}
         </div>
 
-        {error && (
-          <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {error.kind === 'refused' ? error.message : (
-              <>
-                <p className="font-medium">{editing ? t('correctError') : t('submitError')}</p>
-                <p className="mt-1">{t('submitErrorHint')}</p>
-              </>
-            )}
-          </div>
-        )}
+        {errorBox}
 
         <div className="space-y-2">
           <Button size="lg" className="w-full text-base" onClick={handleSubmit} disabled={submitting}>
@@ -908,6 +912,8 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       {/* Never greyed out (#120): a press with something missing says why under the
           field it is about and puts the cursor there — the reason no longer stands
           under the button, a whole form away from the field that fixes it. */}
+      {submitting && <LoadingStatus className="text-sm">{t('submitting')}</LoadingStatus>}
+      {errorBox}
       <Button type="submit" size="lg" className="w-full text-base">
         {t('review.next')}
         <ChevronRight className="size-4" />
