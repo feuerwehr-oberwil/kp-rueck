@@ -333,7 +333,7 @@ export function IncidentPickerDialog({
       open={askMove}
       onOpenChange={setAskMove}
       title={tDash("distributeConfirmTitle")}
-      description={t("moveConfirm", { count: moving.length, names: movingNames })}
+      description={t("moveConfirm", { count: moving.length, names: movingNames, to: targetGroup?.name ?? "" })}
       confirmText={tDash("distributeConfirmAction")}
       // A move out of another Auftrag: Enter keeps to Abbrechen.
       initialFocus="cancel"
@@ -567,6 +567,7 @@ export function IncidentPickerDialog({
           variant="ghost"
           size="sm"
           className="sm:mr-auto"
+          disabled={applying}
           onClick={() => {
             handleOpenChange(false)
             onCreateNew()
