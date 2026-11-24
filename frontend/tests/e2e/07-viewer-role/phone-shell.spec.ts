@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/auth.fixture';
 import type { Page } from '@playwright/test';
-import { MOBILE_VIEWPORT } from '../../helpers/api.helper';
+import { MOBILE_VIEWPORT, checkInForEvent, createPersonnel } from '../../helpers/api.helper';
 import {
   API_BASE,
   cookieHeaderFor,
@@ -69,7 +69,12 @@ test.describe('Viewer role — the phone shell', () => {
 
   test.beforeEach(async ({ authenticatedPage, viewerPage, request }) => {
     // An Übung, so the editor's «Mehr» carries the Übungs-Steuerung.
-    fixture = await createEventWithIncident(request, await cookieHeaderFor(authenticatedPage), 'Phone Viewer');
+    const cookie = await cookieHeaderFor(authenticatedPage);
+    fixture = await createEventWithIncident(request, cookie, 'Phone Viewer');
+    // Somebody checked in: the Personal sheet lists them, and only a non-empty list offers
+    // «Dienstzeiten» (mobile-personnel-sheet.tsx).
+    const person = await createPersonnel(request, cookie, `Viewer Shell ${Date.now()}`);
+    await checkInForEvent(request, cookie, person.id, fixture.eventId);
     await authenticatedPage.setViewportSize(MOBILE_VIEWPORT);
     await viewerPage.setViewportSize(MOBILE_VIEWPORT);
   });
