@@ -6,7 +6,9 @@
  * mounting the board; the rows that render these still live with the board.
  */
 
+import type { AssignmentPurpose } from "@/lib/api-client"
 import type { Material } from "@/lib/contexts/operations-context"
+import type { DetailTarget } from "@/lib/detail-target"
 
 /**
  * One place a resource is held right now.
@@ -26,16 +28,28 @@ export interface ResourceBinding {
   label: string
   /** Second line — the Auftrag a stop belongs to, or «Sonderfunktion · kein Einsatz». */
   detail: string
+  /** An incident binding's tab: WHY the resource is there (Reko → Reko, crew/driver/device →
+   *  Ressourcen), the same answer as the card's own chips. */
+  target?: DetailTarget
+  /** A Reko binding's persisted row purpose. The board draws every row of a Reko-function
+   *  person as their Reko (`reconcile.ts`); a `crew` one is labelled «Mannschaft», so its
+   *  tick says what it releases. */
+  purpose?: AssignmentPurpose
 }
 
-/** What the bindings popover is currently answering for. */
-export interface BindingsPopoverState {
-  kind: "person" | "material"
+/** A unit of material's popover: its bindings, as they were when it was clicked. */
+export interface MaterialBindingsState {
+  kind: "material"
   id: string
   title: string
   subtitle: string
   bindings: ResourceBinding[]
 }
+
+/** What the bindings popover is currently answering for. A person's popover reads the
+ *  board live (`components/board/person-popover.tsx`): it is a checklist that changes
+ *  while it is open. */
+export type BindingsPopoverState = { kind: "person"; id: string } | MaterialBindingsState
 
 /** Can this binding actually be followed? A station function has nowhere to go,
  *  and neither has anything that lost its target. */

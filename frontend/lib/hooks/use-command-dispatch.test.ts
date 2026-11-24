@@ -54,6 +54,8 @@ function command(overrides: Partial<DispatchCommand> = {}): DispatchCommand {
  * «auf beiden führen») a moment later; `askLate` is a vehicle whose driver
  * question comes a few round trips after it landed — settling meanwhile.
  * `others` are further Einsätze (sources a move takes resources off).
+ * `reko` lands as the Reko, its row id arriving with the POST a moment later
+ * (settling meanwhile, like `assignRekoPersonToOperation`).
  */
 function board(
   start: Operation,
@@ -63,6 +65,7 @@ function board(
     keep = false,
     askLate = [] as string[],
     others = [] as Operation[],
+    reko = [] as string[],
   } = {},
 ) {
   let current = start
@@ -91,6 +94,16 @@ function board(
         return
       }
       if (refuse.includes(resource.name)) return
+      if (reko.includes(resource.name)) {
+        current = { ...current, assignedReko: { id: resource.id, name: resource.name } }
+        settling = true
+        setTimeout(() => {
+          order.push(`reko-row:${resource.name}`)
+          current = { ...current, assignedReko: { id: resource.id, name: resource.name, assignmentId: "r-1" } }
+          settling = false
+        }, 4)
+        return
+      }
       land(resource)
       if (askLate.includes(resource.name)) {
         settling = true
@@ -251,6 +264,17 @@ describe("undo", () => {
     const removeOrder = (b.deps.removeCrew as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
     const restoreOrder = (b.deps.restore as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]
     expect(removeOrder).toBeLessThan(restoreOrder)
+  })
+
+  it("waits for a Reko's POST and undoes exactly the row it made", async () => {
+    const b = board(operation(), { reko: ["Muster Peter"] })
+    await runDispatch(command({ assign: [{ target: MUSTER, alreadyHere: false, elsewhere: [] }] }), b.deps)
+    // Reported (Undo offered) only once the row's id is on the card.
+    expect(b.order).toEqual(["assign:Muster Peter", "reko-row:Muster Peter"])
+    const [outcome, undo] = (b.deps.report as ReturnType<typeof vi.fn>).mock.calls[0] as [{ rekoAssignmentId?: string }, () => Promise<void>]
+    expect(outcome.rekoAssignmentId).toBe("r-1")
+    await undo()
+    expect(b.deps.removeReko).toHaveBeenCalledWith("inc-14", "r-1")
   })
 
   it("does not touch a resource somebody already took off meanwhile", async () => {

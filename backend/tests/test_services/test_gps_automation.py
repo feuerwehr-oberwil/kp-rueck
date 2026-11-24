@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    AuditLog,
     Event,
     Incident,
     IncidentAssignment,
@@ -630,6 +631,40 @@ async def test_route_vehicle_return_emits_group_release_prompt(
         )
     )
     assert notification is not None
+    # This fallback bell also fires for a vehicle that never left: no Chronik fact.
+    assert await db_session.scalar(select(AuditLog.id).where(AuditLog.action_type == "vehicle_returned")) is None
+
+
+@pytest.mark.asyncio
+async def test_an_unassigned_return_bell_leaves_one_chronik_fact(
+    db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """Rule C's bell «zurück im Magazin» writes its fact on the released incident, once per stint."""
+    _vehicle, assignment = assigned_vehicle
+    assignment.unassigned_at = datetime.now(UTC)
+    await db_session.commit()
+    await _enable_return(db_session)
+    gps_automation._state.unassigned_returns.clear()
+    gps_automation._state.unassigned_away.clear()
+    clock = _Clock(datetime.now(UTC))
+    try:
+        for _ in range(2):  # away, home – twice
+            await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+            for _ in range(3):
+                await _tick(db_session, clock, _fresh_at_station(clock.now()), advance=35)
+    finally:
+        gps_automation._state.unassigned_returns.clear()
+        gps_automation._state.unassigned_away.clear()
+
+    assert await db_session.scalar(select(Notification.id).where(Notification.type == "vehicle_arrived")) is not None
+    facts = (
+        await db_session.scalars(
+            select(AuditLog).where(
+                AuditLog.resource_id == enroute_incident.id, AuditLog.action_type == "vehicle_returned"
+            )
+        )
+    ).all()
+    assert [f.changes_json["assignment_id"] for f in facts] == [str(assignment.id)]
 
 
 # ---------------------------------------------------------------------------

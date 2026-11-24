@@ -226,6 +226,68 @@ async def add_stops(
     return response
 
 
+@router.post("/{group_id}/transfer", response_model=schemas.TransferToAuftragResponse)
+async def transfer_to_auftrag(
+    group_id: uuid.UUID,
+    body: schemas.TransferToAuftragRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> schemas.TransferToAuftragResponse:
+    """«Übertragen» an Einsatz onto this Auftrag (editor only): it becomes the last stop,
+    its crew, vehicles and material move to the Auftrag (``crud.transfer_to_auftrag``).
+
+    409 when the Einsatz is closed or already a stop, every stop of the Auftrag is closed,
+    or a resource may not be assigned.
+    """
+    try:
+        result = await crud.transfer_to_auftrag(db, group_id, body.incident_id, current_user, request)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
+    except (assignments_crud.TransferRefusedError, assignments_crud.ResourceNotAssignableError) as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    await _broadcast_membership(background_tasks, db, group_id)
+    return schemas.TransferToAuftragResponse.model_validate(result)
+
+
+@router.post("/{group_id}/transfer/undo", status_code=status.HTTP_204_NO_CONTENT)
+async def undo_transfer_to_auftrag(
+    group_id: uuid.UUID,
+    body: schemas.TransferToAuftragUndoRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentEditor,
+) -> None:
+    """«Rückgängig» of a transfer onto an Auftrag (editor only): 409 once anything changed."""
+    try:
+        await crud.undo_transfer_to_auftrag(
+            db,
+            group_id,
+            body.incident_id,
+            body.group_assignment_ids,
+            body.released_assignment_ids,
+            current_user,
+            request,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
+    except (assignments_crud.TransferChangedError, assignments_crud.ResourceNotAssignableError) as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    await _broadcast_membership(background_tasks, db, group_id)
+
+
+async def _broadcast_membership(background_tasks: BackgroundTasks, db: AsyncSession, group_id: uuid.UUID) -> None:
+    """Stops and resources both changed: the Auftrag, then a board refresh of incidents and assignments."""
+    group = cast(IncidentGroup, await crud.get_group(db, group_id))
+    response = await crud.build_group_response(db, group)
+    event = {"event_id": str(group.event_id)}
+    background_tasks.add_task(broadcast_group_update, response.model_dump(mode="json"), "update")
+    background_tasks.add_task(broadcast_incident_update, event, "refresh")
+    background_tasks.add_task(broadcast_assignment_update, {"group_id": str(group_id)} | event, "refresh")
+
+
 @router.delete("/{group_id}/stops/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_stop(
     group_id: uuid.UUID,

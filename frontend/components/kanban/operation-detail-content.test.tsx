@@ -11,6 +11,7 @@ import { byAddress } from "@/test-utils/address-text"
 import { noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, resetFieldSaveForTests, setFieldSaveScope } from "@/lib/field-save"
 
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const removeReko = vi.hoisted(() => vi.fn())
 // The board sync's fleet (`useOperations().vehicles`) – the quick-assign shortcuts count it.
 const fleet = vi.hoisted(() => ({ vehicles: [] as Array<{ id: string; name: string; type: string; status: string; display_order: number }> }))
 const sourcePerson = vi.hoisted((): Person => ({
@@ -27,6 +28,8 @@ vi.mock("@/lib/contexts/operations-context", () => ({
     formatLocation: (value: string) => value,
     setOperations: vi.fn(),
     refreshOperations,
+    removeReko,
+    operations: [],
     personnel: [],
     vehicles: fleet.vehicles,
   }),
@@ -255,6 +258,23 @@ describe("OperationDetailContent", () => {
     )
     await user.click(transfer)
     expect(screen.getByText("Event-Rekos von Reko Eins")).toBeInTheDocument()
+  })
+
+  it("greys out the Reko release until the row's id is known, then releases", async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderWithIntl(<OperationDetailContent operation={operation} layout="panel" materials={[]} onUpdate={vi.fn()} />)
+    await user.click(tab("Reko"))
+    // The assign POST has not answered: shown, but disabled, and it says why.
+    const pending = screen.getByRole("button", { name: "Freigeben" })
+    expect(pending).toBeDisabled()
+    expect(pending).toHaveAttribute("title", "Reko Eins wird noch als Reko gespeichert – gleich nochmals versuchen")
+    unmount()
+
+    const saved = { ...operation, assignedReko: { ...operation.assignedReko!, assignmentId: "a-1" } }
+    renderWithIntl(<OperationDetailContent operation={saved} layout="panel" materials={[]} onUpdate={vi.fn()} />)
+    await user.click(tab("Reko"))
+    await user.click(screen.getByRole("button", { name: "Freigeben" }))
+    expect(removeReko).toHaveBeenCalledWith("incident-1")
   })
 
   it("hands «Ressourcen übertragen» to the page's dialog layer", async () => {

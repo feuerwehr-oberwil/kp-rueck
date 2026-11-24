@@ -2,11 +2,11 @@
 
 /**
  * RouteStopList — shared ordered, drag-reorderable stop list for one Auftrag – or, with
- * `kind="reko"`, for one Reko person's Rekos (the `/map` Reko-Modus): the two behave the
+ * `kind="reko"`, for one Reko person's Rekos (the `/map` Reko-Editor): the two behave the
  * same and only say different things (owner, 19.11.2026).
  *
- * Extracted from the Routen-Editor modal so both the modal (Phase 2) and the
- * `/map` Routenplanung panel (Phase 3) render an identical list without
+ * Extracted from the Auftrags-Editor modal so both the modal (Phase 2) and the
+ * `/map` Auftrags-Editor panel (Phase 3) render an identical list without
  * duplicating the row UI or the reorder monitor.
  *
  * The list renders `displayOrder` (which may be a pending optimize preview) while
@@ -17,7 +17,7 @@
  * monitors never collide.
  *
  * Two looks over the same rows: the dense list (the modal) and, with
- * `timelineColor`, the timeline of the `/map` Routenplanung panel – both share the
+ * `timelineColor`, the timeline of the `/map` Auftrags-Editor panel – both share the
  * drag/drop wiring (`useStopRowDnd`) and the right-click menu (`StopRowMenu`).
  */
 
@@ -58,14 +58,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { isLocated } from "@/lib/utils/route-geo"
 import { moveInList, type MoveTo } from "@/lib/move-in-list"
 import { MoveMenuItems, ReorderMenu } from "@/components/ui/reorder-menu"
-import { stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
+import { ACCENT_BAR, stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/route-start"
 
 export type StopState = "erledigt" | "laeuft" | "offen"
 
 // ── Optimize-from wand ───────────────────────────────────────────────────────
-// A single wand icon button (shared by the Routen-Editor modal, the /map
-// Routenplanung panel and the Aufträge sheet) that, on click, opens a dropdown of
+// A single wand icon button (shared by the Auftrags-Editor modal, the /map
+// Auftrags-Editor panel and the Aufträge sheet) that, on click, opens a dropdown of
 // start anchors. Picking one runs `onOptimize(start)` immediately — there is no
 // preselected "Start ab" select anymore. Callers pass their own translated labels
 // + availability so the component stays i18n-namespace agnostic.
@@ -236,7 +236,9 @@ export function StopStatusControl({
               </span>
             ))}
           </span>
-          {!done && <ChevronDown className="h-3 w-3 flex-shrink-0 text-muted-foreground" aria-hidden />}
+          {/* Kept (invisible) when closed: without it a closed stop's control is 16px
+              narrower and its address starts further left than the other rows' (VIS.1). */}
+          <ChevronDown className={cn("h-3 w-3 flex-shrink-0 text-muted-foreground", done && "invisible")} aria-hidden />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="z-elevated" onClick={(e) => e.stopPropagation()}>
@@ -300,7 +302,7 @@ interface RouteStopListProps {
   /** When provided, each row shows a ✕ that detaches the stop from the route. */
   onRemoveStop?: (incidentId: string) => void
   /** Show the advance/jump status control (false → plain status marker, e.g. the
-   *  `/map` Routenplanung panel where status isn't advanced from the planner). */
+   *  `/map` Auftrags-Editor panel where status isn't advanced from the planner). */
   showStatusControl?: boolean
   /** Offer "Abgeschlossen" in the row context menu. Default true. Set false on
    *  surfaces whose `onSetStopStatus` doesn't route through the completion flow
@@ -309,7 +311,7 @@ interface RouteStopListProps {
   readOnly?: boolean
   /** The Auftrag's colour: renders the stops as `<li>` timeline items (numbered
    *  nodes in the route-pin look, on a line in this colour) for the caller's
-   *  `<ol>` instead of the dense rows. The `/map` Routenplanung panel uses it. */
+   *  `<ol>` instead of the dense rows. The `/map` Auftrags-Editor panel uses it. */
   timelineColor?: string
 }
 
@@ -625,7 +627,8 @@ export function StopListRow({
         onClick={onSelect}
         className={cn(
           // Column layout: [handle] [number] [status — fixed width] [name/address — flex].
-          "flex cursor-pointer items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          "flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          ACCENT_BAR,
           stopStatusBorderClass(mirror),
           selected && "bg-sel-wash ring-1 ring-sel-edge",
           isDropOver && "bg-sel-wash ring-2 ring-sel-line",
@@ -683,7 +686,7 @@ export function StopListRow({
 }
 
 // ── Timeline ─────────────────────────────────────────────────────────────────
-// The `/map` Routenplanung list: every row hangs off a node on one vertical line
+// The `/map` Auftrags-Editor list: every row hangs off a node on one vertical line
 // (start → stops → «Stopp hinzufügen»). The caller owns the `<ol>`; these are its
 // items. A row is `TIMELINE_ROW` with a `TimelineNode` inside it.
 

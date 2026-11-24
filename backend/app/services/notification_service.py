@@ -28,6 +28,7 @@ from ..schemas import NotificationSettings
 from . import notification_params as texts
 from .incident_display import get_home_city, location_display
 from .rapport_rows import STATUS_LABELS
+from .vehicle_facts import record_vehicle_fact
 
 logger = logging.getLogger(__name__)
 
@@ -674,7 +675,7 @@ async def _check_geofence_alerts(
 
         home_city = await get_home_city(db) if assignments else ""
 
-        for _assignment, incident, vehicle in assignments:
+        for assignment, incident, vehicle in assignments:
             vp = position_by_name.get(vehicle.name.lower())
             if vp is None:
                 continue
@@ -687,6 +688,15 @@ async def _check_geofence_alerts(
             )
 
             if distance <= settings.geofence_radius_meters:
+                # The bell is deduplicated per incident and window; the fact once per stint.
+                await record_vehicle_fact(
+                    db,
+                    incident_id=incident.id,
+                    fact="vehicle_on_site",
+                    vehicle_name=vehicle.name,
+                    source="gps",
+                    assignment_id=assignment.id,
+                )
                 message, params = texts.vehicle_on_site(
                     vehicle.name, location_display(incident.location_address, home_city) or incident.title or "Einsatz"
                 )
@@ -955,6 +965,7 @@ async def create_vehicle_returned_notification(
     event_id: UUID,
     incident_id: UUID | None,
     vehicle_name: str,
+    returned_from: UUID | None = None,
 ) -> Notification | None:
     """Info bell when a vehicle is confirmed back at the magazin.
 
@@ -963,6 +974,12 @@ async def create_vehicle_returned_notification(
     restarts or geofence-edge flaps can't spam the bell. The window is short on
     purpose: a shuttle run (drop people off, return) can legitimately bring the
     same vehicle home again within minutes and must notify each time.
+
+    ``returned_from`` is the released assignment whose stint this return ends: with it,
+    the bell also writes the fact «zurück im Magazin» on ``incident_id`` for the Chronik
+    (`services/vehicle_facts`), in the caller's transaction. Only GPS Rule C passes it –
+    it fires after the vehicle was seen away. The Auftrag fallback fires for a vehicle
+    that never left too, so it stays a bell.
     """
     message, params = texts.vehicle_returned(vehicle_name)
 
@@ -986,6 +1003,15 @@ async def create_vehicle_returned_notification(
         event_id=event_id,
     )
     db.add(notification)
+    if incident_id is not None and returned_from is not None:
+        await record_vehicle_fact(
+            db,
+            incident_id=incident_id,
+            fact="vehicle_returned",
+            vehicle_name=vehicle_name,
+            source="gps",
+            assignment_id=returned_from,
+        )
     await db.flush()
     await db.refresh(notification)
 

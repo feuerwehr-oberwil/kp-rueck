@@ -20,14 +20,16 @@ import type { GroupResources } from "@/lib/types/groups"
  * resource asking while the first is still open would replace it, and a
  * vehicle that lands without a driver asks for one. The runner waits until no
  * question is open AND no assignment is still settling (the board's explicit
- * signal: a vehicle's driver check, a resolved Doppelbelegung's move) before it
+ * signal: a vehicle's driver check, a resolved Doppelbelegung's move, a Reko's
+ * POST until its row id is on the card) before it
  * hands over the next resource. Two commands typed in a row run one after the
  * other, never interleaved (`useCommandDispatch` queues them).
  *
  * Undo is a new write that must still be valid now (FRONTEND.md → «Undo never
  * restores a snapshot blindly»): it takes off only what is on the Einsatz now
  * AND was not before the command, and puts status/priority back only while they
- * still read what the command set. A resource the command took off another
+ * still read what the command set; a Reko only while the card still shows the
+ * row the command made (`rekoAssignmentId`). A resource the command took off another
  * Einsatz or Auftrag («Hierher verschieben») goes back there through the
  * release undo (`checkRestore` first) — or the toast says why it cannot.
  */
@@ -40,6 +42,9 @@ export interface DispatchOutcome {
   assigned: DispatchResource[]
   /** Where those came from when the operator chose to move them here. */
   moved: Released[]
+  /** The Reko row the command made (its id is known: the runner waited for the POST, which
+   *  counts as settling). Undo releases that row and no other. */
+  rekoAssignmentId: string | undefined
   status: { from: DispatchStatus; to: DispatchStatus } | null
   priority: { from: DispatchPriority; to: DispatchPriority } | null
 }
@@ -69,7 +74,8 @@ export interface CommandDispatchDeps {
   revertPriority: (operationId: string, priority: DispatchPriority) => void
   revertStatus: (operationId: string, status: DispatchStatus) => void
   removeCrew: (operationId: string, personnelId: string) => unknown
-  removeReko: (operationId: string) => unknown
+  /** Releases only while the card still shows `expectedAssignmentId` (the row the command made). */
+  removeReko: (operationId: string, expectedAssignmentId?: string) => unknown
   removeVehicle: (operationId: string, vehicleId: string) => unknown
   removeMaterial: (operationId: string, materialId: string) => unknown
   unassignGroupResource: (groupId: string, assignmentId: string) => unknown
@@ -215,7 +221,10 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
     }
   }
 
-  const outcome: DispatchOutcome = { operation: after, assigned, moved, status, priority }
+  const rekoAssignmentId = assigned.some((resource) => resource.kind === "person" && after.assignedReko?.id === resource.id)
+    ? after.assignedReko?.assignmentId
+    : undefined
+  const outcome: DispatchOutcome = { operation: after, assigned, moved, rekoAssignmentId, status, priority }
   deps.report(outcome, () => undoDispatch(outcome, deps))
   return outcome
 }
@@ -228,7 +237,7 @@ async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispatchDeps)
     const held = holding(now, resource, deps.getGroupResources)
     if (!held) continue
     if (held.where === "crew") await deps.removeCrew(operationId, resource.id)
-    else if (held.where === "reko") await deps.removeReko(operationId)
+    else if (held.where === "reko") await deps.removeReko(operationId, outcome.rekoAssignmentId)
     else if (held.where === "vehicle") await deps.removeVehicle(operationId, resource.id)
     else if (held.where === "material") await deps.removeMaterial(operationId, resource.id)
     else await deps.unassignGroupResource(held.groupId, held.assignmentId)

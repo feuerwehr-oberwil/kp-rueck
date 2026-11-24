@@ -6,6 +6,7 @@ import { CircleMinus, X, type LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -13,15 +14,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
+import { isContextMenuKey } from "@/lib/keyboard-context-menu"
 import { cn } from "@/lib/utils"
 
-/** One row of the touch menu above the destructive «remove» row. */
+/** One row of the chip menu above the destructive «remove» row. */
 export interface ChipMenuAction {
   label: string
-  /** A 16px glyph: a Lucide icon element, or the «EL» badge. */
+  /** A 16px glyph: a Lucide icon element, or the «EL» badge. Ignored on a checkbox row. */
   icon?: ReactNode
+  /** Muted text at the row's end – the current value behind the action («Fahrer ändern … Meier Hans»). */
+  hint?: string
+  /** Set → a checkbox row that shows this state (its tick sits in the icon column). */
+  checked?: boolean
   onSelect: () => void
 }
+
+/** How a mouse opens the chip menu. `click`: click or right-click (the chip has no other
+ *  click – detail, Auftrag). `contextmenu`: right-click only (the card, where a click opens
+ *  the detail). Touch always opens it with a tap; a touch long-press stays the card's. The
+ *  keyboard opens it on the focused chip with Enter, Space, ↓, Shift+F10 or the menu key. */
+export type ChipMouseMenu = "click" | "contextmenu"
 
 interface RemovableChipProps {
   children: ReactNode
@@ -51,6 +63,8 @@ interface RemovableChipProps {
   removeLabel?: string
   /** Touch menu: the destructive row's icon. */
   removeIcon?: LucideIcon
+  /** Give the menu to the mouse too (see `ChipMouseMenu`); the hover ✕ stays. Omit = touch only. */
+  mouseMenu?: ChipMouseMenu
 }
 
 // Mouse only: the ✕ collapses to hover/focus-reveal in a 12px slot that is
@@ -99,12 +113,45 @@ const PAD_FRIENDLY_CLIP = "overflow-clip [overflow-clip-margin:0.5rem]"
 // behind a separator, so it is never the row a thumb lands on first.
 const MENU_CONTENT =
   "w-max min-w-52 max-w-[min(22rem,var(--radix-dropdown-menu-content-available-width))] " +
-  "[&_[data-slot=dropdown-menu-item]]:whitespace-nowrap"
+  "[&_[data-slot=dropdown-menu-item]]:whitespace-nowrap [&_[data-slot=dropdown-menu-checkbox-item]]:whitespace-nowrap"
 
-/** Every row keeps the icon column, so labels line up with or without one. */
+/** The mouse's hover ✕. Its click is its own – it never reaches the chip or the card. */
+function RemoveX({ onRemove, removeTitle, removeIconClassName, removeButtonClassName, removeTabIndex }: {
+  onRemove: () => void
+  removeTitle?: string
+  removeIconClassName: string
+  removeButtonClassName?: string
+  removeTabIndex: number
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onRemove()
+      }}
+      // A right-click on the ✕ is not a right-click on the chip.
+      onContextMenu={(e) => e.stopPropagation()}
+      className={cn(REMOVE_BUTTON_VISIBILITY, removeButtonClassName)}
+      title={removeTitle}
+      aria-label={removeTitle}
+      tabIndex={removeTabIndex}
+    >
+      <X className={removeIconClassName} />
+    </button>
+  )
+}
+
+/** The current value behind a row, muted at its end. */
+function MenuHint({ hint }: { hint: string }) {
+  return <span className="ml-auto max-w-40 truncate pl-4 text-xs text-muted-foreground">{hint}</span>
+}
+
+/** Every row keeps the icon column, so labels line up with or without one – and with a
+ *  checkbox row's box. The item's own gap spaces it: no margin here. */
 function MenuIcon({ icon }: { icon: ReactNode }) {
   return (
-    <span className="mr-2 flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
+    <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
       {icon}
     </span>
   )
@@ -128,6 +175,9 @@ function MenuIcon({ icon }: { icon: ReactNode }) {
  * finger that starts a scroll or a card drag on a chip never produces a click,
  * so neither opens a menu under it. That is why the Radix trigger is an inert
  * overlay used only as the anchor, and the chip itself does the opening.
+ *
+ * `mouseMenu` gives the same menu to the mouse (the vehicle chip: «Fahrer ändern …»,
+ * «bleibt vor Ort», «Fahrzeug freigeben»), next to the hover ✕.
  */
 export function RemovableChip({
   children,
@@ -144,35 +194,34 @@ export function RemovableChip({
   menuActions,
   removeLabel,
   removeIcon: RemoveIcon = CircleMinus,
+  mouseMenu,
 }: RemovableChipProps) {
   const pointerFine = usePointerFine()
-  const hasMenu = !pointerFine && (!!onRemove || (menuActions?.length ?? 0) > 0)
+  const openOn: ChipMouseMenu | undefined = pointerFine ? mouseMenu : "click"
+  const hasMenu = !!openOn && (!!onRemove || (menuActions?.length ?? 0) > 0)
+  const removeX = pointerFine && onRemove ? (
+    <RemoveX
+      onRemove={onRemove}
+      removeTitle={removeTitle}
+      removeIconClassName={removeIconClassName}
+      removeButtonClassName={removeButtonClassName}
+      removeTabIndex={removeTabIndex}
+    />
+  ) : null
 
   if (!hasMenu) {
     return (
       <Badge variant={variant} className={cn("group relative transition-colors", PAD_FRIENDLY_CLIP, className)} title={title}>
         {children}
-        {onRemove && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            className={cn(REMOVE_BUTTON_VISIBILITY, removeButtonClassName)}
-            title={removeTitle}
-            aria-label={removeTitle}
-            tabIndex={removeTabIndex}
-          >
-            <X className={removeIconClassName} />
-          </button>
-        )}
+        {removeX}
       </Badge>
     )
   }
 
   return (
     <ChipWithMenu
+      openOn={openOn}
+      removeX={removeX}
       variant={variant}
       className={className}
       title={title}
@@ -190,6 +239,8 @@ export function RemovableChip({
 }
 
 function ChipWithMenu({
+  openOn,
+  removeX,
   children,
   variant,
   className,
@@ -201,12 +252,17 @@ function ChipWithMenu({
   menuActions,
   removeLabel,
   RemoveIcon,
-}: Omit<RemovableChipProps, "removeIcon" | "removeIconClassName" | "removeButtonClassName" | "removeTabIndex"> & {
+}: Omit<RemovableChipProps, "removeIcon" | "removeIconClassName" | "removeButtonClassName" | "removeTabIndex" | "mouseMenu"> & {
   RemoveIcon: LucideIcon
+  openOn: ChipMouseMenu
+  /** The mouse's hover ✕ (null on touch). */
+  removeX: ReactNode
 }) {
   const t = useTranslations("kanban.chipMenu")
   const [open, setOpen] = useState(false)
   const chipRef = useRef<HTMLSpanElement>(null)
+  // The pointer that last pressed the chip – `contextmenu` from a finger is not ours.
+  const lastPointerType = useRef<string | null>(null)
   const labelId = useId()
   const actions = menuActions ?? []
   const destructiveLabel = removeLabel ?? removeTitle ?? t("remove")
@@ -215,6 +271,8 @@ function ChipWithMenu({
   // React still bubbles its clicks and keys through this component — without
   // the check, choosing a row would reopen the menu it just closed.
   const ownEvent = (e: React.SyntheticEvent) => e.currentTarget.contains(e.target as Node)
+  // Right-click only: a click stays the block's (the card opens its detail).
+  const opensOnClick = openOn === "click"
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -223,24 +281,44 @@ function ChipWithMenu({
         variant={variant}
         className={cn(
           "group relative transition-[color,box-shadow]",
+          PAD_FRIENDLY_CLIP,
           className,
           open && "ring-2 ring-foreground/30",
+          opensOnClick && "cursor-pointer",
         )}
         title={title}
+        // Focusable in both modes: in «contextmenu» mode the keyboard has no other way
+        // to this menu (the card's own keys open the card's).
         role="button"
         tabIndex={0}
         aria-haspopup="menu"
         aria-expanded={open}
+        onPointerDown={(e) => {
+          lastPointerType.current = e.pointerType
+        }}
         onClick={(e) => {
-          if (!ownEvent(e)) return
+          if (!opensOnClick || !ownEvent(e)) return
           // The chip's own action, not the block's around it (the card opens
           // its detail on any tap — that is now the menu's first row).
           e.stopPropagation()
           setOpen(true)
         }}
+        // Right-click: this menu, not the card's (the card's menu listens on its
+        // own trigger, which this event no longer reaches).
+        onContextMenu={(e) => {
+          if (!ownEvent(e)) return
+          // A touch long-press is the card's: browsers that send `contextmenu` for it
+          // would open this menu while the card's Radix long-press opens the card's. The
+          // chip keeps its tap (above). Read from the pointerdown – a React
+          // `contextmenu` carries no pointer type.
+          if (lastPointerType.current === "touch") return
+          e.preventDefault()
+          e.stopPropagation()
+          setOpen(true)
+        }}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return
-          if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+          if (isContextMenuKey(e) || e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
             e.preventDefault()
             e.stopPropagation()
             setOpen(true)
@@ -248,6 +326,7 @@ function ChipWithMenu({
         }}
       >
         {children}
+        {removeX}
         {/* Anchor only: positions the menu on the chip. Inert, so Radix's
             pointerdown toggle never runs — the chip opens on click, above. */}
         <DropdownMenuTrigger asChild>
@@ -284,12 +363,20 @@ function ChipWithMenu({
             <DropdownMenuSeparator />
           </>
         )}
-        {actions.map((action) => (
-          <DropdownMenuItem key={action.label} onSelect={action.onSelect}>
-            <MenuIcon icon={action.icon} />
-            {action.label}
-          </DropdownMenuItem>
-        ))}
+        {actions.map((action) =>
+          action.checked === undefined ? (
+            <DropdownMenuItem key={action.label} onSelect={action.onSelect}>
+              <MenuIcon icon={action.icon} />
+              {action.label}
+              {action.hint && <MenuHint hint={action.hint} />}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuCheckboxItem key={action.label} checked={action.checked} onSelect={action.onSelect}>
+              {action.label}
+              {action.hint && <MenuHint hint={action.hint} />}
+            </DropdownMenuCheckboxItem>
+          ),
+        )}
         {onRemove && (
           <>
             {actions.length > 0 && <DropdownMenuSeparator />}

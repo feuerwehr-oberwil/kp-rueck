@@ -44,8 +44,9 @@ interface PrintHubSheetProps {
   printerEnabled: boolean
 }
 
-/** One labelled checkbox row. Ids are namespaced per column so the two option
- *  sets can carry the same label without colliding. */
+/** One labelled checkbox row. The label wraps the box, so the whole row is the
+ *  tap target (44px tall on the phone, globals.css). Ids are namespaced per
+ *  column so the two option sets can carry the same label without colliding. */
 function OptionRow({
   id,
   label,
@@ -58,12 +59,10 @@ function OptionRow({
   onChange: (value: boolean) => void
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
       <Checkbox id={id} checked={checked} onCheckedChange={(value) => onChange(value === true)} />
-      <Label htmlFor={id} className="cursor-pointer text-sm font-normal">
-        {label}
-      </Label>
-    </div>
+      {label}
+    </Label>
   )
 }
 

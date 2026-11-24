@@ -51,11 +51,14 @@ import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { CheckOutAssignedDialog } from '@/components/attendance/check-out-assigned-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { DiveraIncomingBlock } from '@/components/kanban/divera-incoming-block'
 import { PlannedTimeClock, PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
 import { useMinuteTick } from '@/components/ui/incident-time'
 import { wsClient } from '@/lib/websocket-client'
+import { useOperations } from '@/lib/contexts/operations-context'
+import { usePersonMatcher } from '@/lib/hooks/use-person-matcher'
 import { formatDuration } from '@/lib/duration'
 import { formatTime } from '@/lib/format-time'
 import { leavesSoon, minutesUntil } from '@/lib/planned-times'
@@ -212,14 +215,17 @@ export function AttendanceModal({
     [people]
   )
   const stats = useMemo(() => summarizeAttendance(people), [people])
+  // The board's one person search (Grad, tags, functions, where the person is now). The
+  // board's roster row carries the functions; the Appell row's name, Grad and tags win.
+  const matchesPerson = usePersonMatcher()
+  const { personnel: boardPersonnel } = useOperations()
   const visible = useMemo(() => {
-    const needle = search.trim().toLowerCase()
-    if (!needle) return sorted
-    return sorted.filter(
-      (person) =>
-        person.name.toLowerCase().includes(needle) || (person.role ?? '').toLowerCase().includes(needle)
+    if (!search.trim()) return sorted
+    const boardById = new Map(boardPersonnel.map((p) => [p.id, p]))
+    return sorted.filter((person) =>
+      matchesPerson({ ...boardById.get(person.id), id: person.id, name: person.name, role: person.role, tags: person.tags }, search)
     )
-  }, [sorted, search])
+  }, [sorted, search, matchesPerson, boardPersonnel])
 
   const applyLocally = (personId: string, patch: Partial<ApiPersonnelListItem>) => {
     setPeople((previous) => previous.map((p) => (p.id === personId ? { ...p, ...patch } : p)))
@@ -478,14 +484,11 @@ export function AttendanceModal({
         </Dialog>
       )}
 
-      <ConfirmDialog
+      <CheckOutAssignedDialog
         open={!!confirmOut}
         onOpenChange={(next) => !next && setConfirmOut(null)}
-        title={t('assignedTitle')}
-        description={
-          confirmOut ? t('assignedDescription', { name: confirmOut.person.name, where: confirmOut.where }) : ''
-        }
-        confirmText={t('checkOutAnyway')}
+        name={confirmOut?.person.name ?? ''}
+        where={confirmOut?.where ?? ''}
         onConfirm={async () => {
           if (confirmOut) await checkOut(confirmOut.person)
           setConfirmOut(null)

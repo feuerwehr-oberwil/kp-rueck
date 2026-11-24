@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { apiClient } from '@/lib/api-client'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
+import { incidentSubject } from '@/lib/incident-types'
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** Everything the chip does happens inside the chip — nothing above it reacts. */
@@ -74,7 +75,10 @@ export function PickupBadge({
   // The provider wraps the whole app in the root layout, so this is safe at
   // every mount. Waiting for the ~5 s poll to drop an amber chip you just
   // cleared is exactly the kind of "did that work?" the board must not create.
-  const { refreshOperations } = useOperations()
+  const { refreshOperations, operations } = useOperations()
+  // The Einsatz under the question's title (#14): the Restliste, the map and the cards show many
+  // pickups, and the window covers the row it came from.
+  const incident = incidentId ? operations.find((op) => op.id === incidentId) : undefined
   const [confirming, setConfirming] = useState(false)
   const [clearing, setClearing] = useState(false)
   const since = formatPickupSince(requestedAt)
@@ -142,6 +146,7 @@ export function PickupBadge({
         open={confirming}
         onOpenChange={setConfirming}
         title={t('clearConfirmTitle')}
+        subject={incident ? incidentSubject(incident) : undefined}
         description={
           waiting ? t('clearConfirmBodyWaiting', { duration: waiting }) : t('clearConfirmBody')
         }

@@ -12,11 +12,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
  * «Kommt der Trupp selbst zurück?» – the one follow-up «Einsatz beendet» asks in the field
  * (decision 24), when the trainer presses «Jetzt» on it. Open while `op` is set; `onAnswer`
  * gets the pickup answer: true = Abholung nötig, false = fährt selbst, null = Lage
- * entscheidet (the backend infers it, the way the Autopilot always answers).
+ * entscheidet (the backend follows the «bleibt vor Ort» pill: a vehicle on site → «fährt
+ * selbst», none → Abholung – the way the Autopilot always answers).
  *
- * «Lage entscheidet» is the aside, not the primary: as the loud default it made the pickup
- * almost unreachable (a crew with a vehicle always infers «fährt selbst»). «Fährt selbst»
- * is the primary – true in most cases, and the only answer that costs the operator nothing.
+ * «Lage entscheidet» is the aside, not the primary: as the loud default every exercise would
+ * follow the pill, while the KP forgetting it is part of what an exercise trains. «Fährt
+ * selbst» is the primary – true in most cases, and the only answer that costs the operator
+ * nothing.
  */
 export function PickupQuestionDialog({
   op,

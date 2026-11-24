@@ -4,7 +4,8 @@ Auftrag before incident before resource: completing a stop used to lock the stop
 then its Auftrag while a reorder locked them the other way round (audit 2026-10, F08),
 an archive did not lock the resource an assignment was being written for (F02),
 writers of several resources locked them in their own order, and a personnel delete
-wrote the incidents pointing at the person only after locking the person.
+wrote the incidents pointing at the person only after locking the person, and a /feld
+takeover inserted its Meldung (key-sharing the reporter) before locking their Auftrag.
 Independent, committed sessions (pattern from ``test_group_stop_undo_guard.py``) –
 only a genuine second transaction shows who waits for whom.
 """
@@ -16,23 +17,32 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import pytest
 import pytest_asyncio
+from fastapi import BackgroundTasks
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app import schemas
+from app.api import reko as reko_api
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
+from app.crud import feld as feld_crud
 from app.crud import group_assignments as group_assignments_crud
 from app.crud import groups as groups_crud
 from app.crud import incidents as incidents_crud
 from app.crud import materials as materials_crud
 from app.crud import personnel as personnel_crud
-from app.crud.locking import lock_incident_with_group, lock_resource
+from app.crud import personnel_checkin as checkin_crud
+from app.crud import reko_assignment as reko_assignment_crud
+from app.crud.feld.melden import create_field_report
+from app.crud.locking import lock_groups, lock_incident_with_group, lock_resource
 from app.models import (
     AuditLog,
     AuftragTemplate,
     AuftragTemplateResource,
     Event,
+    EventSpecialFunction,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -157,6 +167,26 @@ async def test_completing_a_stop_queues_behind_a_reorder_instead_of_deadlocking(
 
     assert completed is not None
     assert completed.status == "complete"
+
+
+async def test_a_field_report_on_a_stop_queues_behind_a_reorder_instead_of_deadlocking(board: Board):
+    # «Einsatz beendet» from the crew writes the stop, then moves it (which takes the
+    # Auftrag); it used to write the stop before the Auftrag lock (Sol review A2, S3).
+    async with board.sessions() as reorder, board.sessions() as reporting:
+        await reorder.execute(select(IncidentGroup.id).where(IncidentGroup.id == board.group_id).with_for_update())
+        stop = await reporting.get(Incident, board.stop_id)
+        assert stop is not None
+        actor = feld_crud.FieldActor(personnel_id=board.person_id, personnel_name="Muster Max")
+        report = asyncio.create_task(
+            feld_crud.record_field_complete(reporting, stop, actor=actor, at=datetime.now(UTC), request=_request())
+        )
+        await _wait_until_blocked(board.sessions)
+
+        await asyncio.wait_for(groups_crud.reorder_group_stops(reorder, board.group_id, [board.stop_id]), timeout=5)
+        await reorder.commit()
+
+        assert await asyncio.wait_for(report, timeout=10)
+        await reporting.commit()
 
 
 async def test_a_stop_that_joins_an_auftrag_meanwhile_gets_that_auftrag_locked(board: Board):
@@ -287,6 +317,46 @@ async def test_personnel_delete_locks_the_incidents_it_nulls_before_the_person(b
         assert await db.scalar(select(Incident.leader_personnel_id).where(Incident.id == board.loose_id)) is None
 
 
+async def test_clearing_attendance_waits_for_the_person_lock(board: Board):
+    # A check-out undo holds the person while it reads the departure it takes back; the
+    # Appell's «nicht anwesend» must queue behind it, not delete the row under it (→ 500).
+    async with board.sessions() as undo, board.sessions() as clearing:
+        await lock_resource(undo, "personnel", board.person_id)
+        clear = asyncio.create_task(checkin_crud.clear_personnel_attendance(clearing, board.event_id, board.person_id))
+        await _wait_until_blocked(board.sessions)
+        assert not clear.done()
+        await undo.commit()
+
+        assert await asyncio.wait_for(clear, timeout=10) is not None
+        await clearing.rollback()
+
+
+async def test_an_exact_reko_release_waits_for_the_incident_lock(board: Board):
+    # A completion (or any release) holds the Einsatz: the popover's exact-row release
+    # queues behind it and then finds the row already gone, instead of writing it anyway.
+    async with board.sessions() as db:
+        row = IncidentAssignment(
+            incident_id=board.loose_id, resource_type="personnel", resource_id=board.person_id, purpose="reko"
+        )
+        db.add(row)
+        await db.commit()
+    async with board.sessions() as holder, board.sessions() as releasing:
+        await holder.execute(select(Incident.id).where(Incident.id == board.loose_id).with_for_update())
+        release = asyncio.create_task(
+            reko_assignment_crud.unassign_reko_personnel_from_incident(
+                releasing, board.loose_id, board.person_id, row.id
+            )
+        )
+        await _wait_until_blocked(board.sessions)
+        held = await holder.get(IncidentAssignment, row.id)
+        assert held is not None
+        held.unassigned_at = datetime.now(UTC)
+        await holder.commit()
+
+        assert await asyncio.wait_for(release, timeout=10) is False
+        await releasing.rollback()
+
+
 async def test_two_restores_serialize_and_recognize_their_shared_pump(board: Board):
     ids = (board.stop_id, board.loose_id)
     async with board.sessions() as setup:
@@ -319,3 +389,139 @@ async def test_two_restores_serialize_and_recognize_their_shared_pump(board: Boa
             )
         )
         assert set(deployed_on) == set(ids)
+
+
+async def _report_and_take_over(board: Board, db: AsyncSession) -> tuple[Incident, str]:
+    """The /feld «Wir übernehmen» of ``board.person_id``, in ``db``."""
+    person = await db.get(Personnel, board.person_id)
+    assert person is not None
+    payload = schemas.FeldIncidentCreate(title="Baum", type="elementarereignis", priority="medium", take_over=True)
+    return await create_field_report(db, board.event_id, person, payload, _request())
+
+
+async def test_a_field_takeover_queues_behind_a_board_assignment_instead_of_deadlocking(board: Board):
+    async with board.sessions() as db:
+        db.add(
+            IncidentGroupAssignment(
+                incident_group_id=board.group_id, resource_type="personnel", resource_id=board.person_id
+            )
+        )
+        await db.commit()
+
+    async with board.sessions() as assigning, board.sessions() as reporting:
+        # A board assignment holds the reporter's Auftrag and is about to lock the person.
+        await lock_groups(assigning, [board.group_id])
+        report = asyncio.create_task(_report_and_take_over(board, reporting))
+        await _wait_until_blocked(board.sessions)
+
+        # The report must be queued for the Auftrag, not key-sharing the person already.
+        person = await asyncio.wait_for(lock_resource(assigning, "personnel", board.person_id), timeout=5)
+        assert person is not None
+        await assigning.commit()
+
+        incident, mode = await asyncio.wait_for(report, timeout=10)
+        await reporting.commit()
+
+    assert mode == "stop"
+    assert incident.group_id == board.group_id
+
+
+async def test_a_field_takeover_onto_an_auftrag_deleted_meanwhile_takes_it_on_alone(board: Board):
+    async with board.sessions() as db:
+        db.add(IncidentAssignment(incident_id=board.stop_id, resource_type="personnel", resource_id=board.person_id))
+        await db.commit()
+
+    async with board.sessions() as deleting, board.sessions() as reporting:
+        user = await deleting.get(User, board.user_id)
+        assert user is not None
+        # The Auftrag is being deleted: it is locked and its stop already detached.
+        assert await groups_crud.soft_delete_group(deleting, board.group_id, user, _request()) is not None
+        report = asyncio.create_task(_report_and_take_over(board, reporting))
+        await _wait_until_blocked(board.sessions)
+        await deleting.commit()
+
+        incident, mode = await asyncio.wait_for(report, timeout=10)
+        await reporting.commit()
+
+    # Not a stop of the deleted Auftrag: the reporter is on the new Schadenplatz alone.
+    assert mode == "solo"
+    assert incident.group_id is None
+    async with board.sessions() as db:
+        crew = await db.scalars(
+            select(IncidentAssignment.resource_id).where(
+                IncidentAssignment.incident_id == incident.id, IncidentAssignment.unassigned_at.is_(None)
+            )
+        )
+        assert list(crew) == [board.person_id]
+
+
+@pytest.mark.parametrize("route", ["replace", "handover"])
+async def test_a_reko_replacement_locks_the_incoming_person_with_the_crew_it_may_promote(board: Board, route: str):
+    # Replacing a Reko who sits on a crew row releases that row, which promotes the next
+    # Einsatzleiter and key-shares their person row. It used to hold the incoming person
+    # first: against an incident delete that locks both persons sorted (the successor
+    # first, here), a deadlock. Now it queues for the successor and holds nobody yet.
+    successor_id, outgoing_id, incoming_id = sorted(uuid4() for _ in range(3))
+    async with board.sessions() as db:
+        db.add_all(
+            [
+                Personnel(id=successor_id, name="Folger Fritz", status="available"),
+                Personnel(id=outgoing_id, name="Alt Anna", status="available"),
+                Personnel(id=incoming_id, name="Neu Nina", status="available"),
+            ]
+        )
+        await db.flush()
+        db.add_all(
+            [
+                EventSpecialFunction(event_id=board.event_id, personnel_id=person_id, function_type="reko")
+                for person_id in (outgoing_id, incoming_id)
+            ]
+            + [
+                IncidentAssignment(
+                    incident_id=board.loose_id, resource_type="personnel", resource_id=person_id, purpose="crew"
+                )
+                for person_id in (successor_id, outgoing_id)
+            ]
+        )
+        loose = await db.get(Incident, board.loose_id)
+        assert loose is not None
+        loose.status = "reko"
+        await db.commit()
+    try:
+        async with board.sessions() as deleting, board.sessions() as replacing:
+            # An incident delete holds the successor and goes for the incoming person next.
+            await lock_resource(deleting, "personnel", successor_id)
+            user = await replacing.get(User, board.user_id)
+            assert user is not None
+            if route == "replace":
+                body = schemas.AssignRekoPersonnelRequest(personnel_id=incoming_id)
+                write = reko_api.assign_reko_personnel(
+                    board.loose_id, body, _request(), BackgroundTasks(), user, replacing
+                )
+            else:
+                write = reko_api.transfer_reko_assignments(
+                    _request(), BackgroundTasks(), user, outgoing_id, incoming_id, board.event_id, replacing
+                )
+            replacement = asyncio.create_task(write)
+            await _wait_until_blocked(board.sessions)
+
+            assert await asyncio.wait_for(lock_resource(deleting, "personnel", incoming_id), timeout=5) is not None
+            await deleting.commit()
+            await asyncio.wait_for(replacement, timeout=10)
+            await replacing.commit()
+
+        async with board.sessions() as db:
+            assert await db.scalar(select(Incident.leader_personnel_id).where(Incident.id == board.loose_id)) == (
+                successor_id
+            )
+            active = await db.scalars(
+                select(IncidentAssignment.resource_id).where(
+                    IncidentAssignment.incident_id == board.loose_id, IncidentAssignment.unassigned_at.is_(None)
+                )
+            )
+            assert set(active) == {successor_id, incoming_id}
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(IncidentAssignment).where(IncidentAssignment.incident_id == board.loose_id))
+            await db.execute(delete(Personnel).where(Personnel.id.in_([successor_id, outgoing_id, incoming_id])))
+            await db.commit()

@@ -131,6 +131,9 @@ class PersonnelCheckInResponse(BaseModel):
     planned_from: datetime | None = None
     planned_until: datetime | None = None
     is_assigned: bool = False  # Whether assigned to any incident in this event
+    # False when the request found its state already there and wrote nothing (a check-out of
+    # somebody another operator already sent home): the board offers no undo for it.
+    changed: bool = True
 
 
 class AttendancePlanUpdate(BaseModel):

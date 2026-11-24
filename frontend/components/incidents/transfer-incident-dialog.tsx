@@ -13,13 +13,24 @@ import {
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin } from "lucide-react"
+import { MapPin, Waypoints } from "lucide-react"
 import type { Incident } from "@/lib/types/incidents"
+import type { IncidentGroup } from "@/lib/types/groups"
+import { takesAssignments } from "@/lib/assignable"
 import { useTranslations } from "next-intl"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { STATUS_ACCENT } from "@/lib/kanban-utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
 import { ShellLoader } from "@/components/ui/shell-loader"
+
+const ROW = "w-full text-left p-4 rounded-lg border-2 transition-all"
+const ROW_SELECTED = "border-foreground/30 bg-muted"
+const ROW_IDLE = "border-border hover:border-foreground/20 hover:bg-muted/50"
+const HEADING = "text-2xs font-medium uppercase tracking-wide text-muted-foreground"
+
+/** Where «Übertragen» sends the resources: another Einsatz, or an Auftrag – then the source
+ *  becomes its last stop and the resources go to the Auftrag (owner pick 23.11.2026, #9). */
+export type TransferTarget = { kind: "incident"; id: string } | { kind: "auftrag"; id: string }
 
 interface TransferIncidentDialogProps {
   open: boolean
@@ -29,7 +40,9 @@ interface TransferIncidentDialogProps {
   sourceIncident: { id: string; title?: string | null }
   sourceName?: string
   availableIncidents: Incident[]
-  onTransfer: (targetIncidentId: string) => void
+  /** The Ereignis's Aufträge. The source must be in none of them (a stop is not transferred). */
+  availableAuftraege: Pick<IncidentGroup, "id" | "name" | "color" | "stopIds">[]
+  onTransfer: (target: TransferTarget) => void
   isTransferring?: boolean
   /** What this transfer will move. Said above the buttons once a target is chosen, so the
    *  operator sees the size of the move before making it — «Ressourcen übertragen» takes a
@@ -43,46 +56,42 @@ export function TransferIncidentDialog({
   sourceIncident,
   sourceName,
   availableIncidents,
+  availableAuftraege,
   onTransfer,
   isTransferring = false,
   resourceSummary,
 }: TransferIncidentDialogProps) {
   const t = useTranslations('incidents')
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
+  const [selected, setSelected] = useState<TransferTarget | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
 
-  const selectedIncident = availableIncidents.find((inc) => inc.id === selectedIncidentId) ?? null
+  const isSelected = (kind: TransferTarget["kind"], id: string) => selected?.kind === kind && selected.id === id
+  const selectedAuftrag = selected?.kind === "auftrag" ? availableAuftraege.find((group) => group.id === selected.id) : undefined
 
   // No second question: the dialog says what moves (below), and the toast offers «Rückgängig».
   const handleTransfer = () => {
-    if (selectedIncidentId) onTransfer(selectedIncidentId)
+    if (selected) onTransfer(selected)
   }
 
   const handleClose = () => {
-    setSelectedIncidentId(null)
+    setSelected(null)
     setSearchTerm("")
     onOpenChange(false)
   }
 
-  // Filter out the source incident and apply search filter
+  const search = searchTerm.trim().toLowerCase()
+  // A closed Einsatz takes no new assignment (lib/assignable.ts), so it is no target.
   const targetIncidents = availableIncidents
-    .filter(inc => inc.id !== sourceIncident.id)
-    .filter(inc => {
-      if (!searchTerm.trim()) return true
-      const search = searchTerm.toLowerCase()
-      return (
-        inc.title.toLowerCase().includes(search) ||
-        inc.location_address?.toLowerCase().includes(search) ||
-        t(`types.${inc.type}`).toLowerCase().includes(search) ||
-        inc.description?.toLowerCase().includes(search)
-      )
-    })
-
-  // Abgeschlossene at the bottom, under their own heading: transferring
-  // resources onto a closed incident is possible (reopening happens), but it is
-  // never the case the operator is scanning for.
-  const activeTargets = targetIncidents.filter(inc => inc.status !== "complete")
-  const completedTargets = targetIncidents.filter(inc => inc.status === "complete")
+    .filter((inc) => inc.id !== sourceIncident.id && takesAssignments(inc))
+    .filter((inc) =>
+      !search ||
+      inc.title.toLowerCase().includes(search) ||
+      inc.location_address?.toLowerCase().includes(search) ||
+      t(`types.${inc.type}`).toLowerCase().includes(search) ||
+      inc.description?.toLowerCase().includes(search),
+    )
+  const targetAuftraege = availableAuftraege.filter((group) => !search || group.name.toLowerCase().includes(search))
+  const nothing = targetIncidents.length === 0 && targetAuftraege.length === 0
 
   // One selectable row. The status dot + label say where the target currently
   // stands — the same colours the board columns carry (STATUS_ACCENT).
@@ -92,12 +101,8 @@ export function TransferIncidentDialog({
     return (
       <button
         key={incident.id}
-        onClick={() => setSelectedIncidentId(incident.id)}
-        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-          selectedIncidentId === incident.id
-            ? "border-foreground/30 bg-muted"
-            : "border-border hover:border-foreground/20 hover:bg-muted/50"
-        } ${incident.status === "complete" ? "opacity-70" : ""}`}
+        onClick={() => setSelected({ kind: "incident", id: incident.id })}
+        className={`${ROW} ${isSelected("incident", incident.id) ? ROW_SELECTED : ROW_IDLE}`}
       >
         <div className="space-y-2">
           {/* Address first (then title) to match the board/incident cards */}
@@ -148,6 +153,23 @@ export function TransferIncidentDialog({
     )
   }
 
+  // One Auftrag row: name, its colour, how many stops it has – the source joins as the last.
+  const renderAuftrag = (group: TransferIncidentDialogProps["availableAuftraege"][number]) => (
+    <button
+      key={group.id}
+      onClick={() => setSelected({ kind: "auftrag", id: group.id })}
+      className={`${ROW} ${isSelected("auftrag", group.id) ? ROW_SELECTED : ROW_IDLE}`}
+    >
+      <div className="flex items-start gap-2">
+        <Waypoints className="h-4 w-4 flex-shrink-0 text-muted-foreground mt-0.5" style={group.color ? { color: group.color } : undefined} />
+        <div className="min-w-0 flex-1">
+          <h4 className="font-semibold text-sm truncate" title={group.name}>{group.name}</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">{t("transfer.stopCount", { count: group.stopIds.length })}</p>
+        </div>
+      </div>
+    </button>
+  )
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       {/* No overlay override: every modal shares the one restrained-blur
@@ -168,27 +190,33 @@ export function TransferIncidentDialog({
         />
 
         <div className="flex-1 overflow-y-auto space-y-3 py-4">
-          {targetIncidents.length === 0 && searchTerm.trim() ? (
+          {nothing && search ? (
             <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm("")} />
-          ) : targetIncidents.length === 0 ? (
+          ) : nothing ? (
             <EmptyState compact title={t('transfer.noOtherIncidents')} description={t('transfer.needTwoIncidents')} />
           ) : (
             <>
-              {activeTargets.map(renderIncident)}
-              {completedTargets.length > 0 && (
+              {targetIncidents.length > 0 && targetAuftraege.length > 0 && (
+                <p className={HEADING}>{t("transfer.incidentsHeading")}</p>
+              )}
+              {targetIncidents.map(renderIncident)}
+              {targetAuftraege.length > 0 && (
                 <>
-                  <p className="pt-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {getOperationStatusLabel("complete")}
-                  </p>
-                  {completedTargets.map(renderIncident)}
+                  <p className={`${HEADING} ${targetIncidents.length > 0 ? "pt-2" : ""}`}>{t("transfer.auftraegeHeading")}</p>
+                  {targetAuftraege.map(renderAuftrag)}
                 </>
               )}
             </>
           )}
         </div>
 
-        {resourceSummary && selectedIncident && (
+        {selectedAuftrag && (
           <p role="status" className="text-sm text-muted-foreground">
+            {t("transfer.confirmAuftrag", { title: sourceName ?? sourceIncident.title ?? "", auftrag: selectedAuftrag.name })}
+          </p>
+        )}
+        {resourceSummary && selected && (
+          <p role={selectedAuftrag ? undefined : "status"} className="text-sm text-muted-foreground">
             {t('transfer.confirmCounts', {
               crew: resourceSummary.crew,
               vehicles: resourceSummary.vehicles,
@@ -203,7 +231,7 @@ export function TransferIncidentDialog({
           </Button>
           <Button
             onClick={handleTransfer}
-            disabled={!selectedIncidentId || isTransferring}
+            disabled={!selected || isTransferring}
           >
             {isTransferring && <ShellLoader className="size-4" />}
             {t('transfer.transfer')}

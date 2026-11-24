@@ -4,7 +4,8 @@ import * as React from 'react'
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu'
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react'
 
-import { cn, footerCollisionPadding } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { useFooterCollisionPadding } from '@/lib/hooks/use-footer-collision-padding'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 
 function ContextMenu({
@@ -97,16 +98,17 @@ function ContextMenuSubContent({
 function ContextMenuContent({
   className,
   // Keep the menu clear of the board's footer toolbar — see
-  // footerCollisionPadding. A caller-supplied value still wins.
+  // useFooterCollisionPadding. A caller-supplied value still wins.
   collisionPadding,
   onInteractOutside,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
+  const reserved = useFooterCollisionPadding()
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
-        collisionPadding={collisionPadding ?? footerCollisionPadding()}
+        collisionPadding={collisionPadding ?? reserved}
         // Dismissing a toast must never dismiss the menu behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(
@@ -171,15 +173,17 @@ function ContextMenuCheckboxItem({
     <ContextMenuPrimitive.CheckboxItem
       data-slot="context-menu-checkbox-item"
       className={cn(
-        "focus:bg-foreground/10 focus:text-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group/check focus:bg-foreground/10 focus:text-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       checked={checked}
       {...props}
     >
-      <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+      {/* An empty box when unticked, so the row reads as a toggle – drawn as the form
+          Checkbox (components/ui/checkbox.tsx). The text starts where an icon row's does. */}
+      <span className="pointer-events-none absolute left-2 flex size-4 items-center justify-center rounded-[4px] border border-input group-data-[state=checked]/check:border-sel group-data-[state=checked]/check:bg-sel group-data-[state=checked]/check:text-primary-foreground">
         <ContextMenuPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+          <CheckIcon className="size-3.5" />
         </ContextMenuPrimitive.ItemIndicator>
       </span>
       {children}

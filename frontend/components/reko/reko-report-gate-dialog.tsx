@@ -14,6 +14,8 @@ import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/lib/contexts/auth-context'
 import type { Operation } from '@/lib/contexts/operations-context'
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
+import { rekoPhotoUrl } from '@/lib/reko-photos'
 
 /**
  * «Reko-Bericht · {Einsatz}» – the gate of a card moved into «Reko abgeschlossen» without a
@@ -76,11 +78,9 @@ export function RekoReportGateDialog({
     let cancelled = false
     void (async () => {
       try {
-        const reports = await apiClient.getIncidentRekoReports(incidentId)
+        // The Einsatz's one report, draft or filed (or none yet).
+        const [source] = await apiClient.getIncidentRekoReports(incidentId)
         if (cancelled) return
-        const source =
-          reports.find((report) => !report.is_draft) ??
-          reports.find((report) => report.is_draft && !!userId && report.created_by_user_id === userId && !report.submitted_by_personnel_id)
         const start = resumeAutosave(source ?? null)
         opened.current = start
         setForm(start)
@@ -102,14 +102,19 @@ export function RekoReportGateDialog({
     scheduleSave(form)
   }, [form, phase, scheduleSave])
 
-  const reportId = autosave.reportId
   const photos = useMemo(
     () => ({
-      upload: async (file: File) => (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, reportId() ?? undefined)).filename,
-      remove: (filename: string) => apiClient.deleteRekoPhotoAsEditor(incidentId, filename, reportId() ?? undefined),
+      upload: async (file: File) => (await apiClient.uploadRekoPhotoAsEditor(incidentId, file)).filename,
+      remove: (filename: string) => apiClient.deleteRekoPhotoAsEditor(incidentId, filename),
     }),
-    [incidentId, reportId],
+    [incidentId],
   )
+  // The gate's own photo viewer, through the session's door (`?view=full`, logged).
+  const viewerPhotos = useMemo(() => ({
+    reko: form.photos_json.map(filename => ({
+      group: 'reko' as const, filename, src: rekoPhotoUrl(incidentId, filename), by: null, at: null,
+    })),
+  }), [form.photos_json, incidentId])
 
   /** The main answer: the newest form on the server first (`flush` sends a waiting save),
    *  then the move – below, once the sync line says the saves settled. */
@@ -159,7 +164,7 @@ export function RekoReportGateDialog({
         </Button>
       </div>
     ) : (
-      <>
+      <PhotoViewerProvider incidentLabel={location} fallback={viewerPhotos}>
         <RekoReportForm
           incidentId={incidentId}
           value={form}
@@ -174,7 +179,7 @@ export function RekoReportGateDialog({
             {hasRekoContent(form) && <> {t('draftStays')}</>}
           </p>
         )}
-      </>
+      </PhotoViewerProvider>
     )
 
   // «Ohne Bericht» while «Einsatz relevant?» is open: the move files nothing.

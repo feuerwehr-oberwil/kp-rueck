@@ -64,6 +64,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
 import { cn } from "@/lib/utils"
+import { auftragTakesAssignments, isResourceDrag, takesAssignments } from "@/lib/assignable"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
@@ -80,7 +81,7 @@ import { MoveMenuItems } from "@/components/ui/reorder-menu"
 import { StopStatusControl, toMirrorStatus, MIRROR_ORDER, MIRROR_CONFIG, type MirrorStatus } from "@/components/map/route-stop-list"
 import { RouteResourceSections, ResourceSectionHeader } from "@/components/kanban/route-resource-sections"
 import { AuftragRadioDialog } from "@/components/kanban/auftrag-radio-dialog"
-import { stopStatusBorderClass } from "@/lib/kanban-utils"
+import { ACCENT_BAR, stopStatusBorderClass } from "@/lib/kanban-utils"
 import { isToastLayer } from "@/lib/toast-layer"
 import { usePromoteRouteLeader } from "@/lib/hooks/use-promote-to-leader"
 import type { GroupResources } from "@/lib/types/groups"
@@ -122,7 +123,7 @@ interface AuftraegeSheetProps {
   onAssignRouteResource: (resourceType: "crew" | "vehicles" | "materials", groupId: string) => void
   /** Opens the existing OperationDetailModal for a stop. */
   onOpenDetail: (operationId: string) => void
-  /** Opens the Routen-Editor modal for a route; optional stop to centre/focus on. */
+  /** Opens the Auftrags-Editor modal for a route; optional stop to centre/focus on. */
   onOpenRoutenEditor?: (groupId: string, focusIncidentId?: string) => void
   canEdit: boolean
   onSetStopStatus?: (incidentId: string, status: OperationStatus) => void
@@ -481,7 +482,7 @@ export function AuftraegeSheet({
       <DeleteConfirmDialog
         open={canEdit && !!deleteId}
         onOpenChange={(o) => !o && setDeleteId(null)}
-        title={t("deleteTitle")}
+        title={t("deleteTitle", { name: groups.find((group) => group.id === deleteId)?.name ?? "" })}
         description={t("deleteDescription")}
         confirmText={t("deleteConfirm")}
         cancelText={t("cancel")}
@@ -556,7 +557,7 @@ function AuftragCard({
   canEdit,
 }: AuftragCardProps) {
   const t = useTranslations("kanban.auftraege")
-  // The Routen-Editor entry shares its label with the card context menu.
+  // The Auftrags-Editor entry shares its label with the card context menu.
   const tCommon = useTranslations("kanban.common")
   const headerRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
@@ -564,10 +565,12 @@ function AuftragCard({
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
 
   // Shared routing hook — powers the in-row "Reihenfolge optimieren" action so the
-  // sheet can optimize without opening the Routen-Editor modal (applies at once).
+  // sheet can optimize without opening the Auftrags-Editor modal (applies at once).
   const planning = useRoutePlanning(group.id)
   // «Fahrer wählen» on a driverless route vehicle opens the board's driver prompt.
   const { requestVehicleDriver } = useOperations()
+  // «Fahrzeug bleibt vor Ort» in a route vehicle's chip menu.
+  const { setRouteDriverStay } = useGroups()
 
   // The shared optimise action: start anchors with provenance, the save, the
   // toast naming the start used, and the server-guarded undo.
@@ -578,6 +581,9 @@ function AuftragCard({
 
   const total = group.stopIds.length
   const done = group.stopIds.reduce((n, id) => (deriveStopState(opById.get(id)) === "erledigt" ? n + 1 : n), 0)
+  // Every stop closed: the Auftrag takes nothing new (lib/assignable.ts) – no «Zuweisen»,
+  // no resource drop. A card still drops on it (a new stop opens it again).
+  const routeOpen = auftragTakesAssignments(group.stopIds.map((id) => opById.get(id)))
 
   const squadSummary = useMemo(() => {
     const parts: string[] = []
@@ -595,15 +601,12 @@ function AuftragCard({
     return dropTargetForElements({
       element: el,
       getData: () => ({ type: "group-row", groupId: group.id }),
-      canDrop: ({ source: src }) => {
-        const type = src.data.type
-        return type === "operation" || type === "person" || type === "driver-vehicle" || type === "material" || type === "material-group"
-      },
+      canDrop: ({ source: src }) => src.data.type === "operation" || (routeOpen && isResourceDrag(src.data)),
       onDragEnter: () => setIsDropOver(true),
       onDragLeave: () => setIsDropOver(false),
       onDrop: () => setIsDropOver(false),
     })
-  }, [group.id, canEdit])
+  }, [group.id, canEdit, routeOpen])
 
   /**
    * Opening an Auftrag shows the Auftrag, not just the header it was opened by.
@@ -850,10 +853,11 @@ function AuftragCard({
           <RouteResourceSections
             resources={resources}
             vehicleDrivers={vehicleDrivers}
-            onAssign={onAssignRouteResource}
+            onAssign={routeOpen ? onAssignRouteResource : undefined}
             onUnassign={onUnassignResource}
             onPromoteLeader={onPromoteLeader}
             onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
+            onSetDriverStay={(assignmentId, driverStay) => void setRouteDriverStay(group.id, assignmentId, driverStay)}
             driversKnown={vehicleDriversLoaded}
             readOnly={!canEdit}
           />
@@ -982,6 +986,8 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
   const handleRef = useRef<HTMLButtonElement>(null)
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
   const [isDropOver, setIsDropOver] = useState(false)
+  // A closed stop is no resource target (lib/assignable.ts); it still reorders.
+  const stopOpen = !op || takesAssignments(op)
 
   useEffect(() => {
     const el = ref.current
@@ -998,6 +1004,7 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
         // Serves two source kinds: `group-stop-drag` (reorder, handled by the
         // sheet-local monitor) and resource drags (assign, handled by the shared
         // board hook). Both read `{ groupId, incidentId }`.
+        canDrop: ({ source }) => stopOpen || !isResourceDrag(source.data),
         getData: ({ input }) =>
           attachClosestEdge({ type: "group-stop", groupId, incidentId, index }, { element: el, input, allowedEdges: ["top", "bottom"] }),
         onDragEnter: ({ self, source }) => {
@@ -1017,7 +1024,7 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
         },
       }),
     )
-  }, [groupId, incidentId, index, readOnly])
+  }, [groupId, incidentId, index, readOnly, stopOpen])
 
   return (
     <div className="relative">
@@ -1034,7 +1041,8 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
         ref={ref}
         className={cn(
           // Column layout: [handle] [number] [status — fixed width] [address — flex].
-          "flex items-center gap-2 rounded-md border-l-2 px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          "flex items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/40",
+          ACCENT_BAR,
           stopStatusBorderClass(mirror),
           isDropOver && "ring-2 ring-sel-line bg-sel-wash",
         )}
@@ -1063,7 +1071,7 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
             {op && <div className="truncate text-xs text-muted-foreground">{getIncidentTypeLabel(op.incidentType)}</div>}
           </div>
         )}
-        {/* Karte — opens the Routen-Editor centred on this stop. */}
+        {/* Karte — opens the Auftrags-Editor centred on this stop. */}
         <ShortcutTooltip label={t("map")}>
           <Button
             size="icon-xs"

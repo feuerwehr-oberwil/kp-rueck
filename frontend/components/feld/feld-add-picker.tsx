@@ -37,13 +37,17 @@ import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
 import { SearchInput } from '@/components/ui/search-input'
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { personMatchesQuery } from '@/lib/resource-status'
 import { cn } from '@/lib/utils'
 
-/** One row the picker can offer. `group` is a heading; rows keep their order within it. */
+/** One row the picker can offer. `group` is a heading; rows keep their order within it.
+ *  `person`: the row is a person, found like in every person picker (Grad, tags –
+ *  `personMatchesQuery`), not by the name alone. */
 export interface FeldAddPickerItem {
   key: string
   name: string
   group?: string
+  person?: Parameters<typeof personMatchesQuery>[0]
 }
 
 export interface FeldAddPickerGroup {
@@ -52,7 +56,8 @@ export interface FeldAddPickerGroup {
 }
 
 /**
- * What the sheet shows for a search: the rows that match (by name, any case), in
+ * What the sheet shows for a search: the rows that match (by name, any case; a person also by
+ * Grad and tags), in
  * their groups, and the typed text as a free row when it names no row exactly
  * and is not already among `takenNames` (somebody already in the section).
  */
@@ -63,7 +68,9 @@ export function pickerRows(
 ): { freeText: string | null; groups: FeldAddPickerGroup[] } {
   const typed = search.trim()
   const needle = typed.toLowerCase()
-  const matching = needle ? items.filter(item => item.name.toLowerCase().includes(needle)) : items
+  const matching = needle
+    ? items.filter(item => (item.person ? personMatchesQuery(item.person, needle) : item.name.toLowerCase().includes(needle)))
+    : items
 
   const groups: FeldAddPickerGroup[] = []
   for (const item of matching) {

@@ -4972,7 +4972,7 @@
           "incidents"
         ],
         "summary": "Update Field Request",
-        "description": "Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).\n\nThe one writer behind the card, the detail and the sidebar, so handling it\nin one place is handling it everywhere. «erledigt» stamps who/when and takes\nthe bell entry with it; the crew reads it on `/feld` within one poll.\n\nThe Abholung is special only in its plumbing: «erledigt» on it runs the same\n``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the\nflag the map, Restliste and PDF read and its work item stay one fact. It\ncannot be re-opened here — a new Abholung is a new request.",
+        "description": "Work a field request: offen → in Arbeit → erledigt, or back to offen (R13).\n\nThe one writer behind the card, the detail and the sidebar, so handling it\nin one place is handling it everywhere. «erledigt» stamps who/when and takes\nthe bell entry with it; the crew reads it on `/feld` within one poll.\n\nThe Abholung is special only in its plumbing: «erledigt» on it runs the same\n``record_pickup(needed=False)`` as «Abholung disponiert» on the chip, so the\nflag the map, Restliste and PDF read and its work item stay one fact. It\ncannot be re-opened here — a new Abholung is a new request.\n\nLocks in the order of ``crud/locking``: Auftrag → incident → the request row\n(a leaf), so closing the Abholung never waits for the Auftrag while holding it.",
         "operationId": "update_field_request_api_incidents__incident_id__field_requests__request_id__patch",
         "parameters": [
           {
@@ -6462,6 +6462,139 @@
         }
       }
     },
+    "/api/incident-groups/{group_id}/transfer": {
+      "post": {
+        "tags": [
+          "incident-groups"
+        ],
+        "summary": "Transfer To Auftrag",
+        "description": "«Übertragen» an Einsatz onto this Auftrag (editor only): it becomes the last stop,\nits crew, vehicles and material move to the Auftrag (``crud.transfer_to_auftrag``).\n\n409 when the Einsatz is closed or already a stop, every stop of the Auftrag is closed,\nor a resource may not be assigned.",
+        "operationId": "transfer_to_auftrag_api_incident_groups__group_id__transfer_post",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferToAuftragRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferToAuftragResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incident-groups/{group_id}/transfer/undo": {
+      "post": {
+        "tags": [
+          "incident-groups"
+        ],
+        "summary": "Undo Transfer To Auftrag",
+        "description": "«Rückgängig» of a transfer onto an Auftrag (editor only): 409 once anything changed.",
+        "operationId": "undo_transfer_to_auftrag_api_incident_groups__group_id__transfer_undo_post",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Group Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferToAuftragUndoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incident-groups/{group_id}/stops/{incident_id}": {
       "delete": {
         "tags": [
@@ -7070,6 +7203,147 @@
               "type": "string",
               "format": "uuid",
               "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/material-collected/{assignment_id}": {
+      "post": {
+        "tags": [
+          "assignments"
+        ],
+        "summary": "Collect Material",
+        "description": "«Abgeholt – freigeben»: a unit left on site was collected (editor only).\n\nReleases exactly this material assignment and records «Abgeholt» in the journal and the\nChronik. Answers the release time, which the undo must send back. 404 when it is no\nmaterial assignment of ``incident_id``; 409 when it is already released or the rapport no\nlonger marks it «vor Ort verblieben». The undo is ``DELETE`` on the same path.",
+        "operationId": "collect_material_api_incidents__incident_id__material_collected__assignment_id__post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialCollectedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "assignments"
+        ],
+        "summary": "Undo Collect Material",
+        "description": "Undo «Abgeholt»: the same assignment is open again, so the unit is back on the\nRestliste (editor only). ``released_at`` is what the POST answered. 409 when the row's\ncurrent release is not that recorded collection, the unit is archived or purged (also when\nthe purge took the row), the Restliste would no longer list the row, or the unit is\nassigned elsewhere (an Einsatz or an Auftrag). 404 only for a row that was never collected.",
+        "operationId": "undo_collect_material_api_incidents__incident_id__material_collected__assignment_id__delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "assignment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "released_at",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Released At"
             }
           },
           {
@@ -7865,7 +8139,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In",
-        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\nBroadcasts real-time update via WebSocket.",
+        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\n`resume` (editor session only) takes back exactly that check-out instead of starting a\nnew stint, or answers 409 when the person was checked in or out again meanwhile.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_in_api_personnel_check_in__personnel_id__in_post",
         "parameters": [
           {
@@ -7916,6 +8190,25 @@
             "description": "Event ID (board, requires an editor session)"
           },
           {
+            "name": "resume",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Board only: undo the check-out that answered this `checked_out_at` – the same stint continues (check-in time and plan kept). 409 when that departure is no longer there.",
+              "title": "Resume"
+            },
+            "description": "Board only: undo the check-out that answered this `checked_out_at` – the same stint continues (check-in time and plan kept). 409 when that departure is no longer there."
+          },
+          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -7962,7 +8255,7 @@
           "personnel-checkin"
         ],
         "summary": "Check Out",
-        "description": "Check out a person from the event (mark as left).\n\nEither a valid check-in token or an editor session with `event_id`.\nAn assigned person is refused through the phone (it has no way to release the\nassignment) and allowed through the board, which warns first and leaves the\nassignment standing.\nBroadcasts real-time update via WebSocket.",
+        "description": "Check out a person from the event (mark as left).\n\nEither a valid check-in token or an editor session with `event_id`.\nAn assigned person is refused through the phone (it has no way to release the\nassignment) and allowed through the board, which warns first and leaves the\nassignment standing.\n`only_if_free` is the board's check-out without a question: 409 when the person is\nbound after all (its view was stale), so it can ask first.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_out_api_personnel_check_in__personnel_id__out_post",
         "parameters": [
           {
@@ -8011,6 +8304,18 @@
               "title": "Event Id"
             },
             "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "only_if_free",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Board: refuse (409) when an assignment or a function still binds the person",
+              "default": false,
+              "title": "Only If Free"
+            },
+            "description": "Board: refuse (409) when an assignment or a function still binds the person"
           },
           {
             "name": "access_token",
@@ -10303,7 +10608,7 @@
           "reko"
         ],
         "summary": "Get Reko Form",
-        "description": "Load Reko form (existing draft or new).\n\nNo authentication required - uses token validation.\n\nQuery params:\n    incident_id: UUID of incident\n    token: Form access token\n    personnel_id: Optional personnel who is doing the reko\n\nReturns existing draft or creates new one.",
+        "description": "Load THE incident's Reko report for the form (created as a draft when there is none).\n\nNo authentication required - uses token validation. Every valid link of the incident\nopens the same report (one per Einsatz, owner pick 23.11.2026).\n\nQuery params:\n    incident_id: UUID of incident\n    token: Form access token\n    personnel_id: Optional personnel who is doing the reko",
         "operationId": "get_reko_form_api_reko_form_get",
         "parameters": [
           {
@@ -10445,7 +10750,7 @@
           "reko"
         ],
         "summary": "Update Report",
-        "description": "Update existing Reko report (e.g., add more photos after submission).\n\nRequires either the incident's form token (X-Reko-Token header) or a\nlogged-in user — recon reports feed operator decisions and the printed\nslip, so they must not be rewritable by anyone who can reach the API.\n\nThis is how the KP amends a crew-filed report (plan 26 §5.1): what came in\nover the radio afterwards is added to the same row instead of filing a second\none, and the report then carries **both** provenance sides —\n``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the\noperator — which is what a mixed report has to be able to print.",
+        "description": "Edit THE incident's Reko report – the field's later answers, the KP's in place.\n\nRequires either a form token of the report's incident (X-Reko-Token header) or a\nlogged-in editor — recon reports feed operator decisions and the printed slip, so they\nmust not be rewritable by anyone who can reach the API. Since one report serves the\nwhole incident (owner pick 23.11.2026), any valid link of that incident may edit it,\nnot only the link that created the row.\n\nA KP edit of a crew-filed report keeps both provenance sides (plan 26 §5.1):\n``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the operator.",
         "operationId": "update_report_api_reko__report_id__patch",
         "parameters": [
           {
@@ -10615,7 +10920,7 @@
           "reko"
         ],
         "summary": "Get Incident Reports",
-        "description": "Get all Reko reports for an incident (for incident detail view).\n\nRequires authentication — only called from the logged-in board UI.",
+        "description": "The incident's Reko report, as a list: empty, or THE one (one per Einsatz since 23.11.2026).\n\nRequires authentication — only called from the logged-in board UI.",
         "operationId": "get_incident_reports_api_reko_incident__incident_id__reports_get",
         "parameters": [
           {
@@ -10877,7 +11182,7 @@
           "reko"
         ],
         "summary": "Upload Photo",
-        "description": "Upload photo to Reko report.\n\n**One route, two doors**, the same shape `POST /api/reko/` has: a field crew\nsends the incident's form token, the board sends none and is identified by\nits session. The board door is the WhatsApp case — the crew has no signal at\nthe Schadenplatz and sends the picture over whatever channel works, so the\noperator has to be able to attach it to the report they are transcribing.\n\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report to attach to, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
+        "description": "Upload photo to Reko report.\n\n**One route, two doors**, the same shape `POST /api/reko/` has: a field crew\nsends the incident's form token, the board sends none and is identified by\nits session. The board door is the WhatsApp case — the crew has no signal at\nthe Schadenplatz and sends the picture over whatever channel works, so the\noperator has to be able to attach it to the report they are transcribing.\n\nPhotos are compressed, resized, and stored as JPEG files.\n\nArgs:\n    incident_id: Incident UUID\n    file: Uploaded image file\n    x_reko_token: Form access token (from header), for the field door\n    db: Database session\n\nReturns:\n    { \"filename\": \"uuid.jpg\" }",
         "operationId": "upload_photo_api_reko__incident_id__photos_post",
         "parameters": [
           {
@@ -10889,25 +11194,6 @@
               "format": "uuid",
               "title": "Incident Id"
             }
-          },
-          {
-            "name": "report_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Session door only: attach to this existing report instead of the operator's draft.",
-              "title": "Report Id"
-            },
-            "description": "Session door only: attach to this existing report instead of the operator's draft."
           },
           {
             "name": "x-reko-token",
@@ -10980,7 +11266,7 @@
           "reko"
         ],
         "summary": "Delete Photo",
-        "description": "Delete photo from Reko report.\n\nSame two doors as the upload: the incident's form token, or a session.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header), for the field door\n    report_id: The report the photo hangs on, for the board door when amending\n    db: Database session\n\nReturns:\n    { \"success\": true }",
+        "description": "Delete photo from Reko report.\n\nSame two doors as the upload: the incident's form token, or a session.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename to delete\n    x_reko_token: Form access token (from header), for the field door\n    db: Database session\n\nReturns:\n    { \"success\": true }",
         "operationId": "delete_photo_api_reko__incident_id__photos__filename__delete",
         "parameters": [
           {
@@ -11001,25 +11287,6 @@
               "type": "string",
               "title": "Filename"
             }
-          },
-          {
-            "name": "report_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Session door only: the report the photo hangs on, when amending an existing one.",
-              "title": "Report Id"
-            },
-            "description": "Session door only: the report the photo hangs on, when amending an existing one."
           },
           {
             "name": "x-reko-token",
@@ -11212,7 +11479,7 @@
           "reko"
         ],
         "summary": "Unassign Reko Personnel",
-        "description": "Unassign Reko personnel from an incident.\n\nEditor only - removes the personnel assignment for the Reko person.",
+        "description": "Unassign Reko personnel from an incident.\n\nEditor only - removes the personnel assignment for the Reko person. The board names the\nrow it shows (`assignment_id`), so a tick never releases another row than its own.",
         "operationId": "unassign_reko_personnel_api_reko_incidents__incident_id__unassign_reko__personnel_id__delete",
         "parameters": [
           {
@@ -11234,6 +11501,25 @@
               "format": "uuid",
               "title": "Personnel Id"
             }
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Release exactly this row (404 when it is no longer active)",
+              "title": "Assignment Id"
+            },
+            "description": "Release exactly this row (404 when it is no longer active)"
           },
           {
             "name": "access_token",
@@ -11275,7 +11561,7 @@
           "reko"
         ],
         "summary": "Transfer Reko Assignments",
-        "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).\n\nThe new person gets NEW assignments, so ``ensure_assignable`` applies: an\narchived Ereignis refuses the whole handover (409), an unknown person is a 404.\nLock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person.",
+        "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).\n\nThe new person gets NEW assignments, so ``ensure_assignable`` applies: an\narchived Ereignis refuses the whole handover (409), an unknown person is a 404.\nLock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person with the\nEinsätze's crew, sorted.",
         "operationId": "transfer_reko_assignments_api_reko_transfer_rekos_post",
         "parameters": [
           {
@@ -12997,7 +13283,7 @@
           "feld"
         ],
         "summary": "Serve Feld Photo",
-        "description": "Read a rapport photo back on `/feld` — the crew looking at what it shot.\n\n`GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path\nand requires a session; `/feld` has none, which is why the phone got a\nbroken image where its own photo should be. The answer is NOT to drop the\ncredential from that endpoint — a rapport photo can be a citizen's cellar.\nIt is the same two-step every other handler in this module runs, so a photo\nis readable exactly by someone who holds the event's link AND is assigned to\nthat Schadenplatz.\n\n``photos_json`` is checked as well as the disk: the assignment says which\nincident you may look at, the report says which files belong to it. Neither\nalone is enough — `get_photo_path` only proves a file exists on disk under\nthat incident's directory.",
+        "description": "Read a rapport photo back on `/feld` — the crew looking at what it shot.\n\n`GET /api/photos/{incident}/{file}` (`api/reko.py`) is the board's read path\nand requires a session; `/feld` has none, which is why the phone got a\nbroken image where its own photo should be. The answer is NOT to drop the\ncredential from that endpoint — a rapport photo can be a citizen's cellar.\nIt is the same two-step every other handler in this module runs, so a photo\nis readable exactly by someone who holds the event's link AND is assigned to\nthat Schadenplatz.\n\n``photos_json`` is checked as well as the disk: the assignment says which\nincident you may look at, the report says which files belong to it. Neither\nalone is enough — `get_photo_path` only proves a file exists on disk under\nthat incident's directory.\n\nThe thumbnail may come from the phone's cache; the viewer asks with ``?view=full``,\nanswered ``no-store`` and logged as ``view_photo`` like the board's route (Sol review G\nround 2, S3).",
         "operationId": "serve_feld_photo_api_feld_incidents__incident_id__photos__filename__get",
         "parameters": [
           {
@@ -13030,6 +13316,25 @@
               "title": "Personnel Id"
             },
             "description": "Who is looking"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "full",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`full`: the in-app viewer – never cached, so every open is a logged view",
+              "title": "View"
+            },
+            "description": "`full`: the in-app viewer – never cached, so every open is a logged view"
           },
           {
             "name": "token",
@@ -13141,7 +13446,7 @@
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos listed by its\n  exact report, including its draft and prefilled photos. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
+        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos the incident's\n  Reko report lists, draft included – the report the link edits. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nA thumbnail may come from the operator's browser cache; the in-app viewer asks with\n`?view=full`, answered `no-store`, so opening a photo always reaches this route and\nits `view_photo` entry (Sol review G, S8).\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -13198,6 +13503,25 @@
               "title": "Reko Token"
             },
             "description": "Reko form token, restricted to its report's photos"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "full",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`full`: the in-app viewer – never cached, so every open is a logged view",
+              "title": "View"
+            },
+            "description": "`full`: the in-app viewer – never cached, so every open is a logged view"
           },
           {
             "name": "access_token",
@@ -15319,7 +15643,7 @@
           "training"
         ],
         "summary": "Simulate Field Complete",
-        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nGoes through the same CRUD calls as the **KP-parity endpoint**\n(`POST /api/incidents/{id}/field-report`) – `services.training_steps.report_field_complete`,\nshared with the Regie – audit entry and notification included.\n\nThe Abholung answer (decision 24) is preselected by the situation — a crew\nthat walked there or whose vehicle drove on is usually stranded — and the\nÜbungsleiter can always override it by sending it explicitly.",
+        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nGoes through the same CRUD calls as the **KP-parity endpoint**\n(`POST /api/incidents/{id}/field-report`) – `services.training_steps.report_field_complete`,\nshared with the Regie – audit entry and notification included.\n\nThe Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the\nsuggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a\nvehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter\ncan always override it by sending it explicitly. It goes to\n``crud.feld.record_pickup`` as that answer (``self_drive``) under the same\nKP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».",
         "operationId": "simulate_field_complete_api_training_events__event_id__simulate_field_complete__incident_id__post",
         "parameters": [
           {
@@ -15616,7 +15940,7 @@
           "training"
         ],
         "summary": "Simulate Escalation",
-        "description": "Inject \"Lage verschärft sich\": the field reports a worsening situation.\n\nBumps the incident to high priority, appends the Lagemeldung to the\ndescription and raises a critical bell notification — the trainee has to\nreassess resources and priorities mid-incident.",
+        "description": "Inject \"Lage verschärft sich\": the field reports a worsening situation.\n\nBumps the incident to high priority, appends the Lagemeldung to the\ndescription and raises a critical bell notification — the trainee has to\nreassess resources and priorities mid-incident. The Lagemeldung is also a dated\nfact (audit ``situation_escalated`` → Journal and Chronik): the bell is\ndismissible and the description is editable.",
         "operationId": "simulate_escalation_api_training_events__event_id__simulate_escalate__incident_id__post",
         "parameters": [
           {
@@ -15686,7 +16010,7 @@
           "training"
         ],
         "summary": "Simulate Reinforcement Request",
-        "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nNotification only — what (and whether) to send is the trainee's decision\non the board.",
+        "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nThe same write a crew's «Verstärkung nötig» or «Material nötig» on `/feld` makes\n(``crud.feld.create_field_request``, kind ``personnel`` or ``material`` as the text's\npool entry says – `generate_reinforcement_request`): a work item in the\nRapport tab, a bell entry, a Journal line and a Chronik row. It used to be a\nbell entry only, so the request was gone once dismissed (owner, 23.11.2026).\nWhat (and whether) to send is the trainee's decision on the board.",
         "operationId": "simulate_reinforcement_request_api_training_events__event_id__simulate_reinforcement__incident_id__post",
         "parameters": [
           {
@@ -16106,7 +16430,7 @@
           "training"
         ],
         "summary": "Simulate Pickup",
-        "description": "Inject \"Abholung nötig\" / \"Abholung erledigt\" on its own (decision 24).\n\nUntil now a pickup could only be simulated bundled with \"Einsatz beendet\",\nwhich is the one moment a real crew often does *not* know yet: the vehicle\ndrives on half an hour later, and only then do three people need a lift. The\nother half — \"der Bus war da\" — had no way in at all, so an exercise could\nraise the warning but never clear it.\n\nGoes through ``crud.feld.record_pickup``, so the Restliste, the map and the\nwarning bell behave exactly as they do for a crew tapping on `/feld`.",
+        "description": "Inject \"Abholung nötig\" / \"Abholung erledigt\" on its own (decision 24).\n\nUntil now a pickup could only be simulated bundled with \"Einsatz beendet\",\nwhich is the one moment a real crew often does *not* know yet: the vehicle\ndrives on half an hour later, and only then do three people need a lift. The\nother half — \"der Bus war da\" — had no way in at all, so an exercise could\nraise the warning but never clear it.\n\nGoes through ``crud.feld.record_pickup``, so the Restliste, the map and the\nwarning bell behave exactly as they do for a crew tapping on `/feld`. «erledigt»\nis the lift that came (``self_drive=False``), never «Wir fahren selbst».",
         "operationId": "simulate_pickup_api_training_events__event_id__simulate_pickup__incident_id__post",
         "parameters": [
           {
@@ -18122,6 +18446,15 @@
               }
             ],
             "title": "Reko Position"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "crew",
+              "reko"
+            ],
+            "title": "Purpose",
+            "default": "crew"
           }
         },
         "type": "object",
@@ -22558,7 +22891,7 @@
           "name"
         ],
         "title": "FeldVehicleLine",
-        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle's ``driver_stay``\n  can be set in the dispatch gate since 19.11.2026, but a row nobody touched\n  there is whatever ``_mirror`` copied or the DB default, and nothing tells\n  the two apart. Sending `False` there would print «fährt zurück» on a phone\n  as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
+        "description": "One vehicle on the briefing: who drives it, whether it stays, whose it is.\n\nThe driver is a property of the Ereignis, not of the Schadenplatz — but\n«TLF 1» on its own left a crew standing at an address unable to answer who\nis sitting in it, and the driver is exactly the person they need when the\nvehicle has to be moved. `driver` is None when the KP has not named one.\n\nThe other two answer the question a crew actually asks about a vehicle on\ntheir slip — *kommt das mit?*:\n\n* ``stays`` is the board's driver-stay flag: False means the driver takes it\n  back to the Magazin once the crew is dropped off, True that it is parked\n  at the address for the duration.\n\n  **None when nobody can answer.** A route-level vehicle's ``driver_stay``\n  can be set in the dispatch gate since 19.11.2026, but a row nobody touched\n  there is whatever ``mirror_to_auftrag`` copied or the DB default, and nothing tells\n  the two apart. Sending `False` there would print «fährt zurück» on a phone\n  as if somebody had decided it. An absent flag is not\n  the same statement as \"he is coming back\" — the same rule the board's own\n  `DriverStayGlyph` follows, where `undefined` draws nothing.\n* ``via_auftrag`` says the vehicle belongs to the **Auftrag**, so it is\n  shared across every stop of the route and comes along to the next one.\n  A vehicle booked on this Schadenplatz alone does not. `/feld` rendered\n  both identically, which is why a route's TLF read as if it belonged to\n  the one address the crew happened to be standing at."
       },
       "FieldReportState": {
         "properties": {
@@ -22897,6 +23230,11 @@
               }
             ],
             "title": "Done By Name"
+          },
+          "done_in_field": {
+            "type": "boolean",
+            "title": "Done In Field",
+            "default": false
           }
         },
         "type": "object",
@@ -24648,6 +24986,92 @@
               }
             ],
             "title": "Merge Active"
+          },
+          "journal_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Kind"
+          },
+          "journal_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journal Data"
+          },
+          "reko_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reko Field"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          },
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
           }
         },
         "type": "object",
@@ -24656,7 +25080,7 @@
           "timestamp"
         ],
         "title": "IncidentTimelineEvent",
-        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)"
+        "description": "A single event on the incident timeline.\n\nFlat shape with optional fields differentiated by `event_type`:\n- status_change → from_status, to_status, notes (+ seen_status, stale_seconds\n                  on a stale move the operator confirmed)\n- assignment    → assignment_action ('assigned' | 'unassigned'),\n                  resource_type, resource_name\n- field_message → message, source ('feld' | 'kp' — a crew's sentence, or an\n                  operator typing what came over the radio)\n- kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,\n                  going the OTHER way — sweep 27 §P3.2)\n- journal       → journal_kind ('field' | 'reko'), journal_data (the journal row's\n                  `data`: `type` + `source` for a field fact, `relevant` for a\n                  Reko report), message (its text), actor_name (who reported it).\n                  A fact a notification announced (`services/journal`).\n- reko_change   → reko_field, old_value, new_value, source ('feld' | 'kp'),\n                  actor_name: one saved change of the Reko report\n                  (`services/reko_history.py`)"
       },
       "IncidentTimelineResponse": {
         "properties": {
@@ -25634,6 +26058,21 @@
         ],
         "title": "Material",
         "description": "Full material schema with database fields.\n\nThree independent axes, so the board never has to guess a state:\n`out_of_service` (readiness), `archived_at` (lifecycle), and deployment —\nwhich lives in incident_assignments and is per-event, so it stays with the\ncaller that knows which Ereignis is on screen. Precedence for rendering:\nout_of_service beats assigned beats available."
+      },
+      "MaterialCollectedResponse": {
+        "properties": {
+          "released_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Released At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "released_at"
+        ],
+        "title": "MaterialCollectedResponse",
+        "description": "«Abgeholt – freigeben» answered: when the assignment was released.\n\nThe undo's token – ``DELETE …/material-collected/{id}?released_at=…`` reverses only the\nrelease that carries exactly this time, never a regular release or a later one."
       },
       "MaterialCreate": {
         "properties": {
@@ -27106,6 +27545,11 @@
             "type": "boolean",
             "title": "Is Assigned",
             "default": false
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed",
+            "default": true
           }
         },
         "type": "object",
@@ -28322,6 +28766,25 @@
               }
             ],
             "title": "Kennung"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
           },
           "checked_in": {
             "type": "boolean",
@@ -30928,6 +31391,81 @@
         ],
         "title": "TransferAssignmentsResponse",
         "description": "Response from assignment transfer operation."
+      },
+      "TransferToAuftragRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id"
+        ],
+        "title": "TransferToAuftragRequest",
+        "description": "«Übertragen» an Einsatz onto this Auftrag: it becomes the last stop, its resources move up."
+      },
+      "TransferToAuftragResponse": {
+        "properties": {
+          "group_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Group Assignment Ids"
+          },
+          "released_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Released Assignment Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "group_assignment_ids",
+          "released_assignment_ids"
+        ],
+        "title": "TransferToAuftragResponse",
+        "description": "What the transfer wrote – the ids its «Rückgängig» sends back."
+      },
+      "TransferToAuftragUndoRequest": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "group_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Group Assignment Ids"
+          },
+          "released_assignment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Released Assignment Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "group_assignment_ids",
+          "released_assignment_ids"
+        ],
+        "title": "TransferToAuftragUndoRequest",
+        "description": "«Rückgängig» of a transfer onto an Auftrag: the ids that transfer answered with.\n\nRefused (409) unless the Einsatz is still a stop of this Auftrag and every row is unchanged."
       },
       "UnmergeResponse": {
         "properties": {

@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
@@ -102,6 +103,69 @@ async def unassign_resource(
     # Broadcast WebSocket update for deletion – the parent as stored on the row.
     background_tasks.add_task(
         broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(released.incident_id)}, "delete"
+    )
+
+
+@router.post("/{incident_id}/material-collected/{assignment_id}", response_model=schemas.MaterialCollectedResponse)
+async def collect_material(
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.MaterialCollectedResponse:
+    """«Abgeholt – freigeben»: a unit left on site was collected (editor only).
+
+    Releases exactly this material assignment and records «Abgeholt» in the journal and the
+    Chronik. Answers the release time, which the undo must send back. 404 when it is no
+    material assignment of ``incident_id``; 409 when it is already released or the rapport no
+    longer marks it «vor Ort verblieben». The undo is ``DELETE`` on the same path.
+    """
+    try:
+        released_at = await crud.collect_material(
+            db, incident_id=incident_id, assignment_id=assignment_id, current_user=current_user, request=request
+        )
+    except crud.MaterialCollectRefusedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    if released_at is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
+    background_tasks.add_task(
+        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "delete"
+    )
+    return schemas.MaterialCollectedResponse(released_at=released_at)
+
+
+@router.delete("/{incident_id}/material-collected/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def undo_collect_material(
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    released_at: datetime,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Undo «Abgeholt»: the same assignment is open again, so the unit is back on the
+    Restliste (editor only). ``released_at`` is what the POST answered. 409 when the row's
+    current release is not that recorded collection, the unit is archived or purged (also when
+    the purge took the row), the Restliste would no longer list the row, or the unit is
+    assigned elsewhere (an Einsatz or an Auftrag). 404 only for a row that was never collected."""
+    try:
+        restored = await crud.undo_collect_material(
+            db,
+            incident_id=incident_id,
+            assignment_id=assignment_id,
+            released_at=released_at,
+            current_user=current_user,
+            request=request,
+        )
+    except crud.MaterialCollectRefusedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    if restored is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
+    background_tasks.add_task(
+        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "create"
     )
 
 

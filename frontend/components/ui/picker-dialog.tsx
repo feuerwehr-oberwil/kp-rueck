@@ -6,6 +6,7 @@ import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHea
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from '@/components/ui/surface-step'
 import { onPickerKeyDown, PICKER_FOOTER } from '@/components/ui/picker-keys'
+import { SubjectLine, type Subject } from '@/components/ui/subject-line'
 
 /**
  * The frame of a «pick one person» window (Fahrer, Reko zuweisen, Rekos übertragen): a
@@ -38,6 +39,7 @@ export function PickerDialog({
   open,
   onOpenChange,
   title,
+  subject,
   description,
   toolbar,
   children,
@@ -48,6 +50,8 @@ export function PickerDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   title: ReactNode
+  /** The Einsatz the pick is for, on its own line under the title (`incidentSubject(op)`). */
+  subject?: Subject
   description: ReactNode
   toolbar?: ReactNode
   children: ReactNode
@@ -70,6 +74,7 @@ export function PickerDialog({
         >
           <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
             <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{title}</SheetTitle>
+            {subject && <SubjectLine subject={subject} />}
             <SheetDescription className="truncate text-xs" title={fullDescription}>{description}</SheetDescription>
           </SheetHeader>
           {toolbar && <div className="flex shrink-0 flex-col gap-3 px-4 pb-3">{toolbar}</div>}
@@ -114,6 +119,7 @@ export function PickerDialog({
       <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0" onKeyDown={onPickerKeyDown}>
         <DialogHeader className="gap-1 px-5 pt-5 pb-3 pr-12">
           <DialogTitle>{title}</DialogTitle>
+          {subject && <SubjectLine subject={subject} />}
           <DialogDescription className="truncate" title={fullDescription}>{description}</DialogDescription>
         </DialogHeader>
         {toolbar && <div className="flex shrink-0 flex-col gap-3 px-5 pb-3">{toolbar}</div>}

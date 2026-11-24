@@ -26,31 +26,50 @@ export function getIncidentRefLabel(
   return detail ? `${head} (${detail})` : head
 }
 
+// Home town is stripped server-side (locationDisplay); the client formatter
+// only covers ops the server hasn't labelled yet.
+function homeStrippedLocation(op: { location: string; locationDisplay?: string }): string {
+  return op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
+}
+
 /**
  * `getIncidentRefLabel` in its two halves, for a note that sets them on two lines (the
  * assignment dialog's «where is it now»): `head` = number · address – what the place is found
- * by – and `detail` = «Einsatzart: Meldung», '' when there is none. When the address was ONLY
- * the home town the detail moves up into `head` (raw location as last resort).
+ * by – and `detail` = «Einsatzart: Meldung», '' when there is none; `place` = `head` without
+ * the number. When the address was ONLY the home town the detail moves up into `head` (raw
+ * location as last resort).
  */
 export function getIncidentRefParts(
   op: IncidentRefSource,
   maxMeldungLength = 60,
-): { head: string; detail: string } {
+): { head: string; detail: string; place: string } {
   const type = op.incidentType ? getIncidentTypeLabel(op.incidentType) : ""
   const meldung = (op.notes ?? "").trim()
   const shortMeldung = meldung.length > maxMeldungLength
     ? `${meldung.slice(0, maxMeldungLength).trimEnd()}…`
     : meldung
   const detail = [type, shortMeldung].filter(Boolean).join(": ")
-  // Home town is stripped server-side (locationDisplay); the client formatter
-  // only covers ops the server hasn't labelled yet.
-  const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
+  const location = homeStrippedLocation(op)
   const place = location || detail || op.location
   // The Einsatz number leads wherever an Einsatz is named in running text —
   // the Doppelbelegung prompt's «Bisher/Neu», bindings, pickers — so it reads
   // the same as on the card and in ⌘K.
   const head = op.number != null ? `${op.number} · ${place}` : place
-  return { head, detail: location ? detail : "" }
+  return { head, detail: location ? detail : "", place }
+}
+
+/** What a window is about: an Einsatz's number and its place (`SubjectLine`). */
+export interface Subject {
+  number?: number | null
+  place: string
+}
+
+/**
+ * The Einsatz a window is about, for its header line (`SubjectLine`): the number apart, so the
+ * line can set it in muted mono, and the place as in `getIncidentRefParts` («14» · «Hauptstrasse 4»).
+ */
+export function incidentSubject(op: IncidentRefSource): Subject {
+  return { number: op.number, place: getIncidentRefParts(op).place }
 }
 
 /**
@@ -62,6 +81,5 @@ export function getIncidentRefParts(
 export function getIncidentLocationLabel(
   op: { location: string; locationDisplay?: string; incidentType: string },
 ): string {
-  const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
-  return location || getIncidentTypeLabel(op.incidentType)
+  return homeStrippedLocation(op) || getIncidentTypeLabel(op.incidentType)
 }

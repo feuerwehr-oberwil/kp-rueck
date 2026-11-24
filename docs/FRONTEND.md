@@ -213,6 +213,14 @@ change. Read the section you touch. The visual rules and their reasons are
   of its own ABOVE that row (`AlternativeAnswer`), never a ghost button beside Abbrechen. If a
   gate's Abbrechen is an undo, the gate passes `onCancel` (the caller closes it) instead of
   `onOpenChange`, so a confirm can never count as a cancel.
+- **Two changes, no safe yes = `ChoiceDialog`** (`components/ui/choice-dialog.tsx`, owner pick 3A,
+  23.11.2026): the Doppelbelegung and the vehicle that drives an Auftrag. Two choice cards, each
+  with a before/after `ChoiceDiagram`, one consequence sentence and a letter key; the footer has
+  only Abbrechen, ink and focused, so Enter and Esc change nothing. No key reaches the board
+  under it (the board's digits listen on `window`).
+- **Subject line**: a question about one Einsatz names it under the title – `subject` on
+  `ConfirmDialog` / `PickerDialog` (`SubjectLine`, `incidentSubject(op)`:
+  «14 · Hauptstrasse 4»), not in the sentence.
 - **Pick a person = `PersonPickTile`** (`components/kanban/assignment-list-section.tsx`) in a
   `PickerDialog` (`components/ui/picker-dialog.tsx`: dialog on a desk, bottom sheet on a
   phone). The tile has a tick box, `PersonName` and the one rank · where · roles line. Chosen =
@@ -229,6 +237,15 @@ change. Read the section you touch. The visual rules and their reasons are
   Title + one line + at most one action, no big icons. The repeated board columns keep their
   single grey sentence. **A title takes no period** – an `EmptyState` title, a toast's first
   line, any `*Title` key. The line under it is a sentence and takes a period.
+- **Photos open in the app, never in a tab** (owner pick 23.11.2026): an incident surface (board
+  detail, phone sheet, `/display` modal) is wrapped in `PhotoViewerProvider`
+  (`components/photos/photo-viewer.tsx`). A part that shows thumbnails registers them
+  (`useRegisterPhotos`) and opens the viewer on a tap (`usePhotoViewer`,
+  `lib/hooks/use-photo-viewer.ts`). The viewer runs Reko then Rapport photos, ← → / swipe, Esc /
+  pull down. The image loads from the photo endpoint itself, so every view stays logged.
+- **The Reko tab is THE report, always editable** (owner pick 23.11.2026): one Reko report per
+  Einsatz that the field and the KP edit together; no «Ergänzen» step, no earlier reports. Who
+  changed what is in the Chronik (`reko_change`, `lib/reko-change.ts`), not in the tab.
 - **Maps never rise above overlays.** Every map goes through `components/map/base-map.tsx` (a lint
   error elsewhere). Its
   wrapper is `isolate`, so markers (z up to 1000) and controls (z 2000) only compete inside the

@@ -9,7 +9,7 @@ import { type FooterSheet } from "@/components/board/board-footer"
 import { toggleFigures } from "@/components/figures-dialog"
 import type { Dispatch, SetStateAction, RefObject } from "react"
 import type { ApiVehicle } from "@/lib/api-client"
-import { INCIDENT_COMMANDS, type CommandPaletteHandlers, type IncidentCommand } from "@/lib/contexts/command-palette-context"
+import { incidentCommandsFor, type CommandPaletteHandlers, type IncidentCommand } from "@/lib/contexts/command-palette-context"
 import type { useRouter } from "next/navigation"
 import type { SidePanelMode } from "@/lib/hooks/use-board-layout-prefs"
 
@@ -145,7 +145,7 @@ export function useBoardCommandHandlers(input: UseBoardCommandHandlersInput) {
       },
       hasSelectedIncident: !!selectedOperationId,
       // Everything but the print is a write; the slip needs a printer.
-      incidentCommands: INCIDENT_COMMANDS.filter((command) => (command === 'print' ? printerEnabled : isEditor)),
+      incidentCommands: incidentCommandsFor(operations.find((op) => op.id === selectedOperationId), { isEditor, printerEnabled }),
       onIncidentCommand: (command) => {
         if (selectedOperationId) boardCommandsRef.current.incident(command, selectedOperationId)
       },

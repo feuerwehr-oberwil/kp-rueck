@@ -5,6 +5,7 @@
 
 import type {
   ApiEventSpecialFunctionResponse,
+  AssignmentPurpose,
   ApiFieldRequest,
   ApiVehicle,
   IncidentStatus,
@@ -164,7 +165,11 @@ export interface Operation {
    *  never on its own, so an already-filed rapport can never be hidden. */
   hasBeenDispatched?: boolean
   rekoSummary: RekoSummary | null
-  assignedReko: { id: string; name: string } | null
+  /** `assignmentId` + `purpose`: the row behind it, from the board load (`reconcile.ts`).
+   *  A Reko-function person's crew row is drawn here too; `purpose` says which it is, and a
+   *  release names `assignmentId`. Absent on an optimistic assign until its POST answers – no
+   *  release until then (`removeReko`). */
+  assignedReko: { id: string; name: string; assignmentId?: string; purpose?: AssignmentPurpose } | null
   /** Where this Reko stands in its Reko person's order (0 = first; `lib/reko-order.ts`).
    *  null/absent for a Reko not numbered yet – it sorts last. */
   rekoPosition?: number | null
@@ -190,6 +195,15 @@ export interface Operation {
 
 /** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
  *  where it was just assigned, so dismissing can ask whether it comes back off. */
+/** Where one unit left on site is standing (the Restliste, keyed by material id). */
+export interface MaterialOnSiteLocation {
+  incidentId: string
+  /** The open assignment that keeps it there – what «Abgeholt» releases (`collectMaterial`). */
+  assignmentId: string | null
+  address: string | null
+  since: string | null
+}
+
 export interface VehicleNeedingDriver {
   vehicleId: string
   vehicleName: string
@@ -250,7 +264,8 @@ export interface OperationsContextType {
   removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
   /** Same result contract as removeCrew. */
   removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
-  removeReko: (operationId: string) => void
+  /** `expectedAssignmentId`: release only while the card still shows that row. */
+  removeReko: (operationId: string, expectedAssignmentId?: string) => void
   /** The one funnel for incident edits. A status edit is sent with the status this board
    *  showed (`from_status`); `confirm` is only for «Trotzdem …» in «Gerade geändert»
    *  (lib/status-conflict.ts): the stale view it was made from and the server's status
@@ -283,7 +298,7 @@ export interface OperationsContextType {
   assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => Promise<boolean>
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => Promise<boolean>
-  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
+  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string, force?: boolean) => Promise<boolean>
   /** The vehicle the driver prompt is asking about: set when a vehicle is assigned
    * to an incident and nobody is driving it. Exactly one at a time — the setup
    * checklist used to queue a run through every driverless vehicle here, and that
@@ -314,12 +329,18 @@ export interface OperationsContextType {
         resourceId: string
         /** Display name only – the resource is `resourceId`. */
         resourceName: string
+        /** How many resources `resourceName` names – one drop of a Modul-Block asks once for
+         *  all its devices («Motorsäge, Spreizer»). Default 1; the copy agrees with it. */
+        resourceCount?: number
         targetOperationId: string
-        /** Where it is going, by name — the dialog's «Neu:» line. The question
-         *  «wovon wird abgezogen» has two halves and the prompt used to name
-         *  only one of them, in running text. */
-        targetOperationLabel?: string
-        conflicts: { operationId: string; operationLabel: string }[]
+        /** Where it is going, by name («14 · Hauptstrasse 4», an Auftrag's name) — the
+         *  target card of the prompt. The question «wovon wird abgezogen» has two halves
+         *  and the prompt used to name only one of them, in running text. */
+        targetOperationLabel: string
+        /** Where it stands now, one card each («13 · Schulstrasse 9», an Auftrag's name).
+         *  `held`: which of the asked-about resources stand on that holder, when one drop
+         *  asks for several (a Modul-Block); absent = the one resource. */
+        conflicts: { operationId: string; operationLabel: string; held?: { id: string; name: string }[] }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
     | null
@@ -332,7 +353,7 @@ export interface OperationsContextType {
    * actually watches — showed a pump in a stranger's cellar exactly like a pump
    * on a truck. Read from the same `/restliste` endpoint the Abholliste prints,
    * so there is one computation of "what is still out there", not two. */
-  materialOnSite: Map<string, { incidentId: string; address: string | null; since: string | null }>
+  materialOnSite: Map<string, MaterialOnSiteLocation>
   /** Vehicle ids flagged «Nicht einsatzbereit» in the fleet list.
    *
    * Vehicles have no sidebar of their own, so their readiness has to travel with
@@ -353,7 +374,8 @@ export interface OperationsContextType {
   /**
    * Assignment work whose questions may still come: a vehicle assign until its
    * driver check answered (two round trips after the vehicle landed), a
-   * resolved Doppelbelegung until its removals and the re-assign are done.
+   * resolved Doppelbelegung until its removals and the re-assign are done, a
+   * Reko assign until its POST answered (its row id, which ⌘K's undo needs).
    * `begin` returns the matching `end` (idempotent). ⌘K's dispatch runner reads
    * `isAssignmentSettling` so the next resource is not handed over while a
    * question is still on its way.

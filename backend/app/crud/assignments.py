@@ -12,19 +12,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..models import (
+    AuditLog,
     Event,
     EventSpecialFunction,
     Incident,
     IncidentAssignment,
+    IncidentGroupAssignment,
     Material,
     Personnel,
+    SchadenplatzReport,
     User,
     Vehicle,
 )
 from ..services.audit import log_action
 from ..services.ranks import rank_tier
+from ..services.rapport_rows import left_on_site_assignment_ids
 from .locking import (
     AssignableResource,
+    lock_incident_crew,
     lock_incident_with_group,
     lock_incidents_with_groups,
     lock_resource,
@@ -48,11 +53,18 @@ class ResourceNotAssignableError(ValueError):
     """
 
 
-def ensure_assignable(resource: AssignableResource, *, event: Event, incident: Incident | None = None) -> None:
+def ensure_assignable(
+    resource: AssignableResource,
+    *,
+    event: Event,
+    incident: Incident | None = None,
+    auftrag_closed: bool = False,
+) -> None:
     """The one place that decides whether a resource may go onto an Einsatz or an Auftrag.
 
     Called by ``assign_resource`` (``incident`` given) and
-    ``group_assignments.assign_group_resource`` (Auftrag: ``incident`` None) with the
+    ``group_assignments.assign_group_resource`` (Auftrag: ``incident`` None,
+    ``auftrag_closed`` from ``group_assignments.auftrag_is_closed``) with the
     target and the resource row locked (``crud/locking.py``) – the resource lock is
     the one archive and purge take, so nothing changes between this check and the
     insert. ``event`` is the target's Ereignis, read without a lock: archiving one is
@@ -65,8 +77,9 @@ def ensure_assignable(resource: AssignableResource, *, event: Event, incident: I
     * a vehicle or material marked «Nicht einsatzbereit» (``out_of_service_since``),
     * anything onto an archived Ereignis,
     * a guest of another Ereignis (``Personnel.guest_event_id``) – nobody this one lists,
-    * personnel or a vehicle onto a closed Einsatz. Material may still go onto one:
-      equipment is left on site after the crew drives off and tracked until it is back.
+    * anything onto a closed Einsatz, or onto an Auftrag whose stops are all closed
+      (owner feedback 23.11.2026 #7). Material left on site at the close keeps its
+      row – that is the close, not a new assignment.
 
     Only new assignments pass through here (also the Reko assignment, a template's
     equipment, a `/feld` take-over and a transfer). Rows already assigned stay as they
@@ -83,20 +96,29 @@ def ensure_assignable(resource: AssignableResource, *, event: Event, incident: I
         raise ResourceNotAssignableError("Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden.")
     if isinstance(resource, Personnel) and resource.guest_event_id not in (None, event.id):
         raise ResourceNotAssignableError(f"«{resource.name}» ist Gast eines anderen Ereignisses.")
-    if incident is not None and incident.status == "complete" and not isinstance(resource, Material):
+    if incident is not None and incident.status == "complete":
+        raise ResourceNotAssignableError("Der Einsatz ist abgeschlossen – es kann nichts mehr zugewiesen werden.")
+    if auftrag_closed:
         raise ResourceNotAssignableError(
-            "Der Einsatz ist abgeschlossen – Personal und Fahrzeuge können nicht mehr zugewiesen werden."
+            "Alle Stopps des Auftrags sind abgeschlossen – es kann nichts mehr zugewiesen werden."
         )
 
 
 async def lock_for_new_assignment(
-    db: AsyncSession, incident_id: uuid.UUID, resource_type: str, resource_id: uuid.UUID
+    db: AsyncSession,
+    incident_id: uuid.UUID,
+    resource_type: str,
+    resource_id: uuid.UUID,
+    *,
+    with_crew: bool = False,
 ) -> Incident:
     """Lock an Einsatz and a resource for a NEW assignment row the caller writes itself.
 
     For writers that build the row by hand (the Reko assignment). Lock order
     (``crud/locking.py``): the Einsatz with its Auftrag, then the resource row; then
-    ``ensure_assignable``. Returns the locked Einsatz.
+    ``ensure_assignable``. Returns the locked Einsatz. ``with_crew`` (a person who may
+    replace someone on it) locks the person together with the Einsatz's active crew,
+    sorted (``lock_incident_crew``): the release it then does can promote one of them.
 
     Raises:
         LookupError: the Einsatz or the resource does not exist.
@@ -108,7 +130,9 @@ async def lock_for_new_assignment(
         raise LookupError(f"incident {incident_id} does not exist")
     if incident.deleted_at is not None or incident.merged_into_id is not None:
         raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
-    resource = await lock_resource(db, resource_type, resource_id)
+    if with_crew:
+        await lock_incident_crew(db, [incident_id], [resource_id])
+    resource = await lock_resource(db, resource_type, resource_id)  # held already with_crew: a fresh read
     if resource is None:
         raise LookupError(f"{resource_type} {resource_id} does not exist")
     event = await db.get(Event, incident.event_id)
@@ -339,7 +363,7 @@ async def update_assignment(
 async def unassign_resource(
     db: AsyncSession,
     assignment_id: uuid.UUID,
-    current_user: User,
+    current_user: User | None,
     request: Request | None,
     *,
     incident_id: uuid.UUID,
@@ -409,6 +433,198 @@ async def unassign_resource(
     if assignment.resource_type == "personnel":
         await sync_auto_leader(db, assignment.incident_id, stamp_leader_of_record=stamp_leader_of_record)
 
+    return assignment
+
+
+class MaterialCollectRefusedError(Exception):
+    """«Abgeholt» or its undo cannot run on this row now; ``str()`` is the German reason (409)."""
+
+
+async def _lock_material_assignment(
+    db: AsyncSession, incident_id: uuid.UUID, assignment_id: uuid.UUID
+) -> tuple[Incident, IncidentAssignment, Material | None] | None:
+    """The material assignment ``assignment_id`` of ``incident_id`` with its incident and its
+    (locked) material, locked in the order of ``crud/locking.py``: the incident (with its
+    Auftrag), then the material row. None when the row is no material assignment of that
+    incident. The material is None when its row is gone (purged)."""
+    incident = await lock_incident_with_group(db, incident_id)
+    if incident is None:
+        return None
+    assignment = await db.scalar(
+        select(IncidentAssignment)
+        .where(IncidentAssignment.id == assignment_id, IncidentAssignment.incident_id == incident_id)
+        .execution_options(populate_existing=True)
+    )
+    if assignment is None or assignment.resource_type != "material":
+        return None
+    material = await lock_resource(db, "material", assignment.resource_id)
+    return incident, assignment, material
+
+
+async def _still_left_on_site(
+    db: AsyncSession, incident: Incident, assignment: IncidentAssignment, material: Material | None
+) -> bool:
+    """The Restliste's test for this one open row (``crud/feld/material.event_restliste``):
+    the card is on the board, the unit exists and is no consumable, and the FILED rapport
+    still marks this assignment «vor Ort verblieben» – read fresh, so an amendment the crew
+    filed after the operator opened the confirm counts."""
+    if incident.deleted_at is not None or material is None or material.consumable:
+        return False
+    report = await db.scalar(
+        select(SchadenplatzReport)
+        .where(SchadenplatzReport.incident_id == incident.id)
+        .execution_options(populate_existing=True)
+    )
+    return assignment.id in left_on_site_assignment_ids(report)
+
+
+async def _collection_recorded(
+    db: AsyncSession, incident_id: uuid.UUID, assignment_id: uuid.UUID, released_at: datetime
+) -> bool:
+    """True when ``collect_material`` recorded THIS release: a ``material_collected`` audit row
+    of the incident names the assignment and exactly ``released_at``. The audit row is the
+    collection's provenance – a regular release also stamps ``unassigned_at`` (and the
+    participants API shows it), so the time alone proves nothing. Audit rows survive a purge."""
+    records = await db.scalars(
+        select(AuditLog.changes_json).where(
+            AuditLog.action_type == "material_collected",
+            AuditLog.resource_type == "incident",
+            AuditLog.resource_id == incident_id,
+            AuditLog.changes_json["assignment_id"].astext == str(assignment_id),
+        )
+    )
+    for changes in records:
+        recorded = (changes or {}).get("released_at")
+        if isinstance(recorded, str) and datetime.fromisoformat(recorded) == released_at:
+            return True
+    return False
+
+
+async def collect_material(
+    db: AsyncSession,
+    *,
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    current_user: User,
+    request: Request | None,
+) -> datetime | None:
+    """«Abgeholt – freigeben» from the «Gerät vor Ort» roll-up (owner pick 6A, 24.11.2026).
+
+    Releases exactly this material assignment and records the collection as a field fact
+    (audit ``material_collected`` → journal and Chronik: «Abgeholt: Tauchpumpe»), with the
+    release time in it. Returns that time – the undo's token: ``undo_collect_material`` only
+    reverses a release that carries it AND that this audit row names. None when the row is no material assignment of the incident (404).
+    Refused (409) when it is already released – somebody else took it back first, and a
+    second «abgeholt» line would lie – or when the Restliste no longer lists it (the crew
+    amended the rapport, so the unit is not «vor Ort» any more). Flushes only; the request
+    commits.
+    """
+    locked = await _lock_material_assignment(db, incident_id, assignment_id)
+    if locked is None:
+        return None
+    incident, assignment, material = locked
+    if assignment.unassigned_at is not None:
+        raise MaterialCollectRefusedError("Dieses Material ist schon freigegeben.")
+    if not await _still_left_on_site(db, incident, assignment, material):
+        raise MaterialCollectRefusedError("Laut Rapport ist dieses Material nicht mehr vor Ort.")
+    await unassign_resource(db, assignment_id, current_user, request, incident_id=incident_id)
+    released_at = assignment.unassigned_at
+    if released_at is None:  # unassign_resource stamps it; this is for the type checker
+        raise MaterialCollectRefusedError("Dieses Material ist schon freigegeben.")
+    await log_action(
+        db=db,
+        action_type="material_collected",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={
+            "assignment_id": str(assignment_id),
+            "released_at": released_at.isoformat(),
+            "material_name": material.name if material else None,
+            "source": "kp",
+        },
+        request=request,
+    )
+    await db.flush()
+    return released_at
+
+
+async def undo_collect_material(
+    db: AsyncSession,
+    *,
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    released_at: datetime,
+    current_user: User,
+    request: Request | None,
+) -> IncidentAssignment | None:
+    """The undo of ``collect_material``: re-opens the SAME row (``unassigned_at`` back to NULL).
+
+    The same row, not a new assignment: the Schadenplatz-Rapport names this assignment as
+    left on site, and the Restliste finds the unit only through it. Like the completion undo
+    (``restore_released_assignments``) it is an internal re-opener, so it skips
+    ``ensure_assignable`` (the Einsatz is usually closed). Under the material's row lock,
+    which every assignment and lifecycle writer takes, it refuses (409):
+
+    * unless the row's current release IS the collection: ``released_at`` is the row's
+      ``unassigned_at`` and a ``material_collected`` record names it
+      (``_collection_recorded``). A regular release, a row already re-opened, or a later
+      release of the same row after an undo do not match;
+    * when the unit is archived or gone – also when a purge took the row with it but the
+      collection record is still there (409, not 404: the undo existed, it is just too late);
+    * when the Restliste would no longer list the row (``_still_left_on_site``: Einsatz
+      deleted, or the crew cleared «vor Ort verblieben» after the collection);
+    * when the unit has since gone onto another Einsatz or an Auftrag.
+
+    Records ``material_collected_cleared``. Flushes only.
+    """
+    locked = await _lock_material_assignment(db, incident_id, assignment_id)
+    if locked is None:
+        if await _collection_recorded(db, incident_id, assignment_id, released_at):
+            raise MaterialCollectRefusedError("Das Material ist archiviert oder gelöscht.")
+        return None
+    incident, assignment, material = locked
+    if assignment.unassigned_at != released_at or not await _collection_recorded(
+        db, incident_id, assignment_id, released_at
+    ):
+        raise MaterialCollectRefusedError("Diese Freigabe war kein «Abgeholt» – nichts zurückzunehmen.")
+    if material is None or material.archived_at is not None:
+        raise MaterialCollectRefusedError("Das Material ist archiviert oder gelöscht.")
+    if not await _still_left_on_site(db, incident, assignment, material):
+        raise MaterialCollectRefusedError("Das Material steht nicht mehr auf der Restliste.")
+    on_incident = await db.scalar(
+        select(IncidentAssignment.id).where(
+            IncidentAssignment.resource_type == "material",
+            IncidentAssignment.resource_id == material.id,
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    if on_incident is not None:
+        raise MaterialCollectRefusedError("Das Material ist inzwischen einem anderen Einsatz zugewiesen.")
+    on_auftrag = await db.scalar(
+        select(IncidentGroupAssignment.id).where(
+            IncidentGroupAssignment.resource_type == "material",
+            IncidentGroupAssignment.resource_id == material.id,
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+    )
+    if on_auftrag is not None:
+        raise MaterialCollectRefusedError("Das Material ist inzwischen einem Auftrag zugewiesen.")
+    assignment.unassigned_at = None
+    await log_action(
+        db=db,
+        action_type="material_collected_cleared",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={
+            "assignment_id": str(assignment_id),
+            "material_name": material.name,
+            "source": "kp",
+        },
+        request=request,
+    )
+    await db.flush()
     return assignment
 
 
@@ -705,6 +921,15 @@ class TransferChangedError(ValueError):
     """An undo named assignments that are no longer all active on the incident."""
 
 
+class TransferRefusedError(ValueError):
+    """«Übertragen» cannot start from this Einsatz or onto this target (→ 409). ``str()`` is German."""
+
+
+# Lead's call on review B (24.11.2026): a closed Einsatz is no transfer source. Its material
+# left on site would move, and «Rückgängig» could not put it back onto the closed Einsatz.
+CLOSED_SOURCE_REFUSED = "Der Einsatz ist abgeschlossen – seine Ressourcen werden nicht übertragen."
+
+
 async def transfer_assignments(
     db: AsyncSession,
     source_incident_id: uuid.UUID,
@@ -737,7 +962,8 @@ async def transfer_assignments(
 
     The rows are NEW assignments on the target, so ``ensure_assignable`` applies to
     each resource (a closed or archived target, a vehicle now «nicht einsatzbereit»)
-    and refuses the whole transfer. Lock order (``crud/locking.py``): both Einsätze
+    and refuses the whole transfer. A closed source is refused too (``CLOSED_SOURCE_REFUSED``).
+    Lock order (``crud/locking.py``): both Einsätze
     with their Aufträge, then all resource rows (``lock_resources``).
 
     ``only_assignment_ids`` is the undo of a transfer: exactly those rows move, and only
@@ -747,12 +973,15 @@ async def transfer_assignments(
     Raises:
         ValueError: If source has no assignments or if conflicts exist
         TransferChangedError: (a ``ValueError``) the undo's rows are no longer all there
+        TransferRefusedError: (a ``ValueError``) the source is closed
         ResourceNotAssignableError: (a ``ValueError``) the policy refused a resource
     """
     locked = await lock_incidents_with_groups(db, [source_incident_id, target_incident_id])
     source_incident = locked.get(source_incident_id)
     if source_incident is None:
         raise ValueError("Quell-Einsatz nicht gefunden")
+    if source_incident.status == "complete":
+        raise TransferRefusedError(CLOSED_SOURCE_REFUSED)
 
     target_incident = locked.get(target_incident_id)
     if target_incident is None or target_incident.deleted_at is not None or target_incident.merged_into_id is not None:

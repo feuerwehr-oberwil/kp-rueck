@@ -2,24 +2,23 @@
 
 /**
  * The resource sidebars' building blocks: the loading and empty states, the
- * «nur verfügbare» toggle, the bindings popover, and the two material rows.
+ * bindings popover, and the two material rows.
  *
  * Presentational only — the board page owns the state and hands everything in.
  * Moved out of `app/page.tsx` verbatim (2026-09-23).
  */
 
-import { useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { ArrowRight, ArrowUpRight, Ban, Check, CircleCheck, Package2, Warehouse } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Ban, Check, Package2, Warehouse } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { DraggableMaterial } from "@/components/kanban/draggable-material"
-import { isNavigableBinding, shortDate, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { isNavigableBinding, shortDate, type BindingsPopoverState, type MaterialBindingsState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { Material } from "@/lib/contexts/operations-context"
 import { materialResourceState, RESOURCE_FREE_TEXT_CLASS, RESOURCE_STATE_DOT_CLASSES, type ResourceSummary } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
@@ -86,54 +85,19 @@ export function SidebarEmpty({
 }
 
 /**
- * Sidebar filter: show only what can be assigned right now.
- *
- * Icon-only and 32px square so it sits flush with the 32px search field. The
- * check glyph is the same one the resource cards use for "verfügbar", so the
- * button reads as "keep the available ones" rather than as a generic funnel.
- *
- * ON is the tonal «selected» state every other filter uses, not green: a
- * toggled filter is a choice, and selection looks the same everywhere. Green
- * stays with the availability dots and badges themselves (DESIGN.md → Colour
- * roles).
- */
-export function AvailableOnlyToggle({
-  active,
-  onToggle,
-  label,
-}: {
-  active: boolean
-  onToggle: () => void
-  label: string
-}) {
-  return (
-    <ShortcutTooltip label={label}>
-      <Button
-        size="icon-xs"
-        variant={active ? "selected" : "ghost"}
-        onClick={onToggle}
-        aria-pressed={active}
-        aria-label={label}
-        className={cn(
-          "flex-shrink-0 border",
-          !active && "border-transparent text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <CircleCheck className="size-4" />
-      </Button>
-    </ShortcutTooltip>
-  )
-}
-
-/**
  * The availability line at the foot of both resource sidebars: «2 frei von 19 · 17 gebunden».
  * The free count is the green fact (with its ✓), «von n» its word-spaced tail, and «gebunden»
  * stands apart behind the board's middle dot with 8px either side – with only a gap between
  * them the two numbers read as one («19 17», hill climb r22). «gebunden» is plain muted text:
- * a fact, not a warning (VISUAL-03); it is left out when nothing is bound.
+ * a fact, not a warning (VISUAL-03); it is left out when nothing is bound. The material footer
+ * adds «· 1 nicht einsatzbereit» the same way – the Status buckets of its popover.
  */
 export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
   const t = useTranslations("kanban.common")
+  const tail = [
+    summary.bound > 0 ? t("rosterBound", { count: summary.bound }) : null,
+    summary.notReady ? t("rosterNotReady", { count: summary.notReady }) : null,
+  ].filter((part) => part !== null)
   return (
     <div className="flex items-center justify-center gap-2 text-xs">
       <span className="inline-flex items-center gap-1">
@@ -143,18 +107,19 @@ export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
         </span>
         <span className="text-muted-foreground">{t("rosterOf", { total: summary.total })}</span>
       </span>
-      {summary.bound > 0 && (
-        <>
+      {tail.map((part) => (
+        <Fragment key={part}>
           <span aria-hidden="true" className="text-muted-foreground">·</span>
-          <span className="text-muted-foreground">{t("rosterBound", { count: summary.bound })}</span>
-        </>
-      )}
+          <span className="text-muted-foreground">{part}</span>
+        </Fragment>
+      ))}
     </div>
   )
 }
 
 /**
- * Every binding of one busy resource, with a way to reach each.
+ * Every binding of one busy unit of material, with a way to reach each. (A person's
+ * popover is the checklist in `person-popover.tsx`.)
  *
  * Deliberately shown only when there is something to choose: exactly one
  * incident binding still jumps straight there, which is the common case and the
@@ -171,7 +136,7 @@ export function BindingsPopoverBody({
   onGo,
   onClose,
 }: {
-  state: BindingsPopoverState
+  state: MaterialBindingsState
   onGo: (binding: ResourceBinding) => void
   onClose: () => void
 }) {
@@ -258,7 +223,8 @@ export function MaterialSidebarRow({
   onGoBinding: (binding: ResourceBinding) => void
 }) {
   const t = useTranslations('kanban.common')
-  const isOpen = bindingsPopover?.kind === 'material' && bindingsPopover.id === material.id
+  const state = bindingsPopover?.kind === 'material' ? bindingsPopover : null
+  const isOpen = state?.id === material.id
   return (
     <Popover open={isOpen} onOpenChange={(open) => { if (!open) onCloseBindings() }}>
       <ContextMenu>
@@ -303,9 +269,34 @@ export function MaterialSidebarRow({
         </ContextMenuContent>
       </ContextMenu>
       <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (
-          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
-        )}
+        {state && (material.outOfService ? (
+          // A flagged device's question is «wieder einsatzbereit?», which used to be
+          // right-click only. A device flagged while still assigned keeps its
+          // bindings above the button, so the way to it is not lost.
+          <div className="space-y-3">
+            {state.bindings.length > 0 ? (
+              <BindingsPopoverBody state={state} onGo={onGoBinding} onClose={onCloseBindings} />
+            ) : (
+              <p className="truncate text-sm font-semibold">{material.name}</p>
+            )}
+            <div className={cn("space-y-2", state.bindings.length > 0 && "border-t border-border pt-3")}>
+              <p className="text-2xs text-muted-foreground">
+                {t('notReady')}
+                {material.outOfServiceSince && ` · ${t('notReadySince', { date: shortDate(material.outOfServiceSince) })}`}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => { onToggleOutOfService(material, false); onCloseBindings() }}
+              >
+                {t('backInService')}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <BindingsPopoverBody state={state} onGo={onGoBinding} onClose={onCloseBindings} />
+        ))}
       </PopoverContent>
     </Popover>
   )
@@ -347,7 +338,8 @@ export function AggregatedMaterialRow({
   const dragUnit = freeUnits[0] ?? assignedUnit ?? units[0]
   const allTaken = freeUnits.length === 0
   // The popover may have been opened for ANY unit of this bundle.
-  const isOpen = bindingsPopover?.kind === 'material' && units.some((u) => u.id === bindingsPopover.id)
+  const state = bindingsPopover?.kind === 'material' ? bindingsPopover : null
+  const isOpen = !!state && units.some((u) => u.id === state.id)
 
   useEffect(() => {
     const element = ref.current
@@ -423,9 +415,7 @@ export function AggregatedMaterialRow({
         </ContextMenuContent>
       </ContextMenu>
       <PopoverContent align="start" side="left" className="w-80 p-3">
-        {bindingsPopover && (
-          <BindingsPopoverBody state={bindingsPopover} onGo={onGoBinding} onClose={onCloseBindings} />
-        )}
+        {state && <BindingsPopoverBody state={state} onGo={onGoBinding} onClose={onCloseBindings} />}
       </PopoverContent>
     </Popover>
   )

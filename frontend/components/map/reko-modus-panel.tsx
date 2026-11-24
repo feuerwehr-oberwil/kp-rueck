@@ -2,7 +2,7 @@
 
 /**
  * RekoModusPanel — editor-only reko dispatching panel for the `/map` page; on a phone the order
- * is only shown (no dragging – the desk plans, as in the Routenplanung).
+ * is only shown (no dragging – the desk plans, as in the Auftrags-Editor).
  *
  * Sibling of RoutenplanungPanel (same aside-swap pattern) and built the same way (owner,
  * 19.11.2026: «reko and auftrag behave the same but just show things differently», mock 2a):
@@ -19,7 +19,7 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Binoculars, MousePointerClick, X, Plus, ArrowLeft, UserPlus } from "lucide-react"
+import { Binoculars, MousePointerClick, Plus, ArrowLeft, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { FormMessage } from "@/components/ui/form-message"
@@ -35,6 +35,7 @@ import type { Person } from "@/lib/contexts/personnel-context"
 import { useRekoReorder } from "@/lib/hooks/use-reko-reorder"
 import { REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from "@/components/incidents/assign-reko-dialog"
 import { RouteStopList, RouteTimelineItem, TIMELINE_ROW, TimelineNode } from "./route-stop-list"
+import { RailHeader } from "./rail-header"
 
 // The Reko list is never an optimise preview, so nothing is ever «changed».
 const EMPTY_CHANGED: Set<string> = new Set()
@@ -64,7 +65,7 @@ export function RekoModusPanel({
   const { selectedEvent } = useEvent()
   const { personnel, operations, refreshOperations } = useOperations()
   const reorder = useRekoReorder()
-  // Read-only on a phone, like the Routenplanung: the order is shown, not dragged.
+  // Read-only on a phone, like the Auftrags-Editor: the order is shown, not dragged.
   const isPhone = useIsMobile()
   const [markMode, setMarkMode] = useState(false)
   const [marking, setMarking] = useState(false)
@@ -106,18 +107,11 @@ export function RekoModusPanel({
     }
   }
 
+  // The phone nav reserve is on the whole column, not only on the list: the hint
+  // below the list (and the mark mode's button) sat behind the nav (VIS.7).
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <Binoculars className="h-5 w-5" />
-          {t("title")}
-        </h2>
-        <Button variant="ghost" size="sm" onClick={onExit}>
-          <X className="size-3.5" />
-          {t("exit")}
-        </Button>
-      </div>
+    <div className="flex flex-col h-full max-md:pb-nav-reserve">
+      <RailHeader icon={Binoculars} title={t("title")} exitLabel={t("exitLabel")} onExit={onExit} />
 
       {markMode ? (
         <>
@@ -149,7 +143,7 @@ export function RekoModusPanel({
       ) : (
         <>
           {/* The person the map taps assign – ONE of them, so a dropdown like the
-              Routenplanung's Auftrag picker. The dot is the person's colour on the map. */}
+              Auftrags-Editor's Auftrag picker. The dot is the person's colour on the map. */}
           <div className="mb-3 flex items-center gap-2">
             <Select value={selectedPersonId ?? undefined} onValueChange={(id) => onSelectPerson(id)}>
               <SelectTrigger className="h-9 min-w-[7rem] flex-1" aria-label={t("personLabel")}>
@@ -203,7 +197,7 @@ export function RekoModusPanel({
               {/* The timeline: the person's open Rekos in their order, then where more come
                   from. Only as tall as its rows; it scrolls once they outgrow the panel
                   (`relative`: the rows' sr-only status words stay inside the scroller). */}
-              <div className="relative -mx-1 min-h-0 overflow-y-auto overscroll-contain px-1 max-md:pb-nav-reserve">
+              <div className="relative -mx-1 min-h-0 overflow-y-auto overscroll-contain px-1">
                 <ol className="@container">
                   <RouteStopList
                     listId={selectedPerson.id}

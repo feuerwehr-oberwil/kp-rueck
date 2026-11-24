@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl"
 import { type Person, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentRefLabel } from "@/lib/incident-types"
-import { soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { REKO_TARGET, RESOURCES_TARGET, type PersonNowLink } from "@/lib/detail-target"
 import { type FooterSheet } from "@/components/board/board-footer"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Dispatch, SetStateAction } from "react"
@@ -44,18 +45,25 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     filteredOperations,
   } = input
   const tCommon = useTranslations('kanban.common')
+  const tPopover = useTranslations('kanban.personPopover')
+  const tLeader = useTranslations('kanban.leader')
 
   /**
-   * Everywhere this person is held — all of it, not the first hit.
+   * The Einsätze (crew or Reko) and Aufträge this person is on — all of them, not the
+   * first hit. The person popover's place rows (`person-popover.tsx`); its functions
+   * come from `personFunctionItems`.
    *
    * `filter`, not `find`: after a double booking the second incident used to be
    * unreachable from the sidebar, because a second click resolved to the same
-   * first match. The special functions come straight out of the context (they
-   * are already on the person) instead of a per-click API fetch that only ever
-   * looked at `driver`.
+   * first match.
    */
-  const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
+  const collectPersonPlaces = useCallback((person: Pick<Person, "id">): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
+    // The role the card shows: «EL» for the Einsatz's leader, else «Mannschaft».
+    const crewDetail = (op: Operation) =>
+      [op.leaderId === person.id ? tLeader('abbr') : tPopover('crew'), op.groupId ? groupNames.get(op.groupId) : undefined]
+        .filter(Boolean)
+        .join(' · ')
     for (const op of operations) {
       if (op.crew.some((m) => m.personnelId === person.id)) {
         bindings.push({
@@ -63,27 +71,45 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
           kind: "incident",
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
-          detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
+          detail: crewDetail(op),
+          target: RESOURCES_TARGET,
         })
       }
       if (op.assignedReko?.id === person.id) {
+        // A crew row drawn as Reko says «Mannschaft»: its tick releases that row (S3).
+        const purpose = op.assignedReko.purpose ?? "reko"
         bindings.push({
           key: `reko-${op.id}`,
           kind: "incident",
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
-          detail: tCommon('reko'),
+          detail: purpose === "crew" ? crewDetail(op) : tCommon('reko'),
+          target: REKO_TARGET,
+          purpose,
         })
       }
     }
     for (const group of groups) {
-      if (getGroupResources(group.id).personnel.some((p) => p.resourceId === person.id)) {
-        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
+      const member = getGroupResources(group.id).personnel.find((p) => p.resourceId === person.id)
+      if (member) {
+        const detail = member.isLeader ? `${tPopover('auftrag')} · ${tLeader('abbr')}` : tPopover('auftrag')
+        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail })
       }
     }
+    return bindings
+  }, [operations, groups, getGroupResources, groupNames, tCommon, tPopover, tLeader])
+
+  /**
+   * Everywhere this person is held, functions included — what ⌘K decides with: one place to
+   * go jumps there (`soleDestination`), anything else opens the sidebar on the person. The
+   * special functions come straight out of the context (they are already on
+   * the person) instead of a per-click API fetch.
+   */
+  const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
+    const bindings = collectPersonPlaces(person)
     // Reko is an Ereignis-level function first and an incident assignment second:
     // `isReko` is set from the event's special functions, while `assignedReko`
-    // needs an assignment row on a specific incident. A Reko-Offizier who has not
+    // needs an assignment row on a specific incident. A Reko-Person who has not
     // been sent anywhere yet has the flag and no incident — and produced exactly
     // nothing when clicked, because the loop above found no binding to list.
     // Same shape as the Fahrer below: the incident when there is one, the bare
@@ -109,13 +135,14 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
         targetId: drivenOp?.id ?? null,
         label: person.driverVehicleName || tCommon('driver'),
         detail: drivenOp ? getIncidentRefLabel(drivenOp, 60) : tCommon('specialFunctionNoIncident'),
+        target: drivenOp ? RESOURCES_TARGET : undefined,
       })
     }
     if (person.isMagazin) bindings.push({ key: "fn-magazin", kind: "function", targetId: null, label: tCommon('magazin'), detail: tCommon('specialFunctionNoIncident') })
     if (person.isTelefondienst) bindings.push({ key: "fn-telefon", kind: "function", targetId: null, label: tCommon('telefondienst'), detail: tCommon('specialFunctionNoIncident') })
     if (person.isKommandoposten) bindings.push({ key: "fn-kp", kind: "function", targetId: null, label: tCommon('kommandoposten'), detail: tCommon('specialFunctionNoIncident') })
     return bindings
-  }, [operations, groups, getGroupResources, groupNames, tCommon])
+  }, [collectPersonPlaces, operations, tCommon])
 
   const collectMaterialBindings = useCallback((material: Material): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
@@ -141,6 +168,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
         targetId: op.id,
         label: getIncidentRefLabel(op, 60),
         detail: "",
+        target: RESOURCES_TARGET,
       })
     }
     for (const group of groups) {
@@ -159,14 +187,15 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
    * is cleared first. The rest of the "nothing happens" cases are gone at the
    * source: a binding that cannot be followed is not offered as a button.
    */
-  const followBinding = useCallback((binding: ResourceBinding) => {
+  const followBinding = useCallback((binding: Pick<ResourceBinding, "kind" | "targetId" | "target">, { allowModal = false }: { allowModal?: boolean } = {}) => {
     if (binding.kind === "incident" && binding.targetId) {
       if (!filteredOperations.some((op) => op.id === binding.targetId)) setSearchQuery('')
       scrollToCard(binding.targetId)
-      // …and open it. «Wo ist die Motorsäge?» is answered by the card, but the
-      // operator asked in order to look at it. No modal on a narrow viewport:
-      // that would cover the resource list they are working through.
-      openIncidentDetail(binding.targetId, undefined, undefined, { allowModal: false })
+      // …and open it, on the tab of the binding's role. «Wo ist die Motorsäge?»
+      // is answered by the card, but the operator asked in order to look at it.
+      // No modal on a narrow viewport unless the caller allows it: from the
+      // sidebar it would cover the resource list they are working through.
+      openIncidentDetail(binding.targetId, binding.target?.tab, binding.target?.section, { allowModal })
     } else if (binding.kind === "route" && binding.targetId) {
       setAuftraegeFocusGroupId(binding.targetId)
       setActiveFooterSheet('auftraege')
@@ -176,32 +205,30 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   /**
    * A sidebar person row answers «wo ist diese Person?» — always.
    *
-   * Every early return here used to be a click that did nothing: a free person
-   * failed the occupancy gate, and an occupied one with no listable binding (the
-   * Reko-Offizier who is not on an incident yet) fell through the second. The
-   * popover now opens in both cases and says so in words; only the one-incident
-   * shortcut still jumps straight to the card, which is what operators know.
+   * The click always opens the person popover, one place or many (owner pick A,
+   * 24.11.2026): the one-place shortcut jumped to the card and skipped what the popover
+   * offers (functions, Abmelden). The popover's place row still links
+   * to the card. Material rows keep their jump (`handleMaterialClick` in app/page.tsx).
    */
-  const handlePersonClick = (person: Person) => {
-    const bindings = collectPersonBindings(person)
-    const only = soleDestination(bindings)
-    if (only) {
-      followBinding(only)
-      return
-    }
-    setBindingsPopover({
-      kind: "person",
-      id: person.id,
-      title: person.name,
-      subtitle: person.role ?? "",
-      bindings,
-    })
+  const handlePersonClick = (person: Pick<Person, "id">) => {
+    setBindingsPopover({ kind: "person", id: person.id })
   }
 
+  /**
+   * Dienstzeiten «Jetzt» (UX.14): follow the place that line names (`personNowLink`). The sheet
+   * closes, so the modal may open on a narrow desktop: there is no list left to cover.
+   */
+  const followPersonNow = useCallback((link: PersonNowLink) => {
+    setActiveFooterSheet(null)
+    followBinding(link, { allowModal: true })
+  }, [followBinding, setActiveFooterSheet])
+
   return {
+    collectPersonPlaces,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
+    followPersonNow,
     handlePersonClick,
   }
 }

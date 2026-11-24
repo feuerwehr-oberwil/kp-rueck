@@ -388,6 +388,27 @@ def material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
     ]
 
 
+def left_on_site_assignment_ids(report: SchadenplatzReport | None) -> list[uuid.UUID]:
+    """The board assignments a FILED rapport marks «vor Ort verblieben», in checklist order.
+
+    The one test for "the crew says this unit is still at the address": the Restliste
+    (``crud/feld/material.event_restliste``) reads it, and «Abgeholt»
+    (``crud/assignments.collect_material``) rechecks it before it releases. Empty for no
+    rapport or a draft. Consumables are NOT filtered here – that needs the Material row.
+    """
+    if report is None or report.is_draft:
+        return []
+    ids: list[uuid.UUID] = []
+    for row in material_checklist_rows(report):
+        if not row.get("left_on_site"):
+            continue
+        try:
+            ids.append(uuid.UUID(str(row.get("assignment_id"))))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
 def extra_material_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
     """ "Weiteres gebrauchtes Material" as ``{name, left_on_site}`` rows (§18.35).
 
@@ -645,30 +666,44 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
         Erfasst von Muster Hans (Feld), 08.08.2026 19:22
         Ergänzt im KP durch B. Eichenberger (Funkmeldung), 08.08.2026 19:41
 
-    A report the KP both created and submitted stamps the same user in both
-    columns; that is one act, not two, and prints as one line.
+    The filing line names who FILED it (draft → filed): ``submitted_by_user_id`` for a KP
+    save, else the crew's ``submitted_by_personnel_id`` – not whoever opened the draft (Sol
+    review G round 2, S4). A draft has no filer yet and names its opener as before. The
+    filer's own save prints once – unless that user edited it again after the filing
+    (`updated_by_user_at` past `submitted_at`). A crew-filed report prints the KP's edit
+    whoever opened the draft (Sol review G, S7). Every single edit, field or KP, is in the
+    incident's Chronik (`reko_history`), not here.
     """
     lines: list[str] = []
-    if report.submitted_by_personnel_id:
+    if report.is_draft:
+        filed_by_user = None if report.submitted_by_personnel_id else report.created_by_user_id
+    else:
+        filed_by_user = report.submitted_by_user_id
+    if filed_by_user:
+        lines.append(
+            LABELS["reko_filed_kp"].format(
+                name=_user_display(data, filed_by_user) or LABELS["rapport_unknown_person"],
+                at=_fmt_dt(report.submitted_at),
+            )
+        )
+    elif report.submitted_by_personnel_id:
         lines.append(
             LABELS["reko_filed_field"].format(
                 name=_personnel_display(data, report.submitted_by_personnel_id),
                 at=_fmt_dt(report.submitted_at),
             )
         )
-    elif report.created_by_user_id:
-        lines.append(
-            LABELS["reko_filed_kp"].format(
-                name=_user_display(data, report.created_by_user_id) or LABELS["rapport_unknown_person"],
-                at=_fmt_dt(report.submitted_at),
-            )
-        )
 
-    if report.updated_by_user_id and report.updated_by_user_id != report.created_by_user_id:
+    # The KP's own time: the field edits the same report and moves `updated_at`.
+    amended_at = report.updated_by_user_at or report.updated_at
+    if report.updated_by_user_id and (
+        report.updated_by_user_id != filed_by_user
+        or (report.submitted_at is not None and amended_at is not None and amended_at > report.submitted_at)
+    ):
         lines.append(
             LABELS["reko_amended_kp"].format(
                 name=_user_display(data, report.updated_by_user_id) or LABELS["rapport_unknown_person"],
-                at=_fmt_dt(report.updated_at),
+                at=_fmt_dt(amended_at),
             )
         )
     return [_tidy(line) for line in lines]

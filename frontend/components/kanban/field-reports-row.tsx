@@ -16,7 +16,11 @@
  * into, and clearing it is a real KP action (the chip does the same job on the
  * card and in the Restliste).
  *
- * **"Reko vor Ort" joins it here, and ONLY here** (plan 26, decision 15). The
+ * The card's right-click menu and the Übersicht's «Funkmeldungen» chips
+ * (`FieldReportFlags`) set the same two flags through the same writes – no
+ * time, no note; those stay here.
+ *
+ * **"Reko vor Ort" joins it here** (plan 26, decision 15). The
  * Reko block used to render its own "vor Ort seit …" line; that line is gone,
  * not linked, because a fact displayed in two places is a fact that will
  * disagree with itself. Same reason it is a control and not just a reading: over
@@ -42,7 +46,10 @@ import { cn } from '@/lib/utils'
 import { DETAIL_CONTROL_INDENT, DetailGroupHeading } from '@/components/kanban/detail-field'
 import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
-import { useOperations, type Operation } from '@/lib/contexts/operations-context'
+import type { Operation } from '@/lib/contexts/operations-context'
+import { useGroups } from '@/lib/contexts/groups-context'
+import { useFieldReportWrites } from '@/lib/hooks/use-field-report-writes'
+import { operationVehicleOnSite } from '@/lib/vehicle-on-site'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
@@ -66,44 +73,36 @@ type Row = 'rekoArrived' | 'pickup'
 
 export function FieldReportsRow({ operation, canEdit = true, only }: FieldReportsRowProps) {
   const t = useTranslations('feld.kp')
-  const { refreshOperations } = useOperations()
   const { personnel } = usePersonnel()
+  const { groups, getGroupResources } = useGroups()
   const [saving, setSaving] = useState<Row | null>(null)
+  // While a vehicle stands on site the crew most likely drives back itself: the
+  // pickup row names it. A hint, not a lock – the pill may be wrong (owner,
+  // 23.11.2026, #7).
+  const onSite = operationVehicleOnSite(operation, groups, getGroupResources)
   const [note, setNote] = useState(operation.pickupNote ?? '')
 
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
 
+  // The same writes as the card's right-click menu (`useFieldReportWrites`).
+  const writes = useFieldReportWrites()
   const save = useCallback(
     async (row: Row, update: ApiFieldReportUpdate) => {
       setSaving(row)
-      try {
-        await apiClient.setIncidentFieldReport(operation.id, update)
-        await refreshOperations()
-      } catch (error) {
-        console.error('Failed to save field report:', error)
-        toast.error(t('saveFailed'))
-      } finally {
-        setSaving(null)
-      }
+      await writes.saveFieldReport(operation.id, update)
+      setSaving(null)
     },
-    [operation.id, refreshOperations, t],
+    [operation.id, writes],
   )
 
   /** "Reko meldet: vor Ort" — a different table, the same gesture. */
   const saveRekoArrived = useCallback(
     async (at: string | null | undefined) => {
       setSaving('rekoArrived')
-      try {
-        await apiClient.setRekoArrived(operation.id, at)
-        await refreshOperations()
-      } catch (error) {
-        console.error('Failed to save reko arrival:', error)
-        toast.error(t('saveFailed'))
-      } finally {
-        setSaving(null)
-      }
+      await writes.saveRekoArrived(operation.id, at)
+      setSaving(null)
     },
-    [operation.id, refreshOperations, t],
+    [operation.id, writes],
   )
 
   /**
@@ -164,6 +163,18 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       at: operation.pickupRequestedAt,
       on: Boolean(operation.pickupNeeded),
       by: operation.pickupRequestedBy,
+      // The «bleibt vor Ort» pill only suggests (owner 23.11.2026: the KP forgets the pill
+      // or leaves a vehicle assigned). Off: a hint that the crew has a vehicle. On while
+      // the pill says a vehicle is there: flag the mismatch, so the KP checks one of them.
+      ...(onSite
+        ? {
+            line: operation.pickupNeeded
+              ? [provenance(operation.pickupRequestedAt, operation.pickupRequestedBy), t('pickupDespiteVehicle', { vehicle: onSite })]
+                  .filter(Boolean)
+                  .join(' · ')
+              : t('pickupVehicleOnSite', { vehicle: onSite }),
+          }
+        : {}),
       onToggle: checked => save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.pickupRequestedAt, time)

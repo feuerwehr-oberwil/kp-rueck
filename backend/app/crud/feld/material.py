@@ -23,6 +23,7 @@ from ...models import (
 from ...schemas.feld import RapportMaterialDecision
 from ...services.incident_dispatch import dispatched_incident_ids, rapport_applies, reko_not_relevant_ids
 from ...services.incident_display import get_home_city, location_display
+from ...services.rapport_rows import left_on_site_assignment_ids
 from .rapport import _board_material_units, _names
 from .rapport_reconcile import (
     _is_answered,
@@ -180,15 +181,7 @@ async def event_restliste(db: AsyncSession, event_id: uuid.UUID) -> dict[str, An
                     "tracked": False,
                 }
             )
-        if not report.materials_json:
-            continue
-        for raw in report.materials_json:
-            if not isinstance(raw, dict) or not raw.get("left_on_site"):
-                continue
-            try:
-                assignment_id = uuid.UUID(str(raw.get("assignment_id")))
-            except (TypeError, ValueError):
-                continue
+        for assignment_id in left_on_site_assignment_ids(report):
             unit = active_units.get(assignment_id)
             if unit is None:
                 continue

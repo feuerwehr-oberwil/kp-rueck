@@ -2,8 +2,9 @@
 
 /**
  * The Personen-Leiste: who is checked in for this Ereignis, «Frei» above
- * «Gebunden», with its search, the «nur verfügbare» filter, the check-in QR
- * for an empty roster, and the availability counter at the foot.
+ * «Gebunden» (or one flat list by Grad or name), with its search, the «Filter &
+ * Sortierung» popover (`personnel-filter.tsx`, rule in `lib/personnel-view.ts`),
+ * the check-in QR for an empty roster, and the availability counter at the foot.
  *
  * Presentational: the board page owns every value and handler and passes them
  * in under the names it uses itself, so this JSX is the page's, moved verbatim
@@ -11,7 +12,7 @@
  * on the same element as before.
  */
 
-import { useMemo, type Dispatch, type SetStateAction } from "react"
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy, Users } from "lucide-react"
@@ -25,13 +26,21 @@ import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DiveraIncomingBlock } from "@/components/kanban/divera-incoming-block"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
-import { AvailableOnlyToggle, BindingsPopoverBody, SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { PersonPopoverBody, type PersonPopoverBodyProps } from "@/components/board/person-popover"
+import { PersonnelFilterButton, PersonnelFilterSummary } from "@/components/board/personnel-filter"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
 import type { Person } from "@/lib/contexts/operations-context"
 import type { DoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
-import type { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
-import type { summarizeRoster } from "@/lib/resource-status"
+import {
+  activeFilterCount,
+  DEFAULT_PERSONNEL_VIEW,
+  personnelFacets,
+  viewPersonnel,
+  type PersonnelViewPrefs,
+} from "@/lib/personnel-view"
+import { summarizeRoster } from "@/lib/resource-status"
 
 export interface PersonnelSidebarProps {
   setShowLeftSidebar: Dispatch<SetStateAction<boolean>>
@@ -40,8 +49,9 @@ export interface PersonnelSidebarProps {
   /** The board's own search — cleared when it, not the sidebar's, hides everybody. */
   setSearchQuery: Dispatch<SetStateAction<string>>
   isMobile: boolean
-  personnelAvailableOnly: boolean
-  setPersonnelAvailableOnly: Dispatch<SetStateAction<boolean>>
+  /** «Filter & Sortierung», remembered per browser by the board page. */
+  personnelView: PersonnelViewPrefs
+  setPersonnelView: Dispatch<SetStateAction<PersonnelViewPrefs>>
   isLoaded: boolean
   /** Loaded and failed with nothing ever shown — see `boardNeverLoaded` in the operations context. */
   boardNeverLoaded: boolean
@@ -49,19 +59,22 @@ export interface PersonnelSidebarProps {
   checkInUrl: string | null
   copied: boolean
   copyCheckInUrlToClipboard: () => void
+  /** Who the search left; the filters narrow this further (`viewPersonnel`). */
   filteredPersonnel: Person[]
   effectivePersonnelQuery: string
-  availabilityGroupedPersonnel: ReturnType<typeof useResourceFiltering>["availabilityGroupedPersonnel"]
   bindingsPopover: BindingsPopoverState | null
   setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
   handlePersonClick: (person: Person) => void
+  /** A person's Einsätze and Aufträge, for the popover (`useResourceBindings`). */
+  collectPersonPlaces: (person: Person) => ResourceBinding[]
+  /** The board's release-with-undo, so an untick in the popover gets the usual toast. */
+  release: PersonPopoverBodyProps["release"]
   doubleBookedPersons: DoubleBookedPersons
   personEngagements: Map<string, PersonEngagement>
   followBinding: (binding: ResourceBinding) => void
-  rosterSummary: ReturnType<typeof summarizeRoster>
   /** The Ereignis whose Divera «Anrückend» block shows on top (absent without Divera). */
   eventId: string | null
-  /** Editors get the one-click check-in on those rows. */
+  /** Editors get the one-click check-in on those rows, and change things in the person popover. */
   canCheckIn: boolean
   onDiveraCheckIn: (personnelId: string) => Promise<void>
   /** Opens the Dienstzeiten overview. */
@@ -95,8 +108,8 @@ export function PersonnelSidebar({
   setPersonnelSearchQuery,
   setSearchQuery,
   isMobile,
-  personnelAvailableOnly,
-  setPersonnelAvailableOnly,
+  personnelView,
+  setPersonnelView,
   isLoaded,
   boardNeverLoaded,
   personnel,
@@ -105,14 +118,14 @@ export function PersonnelSidebar({
   copyCheckInUrlToClipboard,
   filteredPersonnel,
   effectivePersonnelQuery,
-  availabilityGroupedPersonnel,
   bindingsPopover,
   setBindingsPopover,
   handlePersonClick,
+  collectPersonPlaces,
+  release,
   doubleBookedPersons,
   personEngagements,
   followBinding,
-  rosterSummary,
   eventId,
   canCheckIn,
   onDiveraCheckIn,
@@ -121,8 +134,34 @@ export function PersonnelSidebar({
 }: PersonnelSidebarProps) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
+  // The popover's check-out question, per person and Ereignis: held here, above the
+  // «Frei» / «Gebunden» groups, so it survives the move a refused check-out causes.
+  const [confirmOutFor, setConfirmOutFor] = useState<string | null>(null)
+  const closePopover = () => {
+    setBindingsPopover(null)
+    setConfirmOutFor(null)
+  }
   // Everybody in this list is checked in; who checked out again the backend flags (`attended`).
   const checkedInIds = useMemo(() => new Set(personnel.map((person) => person.id)), [personnel])
+  const { shown, layout } = useMemo(() => viewPersonnel(filteredPersonnel, personnelView), [filteredPersonnel, personnelView])
+  const facets = useMemo(() => personnelFacets(filteredPersonnel, personnelView), [filteredPersonnel, personnelView])
+  // The counter reads what is on screen, from the same predicate the list is split with.
+  const shownSummary = useMemo(() => summarizeRoster(shown), [shown])
+  const filtering = activeFilterCount(personnelView) > 0
+  const resetView = () => setPersonnelView(DEFAULT_PERSONNEL_VIEW)
+  const filterButtonRef = useRef<HTMLButtonElement>(null)
+  const groups = layout.kind === 'grouped'
+    ? [
+        { key: 'free', heading: tDash('groupFree', { count: layout.free.length }), people: layout.free },
+        { key: 'bound', heading: tDash('groupBound', { count: layout.bound.length }), people: layout.bound },
+      ]
+    : [{
+        key: 'flat',
+        heading: filtering
+          ? tDash('personnelFilter.groupFiltered', { count: layout.people.length })
+          : tDash('personnelFilter.groupAll', { count: layout.people.length }),
+        people: layout.people,
+      }]
   return (
       // Sized and layered by its SlideRail (app/page.tsx): no width, z-index or backdrop-blur of
       // its own – a stacking context here would put the collapse handle under the resize grip.
@@ -138,7 +177,9 @@ export function PersonnelSidebar({
           </button>
         </ShortcutTooltip>
         {/* Search. px-2 / gap-1 (both sidebars): with px-3 the field was 6px too narrow for
-            «Personal suchen …» beside its P hint and the toggle (overflow sweep, 03.10.). */}
+            «Personal suchen …» beside its P hint and the filter button (overflow sweep, 03.10.).
+            The filter button with its count («≡ 2») took the rest: «Person suchen …», the
+            assignment dialog's words (sign-off 24.11.2026). */}
         <div className="flex items-center gap-1 px-2 pt-3 pb-2">
           <SearchInput
             id="personnel-search-input"
@@ -150,12 +191,16 @@ export function PersonnelSidebar({
             className="h-8 text-sm"
             hint={!isMobile ? <Kbd>P</Kbd> : undefined}
           />
-          <AvailableOnlyToggle
-            active={personnelAvailableOnly}
-            onToggle={() => setPersonnelAvailableOnly((v) => !v)}
-            label={personnelAvailableOnly ? tDash('showAll') : tDash('showAvailableOnly')}
+          <PersonnelFilterButton
+            prefs={personnelView}
+            onChange={setPersonnelView}
+            facets={facets}
+            shown={shown.length}
+            total={personnel.length}
+            buttonRef={filterButtonRef}
           />
         </div>
+        <PersonnelFilterSummary prefs={personnelView} onReset={resetView} buttonRef={filterButtonRef} />
         {/* Scrollable content. No bottom padding: the `ScrollEndFade` closing it is
             the end room (24px), and while more is below it fades the list into the
             sidebar above the counter – a row cut by the footer used to look like the
@@ -221,13 +266,14 @@ export function PersonnelSidebar({
                 </div>
               ) : null}
             </div>
-          ) : filteredPersonnel.length === 0 ? (
+          ) : shown.length === 0 ? (
             /* Nothing to list although people ARE checked in: the search or
-               the «nur Verfügbare» filter is hiding all of them. Which of
-               the two it is decides what the way out is, so it decides the
-               wording — a search that matches nothing used to leave a blank
-               box under a footer still claiming «10/17». */
-            effectivePersonnelQuery ? (
+               the filters are hiding all of them. Which of the two it is
+               decides what the way out is, so it decides the wording — a
+               search that matches nothing used to leave a blank box under a
+               footer still claiming «10/17». The search goes first: when it
+               alone leaves nobody, resetting the filters would change nothing. */
+            filteredPersonnel.length === 0 ? (
               <SidebarEmpty
                 message={tDash.rich('noPersonnelMatch', {
                   query: effectivePersonnelQuery,
@@ -245,37 +291,31 @@ export function PersonnelSidebar({
               />
             ) : (
               <SidebarEmpty
-                message={tDash('noneAvailableFiltered')}
-                action={tDash('showAll')}
-                onAction={() => setPersonnelAvailableOnly(false)}
+                message={tDash('personnelFilter.none')}
+                action={tDash('sidebarFilter.resetAll')}
+                onAction={resetView}
               />
             )
           ) : (
             <div className="space-y-4">
-              {/* Frei first, Gebunden second — the sidebar's first job is
-                  «wen kann ich noch schicken?», so availability is the
-                  structure and rank is a suffix on the row. Caps, so a
-                  heading can never read as a person. */}
-              {([
-                ['free', availabilityGroupedPersonnel.free],
-                ['bound', availabilityGroupedPersonnel.bound],
-              ] as const).map(([kind, people]) => people.length === 0 ? null : (
-                <div key={kind}>
-                  <h3 className="mb-1 type-label text-muted-foreground">
-                    {kind === 'free'
-                      ? tDash('groupFree', { count: people.length })
-                      : tDash('groupBound', { count: people.length })}
-                  </h3>
+              {/* By default Frei first, Gebunden second — the sidebar's first
+                  job is «wen kann ich noch schicken?», so availability is the
+                  structure and rank is a suffix on the row. Sorted by Grad or
+                  name it is one flat list. Caps, so a heading can never read
+                  as a person. */}
+              {groups.map(({ key, heading, people }) => people.length === 0 ? null : (
+                <div key={key}>
+                  <h3 className="mb-1 type-label text-muted-foreground">{heading}</h3>
                   <div className="space-y-0.5">
                     {people.map((person) => (
                       /* The row answers where the person is — completely.
-                         An anchor rather than a trigger: the card keeps
-                         its own click handler, which decides between a
-                         direct jump and this list. */
+                         An anchor rather than a trigger: the row's click
+                         (`handlePersonClick`) opens this popover, one place
+                         or many. */
                       <Popover
                         key={person.id}
                         open={bindingsPopover?.kind === 'person' && bindingsPopover.id === person.id}
-                        onOpenChange={(open) => { if (!open) setBindingsPopover(null) }}
+                        onOpenChange={(open) => { if (!open) closePopover() }}
                       >
                         <PopoverAnchor asChild>
                           <div>
@@ -287,14 +327,18 @@ export function PersonnelSidebar({
                             />
                           </div>
                         </PopoverAnchor>
-                        <PopoverContent align="start" side="right" className="w-80 p-3">
-                          {bindingsPopover && (
-                            <BindingsPopoverBody
-                              state={bindingsPopover}
-                              onGo={followBinding}
-                              onClose={() => setBindingsPopover(null)}
-                            />
-                          )}
+                        <PopoverContent align="start" side="right" className="w-80 p-2">
+                          <PersonPopoverBody
+                            person={person}
+                            places={collectPersonPlaces(person)}
+                            onGo={followBinding}
+                            onClose={closePopover}
+                            canEdit={canCheckIn}
+                            eventId={eventId}
+                            release={release}
+                            confirmOut={confirmOutFor === `${person.id}:${eventId}`}
+                            onConfirmOutChange={(open) => setConfirmOutFor(open ? `${person.id}:${eventId}` : null)}
+                          />
                         </PopoverContent>
                       </Popover>
                     ))}
@@ -314,12 +358,12 @@ export function PersonnelSidebar({
                 «0/0 verfügbar» before the roster had arrived and «10/17»
                 over a list showing nothing — both of them assertions about
                 the station that were not true at the moment they were made.
-                While loading it says nothing («–/–»); while a search is
-                narrowing the list it counts what is on screen. */}
+                While loading it says nothing («–/–»); while a search or a
+                filter is narrowing the list it counts what is on screen. */}
             {!isLoaded || boardNeverLoaded
               ? tCommon('counterLoading')
-              : effectivePersonnelQuery
-                ? tCommon('visibleCounter', { shown: filteredPersonnel.length, total: personnel.length })
+              : effectivePersonnelQuery || filtering
+                ? tCommon('visibleCounter', { shown: shown.length, total: personnel.length })
                 : null}
           </p>
           {/* One number and its counterpart, both from the SAME predicate
@@ -331,7 +375,7 @@ export function PersonnelSidebar({
               visible rows. Deliberately NOT broken down by function: this
               is the line read in half a second, not a statistic. */}
           {isLoaded && !boardNeverLoaded && !effectivePersonnelQuery && (
-            <SidebarCounter summary={rosterSummary} />
+            <SidebarCounter summary={shownSummary} />
           )}
           {/* The Appell (who is here – also where an empty roster is filled) and who is here
               for how long, the Dienstzeiten overview. Their own line: beside the counter they

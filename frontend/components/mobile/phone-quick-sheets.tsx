@@ -29,9 +29,11 @@ import { useOperations } from '@/lib/contexts/operations-context'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { useAuftragRoster } from '@/lib/hooks/use-auftrag-roster'
 import { usePersonEngagements } from '@/lib/hooks/use-person-engagements'
+import { usePersonPlaces } from '@/lib/hooks/use-person-matcher'
 import { usePrintBoard } from '@/lib/hooks/use-print-board'
 import { useStationCapabilities } from '@/lib/hooks/use-station-capabilities'
 import { getIncidentRefParts } from '@/lib/incident-types'
+import { personNowLink } from '@/lib/detail-target'
 
 export type PhoneQuickSheet = 'links' | 'attendance' | 'journal' | 'personnel' | 'crew' | 'vehicles' | 'print'
 
@@ -51,6 +53,7 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
   const { refreshPersonnel } = usePersonnel()
   const { navigateToIncident, settings } = useNotifications()
   const personEngagements = usePersonEngagements()
+  const personPlaces = usePersonPlaces()
   const { printerEnabled } = useStationCapabilities()
   const close = useCallback(() => onOpenChange(null), [onOpenChange])
   // A print queued a moment ago closes ITS sheet only: by the time the request answers the
@@ -116,6 +119,7 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
         onOpenChange={closes('personnel')}
         personnel={personnel}
         operations={operations}
+        places={personPlaces}
         onOpenCrewDuty={() => onOpenChange('crew')}
         onOpenIncident={(id) => {
           close()
@@ -130,6 +134,16 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={settings.fatigue_hours}
+        // «Jetzt» opens the phone Einsatz sheet on the block of the place its line names, as the
+        // desk's does. An Auftrag has no phone surface, so that line stays text.
+        openNowFor={(person) => {
+          const link = personNowLink(person, personEngagements.get(person.id), operations)
+          if (link?.kind !== 'incident') return undefined
+          return () => {
+            close()
+            navigateToIncident(link.targetId, link.target.tab, link.target.section)
+          }
+        }}
       />
       <VehicleStatusSheet open={open === 'vehicles'} onOpenChange={closes('vehicles')} eventId={eventId} />
       <PrintHubSheet

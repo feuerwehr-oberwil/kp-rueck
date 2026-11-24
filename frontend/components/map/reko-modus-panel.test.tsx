@@ -1,5 +1,5 @@
 /**
- * Reko-Modus panel (feedback 19.11.2026, #19 A): ONE Reko person in a dropdown – no tick boxes,
+ * Reko-Editor panel (feedback 19.11.2026, #19 A): ONE Reko person in a dropdown – no tick boxes,
  * since only one can be picked – and their open Rekos as a timeline the operator drags into order.
  * pragmatic-drag-and-drop is mocked to capture the reorder monitor (as in routen-editor-modal.test).
  */
@@ -91,6 +91,15 @@ describe("RekoModusPanel – one person", () => {
     await userEvent.setup().click(screen.getByRole("combobox", { name: "Reko-Person" }))
     expect(screen.getByRole("option", { name: /Keller Marco.*3 offen/ })).toBeInTheDocument()
     expect(screen.getByRole("option", { name: /Brunner Sarah.*frei/ })).toBeInTheDocument()
+  })
+})
+
+// VIS.13 / Sol review H: both rail modes exit with the one word «Fertig» (RailHeader), and
+// the button still names its mode for a screen reader – after the visible word (round 2).
+describe("RekoModusPanel – the exit", () => {
+  it("reads «Fertig» and is named «Fertig – Reko-Editor beenden»", () => {
+    renderPanel(null)
+    expect(screen.getByRole("button", { name: "Fertig – Reko-Editor beenden" })).toHaveTextContent("Fertig")
   })
 })
 

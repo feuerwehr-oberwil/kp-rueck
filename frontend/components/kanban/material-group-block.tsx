@@ -18,6 +18,7 @@ import { useMaterials, type MaterialGroup } from "@/lib/contexts/materials-conte
 import { useGroups } from "@/lib/contexts/groups-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { requestIncidentHighlight } from "@/lib/notification-highlight"
+import { RESOURCES_TARGET } from "@/lib/detail-target"
 import { cn } from "@/lib/utils"
 import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { ArrowRight, ArrowUpRight, ChevronDown, ChevronRight, Layers } from "lucide-react"
@@ -274,9 +275,10 @@ function useDeviceBindings(material: Material): DeviceBinding[] {
  */
 function followDeviceBinding(binding: DeviceBinding): void {
   if (binding.kind === 'incident') {
-    // A sidebar binding: open the card, but never behind a modal on a phone —
-    // that would bury the very list being worked through.
-    requestIncidentHighlight(binding.targetId, { allowModal: false })
+    // A sidebar binding: open the card on its Ressourcen (where the device is
+    // listed), but never behind a modal on a phone — that would bury the very
+    // list being worked through.
+    requestIncidentHighlight(binding.targetId, { ...RESOURCES_TARGET, allowModal: false })
     return
   }
   window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: binding.targetId } }))

@@ -12,10 +12,12 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from fastapi import Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport
+from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport, User
+from .assignments import unassign_resource
 from .locking import lock_resource
 from .manual_order import OrderChangedError, plan_manual_order
 
@@ -188,15 +190,14 @@ async def get_reko_assignments_for_personnel(
     Returns:
         List of incident dictionaries with Reko status and active flag
     """
-    # Verify personnel has reko function for this event
-    reko_check = await db.execute(
-        select(EventSpecialFunction).where(
-            EventSpecialFunction.event_id == event_id,
-            EventSpecialFunction.personnel_id == personnel_id,
-            EventSpecialFunction.function_type == "reko",
-        )
+    # Verify personnel has reko function for this event – an existence check: an old
+    # Ereignis can hold the same Reko role twice, and the handover must still work.
+    holds_reko = select(EventSpecialFunction.id).where(
+        EventSpecialFunction.event_id == event_id,
+        EventSpecialFunction.personnel_id == personnel_id,
+        EventSpecialFunction.function_type == "reko",
     )
-    if not reko_check.scalar_one_or_none():
+    if not await db.scalar(select(holds_reko.exists())):
         return []
 
     # Get all incident IDs for this event
@@ -313,35 +314,50 @@ async def unassign_reko_personnel_from_incident(
     db: AsyncSession,
     incident_id: uuid.UUID,
     personnel_id: uuid.UUID,
+    assignment_id: uuid.UUID | None = None,
+    current_user: User | None = None,
+    request: Request | None = None,
 ) -> bool:
     """
     Unassign a Reko personnel from an incident.
 
-    This is called after a Reko form is submitted to release the personnel.
+    Called by the board (chip ✕, person popover), by a Reko replacement and by the handover.
 
     Args:
         db: Database session
         incident_id: Incident UUID
         personnel_id: Personnel UUID
+        assignment_id: The row the board showed (its chip ✕, the person popover's tick).
+            Only that row goes, still active – without it, any active row of the person on
+            the incident, whatever its purpose: a crew row the board drew as Reko included.
+        current_user, request: for the audit entry of a crew row's release.
 
     Returns:
         True if unassignment was successful, False otherwise
     """
-    # Find the active assignment
-    result = await db.execute(
-        select(IncidentAssignment).where(
-            IncidentAssignment.incident_id == incident_id,
-            IncidentAssignment.resource_type == "personnel",
-            IncidentAssignment.resource_id == personnel_id,
-            IncidentAssignment.unassigned_at.is_(None),
-        )
+    # The incident first, like every release (crud/locking.py step 2), so the row read
+    # below stays what it is until this transaction ends.
+    await db.execute(select(Incident.id).where(Incident.id == incident_id).with_for_update())
+    query = select(IncidentAssignment).where(
+        IncidentAssignment.incident_id == incident_id,
+        IncidentAssignment.resource_type == "personnel",
+        IncidentAssignment.resource_id == personnel_id,
+        IncidentAssignment.unassigned_at.is_(None),
     )
+    if assignment_id is not None:
+        query = query.where(IncidentAssignment.id == assignment_id)
+    result = await db.execute(query.execution_options(populate_existing=True))
     assignment = result.scalar_one_or_none()
 
     if not assignment:
         return False
 
-    # Mark as unassigned
+    if assignment.purpose == "crew":
+        # A crew row the board drew as Reko: the crew release, which hands the
+        # Einsatzleiter role on and writes the audit entry.
+        await unassign_resource(db, assignment.id, current_user, request, incident_id=incident_id)
+        return True
+
     assignment.unassigned_at = datetime.now(UTC)
     await db.flush()
 

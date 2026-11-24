@@ -13,6 +13,10 @@ Vue principale au chargement de l’application. Affiche toutes les intervention
 
 **« 3 engins sur place » en tête de la barre du matériel.** Le matériel qu’une équipe a laissé quelque part est autrement invisible sur le tableau – il n’est ni libre ni visiblement en service. La liste dépliante indique l’engin, l’adresse et depuis quand, le plus ancien en haut ; un clic ouvre l’intervention correspondante. Elle n’apparaît que s’il y a réellement quelque chose dehors.
 
+**« Filtre et tri » à côté de la recherche du personnel.** Un bouton avec le nombre de filtres choisis ouvre d’abord le **Tri** – *Grade* (ordre des réglages), *Nom* (ces deux en une seule liste) ou *Libres d’abord* (par défaut, groupes Libres · Engagés) –, puis les filtres **Statut** (Tous · Libre · Engagé), **Grade** (l’un d’eux) et **Tags** (tous ceux choisis). Les filtres s’ajoutent à la recherche ; une ligne sous le champ de recherche les nomme, son ✕ remet tout à zéro. Mémorisé par appareil.
+
+**La même chose à côté de la recherche du matériel.** **Tri** : *Emplacement* (par défaut, les dépôts comme avant) ou *Type* (groupes par type, les dépôts à l’intérieur). Filtres : **Statut** (Tous · Libre · Engagé · Hors service), **Emplacement** et **Type** (l’un d’eux chacun). Résumé, ✕ et mémoire comme pour le personnel.
+
 **« Temps de service » au pied de la barre latérale du personnel.** Qui est là, depuis quand et combien il a déjà fait – toutes les personnes présentes, celle qui est là depuis le plus longtemps en haut. Colonnes : **Nom · Depuis · Présent · Engagé · Pause · Interventions · Actuellement**. *Présent* compte depuis l’arrivée (jaune à partir du réglage « Fatigue du personnel », 4 h par défaut, rouge à partir d’une fois et demie cette durée), *Engagé* le temps passé sur une intervention ou une mission, *Pause* le temps de présence sans intervention ni mission ; *Interventions* compte les interventions de cet événement (une mission une fois, un glisser annulé dans les deux minutes pas du tout). Un clic sur un en-tête de colonne trie selon celle-ci, un second clic inverse – « qui en a fait le plus, qui le moins » tient en un clic. **Tous · Libres · Engagés** et une recherche par nom ou lieu restreignent la liste. Aussi via `Cmd/Ctrl+K` et, sur le téléphone, dans la feuille Personnel (champ de recherche et un menu entonnoir qui contient aussi le tri). Une vue, pas un plan de service – personne n’est convoqué ni alarmé depuis ici.
 
 **« Rapports » dans la barre du bas (`O`).** Compte les places sinistrées terminées pour lesquelles aucun rapport de place sinistrée n’a encore été saisi, et ouvre la liste – **Ouverts** (le plus ancien en haut, car à la fin plus personne ne s’en souvient) et **Saisis**. Un clic sur une ligne saute à l’intervention.
@@ -41,7 +45,7 @@ Vue d’ensemble géographique de tous les lieux d’intervention. Les marqueurs
 
 **Clavier :** `L` étiquettes, `I` lignes, `1-5` afficher un véhicule – voir [Raccourcis clavier](#raccourcis-clavier).
 
-**Météo.** Le commutateur « Météo » du menu « Vue » (sur `/map` et sur la carte murale `/display/map`) place le radar des précipitations de MétéoSuisse sous tous les marqueurs et itinéraires. Le panneau en bas à gauche rejoue avec ▶ la dernière heure par pas de 5 minutes ; le curseur choisit une image et indique son âge (« il y a 40' »), avec l’opacité et l’échelle de couleurs. Les alertes officielles pour l’emplacement du corps – de MétéoSuisse et d’Alertswiss, p. ex. une interdiction cantonale de faire du feu – apparaissent comme pastille en haut à droite de la carte, même si le radar est éteint ; un toucher affiche le texte original avec la région, la validité et la source. Les données qui ne se mettent plus à jour apparaissent grisées avec leur heure (« Obsolète – état 17:05 ») au lieu de passer pour actuelles. La base est constituée des coordonnées sous Réglages → Général ; le serveur a besoin d’Internet pour cela.
+**Météo.** Le commutateur « Météo » du menu « Vue » (sur `/map` et sur la carte murale `/display/map`) place le radar des précipitations de MétéoSuisse sous tous les marqueurs et lignes de mission. Le panneau en bas à gauche rejoue avec ▶ la dernière heure par pas de 5 minutes ; le curseur choisit une image et indique son âge (« il y a 40' »), avec l’opacité et l’échelle de couleurs. Les alertes officielles pour l’emplacement du corps – de MétéoSuisse et d’Alertswiss, p. ex. une interdiction cantonale de faire du feu – apparaissent comme pastille en haut à droite de la carte, même si le radar est éteint ; un toucher affiche le texte original avec la région, la validité et la source. Les données qui ne se mettent plus à jour apparaissent grisées avec leur heure (« Obsolète – état 17:05 ») au lieu de passer pour actuelles. La base est constituée des coordonnées sous Réglages → Général ; le serveur a besoin d’Internet pour cela.
 
 ### Panneau latéral (kanban)
 Sur les écrans larges (>1280 px), un panneau latéral apparaît à droite avec les **détails** de l’intervention sélectionnée (édition de l’intervention). Se replie et se déplie avec `I` ou `\`. Il n’y a plus de mini-carte dans le panneau – la carte est une page à part (`G M`), et `K` y ouvre l’intervention sélectionnée.
@@ -137,7 +141,7 @@ En ligne de commande, `just tiles-status` distingue « uniquement les tuiles min
 
 ## Recherche
 
-La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. « haute », « En intervention »), texte de l’annonce et **nom de mission** ; « reko » ou « reconnaissance » trouve les interventions dont la reconnaissance est terminée – qui cherche l’itinéraire en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
+La barre de recherche (`S` ou `/`) parcourt toutes les interventions par adresse, genre, priorité et statut (tels qu’ils figurent sur la carte, p. ex. « haute », « En intervention »), texte de l’annonce et **nom de mission** ; « reko » ou « reconnaissance » trouve les interventions dont la reconnaissance est terminée – qui cherche la mission en trouve les étapes. Idéal pour retrouver rapidement la bonne carte quand il y a beaucoup d’interventions.
 
 Sur les pages d’affichage [Tableau](#tableau-displayboard) et [État](#état-displaystatus), la même recherche se trouve dans l’en-tête, avec les deux mêmes touches – qui passe du PC à l’écran mural n’a rien de second à retenir. Elle ne réagit pas tant qu’un champ a le curseur ou qu’une fenêtre est ouverte. Après 10 secondes sans souris ni touche, le champ de recherche et la flèche de retour s’estompent sur place (rien ne se déplace) ; le premier mouvement de souris ou `S` les fait revenir. Une recherche en cours reste affichée.
 
@@ -566,21 +570,21 @@ Il n’existe pas d’« archive » pour une intervention isolée – c’est l�
 
 ---
 
-## Missions (itinéraires à plusieurs étapes)
+## Missions (plusieurs étapes)
 
-Lors d’une **situation étendue** (p. ex. dégâts de tempête ou d’inondation avec beaucoup de petites interventions), **un seul groupe** parcourt souvent plusieurs places sinistrées l’une après l’autre. Une **mission** regroupe pour cela plusieurs interventions en un **itinéraire ordonné** destiné précisément à ce groupe – au lieu d’engager chaque intervention séparément, tu planifies toute la tournée comme un tout.
+Lors d’une **situation étendue** (p. ex. dégâts de tempête ou d’inondation avec beaucoup de petites interventions), **un seul groupe** parcourt souvent plusieurs places sinistrées l’une après l’autre. Une **mission** regroupe pour cela plusieurs interventions en **étapes ordonnées** destinées précisément à ce groupe – au lieu d’engager chaque intervention séparément, tu planifies toute la tournée comme un tout.
 
 Ouvrir avec la touche `A` ou via la barre **Missions** en bas de l’écran.
 
 ### Créer une mission et ajouter des étapes
 
-1. **Nouvelle mission** dans la barre des missions (choisir un nom et une couleur – la couleur identifie l’itinéraire sur le tableau et sur la carte).
+1. **Nouvelle mission** dans la barre des missions (choisir un nom et une couleur – la couleur identifie la mission sur le tableau et sur la carte).
 2. **Ajouter des étapes (interventions)** – trois chemins :
    - **Sélection d’interventions** (« + étape ») : choisir des interventions existantes dans une liste. Basculer sur **Carte** les montre géographiquement – cliquer sur un marqueur les sélectionne.
-   - **Carte** (`/map` → planification d’itinéraire) : cliquer sur un marqueur d’intervention ou sur un endroit libre.
+   - **Carte** (`/map` → éditeur de mission) : cliquer sur un marqueur d’intervention ou sur un endroit libre.
    - **Glisser-déposer** : faire glisser une carte d’intervention directement sur la mission.
 
-Une intervention qui appartient déjà à une autre mission est **déplacée** lors de l’ajout (une intervention appartient au plus à un itinéraire).
+Une intervention qui appartient déjà à une autre mission est **déplacée** lors de l’ajout (une intervention appartient au plus à une mission).
 
 ### Ordres standard
 
@@ -595,9 +599,9 @@ Deux choix délibérés : un véhicule enregistré est attribué **même s’il 
 
 Une mission issue d’un modèle est ensuite une mission ordinaire – modifier ou supprimer le modèle plus tard n’a **aucun** effet rétroactif sur les situations en cours.
 
-### Ressources propres à l’itinéraire
+### Ressources propres à la mission
 
-Le modèle de base : **une mission est une unité unique qui parcourt tout l’itinéraire de manière autonome** – nous ne faisons que guider ce groupe d’étape en étape.
+Le modèle de base : **une mission est une unité unique qui parcourt toutes les étapes de manière autonome** – nous ne faisons que guider ce groupe d’étape en étape.
 
 Il en découle :
 
@@ -605,10 +609,10 @@ Il en découle :
 - Une intervention est **entièrement dans la mission ou pas du tout** – il n’y a pas de « à moitié dedans ». Des ressources supplémentaires pour une seule étape (à moitié dans la mission) ne sont **pas** prises en charge. Si une place sinistrée a besoin de son propre groupe avec son propre matériel, elle n’a pas sa place dans cette mission : elle reste une intervention autonome (ou entre dans une deuxième mission).
 - Les ressources sont **libérées automatiquement lorsque la dernière étape est clôturée**.
 
-### Planifier et optimiser l’itinéraire
+### Planifier et optimiser la mission
 
-- **Éditeur d’itinéraire** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne d’itinéraire, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer ou par le **⋮** de l’étape (**Monter**, **Descendre**, **Placer au début** – de même dans la barre des missions). Le **statut d’une étape** est écrit en toutes lettres sur un bouton ; un clic ouvre le choix de tous les statuts et ne change rien de lui-même. Enfin, ajouter de nouvelles étapes par un clic sur la carte.
-- **Planification d’itinéraire** sur `/map` : la même planification sur la grande carte plein écran. Le panneau de droite présente l’ordre sous forme de **frise** : en haut le départ avec sa provenance (« Départ · Caserne » – l’emplacement défini dans les réglages ou, s’il n’y en a pas, « position de secours » ; après une optimisation, le départ réellement utilisé, p. ex. le GPS du véhicule avec l’heure du dernier signal), en dessous les étapes avec **les mêmes numéros que leurs repères sur la carte**, et pour finir « Ajouter une étape ». Les adresses longues passent à la ligne au lieu d’être coupées.
+- **Éditeur de mission** (dans la barre des missions) : grande carte avec les étapes numérotées et la ligne de mission, à côté de la liste ordonnée des étapes. Réordonner les étapes par glisser-déposer ou par le **⋮** de l’étape (**Monter**, **Descendre**, **Placer au début** – de même dans la barre des missions). Le **statut d’une étape** est écrit en toutes lettres sur un bouton ; un clic ouvre le choix de tous les statuts et ne change rien de lui-même. Enfin, ajouter de nouvelles étapes par un clic sur la carte.
+- **Éditeur de mission** sur `/map` : la même planification sur la grande carte plein écran. Le panneau de droite présente l’ordre sous forme de **frise** : en haut le départ avec sa provenance (« Départ · Caserne » – l’emplacement défini dans les réglages ou, s’il n’y en a pas, « position de secours » ; après une optimisation, le départ réellement utilisé, p. ex. le GPS du véhicule avec l’heure du dernier signal), en dessous les étapes avec **les mêmes numéros que leurs repères sur la carte**, et pour finir « Ajouter une étape ». Les adresses longues passent à la ligne au lieu d’être coupées.
 - **Largeur du panneau :** les barres latérales s’élargissent ou se rétrécissent en tirant sur leur bord – celle de la planification aussi. Un double-clic sur le bord rétablit la largeur par défaut ; la largeur est mémorisée par appareil.
 - **Optimiser l’ordre** : propose, par heuristique du plus proche voisin et **à vol d’oiseau**, un ordre court à partir d’un point de départ (**caserne**, **GPS du véhicule** ou **première étape**) – le menu indique d’abord, pour chaque point de départ, d’où il vient et de quand il date. La proposition s’applique aussitôt ; **Annuler** dans le message rétablit l’ancien ordre tant que personne n’a modifié la mission entre-temps. Il faut au moins deux étapes avec coordonnées. Une aide à la planification, pas un itinéraire routier.
 
@@ -618,17 +622,17 @@ Une mission est **attribuée une fois, pas à nouveau à chaque étape**. L’ap
 
 - **La première étape qui passe sur « Engagé » constitue l’attribution de la mission.** Le message nomme la mission entière : effectif, véhicules et matériel d’abord, puis la liste numérotée de toutes les étapes.
 - **Chaque étape suivante est une continuation** et n’est annoncée que brièvement : « Mission ‹ Bois de tempête Oberwil ›, suite à l’étape 3 : Mühlemattstrasse 12. » L’effectif n’est pas relu une seconde fois.
-- **Si l’itinéraire reçoit entre-temps de l’effectif, un véhicule ou du matériel**, le message complet est repris – celui qui vient d’arriver n’a jamais entendu la mission.
+- **Si la mission reçoit entre-temps de l’effectif, un véhicule ou du matériel**, le message complet est repris – celui qui vient d’arriver n’a jamais entendu la mission.
 
 **Les étapes faites disparaissent de la liste mais conservent leur numéro.** Une fois l’étape 1 traitée, on dit « 2 étapes : 2. …, 3. … ». Ainsi « étape 3 » désigne la même adresse pendant toute la durée de vie de la mission.
 
 **Les particularités** (dangers issus de la reconnaissance, entraide) figurent regroupées à la fin, chacune avec son adresse – et non éparpillées entre les étapes.
 
-**Répéter le message :** le trafic radio se perd. Dans la barre des missions, chaque mission dispose du bouton **Répéter le message** (dans la mission dépliée, à côté de « Éditeur d’itinéraire », ainsi que dans le menu ⋮ et par clic droit). Il affiche à nouveau le dernier message diffusé, mot pour mot – sans devoir rouvrir une fenêtre d’étape et sans le recompter.
+**Répéter le message :** le trafic radio se perd. Dans la barre des missions, chaque mission dispose du bouton **Répéter le message** (dans la mission dépliée, à côté de « Éditeur de mission », ainsi que dans le menu ⋮ et par clic droit). Il affiche à nouveau le dernier message diffusé, mot pour mot – sans devoir rouvrir une fenêtre d’étape et sans le recompter.
 
 ### Afficher sur la carte
 
-**Afficher les missions** sur `/map` dessine tous les itinéraires en lignes colorées avec des étapes numérotées. La coloration des marqueurs bascule automatiquement sur **Colorer par : mission**, de sorte que chaque intervention porte la couleur de son itinéraire (les interventions sans mission = « Aucune mission »).
+**Afficher les missions** sur `/map` dessine toutes les missions en lignes colorées avec des étapes numérotées. La coloration des marqueurs bascule automatiquement sur **Colorer par : mission**, de sorte que chaque intervention porte la couleur de sa mission (les interventions sans mission = « Aucune mission »).
 
 ---
 
@@ -642,11 +646,11 @@ Une mission est **attribuée une fois, pas à nouveau à chaque étape**. L’ap
 
 Seules les ressources disponibles (point vert) peuvent être attribuées. Un **anneau vide** signifie engagé (sur une intervention, une mission, une reconnaissance ou dans une fonction), un **point gris pâle** indisponible. Le jaune n’est pas un état : il veut dire « regarde » – moyenne, en attente, ouverte trop longtemps, attribuée deux fois.
 
-**Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource d’itinéraire est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
+**Annuler après une libération.** Quand une personne, un véhicule, du matériel, une étape de mission ou une ressource de mission est libéré, « … libéré · Annuler » apparaît. Annuler la réattribue par le chemin normal (avec les mêmes questions) ; si quelqu’un l’a placée ailleurs entre-temps, elle y reste, et le message dit où.
 
 **Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Libérer de l’intervention » rouge. À la souris, rien ne change.
 
-### Rôles spéciaux (clic droit sur une personne)
+### Rôles spéciaux (clic ou clic droit sur une personne)
 
 | Rôle | Signification |
 |-------|-----------|
@@ -655,6 +659,8 @@ Seules les ressources disponibles (point vert) peuvent être attribuées. Un **a
 | **Caserne** | Fourrier à la caserne. Coordonne la remise en état et le nettoyage du matériel. |
 
 Un nouveau clic droit retire l’attribution.
+
+**Un clic sur une personne dans la liste du personnel** ouvre une liste à cocher : en haut, coché, ce que la personne occupe (interventions, missions, fonctions), en dessous le reste. Cocher = attribuer, décocher = terminer (avec confirmation) ou libérer de l’intervention (avec « Annuler »). Un clic sur une intervention l’ouvre, « Conducteur › » choisit le véhicule. En bas : « Présent depuis … », **« Annoncer partant »** (qui est encore attribué reçoit la question de l’appel) et les heures prévues « dès » / « jusqu’à ». Qui n’est que sur une intervention saute directement à la carte, comme avant ; il reste alors le clic droit.
 
 **Conducteur : rentre-t-il ou reste-t-il sur place ?** Pour chaque véhicule attribué, un clic sur le badge du conducteur permet de basculer entre **rentre** et **reste sur place** après la livraison. Le réglage par défaut est « rentre » – dans ces interventions, nos véhicules ne doivent que faire la navette (livrer personnel et matériel puis redevenir disponibles) plutôt que de rester immobilisés sur le lieu d’intervention.
 
@@ -665,7 +671,7 @@ Pour qu’aucune étape ne soit oubliée dans les moments agités, le système a
 | Situation | Question |
 |-----------|---------|
 | **Attribuer un véhicule sans conducteur** | Le choix du conducteur apparaît directement à l’attribution – aussi pour une mission. Toucher une personne la coche, « Valider » en fait le conducteur ; le conducteur actuel porte « actuel », et le décocher propose « Sans conducteur ». « Annuler » laisse sciemment le véhicule sans conducteur ; la mission affiche alors « Pas de conducteur · Choisir un conducteur », et le texte d’engagement, le texte WhatsApp et l’impression A4 indiquent « sans conducteur ». |
-| **Véhicule déjà en intervention** (double affectation) | Un véhicule n’existe physiquement qu’une fois – lors d’une nouvelle attribution : **Déplacer ici** (le retirer des autres interventions) ou **Attribuer plusieurs fois** (conserver sciemment la double affectation). |
+| **Déjà en intervention** (double affectation) | Une personne, un véhicule ou un appareil n’existe qu’une fois – lors d’une nouvelle attribution, choisir une carte à la main : **Déplacer ici** (`D`, le retirer des autres interventions) ou **Tenir sur les deux** (`T`, conserver sciemment la double affectation). Entrée et Échap ne changent rien. |
 | **Vers la colonne Reconnaissance sans personne de reconnaissance** | Si une intervention est déplacée vers « Reconnaissance » sans qu’une personne de reconnaissance soit attribuée, le choix « Personne de reconnaissance pour … » s’ouvre aussitôt : choisir une personne et **Attribuer** – la carte reste en « Reconnaissance », la personne reçoit le formulaire. La ligne en pointillés « Déplacer sans personne de reconnaissance » laisse la carte sans attribution ; « Annuler » ou `Échap` la remet en place. |
 | **Vers « Reconnaissance terminée » sans rapport** | La carte attend et le formulaire « Rapport de reconnaissance · … » s’ouvre ; chaque champ est enregistré aussitôt. Le rapport est transmis avec la réponse à « Intervention pertinente ? » – c’est seulement ensuite que **Terminer la reconnaissance** déplace la carte en « Reconnaissance terminée ». Tant que la question est ouverte, « Terminer sans rapport » la déplace sans rapport ; ce qui a été saisi reste un brouillon. « Annuler » ou `Échap` laisse la carte où elle était. |
 | **Engager sans ressources** | S’il manque du **personnel, des véhicules ou des moyens** lors du passage à « Engagé » (les véhicules ne comptent pas en mode « à pied »), « Il manque des ressources » apparaît. Chaque ligne nomme ce qui est déjà là : l’équipe avec le CI en premier, chaque véhicule avec son conducteur et « reste sur place | rentre à la caserne » à basculer, le matériel par son nom ; « Ajouter » ouvre l’attribution. Là où il manque quelque chose, le choix recommandé est **Attribuer** – cela ouvre l’attribution puis mène directement à la fenêtre radio/alarme. Sans véhicule, la ligne propose aussi **À pied** : l’intervention est marquée « à pied », ce qui compte comme réponse. S’il manque encore du personnel ou un véhicule, le premier clic sur **Engager** demande confirmation (« Aucun véhicule – vraiment partir ainsi ? », la ligne passe au jaune) et le bouton devient « Engager sans véhicule » ; seul le deuxième clic (ou `Entrée`) engage sous-doté. **Retour** ou `Échap` annule la question. |
@@ -739,7 +745,7 @@ et les formulaires mobiles (terrain, reko, check-in), ils n’existent volontair
 |----------|--------|
 | `N` | Nouvelle intervention |
 | `Ctrl ↵` | Dans la fenêtre « Nouvelle intervention » : créer et saisir tout de suite la suivante |
-| `A` | Ouvrir/fermer les missions (itinéraires) |
+| `A` | Ouvrir/fermer les missions |
 | `S` / `/` | Mettre le focus sur la recherche |
 | `D` | Ouvrir/fermer Impression et export |
 | `T` | Ouvrir/fermer Liens & QR |

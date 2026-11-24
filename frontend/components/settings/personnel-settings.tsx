@@ -666,7 +666,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
         <DialogContent size="md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
-              {dialog.editing ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
+              {dialog.editing ? t('personnel.dialogEditTitle', { name: dialog.editing.name }) : t('personnel.dialogCreateTitle')}
             </DialogTitle>
           </DialogHeader>
           {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.
@@ -963,16 +963,15 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
 
               <div className="flex-shrink-0 space-y-3 border-t pt-3">
                 {isAdmin && syncPreview.not_in_divera.length > 0 && (
-                  <div className="flex items-center space-x-2 rounded-md border p-3">
+                  // The whole row is the label: the tap target on a phone (globals.css, 44px).
+                  <label htmlFor="remove-stale" className="flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm">
                     <Checkbox
                       id="remove-stale"
                       checked={removeStale}
                       onCheckedChange={(checked) => setRemoveStale(checked === true)}
                     />
-                    <label htmlFor="remove-stale" className="text-sm cursor-pointer">
-                      {t('personnel.removeStaleLabel', { count: syncPreview.not_in_divera.length })}
-                    </label>
-                  </div>
+                    {t('personnel.removeStaleLabel', { count: syncPreview.not_in_divera.length })}
+                  </label>
                 )}
 
                 <div className="flex justify-end gap-2">

@@ -450,6 +450,36 @@ async def _seed_history(db: AsyncSession, event: Event, user: User) -> Incident:
                 changes_json={"target_incident_id": str(inc.id)},
                 timestamp=at(4),
             ),
+            # «Wir fahren selbst» from the crew (23.11.2026): its own type, the crew's name
+            AuditLog(
+                action_type="field_pickup_cleared",
+                resource_type="incident",
+                resource_id=inc.id,
+                changes_json={
+                    "pickup_needed": False,
+                    "personnel_name": "Meier Anna",
+                    "self_drive": True,
+                    "source": "feld",
+                },
+                timestamp=at(55),
+            ),
+            # a vehicle fact a bell announced (services/vehicle_facts): the vehicle is the text
+            AuditLog(
+                action_type="vehicle_on_site",
+                resource_type="incident",
+                resource_id=inc.id,
+                changes_json={"vehicle_name": "TLF 1", "source": "gps", "assignment_id": str(uuid.uuid4())},
+                timestamp=at(7),
+            ),
+            # the Übung's «Lage verschärft» (api/training_simulate): the Lagemeldung is the text
+            AuditLog(
+                action_type="situation_escalated",
+                resource_type="incident",
+                resource_id=inc.id,
+                user_id=user.id,
+                changes_json={"text": "Wasser steigt", "source": "training"},
+                timestamp=at(8),
+            ),
             # the bell is not a source — neither for the hook nor for the backfill
             Notification(
                 type="vehicle_arrived",
@@ -467,8 +497,9 @@ async def _seed_history(db: AsyncSession, event: Event, user: User) -> Incident:
 
 
 # 2 created, status, 3 assignment lines, Reko + its arrival, 2 Meldungen, alarm,
-# arrival, pickup, a field request done, merge + merged_into
-ROWS_PER_HISTORY = 16
+# arrival, pickup, «fährt selbst», a vehicle on site, «Lage verschärft», a field request done,
+# merge + merged_into
+ROWS_PER_HISTORY = 19
 
 
 def _shape(rows: list[JournalEntry]) -> list[tuple]:

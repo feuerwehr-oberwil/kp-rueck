@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
+import type { VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
@@ -140,13 +141,18 @@ function AlertDialogDescription({
   )
 }
 
+type ButtonVariant = VariantProps<typeof buttonVariants>['variant']
+
+// Pick the look with `variant`, never by stacking `buttonVariants(...)` in `className`: the
+// merge keeps the base variant's `dark:` and text classes (dark text on the outline's dark fill).
 function AlertDialogAction({
   className,
+  variant = 'default',
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & { variant?: ButtonVariant }) {
   return (
     <AlertDialogPrimitive.Action
-      className={cn(buttonVariants(), className)}
+      className={cn(buttonVariants({ variant }), className)}
       {...props}
     />
   )
@@ -154,11 +160,12 @@ function AlertDialogAction({
 
 function AlertDialogCancel({
   className,
+  variant = 'outline',
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> & { variant?: ButtonVariant }) {
   return (
     <AlertDialogPrimitive.Cancel
-      className={cn(buttonVariants({ variant: 'outline' }), className)}
+      className={cn(buttonVariants({ variant }), className)}
       {...props}
     />
   )

@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl"
 import Link from "next/link"
 import {
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -11,10 +12,12 @@ import { Users, Package, Truck, Binoculars, Pencil, Map, Building2, Printer, Tim
 import { type Operation } from "@/lib/contexts/operations-context"
 import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
+import { takesAssignments } from "@/lib/assignable"
+import { useFieldReportWrites } from "@/lib/hooks/use-field-report-writes"
 
 interface CardContextMenuProps {
   operation: Operation
-  /** The Auftrag (route) this card is a stop of, if any — offers «Routen-Editor». */
+  /** The Auftrag (route) this card is a stop of, if any — offers «Auftrags-Editor». */
   auftragId?: string
   /** «Bearbeiten»: open the detail, untargeted. */
   onEdit: () => void
@@ -30,6 +33,11 @@ interface CardContextMenuProps {
   /** «Funkdurchsage wiederholen»: the Disponiert dialog again, for an Einsatz already out. */
   onRepeatRadio?: () => void
   printerEnabled?: boolean
+  /** Editors: the «Reko vor Ort» / «Abholung nötig» checkboxes (the Funkmeldungen). */
+  canReport?: boolean
+  /** The menu closed and is about to hand focus back to the card – the card opens its note
+   *  popover here instead (`preventDefault`), see draggable-operation.tsx. */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /** From «Disponiert» on, until it is closed, an Einsatz has a Funkdurchsage to repeat. */
@@ -39,7 +47,7 @@ const RADIO_REPEATABLE: ReadonlySet<Operation["status"]> = new Set(["enroute", "
  * The right-click menu of an Einsatz card. Rendered by `DraggableOperation` as
  * the content of its `<ContextMenu>`, next to the trigger that wraps the card.
  * A row shows only when its handler is passed – the board passes the editing
- * ones to editors only. The thermal-print action is `usePrintAssignmentSlip`.
+ * ones to editors only. «Zuweisen» and «Übertragen» hide on a closed Einsatz, «Übertragen» on a stop. The thermal-print action is `usePrintAssignmentSlip`.
  *
  * Re-renders with the card (not memoised), so it never shows a stale label.
  */
@@ -47,9 +55,9 @@ export function CardContextMenu({
   operation,
   auftragId,
   onEdit,
-  onAssignReko,
-  onAssignResource,
-  onTransfer,
+  onAssignReko: onAssignRekoProp,
+  onAssignResource: onAssignResourceProp,
+  onTransfer: onTransferProp,
   onDistributeToAuftrag,
   onToggleNachbarhilfe,
   onToggleAmWarten,
@@ -58,65 +66,78 @@ export function CardContextMenu({
   onMoveInColumn,
   onRepeatRadio,
   printerEnabled,
+  canReport,
+  onCloseAutoFocus,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
   const tReorder = useTranslations('common.reorder')
   const { print, printing: isPrinting } = usePrintAssignmentSlip()
   const handlePrint = () => void print(operation.id)
+  // A closed Einsatz takes no new assignment (lib/assignable.ts), is no transfer source
+  // (the server refuses it) and goes on no Auftrag; a stop is not transferred – its
+  // resources belong to its Auftrag («Aus Auftrag lösen» stays).
+  const open = takesAssignments(operation)
+  const onAssignReko = open ? onAssignRekoProp : undefined
+  const onAssignResource = open ? onAssignResourceProp : undefined
+  const onTransfer = open && !auftragId && !operation.groupId ? onTransferProp : undefined
+  const onDistribute = open ? onDistributeToAuftrag : undefined
+  // Opening the Routen-Editor at a stop changes nothing: a closed stop keeps it.
+  const canOpenRouteEditor = Boolean(auftragId && onDistributeToAuftrag)
 
   return (
     <ContextMenuContent
-      className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
+      className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-checkbox-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
       collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
+      onCloseAutoFocus={onCloseAutoFocus}
     >
       {/* Bearbeiten */}
       <ContextMenuItem onClick={() => onEdit()}>
-        <Pencil className="mr-2 h-4 w-4" />
+        <Pencil className="h-4 w-4" />
         {t('common.edit')}
       </ContextMenuItem>
 
       {/* Zuweisen — reko, crew, vehicle, material, and resource transfer */}
-      {(onAssignReko || onAssignResource || onTransfer || onDistributeToAuftrag) && (
+      {(onAssignReko || onAssignResource || onTransfer || onDistribute || canOpenRouteEditor) && (
         <>
           <ContextMenuSeparator />
           {onAssignReko && (
             <ContextMenuItem onClick={() => onAssignReko()}>
-              <Binoculars className="mr-2 h-4 w-4" />
+              <Binoculars className="h-4 w-4" />
               {operation.assignedReko ? t('card.changeReko') : t('card.assignReko')}
             </ContextMenuItem>
           )}
           {onAssignResource && (
             <>
               <ContextMenuItem onClick={() => onAssignResource('crew', operation.id)}>
-                <Users className="mr-2 h-4 w-4" />
+                <Users className="h-4 w-4" />
                 {t('common.assignCrew')}
               </ContextMenuItem>
               <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
-                <Truck className="mr-2 h-4 w-4" />
+                <Truck className="h-4 w-4" />
                 {t('common.assignVehicle')}
               </ContextMenuItem>
               <ContextMenuItem onClick={() => onAssignResource('materials', operation.id)}>
-                <Package className="mr-2 h-4 w-4" />
+                <Package className="h-4 w-4" />
                 {t('common.assignMaterial')}
               </ContextMenuItem>
             </>
           )}
           {onTransfer && (
             <ContextMenuItem onClick={() => onTransfer()}>
-              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              <ArrowRightLeft className="h-4 w-4" />
               {t('common.transferResources')}
             </ContextMenuItem>
           )}
-          {onDistributeToAuftrag && (
-            <ContextMenuItem onClick={() => onDistributeToAuftrag()}>
-              <Waypoints className="mr-2 h-4 w-4" />
+          {onDistribute && (
+            <ContextMenuItem onClick={() => onDistribute()}>
+              <Waypoints className="h-4 w-4" />
               {t('common.distributeToAuftrag')}
             </ContextMenuItem>
           )}
           {/* Only on cards that stand on a route, editor-gated like distribute.
               Same window-event channel as the Auftrag chip (no prop threading);
               the stop under the cursor arrives focused. */}
-          {auftragId && onDistributeToAuftrag && (
+          {canOpenRouteEditor && (
             <ContextMenuItem
               onClick={() =>
                 window.dispatchEvent(
@@ -126,10 +147,19 @@ export function CardContextMenu({
                 )
               }
             >
-              <Route className="mr-2 h-4 w-4" />
+              <Route className="h-4 w-4" />
               {t('common.openRoutenEditor')}
             </ContextMenuItem>
           )}
+        </>
+      )}
+
+      {/* Funkmeldungen (owner pick 4A, 24.11.2026): the two facts that arrive by radio,
+          ticked when set, writing the same fields as the switches on the Reko and Feld tabs. */}
+      {canReport && (
+        <>
+          <ContextMenuSeparator />
+          <FieldReportItems operation={operation} />
         </>
       )}
 
@@ -141,13 +171,13 @@ export function CardContextMenu({
           <ContextMenuSeparator />
           {onToggleNachbarhilfe && (
             <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
-              <Building2 className="mr-2 h-4 w-4" />
+              <Building2 className="h-4 w-4" />
               {operation.nachbarhilfe ? t('card.removeNachbarhilfe') : t('card.markNachbarhilfe')}
             </ContextMenuItem>
           )}
           {onToggleAmWarten && (
             <ContextMenuItem onClick={() => onToggleAmWarten()}>
-              <Timer className="mr-2 h-4 w-4" />
+              <Timer className="h-4 w-4" />
               {operation.amWarten ? t('card.removeAmWarten') : t('card.markAmWarten')}
             </ContextMenuItem>
           )}
@@ -165,11 +195,11 @@ export function CardContextMenu({
         <>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => onMoveInColumn('up')}>
-            <ArrowUp className="mr-2 h-4 w-4" />
+            <ArrowUp className="h-4 w-4" />
             {tReorder('moveUp')}
           </ContextMenuItem>
           <ContextMenuItem onClick={() => onMoveInColumn('down')}>
-            <ArrowDown className="mr-2 h-4 w-4" />
+            <ArrowDown className="h-4 w-4" />
             {tReorder('moveDown')}
           </ContextMenuItem>
         </>
@@ -178,13 +208,13 @@ export function CardContextMenu({
       {((onRequestComplete && operation.status !== "complete") || onRequestDelete) && <ContextMenuSeparator />}
       {onRequestComplete && operation.status !== "complete" && (
         <ContextMenuItem onClick={() => onRequestComplete()}>
-          <CheckCircle2 className="mr-2 h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4" />
           {t('card.completeIncident')}
         </ContextMenuItem>
       )}
       {onRequestDelete && (
         <ContextMenuItem variant="destructive" onClick={() => onRequestDelete()}>
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="h-4 w-4" />
           {t('card.deleteIncident')}
         </ContextMenuItem>
       )}
@@ -193,22 +223,58 @@ export function CardContextMenu({
       <ContextMenuSeparator />
       <ContextMenuItem asChild>
         <Link href={`/map?highlight=${operation.id}`}>
-          <Map className="mr-2 h-4 w-4" />
+          <Map className="h-4 w-4" />
           {t('card.showOnMapMenu')}
         </Link>
       </ContextMenuItem>
       {onRepeatRadio && RADIO_REPEATABLE.has(operation.status) && (
         <ContextMenuItem onClick={() => onRepeatRadio()}>
-          <Radio className="mr-2 h-4 w-4" />
+          <Radio className="h-4 w-4" />
           {t('card.repeatRadio')}
         </ContextMenuItem>
       )}
       {printerEnabled && (
         <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
-          <Printer className="mr-2 h-4 w-4" />
+          <Printer className="h-4 w-4" />
           {isPrinting ? t('card.printing') : t('common.printSlip')}
         </ContextMenuItem>
       )}
     </ContextMenuContent>
+  )
+}
+
+/**
+ * «Reko vor Ort» (only with a Reko assigned or already on site, named at the row's end) and
+ * «Abholung nötig». A component of its own so the writes' context lives only while the menu
+ * is open – the card itself is memoised and subscribes to nothing for them.
+ */
+function FieldReportItems({ operation }: { operation: Operation }) {
+  const t = useTranslations('feld.kp')
+  const { saveRekoArrived, saveFieldReport } = useFieldReportWrites()
+  const rekoOnSite = Boolean(operation.rekoArrivedAt)
+  return (
+    <>
+      {(operation.assignedReko || rekoOnSite) && (
+        <ContextMenuCheckboxItem
+          checked={rekoOnSite}
+          // Ticked = now (the Reko tab's switch does the same); unticked = cleared.
+          onCheckedChange={(checked) => void saveRekoArrived(operation.id, checked ? undefined : null)}
+        >
+          {t('rekoArrived')}
+          {operation.assignedReko?.name && (
+            <span className="ml-auto max-w-40 truncate pl-4 text-xs text-muted-foreground">{operation.assignedReko.name}</span>
+          )}
+        </ContextMenuCheckboxItem>
+      )}
+      <ContextMenuCheckboxItem
+        checked={Boolean(operation.pickupNeeded)}
+        // The Feld tab's write: a note the incident already carries rides along; off clears it.
+        onCheckedChange={(checked) =>
+          void saveFieldReport(operation.id, { pickup_needed: checked, pickup_note: checked ? operation.pickupNote || null : null })
+        }
+      >
+        {t('pickup')}
+      </ContextMenuCheckboxItem>
+    </>
   )
 }

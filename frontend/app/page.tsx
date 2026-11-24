@@ -18,7 +18,7 @@ import { LoadingStatus } from "@/components/ui/shell-loader"
 import { SearchInput } from "@/components/ui/search-input"
 import { EventClock } from "@/components/ui/event-clock"
 import { Plus, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, PanelRight } from 'lucide-react'
-import { materialResourceState, summarizeMaterials, summarizeRoster } from "@/lib/resource-status"
+import { materialResourceState, summarizeMaterials } from "@/lib/resource-status"
 import { Kbd } from "@/components/ui/kbd"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useBootGate } from "@/lib/boot-cover"
@@ -46,12 +46,13 @@ import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatc
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
+import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
 import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
 import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
 import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
-import { isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { isDetailSection, isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintBoard } from "@/lib/hooks/use-print-board"
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
@@ -61,7 +62,7 @@ import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
 import { BoardEdgeChipBar, useBoardEdgeOverflow } from "@/components/kanban/board-edge-chips"
 import { useCardView } from "@/lib/card-view"
@@ -75,11 +76,14 @@ import { boardDetailSurface, isPhoneViewport } from "@/lib/incident-detail"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
-import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
+import { MobileIncidentListView, type MobileOpenRequest } from "@/components/mobile/mobile-incident-list-view"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
+import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs, PERSONNEL_VIEW_KEY } from "@/lib/personnel-view"
+import { DEFAULT_MATERIAL_VIEW, isMaterialViewPrefs, MATERIAL_VIEW_KEY } from "@/lib/material-view"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
@@ -198,6 +202,8 @@ export default function FireStationDashboard() {
   // Where each person actually is, for the sidebar card's tooltip (§P3.5) —
   // computed once here, passed down, so the memoized cards stay cheap.
   const personEngagements = usePersonEngagements()
+  // …and the same as search terms, so the sidebar search finds «12» or «Sturmholz».
+  const personPlaces = usePersonPlaces()
 
   // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
   // material sidebar, its counter and every drop read one frei/gebunden.
@@ -220,6 +226,9 @@ export default function FireStationDashboard() {
   // board lands on Rapport, not Übersicht). Unknown values fall back to none.
   const rawTabParam = searchParams.get("tab")
   const tabParam = isDetailTab(rawTabParam) ? rawTabParam : undefined
+  // …and which block in it (`boardDetailHref`): only with a valid tab.
+  const rawSectionParam = searchParams.get("section")
+  const sectionParam = tabParam && isDetailSection(rawSectionParam) ? rawSectionParam : undefined
   const isMobile = useIsMobile()
   // The desktop board's horizontal scroller (`#kanban-main`) – state, not a ref, so the
   // edge chips in the header start watching once it mounts (it is desktop-only).
@@ -228,7 +237,6 @@ export default function FireStationDashboard() {
 
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
-  const tRes = useTranslations('kanban.resources')
   const tSidePanel = useTranslations('kanban.sidePanel')
   const tPanels = useTranslations('panels')
 
@@ -368,11 +376,11 @@ export default function FireStationDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [personnelSearchQuery, setPersonnelSearchQuery] = useState("")
   const [materialSearchQuery, setMaterialSearchQuery] = useState("")
-  // Sidebar "nur verfügbare" toggles. Per-list on purpose: crew and material are
-  // picked at different moments, so one shared switch would keep surprising the
-  // other list.
-  const [personnelAvailableOnly, setPersonnelAvailableOnly] = useState(false)
-  const [materialsAvailableOnly, setMaterialsAvailableOnly] = useState(false)
+  // Each sidebar's «Filter & Sortierung», remembered per browser. Per-list on purpose: crew
+  // and material are picked at different moments, so one shared switch would keep surprising
+  // the other list.
+  const [personnelView, setPersonnelView] = usePersistedState(PERSONNEL_VIEW_KEY, DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs)
+  const [materialView, setMaterialView] = usePersistedState(MATERIAL_VIEW_KEY, DEFAULT_MATERIAL_VIEW, isMaterialViewPrefs)
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   selectedOperationIdRef.current = selectedOperationId
   const [detailModalOpen, setDetailModalOpen] = useState(false)
@@ -395,7 +403,7 @@ export default function FireStationDashboard() {
   } = useBoardLayoutPrefs(isMobile)
   // Both sidebars' widths are the operator's, dragged by their inner edge and remembered on this
   // device (owner pick 09.11.2026). 256 = the w-64 they always had, and also the floor: any
-  // narrower and «Personal suchen …» / «Material suchen …» no longer fit beside their key hint
+  // narrower and «Person suchen …» / «Material suchen …» no longer fit beside their key hint
   // and toggle, while the rows already end in «Baumann Mi…».
   const personnelWidth = useResizableWidth({
     storageKey: 'kp-board-personnelWidth',
@@ -421,8 +429,9 @@ export default function FireStationDashboard() {
 
   /** `section` narrows the landing further than the tab does — today only
    *  Übersicht's Ressourcen block, which the panel has to scroll to. */
-  // The phone list's «open this sheet» request (see openIncidentDetail).
-  const [mobileOpenRequest, setMobileOpenRequest] = useState<{ incidentId: string; nonce: number } | null>(null)
+  // The phone list's «open this sheet» request (see openIncidentDetail), with the tab the caller
+  // meant: the phone sheet has no tabs and scrolls to the matching block (lib/detail-target.ts).
+  const [mobileOpenRequest, setMobileOpenRequest] = useState<MobileOpenRequest | null>(null)
   const openIncidentDetail = useCallback((
     operationId: string,
     tab?: OperationDetailTab,
@@ -445,7 +454,7 @@ export default function FireStationDashboard() {
       setDetailModalOpen(false)
       setSidePanelMode('detail')
     } else if (surface === 'phone-sheet') {
-      setMobileOpenRequest({ incidentId: operationId, nonce: Date.now() })
+      setMobileOpenRequest({ incidentId: operationId, nonce: Date.now(), target: tab ? { tab, section } : undefined })
     } else if (surface === 'modal') {
       setDetailModalOpen(true)
     }
@@ -467,9 +476,9 @@ export default function FireStationDashboard() {
   // one that did not gets the tab that card was last left on.
   useIncidentHighlightListener(
     useCallback(
-      (incidentId: string, { tab, allowModal }: IncidentHighlightOptions) => {
+      (incidentId: string, { tab, section, allowModal }: IncidentHighlightOptions) => {
         scrollToCard(incidentId)
-        openIncidentDetail(incidentId, tab, undefined, { allowModal })
+        openIncidentDetail(incidentId, tab, section, { allowModal })
       },
       [scrollToCard, openIncidentDetail],
     ),
@@ -496,7 +505,7 @@ export default function FireStationDashboard() {
   const [bindingsPopover, setBindingsPopover] = useState<BindingsPopoverState | null>(null)
   // When "+ Stop" opens the New-Emergency modal, the created incident attaches here.
   const [newEmergencyGroupId, setNewEmergencyGroupId] = useState<string | null>(null)
-  // Routen-Editor modal: the Auftrag being edited + an optional stop to centre on.
+  // Auftrags-Editor modal: the Auftrag being edited + an optional stop to centre on.
   const [routenEditorGroupId, setRoutenEditorGroupId] = useState<string | null>(null)
   const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
   // "+ Stop" incident picker: the route existing incidents are added to as stops.
@@ -508,7 +517,7 @@ export default function FireStationDashboard() {
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   /** Body of the Divera-Mitteilung the Checkliste asked to send; null = closed. */
   const [diveraMessageText, setDiveraMessageText] = useState<string | null>(null)
-  /** The Checkliste's «Reko-Offiziere wählen» picker. Page-owned like the Divera
+  /** The Checkliste's «Reko-Personen wählen» picker. Page-owned like the Divera
    *  dialog — a modal mounted inside the checklist popover dies with it. */
   const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
@@ -593,7 +602,7 @@ export default function FireStationDashboard() {
   // Register notification click → scroll to card + open detail
   // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
   useEffect(() => {
-    registerNavigateHandler((incidentId: string, tab?: OperationDetailTab) => {
+    registerNavigateHandler((incidentId, tab, section) => {
       closeNotificationSidebar()
       scrollToCard(incidentId)
       // Open detail after scroll
@@ -605,7 +614,7 @@ export default function FireStationDashboard() {
           // Übersicht made the operator hunt for the thing they were just told
           // about. Same call on both screen sizes; the detail decides whether
           // it renders as a modal or in the panel.
-          openIncidentDetail(incidentId, tab)
+          openIncidentDetail(incidentId, tab, section)
         }
       }, 200)
     })
@@ -767,11 +776,11 @@ export default function FireStationDashboard() {
   useEffect(() => {
     if (highlightParam) {
       scrollToCard(highlightParam)
-      if (openDetailParam) openIncidentDetail(highlightParam, tabParam)
+      if (openDetailParam) openIncidentDetail(highlightParam, tabParam, sectionParam)
       // Clear the URL param to prevent re-scroll on refresh
       router.replace('/', { scroll: false })
     }
-  }, [highlightParam, openDetailParam, tabParam, scrollToCard, openIncidentDetail, router])
+  }, [highlightParam, openDetailParam, tabParam, sectionParam, scrollToCard, openIncidentDetail, router])
 
   useKanbanShortcuts(
     {
@@ -890,8 +899,11 @@ export default function FireStationDashboard() {
     })
   }
 
+  // A consumable never asks: several Einsätze and Aufträge draw from the same Bindemittel.
+  const isConsumable = (materialId: string) => materials.some((m) => m.id === materialId && m.consumable)
+
   const boardAssignMaterial = (materialId: string, operationId: string) => {
-    const holders = groupsHolding("material", materialId)
+    const holders = isConsumable(materialId) ? [] : groupsHolding("material", materialId)
     if (holders.length === 0) {
       assignMaterialToOperation(materialId, operationId)
       return
@@ -916,6 +928,10 @@ export default function FireStationDashboard() {
     // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
     // holds them now. `exceptGroupId` keeps a drop onto the route a resource is
     // already on from asking about itself.
+    if (resourceType === "material" && isConsumable(resourceId)) {
+      void assignGroupResource(groupId, resourceType, resourceId)
+      return
+    }
     const holders = groupsHolding(resourceType, resourceId, groupId)
     const name =
       resourceType === "personnel"
@@ -940,7 +956,7 @@ export default function FireStationDashboard() {
       targetId: groupId,
       conflicts: [
         ...holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefLabel(op) })),
+        ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
       ],
       releases: [
         ...releaseFromGroups(resourceType, resourceId, holders),
@@ -1006,7 +1022,7 @@ export default function FireStationDashboard() {
     return () => window.removeEventListener('kp:open-auftraege', handler)
   }, [])
 
-  // Same channel for the Routen-Editor: a card's context menu opens its route
+  // Same channel for the Auftrags-Editor: a card's context menu opens its route
   // directly, with that stop focused, instead of detouring through the sheet.
   useEffect(() => {
     const handler = (e: Event) => {
@@ -1030,21 +1046,19 @@ export default function FireStationDashboard() {
   // Use shared resource filtering hook — sidebar search takes priority, top search also filters
   const effectivePersonnelQuery = personnelSearchQuery || searchQuery
   const effectiveMaterialQuery = materialSearchQuery || searchQuery
-  // `filtered*` are what the sidebars actually draw — the footer counters read
-  // them so "0 von 17 sichtbar" can never disagree with the list above it.
-  const { availabilityGroupedPersonnel, groupedMaterials, filteredPersonnel, filteredMaterials } = useResourceFiltering(
+  // `filtered*` are what the searches leave; each sidebar's «Filter & Sortierung» narrows
+  // that further and counts what it draws, so «0 von 17 sichtbar» never disagrees with it.
+  const { filteredPersonnel, filteredMaterials } = useResourceFiltering(
     personnel,
     materials,
     effectivePersonnelQuery,
     effectiveMaterialQuery,
-    tRes('roleOther'),
-    { personnel: personnelAvailableOnly, materials: materialsAvailableOnly },
+    personPlaces,
   )
 
-  // The two sidebar footers. One helper each, and it is the same predicate the
-  // list above is filtered with — the counter and the list can no longer
-  // disagree about who counts as free.
-  const rosterSummary = useMemo(() => summarizeRoster(personnel), [personnel])
+  // The material sidebar's footer, from the same predicate its list is filtered
+  // with — the counter and the list can no longer disagree about what counts as
+  // free. The crew sidebar counts what it shows itself (`personnel-sidebar.tsx`).
   const materialSummary = useMemo(() => summarizeMaterials(materials), [materials])
 
   // Memoize filtered operations to avoid unnecessary recalculations on every render.
@@ -1088,9 +1102,11 @@ export default function FireStationDashboard() {
   }, [operations])
 
   const {
+    collectPersonPlaces,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
+    followPersonNow,
     handlePersonClick,
   } = useResourceBindings({
     operations,
@@ -1113,29 +1129,35 @@ export default function FireStationDashboard() {
   }, [setMaterialOutOfService])
 
   /** The device row answers the same question the person row does, including
-   *  «nirgends» — a free device used to be a click into the void as well. */
+   *  «nirgends» — a free device used to be a click into the void as well. Any
+   *  device drawn as its own row comes here, a module member too (by Typ, or
+   *  when its module is gone): the row is the popover's anchor. */
   const handleMaterialClick = (material: Material) => {
     const bindings = collectMaterialBindings(material)
+    const popover: BindingsPopoverState = { kind: "material", id: material.id, title: material.name, subtitle: material.category, bindings }
+    // A flagged device's question is «wieder einsatzbereit?», so its click always
+    // opens the popover that offers it – before a binding could jump away. Its
+    // dashed row is a `MaterialSidebarRow` even for a module member, so the
+    // popover has an anchor.
+    if (material.outOfService) {
+      setBindingsPopover(popover)
+      return
+    }
     const only = soleDestination(bindings)
     if (only) {
       followBinding(only)
       return
     }
-    // A device inside a module block is drawn by MaterialGroupBlock, which has no
-    // anchor for the popover — there the click keeps jumping to the first
-    // reachable binding rather than opening a list nothing could position.
-    if (material.groupId) {
-      const first = bindings.find(isNavigableBinding)
-      if (first) followBinding(first)
-      return
-    }
-    setBindingsPopover({
-      kind: "material",
-      id: material.id,
-      title: material.name,
-      subtitle: material.category,
-      bindings,
-    })
+    setBindingsPopover(popover)
+  }
+
+  /** A device inside a module block (MaterialGroupBlock) has no anchor for the
+   *  popover, so its click jumps to the first reachable binding rather than
+   *  opening a list nothing could position. */
+  const handleModuleMaterialClick = (material: Material) => {
+    const bindings = collectMaterialBindings(material)
+    const target = soleDestination(bindings) ?? bindings.find(isNavigableBinding)
+    if (target) followBinding(target)
   }
 
   /** The aggregate row answers for the WHOLE bundle: every taken unit's
@@ -1455,8 +1477,8 @@ export default function FireStationDashboard() {
               setPersonnelSearchQuery={setPersonnelSearchQuery}
               setSearchQuery={setSearchQuery}
               isMobile={isMobile}
-              personnelAvailableOnly={personnelAvailableOnly}
-              setPersonnelAvailableOnly={setPersonnelAvailableOnly}
+              personnelView={personnelView}
+              setPersonnelView={setPersonnelView}
               isLoaded={isLoaded}
               boardNeverLoaded={boardNeverLoaded}
               personnel={personnel}
@@ -1465,14 +1487,14 @@ export default function FireStationDashboard() {
               copyCheckInUrlToClipboard={copyCheckInUrlToClipboard}
               filteredPersonnel={filteredPersonnel}
               effectivePersonnelQuery={effectivePersonnelQuery}
-              availabilityGroupedPersonnel={availabilityGroupedPersonnel}
               bindingsPopover={bindingsPopover}
               setBindingsPopover={setBindingsPopover}
               handlePersonClick={handlePersonClick}
+              collectPersonPlaces={collectPersonPlaces}
+              release={release}
               doubleBookedPersons={doubleBookedPersons}
               personEngagements={personEngagements}
               followBinding={followBinding}
-              rosterSummary={rosterSummary}
               eventId={selectedEvent?.id ?? null}
               canCheckIn={isEditor}
               onDiveraCheckIn={checkInFromDivera}
@@ -1690,8 +1712,8 @@ export default function FireStationDashboard() {
               setMaterialSearchQuery={setMaterialSearchQuery}
               setSearchQuery={setSearchQuery}
               isMobile={isMobile}
-              materialsAvailableOnly={materialsAvailableOnly}
-              setMaterialsAvailableOnly={setMaterialsAvailableOnly}
+              materialView={materialView}
+              setMaterialView={setMaterialView}
               materialOnSiteEntries={materialOnSiteEntries}
               openIncidentDetail={openIncidentDetail}
               isLoaded={isLoaded}
@@ -1699,10 +1721,10 @@ export default function FireStationDashboard() {
               isEditor={isEditor}
               materials={materials}
               materialGroups={materialGroups}
-              groupedMaterials={groupedMaterials}
               filteredMaterials={filteredMaterials}
               effectiveMaterialQuery={effectiveMaterialQuery}
               handleMaterialClick={handleMaterialClick}
+              handleModuleMaterialClick={handleModuleMaterialClick}
               handleAggregateMaterialClick={handleAggregateMaterialClick}
               handleToggleMaterialOutOfService={handleToggleMaterialOutOfService}
               bindingsPopover={bindingsPopover}
@@ -1781,6 +1803,7 @@ export default function FireStationDashboard() {
         openRapports={openRapports}
         operations={operations}
         crewDutySheetOpen={crewDutySheetOpen}
+        followPersonNow={followPersonNow}
         fatigueHours={fatigueHours}
         personEngagements={personEngagements}
         personnel={personnel}

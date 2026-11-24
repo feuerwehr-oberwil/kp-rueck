@@ -9,7 +9,9 @@ import { type GroupResourceType } from "@/lib/api-client"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { applyResourceDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import { useCommandDispatch, type DispatchCommand } from "@/lib/hooks/use-command-dispatch"
+import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
 import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
+import { RESOURCES_TARGET } from "@/lib/detail-target"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { soleDestination, type ResourceBinding } from "@/lib/board-sidebar"
@@ -23,7 +25,7 @@ import type { SyncMessageType } from "@/lib/hooks/use-cross-window-sync"
 import { PRIORITY_LABEL_KEYS } from "./use-board-card-actions"
 
 export interface UseBoardDispatchInput {
-  removeReko: (operationId: string) => void
+  removeReko: (operationId: string, expectedAssignmentId?: string) => void
   operations: Operation[]
   outOfServiceVehicleIds: Set<string>
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
@@ -122,6 +124,8 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   const tColumns = useTranslations('kanban.columns')
   // ⌘K type-to-dispatch receipts.
   const tPalette = useTranslations('common.commandPalette')
+  // ⌘K also finds people by where they are now («12», «Sturmholz»), like every person picker.
+  const personPlaces = usePersonPlaces()
 
   // ---------------------------------------------------------------------------
   // Type-to-dispatch (⌘K «14 tlf meier», `lib/command-dispatch.ts`). The parser
@@ -143,6 +147,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
       id: person.id,
       name: person.name,
       detail: person.role || undefined,
+      search: { ...person, places: personPlaces.get(person.id) },
       incidentIds: operations
         .filter((op) => op.crew.some((m) => m.personnelId === person.id) || op.assignedReko?.id === person.id)
         .map((op) => op.id),
@@ -276,7 +281,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
         group.assignments.some((assignment) => assignment.resourceType === "vehicle" && assignment.resourceId === target.id),
       )
       if (onIncident) {
-        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "" })
+        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "", target: RESOURCES_TARGET })
       } else if (onRoute) {
         setAuftraegeFocusGroupId(onRoute.id)
         setActiveFooterSheet('auftraege')

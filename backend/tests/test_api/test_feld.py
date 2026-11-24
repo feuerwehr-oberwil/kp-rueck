@@ -1955,6 +1955,15 @@ class TestPhotos:
         # Never a shared cache: the URL carries a token.
         assert "private" in served.headers["cache-control"]
 
+        # The in-app viewer's open (`?view=full`) is never cached and is logged (Sol review G
+        # round 2, S3); the thumbnail above is not.
+        full = await client.get(
+            f"/api/feld/incidents/{incident.id}/photos/{filename}", params={**params, "view": "full"}
+        )
+        assert full.headers["cache-control"] == "private, no-store"
+        views = (await db_session.execute(select(AuditLog).where(AuditLog.action_type == "view_photo"))).scalars()
+        assert [(v.changes_json["via"], v.changes_json["personnel_id"]) for v in views] == [("feld", str(person.id))]
+
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_reading_a_photo_still_needs_the_token(

@@ -31,6 +31,7 @@ import {
   sortMobileIncidents,
 } from "@/lib/mobile-incident-sort"
 import { MobileIncidentCard } from "./mobile-incident-card"
+import { type DetailTarget } from "@/lib/detail-target"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
 import { PhoneEventPill } from "./phone-event-pill"
 import { PhoneIntakeFooter } from "./phone-intake-footer"
@@ -46,7 +47,14 @@ interface MobileIncidentListViewProps {
   onNewIncident?: () => void
   /** Open this Einsatz's sheet from outside — a notification, the board's `?detail=1` link
    *  (lib/incident-detail.ts). A new `nonce` re-opens the same id. */
-  openRequest?: { incidentId: string; nonce: number } | null
+  openRequest?: MobileOpenRequest | null
+}
+
+/** «Open this Einsatz's sheet», with the tab the caller meant – the sheet scrolls to its block. */
+export interface MobileOpenRequest {
+  incidentId: string
+  nonce: number
+  target?: DetailTarget
 }
 
 // One row per STATUS in the funnel menu, in board order; ticking several shows
@@ -179,14 +187,19 @@ export function MobileIncidentListView({
     [operations, selectedOperationId],
   )
 
+  // The block the sheet lands on: the request's target; a tap on a card names none.
+  const [landOn, setLandOn] = useState<DetailTarget | undefined>(undefined)
+
   useEffect(() => {
     if (!openRequest) return
     setSelectedOperationId(openRequest.incidentId)
+    setLandOn(openRequest.target)
     setDetailSheetOpen(true)
   }, [openRequest])
 
   const handleCardClick = (operation: Operation) => {
     setSelectedOperationId(operation.id)
+    setLandOn(undefined)
     setDetailSheetOpen(true)
   }
 
@@ -359,6 +372,7 @@ export function MobileIncidentListView({
         operation={selectedOperation}
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
+        target={landOn}
         materials={materials}
         formatLocation={formatLocation}
       />

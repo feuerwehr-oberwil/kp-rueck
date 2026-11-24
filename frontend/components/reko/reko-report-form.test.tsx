@@ -119,6 +119,23 @@ describe('the Reko field set (plan 26 §5.1)', () => {
     expect(kp.container.textContent).not.toContain('Fotos')
   })
 
+  // Sign-off 24.11.2026: the always-editable board form dropped what the read view showed.
+  it('shows the vehicles and equipment a report carries on the board, read-only', () => {
+    const value = {
+      ...EMPTY_REKO_FORM,
+      effort_json: { ...EMPTY_REKO_FORM.effort_json, vehicles_needed: ['Pio'], equipment_needed: ['Flutlichtstrahler', 'Leiter'] },
+    }
+    const kp = renderWithIntl(<RekoReportForm incidentId="i-1" value={value} onChange={vi.fn()} mount="kp" />)
+
+    expect(screen.getByText('Fahrzeuge')).toBeInTheDocument()
+    expect(screen.getByText('Pio')).toBeInTheDocument()
+    expect(screen.getByText('Flutlichtstrahler, Leiter')).toBeInTheDocument()
+    kp.unmount()
+
+    renderWithIntl(<RekoReportForm incidentId="i-1" value={EMPTY_REKO_FORM} onChange={vi.fn()} mount="kp" />)
+    expect(screen.queryByText('Fahrzeuge')).not.toBeInTheDocument()
+  })
+
   it('reads an existing report into the form, so an amendment starts from what is there', () => {
     const form = toRekoFormData({
       is_relevant: false,

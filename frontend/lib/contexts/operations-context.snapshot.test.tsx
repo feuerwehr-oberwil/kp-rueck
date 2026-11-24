@@ -230,7 +230,7 @@ const ASSIGNMENTS = {
     assignment("a-crew", "personnel", "p-crew"),
     assignment("a-lead", "personnel", "p-lead", { is_leader: true }),
     // The Reko officer's row makes them the card's Reko, not crew.
-    assignment("a-reko", "personnel", "p-reko", { reko_position: 2 }),
+    assignment("a-reko", "personnel", "p-reko", { reko_position: 2, purpose: "reko" }),
     // Assigned out of display order: the card must show TLF before MTW.
     assignment("a-mtw", "vehicle", "v-mtw"),
     assignment("a-tlf", "vehicle", "v-tlf", { driver_stay: true }),
@@ -274,7 +274,7 @@ const REKO_SUMMARIES = {
 
 const RESTLISTE = {
   material_on_site: [
-    { material_id: "m-pump", incident_id: "inc-full", location_address: "Hauptstrasse 12", incident_title: "Wasser im Keller", since: "2026-09-23T09:00:00Z" },
+    { material_id: "m-pump", assignment_id: "a-pump", incident_id: "inc-full", location_address: "Hauptstrasse 12", incident_title: "Wasser im Keller", since: "2026-09-23T09:00:00Z" },
     { material_id: "m-saw", incident_id: "inc-full", location_address: null, incident_title: "Wasser im Keller", since: null },
     // Hand-named material has no id and no sidebar row.
     { material_id: null, incident_id: "inc-full", location_address: null, incident_title: null, since: null },
@@ -363,7 +363,7 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
         summaryText: "Pumpen nötig",
         photos: ["a.jpg"],
       },
-      assignedReko: { id: "p-reko", name: "Claudia Reko" },
+      assignedReko: { id: "p-reko", name: "Claudia Reko", assignmentId: "a-reko", purpose: "reko" },
       rekoPosition: 2,
       // The live `is_leader` row beats the leader of record.
       leaderId: "p-lead",
@@ -477,8 +477,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     const board = await loaded()
     expect(board.materialOnSite).toEqual(
       new Map([
-        ["m-pump", { incidentId: "inc-full", address: "Hauptstrasse 12", since: "2026-09-23T09:00:00Z" }],
-        ["m-saw", { incidentId: "inc-full", address: "Wasser im Keller", since: null }],
+        ["m-pump", { incidentId: "inc-full", assignmentId: "a-pump", address: "Hauptstrasse 12", since: "2026-09-23T09:00:00Z" }],
+        ["m-saw", { incidentId: "inc-full", assignmentId: null, address: "Wasser im Keller", since: null }],
       ]),
     )
     expect(board.outOfServiceVehicleIds).toEqual(new Set(["v-dlk"]))

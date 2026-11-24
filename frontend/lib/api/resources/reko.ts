@@ -118,16 +118,10 @@ export class RekoApi {
   }
 
   /** The board's door onto the same upload – the WhatsApp-photo case. No token:
-   *  the session identifies the operator. `reportId` when amending an existing
-   *  report, omitted while creating one (the photo then lands in the draft the
-   *  save submits). */
-  async uploadRekoPhotoAsEditor(
-    incidentId: string,
-    file: File,
-    reportId?: string,
-  ): Promise<{ filename: string }> {
-    const query = reportId ? `?report_id=${encodeURIComponent(reportId)}` : ''
-    return uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos${query}`, file)
+   *  the session identifies the operator. The photo lands on the Einsatz's one
+   *  report (created as a draft when there is none yet). */
+  async uploadRekoPhotoAsEditor(incidentId: string, file: File): Promise<{ filename: string }> {
+    return uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos`, file)
   }
 
   async deleteRekoPhoto(incidentId: string, token: string, filename: string): Promise<void> {
@@ -138,11 +132,11 @@ export class RekoApi {
   }
 
   /** Board door, see `uploadRekoPhotoAsEditor`. */
-  async deleteRekoPhotoAsEditor(incidentId: string, filename: string, reportId?: string): Promise<void> {
-    const query = reportId ? `?report_id=${encodeURIComponent(reportId)}` : ''
-    await httpRequest(`/api/reko/${incidentId}/photos/${filename}${query}`, { method: 'DELETE' })
+  async deleteRekoPhotoAsEditor(incidentId: string, filename: string): Promise<void> {
+    await httpRequest(`/api/reko/${incidentId}/photos/${filename}`, { method: 'DELETE' })
   }
 
+  /** The Einsatz's Reko report as a list: empty, or THE one (one per Einsatz since 23.11.2026). */
   async getIncidentRekoReports(incidentId: string): Promise<ApiRekoReportResponse[]> {
     return httpRequest<ApiRekoReportResponse[]>(`/api/reko/incident/${incidentId}/reports`)
   }
@@ -192,9 +186,10 @@ export class RekoApi {
     })
   }
 
-  async unassignRekoPersonnel(incidentId: string, personnelId: string): Promise<void> {
+  /** `assignmentId`: release exactly the row the board shows (404 when it is gone). */
+  async unassignRekoPersonnel(incidentId: string, personnelId: string, assignmentId: string): Promise<void> {
     return httpRequest<void>(
-      `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}`,
+      `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}?assignment_id=${encodeURIComponent(assignmentId)}`,
       {
         method: 'DELETE',
       }

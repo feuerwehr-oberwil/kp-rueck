@@ -37,7 +37,7 @@ function snapshot(overrides: Partial<EventSnapshot> = {}): EventSnapshot {
       "i-1": [
         row("a-1", "personnel", "p-1"),
         row("a-2", "personnel", "p-2", { is_leader: true }),
-        row("a-r", "personnel", "p-reko"),
+        row("a-r", "personnel", "p-reko", { purpose: "reko" }),
         row("a-mtw", "vehicle", "v-2"),
         row("a-tlf", "vehicle", "v-1", { driver_stay: true }),
         row("a-m", "material", "m-1"),
@@ -58,7 +58,7 @@ describe("buildEventState", () => {
     ])
     expect(first.leaderId).toBe("p-2")
     expect(first.leaderName).toBe("Beat")
-    expect(first.assignedReko).toEqual({ id: "p-reko", name: "Reko" })
+    expect(first.assignedReko).toEqual({ id: "p-reko", name: "Reko", assignmentId: "a-r", purpose: "reko" })
     expect(first.vehicles).toEqual([
       { vehicleId: "v-1", assignmentId: "a-tlf", name: "TLF", callsign: "Omega 1", driverStay: true },
       { vehicleId: "v-2", assignmentId: "a-mtw", name: "MTW", callsign: null, driverStay: false },
@@ -119,6 +119,13 @@ describe("buildEventState", () => {
       ["m-1", "assigned", false],
       ["m-2", "available", true],
     ])
+  })
+
+  it("keeps the row and its purpose on a crew row it draws as Reko, so a release names that row", () => {
+    const { ops } = buildEventState(
+      snapshot({ assignmentsByIncident: { "i-2": [row("a-crew", "personnel", "p-reko", { purpose: "crew" })] } }),
+    )
+    expect(ops[1].assignedReko).toEqual({ id: "p-reko", name: "Reko", assignmentId: "a-crew", purpose: "crew" })
   })
 
   it("puts a completed Reko's summary and danger chips on its card", () => {

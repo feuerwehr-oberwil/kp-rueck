@@ -648,6 +648,7 @@ export interface TestMaterial {
   id: string;
   name: string;
   location: string;
+  type: string;
   group_id: string | null;
   consumable: boolean;
   out_of_service?: boolean;

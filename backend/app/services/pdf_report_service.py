@@ -853,6 +853,13 @@ _FIELD_LABELS: dict[str, str] = {
     "field_complete_cleared": "Meldung «beendet» zurückgenommen",
     "field_pickup_requested": "Abholung nötig",
     "field_pickup_cleared": "Abholung erledigt",
+    "field_pickup_self": "Fährt selbst zurück",
+    "vehicle_on_site": "Fahrzeug am Einsatzort",
+    "vehicle_returned": "Fahrzeug zurück im Magazin",
+    "vehicle_down": "Fahrzeug ausgefallen",
+    "situation_escalated": "Lage verschärft",
+    "material_collected": "Abgeholt",
+    "material_collected_cleared": "«Abgeholt» zurückgenommen",
     "rapport_submitted": "Schadenplatz-Rapport erfasst",
     "reko_arrived": "Reko vor Ort",
     "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",
@@ -860,7 +867,7 @@ _FIELD_LABELS: dict[str, str] = {
     "field_request_done": "Anfrage erledigt",
     "field_request_open": "Anfrage wieder offen",
 }
-_FIELD_SOURCES: dict[str, str] = {"kp": "im KP erfasst", "gps": "GPS"}
+_FIELD_SOURCES: dict[str, str] = {"kp": "im KP erfasst", "gps": "GPS", "training": "Übung"}
 
 # Incident sources worth calling out in the "erstellt" journal line.
 _SOURCE_LABELS: dict[str, str] = {

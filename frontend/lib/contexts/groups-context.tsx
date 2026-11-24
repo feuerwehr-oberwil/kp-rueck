@@ -51,8 +51,10 @@ const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials
 interface GroupsContextType {
   /** Aufträge of the selected event, in `position` order. */
   groups: IncidentGroup[]
-  /** True once the first load has resolved (gate empty states on this). */
+  /** True once the first load has resolved (gate empty states on this) – failed loads too. */
   isLoaded: boolean
+  /** No load of this Ereignis's Aufträge got through yet: an empty list says nothing. */
+  loadFailed: boolean
   refreshGroups: () => Promise<void>
   createGroup: (input: CreateGroupInput) => Promise<IncidentGroup | null>
   updateGroup: (id: string, input: UpdateGroupInput) => Promise<boolean>
@@ -78,7 +80,8 @@ interface GroupsContextType {
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
   /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
   assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
-  /** Release a route-owned resource by its group-assignment id. */
+  /** Release a route-owned resource by its group-assignment id. True also when the server
+   *  answers 404: the assignment or the Auftrag is gone, so the resource is free already. */
   unassignResource: (groupId: string, assignmentId: string) => Promise<boolean>
   /** «bleibt vor Ort» / «kehrt zurück» for a route vehicle – optimistic, reverts with a toast. */
   setRouteDriverStay: (groupId: string, assignmentId: string, driverStay: boolean) => Promise<boolean>
@@ -146,6 +149,9 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<IncidentGroup[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadedEventId, setLoadedEventId] = useState<string | null>(null)
+  // The Ereignis whose Aufträge never arrived: its loads so far all failed (`loadFailed`).
+  const [failedEventId, setFailedEventId] = useState<string | null>(null)
+  const hasSnapshotRef = useRef(false)
   /**
    * The FULL roster, for name resolution only.
    *
@@ -197,8 +203,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       groupsRef.current = next
       setGroups(next)
       hasShownErrorRef.current = false
+      hasSnapshotRef.current = true
+      setFailedEventId(null)
     } catch (error) {
       console.error("Failed to load Aufträge:", error)
+      if (activeEventIdRef.current === eventId && !hasSnapshotRef.current) setFailedEventId(eventId)
       if (!hasShownErrorRef.current) {
         hasShownErrorRef.current = true
         toast.error(translateOutsideReact("notifications.groups.loadFailedTitle"), {
@@ -233,6 +242,8 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     setGroups([])
     setIsLoaded(false)
     setLoadedEventId(null)
+    setFailedEventId(null)
+    hasSnapshotRef.current = false
     lastSyncVersionRef.current = null
   }, [authReady, scopeEventId])
 
@@ -268,9 +279,12 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       groupsRef.current = next
       setGroups(next)
       hasShownErrorRef.current = false
+      hasSnapshotRef.current = true
+      setFailedEventId(null)
       lastSyncVersionRef.current = versionSnapshot?.version ?? null
     } catch (error) {
       console.error("Failed to load Aufträge:", error)
+      if (activeEventIdRef.current === eventId && !hasSnapshotRef.current) setFailedEventId(eventId)
     } finally {
       if (activeEventIdRef.current === eventId) {
         setIsLoaded(true)
@@ -725,6 +739,10 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
         await refreshGroups()
         return true
       } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          await refreshGroups()
+          return true
+        }
         console.error("Failed to release route resource:", error)
         setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
         toast.error(translateOutsideReact("notifications.groups.unassignFailed"))
@@ -837,6 +855,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [groups, selectedEventId],
   )
   const loaded = isLoaded && loadedEventId === selectedEventId
+  const loadFailed = failedEventId !== null && failedEventId === selectedEventId
 
   // Memoised: this provider re-renders on every board change (it reads the operations
   // context), and every card reads this value – a fresh literal re-rendered them all.
@@ -844,6 +863,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     () => ({
       groups: scopedGroups,
       isLoaded: loaded,
+      loadFailed,
       refreshGroups,
       createGroup,
       updateGroup,
@@ -865,6 +885,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [
       scopedGroups,
       loaded,
+      loadFailed,
       refreshGroups,
       createGroup,
       updateGroup,
