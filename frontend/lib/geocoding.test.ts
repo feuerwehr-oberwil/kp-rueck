@@ -47,7 +47,7 @@ describe('searchAddress', () => {
   it('sorts results by distance from the station, nearest first', async () => {
     const results = await searchAddress('weg', { stationCenter: [7.555, 47.515] })
 
-    expect(results.map((r) => r.display_name)).toEqual(['Near', 'Far'])
+    expect(results?.map((r) => r.display_name)).toEqual(['Near', 'Far'])
   })
 
   it('sends no viewbox when the station has no coordinates configured', async () => {
@@ -63,7 +63,7 @@ describe('searchAddress', () => {
   it('leaves result order alone when there is nothing to sort by', async () => {
     const results = await searchAddress('weg')
 
-    expect(results.map((r) => r.display_name)).toEqual(['Far', 'Near'])
+    expect(results?.map((r) => r.display_name)).toEqual(['Far', 'Near'])
   })
 
   it('restricts to Switzerland by default', async () => {
