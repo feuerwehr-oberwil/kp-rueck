@@ -22,13 +22,13 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 )
 
 beforeEach(() => {
-  api.collectMaterial.mockReset().mockResolvedValue(undefined)
+  api.collectMaterial.mockReset().mockResolvedValue({ released_at: '2026-11-24T08:00:00.123456Z' })
   api.undoCollectMaterial.mockReset().mockResolvedValue(undefined)
   undo.undoToast.mockReset()
 })
 
 describe('useCollectMaterial', () => {
-  it('releases that one assignment, offers the undo, and the undo re-opens the same one', async () => {
+  it('releases that one assignment, offers the undo, and the undo names that release', async () => {
     const { result } = renderHook(() => useCollectMaterial(), { wrapper })
     expect(await result.current({ incidentId: 'i-1', assignmentId: 'a-2', name: 'Wassersauger' })).toBe(true)
     expect(api.collectMaterial).toHaveBeenCalledExactlyOnceWith('i-1', 'a-2')
@@ -37,7 +37,8 @@ describe('useCollectMaterial', () => {
     const [message, options] = undo.undoToast.mock.calls[0]
     expect(message).toBe('Wassersauger abgeholt – freigegeben')
     await options.onUndo()
-    expect(api.undoCollectMaterial).toHaveBeenCalledExactlyOnceWith('i-1', 'a-2')
+    // The server reverses only the release carrying this time (never a later one).
+    expect(api.undoCollectMaterial).toHaveBeenCalledExactlyOnceWith('i-1', 'a-2', '2026-11-24T08:00:00.123456Z')
   })
 
   it('a refused release offers no undo', async () => {

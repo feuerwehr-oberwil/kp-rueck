@@ -7239,7 +7239,7 @@
           "assignments"
         ],
         "summary": "Collect Material",
-        "description": "«Abgeholt – freigeben»: a unit left on site was collected (editor only).\n\nReleases exactly this material assignment and records «Abgeholt» in the journal and the\nChronik. 404 when it is no material assignment of ``incident_id``; 409 when it is already\nreleased. The undo is ``DELETE`` on the same path.",
+        "description": "«Abgeholt – freigeben»: a unit left on site was collected (editor only).\n\nReleases exactly this material assignment and records «Abgeholt» in the journal and the\nChronik. Answers the release time, which the undo must send back. 404 when it is no\nmaterial assignment of ``incident_id``; 409 when it is already released or the rapport no\nlonger marks it «vor Ort verblieben». The undo is ``DELETE`` on the same path.",
         "operationId": "collect_material_api_incidents__incident_id__material_collected__assignment_id__post",
         "parameters": [
           {
@@ -7280,8 +7280,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialCollectedResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -7300,7 +7307,7 @@
           "assignments"
         ],
         "summary": "Undo Collect Material",
-        "description": "Undo «Abgeholt»: the same assignment is open again, so the unit is back on the\nRestliste (editor only). 409 when the unit has since been assigned elsewhere.",
+        "description": "Undo «Abgeholt»: the same assignment is open again, so the unit is back on the\nRestliste (editor only). ``released_at`` is what the POST answered. 409 when the row's\ncurrent release is not that collection, or the unit is archived or assigned elsewhere\n(an Einsatz or an Auftrag).",
         "operationId": "undo_collect_material_api_incidents__incident_id__material_collected__assignment_id__delete",
         "parameters": [
           {
@@ -7321,6 +7328,16 @@
               "type": "string",
               "format": "uuid",
               "title": "Assignment Id"
+            }
+          },
+          {
+            "name": "released_at",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Released At"
             }
           },
           {
@@ -25438,6 +25455,21 @@
         ],
         "title": "Material",
         "description": "Full material schema with database fields.\n\nThree independent axes, so the board never has to guess a state:\n`out_of_service` (readiness), `archived_at` (lifecycle), and deployment —\nwhich lives in incident_assignments and is per-event, so it stays with the\ncaller that knows which Ereignis is on screen. Precedence for rendering:\nout_of_service beats assigned beats available."
+      },
+      "MaterialCollectedResponse": {
+        "properties": {
+          "released_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Released At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "released_at"
+        ],
+        "title": "MaterialCollectedResponse",
+        "description": "«Abgeholt – freigeben» answered: when the assignment was released.\n\nThe undo's token – ``DELETE …/material-collected/{id}?released_at=…`` reverses only the\nrelease that carries exactly this time, never a regular release or a later one."
       },
       "MaterialCreate": {
         "properties": {

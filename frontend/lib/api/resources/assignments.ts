@@ -6,7 +6,7 @@
  */
 
 import { request as httpRequest } from '../http'
-import type { ApiAssignment, ApiAssignmentCreate, ApiTransferAssignmentsResponse } from '../types'
+import type { ApiAssignment, ApiAssignmentCreate, ApiMaterialCollected, ApiTransferAssignmentsResponse } from '../types'
 
 export class AssignmentsApi {
   /** `assignmentIds`: «Rückgängig» of a transfer – move back exactly these (the ids the
@@ -59,17 +59,20 @@ export class AssignmentsApi {
   }
 
   /** «Abgeholt – freigeben»: releases this material assignment (a unit left on site) and
-   *  records «Abgeholt» in the journal. 409 when it is already released. */
-  async collectMaterial(incidentId: string, assignmentId: string): Promise<void> {
-    return httpRequest<void>(`/api/incidents/${incidentId}/material-collected/${assignmentId}`, {
+   *  records «Abgeholt» in the journal. Answers the release time the undo needs. 409 when it
+   *  is already released or the rapport no longer marks it «vor Ort verblieben». */
+  async collectMaterial(incidentId: string, assignmentId: string): Promise<ApiMaterialCollected> {
+    return httpRequest<ApiMaterialCollected>(`/api/incidents/${incidentId}/material-collected/${assignmentId}`, {
       method: 'POST',
     })
   }
 
-  /** The undo of `collectMaterial`: re-opens the same assignment. 409 when the unit has since
-   *  been assigned elsewhere. */
-  async undoCollectMaterial(incidentId: string, assignmentId: string): Promise<void> {
-    return httpRequest<void>(`/api/incidents/${incidentId}/material-collected/${assignmentId}`, {
+  /** The undo of `collectMaterial`: re-opens the same assignment, but only while its release
+   *  is still the one `releasedAt` names. 409 otherwise, or when the unit is archived or
+   *  assigned elsewhere by now. */
+  async undoCollectMaterial(incidentId: string, assignmentId: string, releasedAt: string): Promise<void> {
+    const query = new URLSearchParams({ released_at: releasedAt })
+    return httpRequest<void>(`/api/incidents/${incidentId}/material-collected/${assignmentId}?${query}`, {
       method: 'DELETE',
     })
   }

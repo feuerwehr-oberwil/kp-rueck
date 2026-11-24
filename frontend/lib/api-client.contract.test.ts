@@ -183,7 +183,7 @@ const rows: Row[] = [
   ['assignResource', () => apiClient.assignResource('i1', { resource_type: 'personnel', resource_id: 'p1' } as never), 'POST', '/api/incidents/i1/assign', { resource_type: 'personnel', resource_id: 'p1' }],
   ['unassignResource', () => apiClient.unassignResource('i1', 'a1'), 'POST', '/api/incidents/i1/unassign/a1'],
   ['collectMaterial', () => apiClient.collectMaterial('i1', 'a1'), 'POST', '/api/incidents/i1/material-collected/a1'],
-  ['undoCollectMaterial', () => apiClient.undoCollectMaterial('i1', 'a1'), 'DELETE', '/api/incidents/i1/material-collected/a1'],
+  ['undoCollectMaterial', () => apiClient.undoCollectMaterial('i1', 'a1', '2026-11-24T08:00:00.123456Z'), 'DELETE', '/api/incidents/i1/material-collected/a1?released_at=2026-11-24T08%3A00%3A00.123456Z'],
   ['getAssignmentsByEvent', () => apiClient.getAssignmentsByEvent('e1'), 'GET', '/api/assignments/by-event/e1'],
   // Check-in
   ['generateCheckInLink', () => apiClient.generateCheckInLink('e1'), 'POST', '/api/personnel/check-in/generate-link?event_id=e1'],
