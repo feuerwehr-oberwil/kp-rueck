@@ -21,16 +21,45 @@ POOL_DIR = Path(__file__).resolve().parent.parent / "assets" / "training_photos"
 SUMMARY_IMAGE_DIR = POOL_DIR.with_name("training_reko_images")
 
 
+Season = Literal["spring", "summer", "autumn", "winter"]
+
+
 class SummaryImage(TypedDict):
     """One illustration of a Reko text. `style` is the prompt family («plain» = round 1,
     «phone» = the Reko's own phone shot, owner pick 19.11.2026). `depth` marks a water
-    scene drawn shallow (≤ SHALLOW_MAX_CM) or deep."""
+    scene drawn shallow (≤ SHALLOW_MAX_CM) or deep. `season` is the season the prompt asked
+    for; the early phone shots have none and look like autumn."""
 
     file: str
     prompt: str
     scene: str
     style: str
     depth: NotRequired[Literal["shallow", "deep"]]
+    season: NotRequired[Season]
+
+
+# Texts tied to a time of year (lower-case word → the seasons it fits). Their shots take
+# only these seasons: no wasps in snow, no frozen pond in summer.
+_SEASON_BOUND: tuple[tuple[str, tuple[Season, ...]], ...] = (
+    ("zugefroren", ("winter",)),
+    ("weihnacht", ("winter", "autumn")),
+    ("lebkuchen", ("winter", "autumn")),
+    ("wespe", ("summer", "autumn")),
+    ("hornisse", ("summer", "autumn")),
+    ("biene", ("spring", "summer")),
+    ("pool", ("summer", "spring")),
+    ("grill", ("summer", "spring")),
+    ("sonnenschirm", ("summer", "spring")),
+    ("trampolin", ("summer", "spring", "autumn")),
+    ("laub", ("autumn", "winter")),
+)
+ALL_SEASONS: tuple[Season, ...] = ("spring", "summer", "autumn", "winter")
+
+
+def seasons_for(summary: str) -> tuple[Season, ...]:
+    """The seasons a picture of this text may show."""
+    low = summary.lower()
+    return next((seasons for word, seasons in _SEASON_BOUND if word in low), ALL_SEASONS)
 
 
 # The deepest figure a «shallow» water picture still fits.
