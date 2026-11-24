@@ -29,8 +29,8 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
 from ..crud import feld as feld_crud
-from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, build_assignment_payload, requeue_lost_jobs
-from ..database import execute_dml, get_db
+from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, STALE_CLAIM_ERROR, build_assignment_payload, requeue_lost_jobs
+from ..database import after_commit, execute_dml, get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import print_signal
 from ..services import settings as settings_service
@@ -473,10 +473,12 @@ async def queue_assignment_print(
         event_id=incident.event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    # After the commit, so an agent woken by this immediately sees the row.
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued assignment print job {job.id} for incident {incident_id}")
     return job
@@ -509,9 +511,12 @@ async def queue_board_print(
         event_id=request.event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued board print job {job.id} for event {request.event_id}")
     return job
@@ -570,9 +575,12 @@ async def queue_abholliste_print(
         event_id=event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued Abholliste print job {job.id} for event {event_id}")
     return job
@@ -597,9 +605,12 @@ async def queue_test_print(
         payload=payload,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued test print job {job.id} by user {current_user.username}")
     return job
@@ -637,9 +648,12 @@ async def queue_qr_code_print(
         event_id=request.event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued QR-code print job {job.id} by user {current_user.username}")
     return job
@@ -795,7 +809,10 @@ async def complete_print_job(
         # second toast in the operations room.
         return job
 
-    if job.status not in ("pending", "printing"):
+    # A report that arrives after the reaper retired the silent claim (`STALE_CLAIM_ERROR`) is
+    # the agent's answer after all – it counts.
+    retired_silent = job.status == "failed" and job.error_message == STALE_CLAIM_ERROR
+    if job.status not in ("pending", "printing") and not retired_silent:
         raise HTTPException(
             status_code=409, detail=f"Druckauftrag kann nicht abgeschlossen werden (Status: {job.status})"
         )

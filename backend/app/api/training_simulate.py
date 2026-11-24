@@ -862,11 +862,13 @@ async def simulate_vehicle_breakdown(
     await record_history(
         db, event_id, f"Fahrzeug fällt aus · {vehicle.name} · {place(incident)}", incident_id=incident.id
     )
-    await db.commit()
+    # Flushed: the request's commit is the one commit. A failure before it rolls the breakdown
+    # back with the 500, so a retry does not take a SECOND vehicle out (hunt 2026-11-24).
+    await db.flush()
     await db.refresh(vehicle)
 
-    # A broken-down vehicle stops rolling.
-    await gps_simulation.stop(vehicle.name)
+    # A broken-down vehicle stops rolling – once the breakdown is committed.
+    after_commit(db, gps_simulation.stop, vehicle.name)
 
     # Plain dict instead of schemas.Vehicle: its validator rejects the empty
     # radio_call_sign the DB default allows, and this is a broadcast, not input.
