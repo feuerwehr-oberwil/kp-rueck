@@ -3,7 +3,7 @@
  * Lagekarte it used to offer only Kennzahlen, because the sheets were the board's), editing ones
  * for editors only, and the section only when it has an entry (owner, 03.10.2026). The five tiles
  * of the phone frame (owner picks 1A + 2A, 24.11.2026): Personal and Meldungen open sheets, the
- * Ereignis and the account left «Mehr» for the pill.
+ * Ereignis, the account, Einstellungen and Hilfe left «Mehr» for the pill (owner, sign-off).
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen } from '@testing-library/react'
@@ -85,20 +85,20 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
     expect(screen.queryByRole('button', { name: 'Links & QR' })).toBeNull()
   })
 
-  // Owner pick 2A: the Ereignis and the account are the pill's (PhoneEventPill), «Mehr» the tools'.
-  it('holds no Ereignis switch and no account', async () => {
+  // Owner pick 2A + sign-off 24.11.2026: the Ereignis, the account, Einstellungen and Hilfe
+  // are the pill's (PhoneEventPill), «Mehr» the tools'.
+  it('holds no Ereignis switch, no account, no Einstellungen and no Hilfe', async () => {
     renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
     await openSheet()
-    expect(screen.queryByText('Alle Ereignisse')).toBeNull()
-    expect(screen.queryByText('Abmelden')).toBeNull()
+    for (const entry of ['Alle Ereignisse', 'Abmelden', 'Einstellungen', 'Hilfe', 'Verwaltung', 'Support']) {
+      expect(screen.queryByText(entry)).toBeNull()
+    }
   })
 
-  it('is absent without an Ereignis – every entry is about the open one', async () => {
+  it('is off without an Ereignis – every entry is about the open one', () => {
     event.current = null
     renderWithIntl(<MobileBottomNavigation currentPage="events" />)
-    await openSheet()
-    expect(screen.queryByText('Schnellzugriff')).toBeNull()
-    expect(screen.getByText('Verwaltung')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Mehr Optionen' })).toBeDisabled()
   })
 
   it('shows the Übungs-Steuerung of a training Ereignis', async () => {
@@ -118,15 +118,15 @@ describe('MobileBottomNavigation tabs', () => {
   })
 
   // Phone sweep 24.11.2026 #24: «Übungs-Steuerung» lit no tab at all.
-  it.each(['training', 'settings', 'help'] as const)('lights «Mehr» on %s', (page) => {
-    renderWithIntl(<MobileBottomNavigation currentPage={page} />)
+  it('lights «Mehr» on the Übungs-Steuerung', () => {
+    renderWithIntl(<MobileBottomNavigation currentPage="training" />)
     expect(screen.getByRole('button', { name: 'Mehr Optionen' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Einsätze' })).not.toHaveAttribute('aria-current')
   })
 
-  // «Alle Ereignisse» is the pill's page now (it marks it in its menu): no tile claims it.
-  it('lights no tile on «Alle Ereignisse»', () => {
-    renderWithIntl(<MobileBottomNavigation currentPage="events" />)
+  // The pill's pages (it marks them in its menu): no tile claims them.
+  it.each(['events', 'settings', 'help'] as const)('lights no tile on %s', (page) => {
+    renderWithIntl(<MobileBottomNavigation currentPage={page} />)
     expect(document.querySelectorAll('[aria-current]')).toHaveLength(0)
     for (const tile of [...screen.getAllByRole('link'), ...screen.getAllByRole('button')]) {
       expect(tile).not.toHaveClass('bg-foreground/[0.09]')

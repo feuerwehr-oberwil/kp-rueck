@@ -3,9 +3,10 @@ import type { Page } from '@playwright/test';
 import { API_BASE, MOBILE_VIEWPORT, cookieHeaderFor, setupBoard } from '../../helpers/api.helper';
 
 /**
- * The phone frame (owner picks 1A + 2A, 24.11.2026): the Ereignis pill on top – its menu
- * reaches «Alle Ereignisse», Einstellungen, Hilfe and the account – and the bottom bar's five
- * tiles: Einsätze and Lagekarte (pages), Personal and Meldungen (sheets), «Mehr» (the tools).
+ * The phone frame (owner picks 1A + 2A, 24.11.2026): the Ereignis pill on top of the Ereignis
+ * pages – its menu reaches «Alle Ereignisse», Einstellungen, Hilfe and the account – and the
+ * bottom bar's five tiles: Einsätze and Lagekarte (pages), Personal and Meldungen (sheets),
+ * «Mehr» (the tools). Einstellungen and Hilfe carry no pill (owner, sign-off 24.11.2026).
  * What it must do is get the operator to every page, and keep the tabs that need an Ereignis
  * shut while none is chosen.
  *
@@ -46,9 +47,10 @@ test.describe('Mobile bottom navigation', () => {
     await expect(board).toHaveAttribute('aria-current', 'page');
   });
 
-  for (const [entry, path] of [
-    ['Alle Ereignisse', '/events'],
-    ['Einstellungen', '/settings'],
+  // «Alle Ereignisse» is about the Ereignis, so the pill heads it too; Einstellungen is not.
+  for (const [entry, path, title, headed] of [
+    ['Alle Ereignisse', '/events', 'Ereignisse', true],
+    ['Einstellungen', '/settings', 'Einstellungen', false],
   ] as const) {
     test(`the Ereignis pill reaches ${entry}`, async ({ authenticatedPage: page }) => {
       await setupBoard(page, 'Mobile Pill', { count: 0 });
@@ -56,8 +58,8 @@ test.describe('Mobile bottom navigation', () => {
       // A page entry is the row itself as a link, not a button inside a link.
       await page.getByRole('menu').getByRole('menuitem', { name: entry }).click();
       await expect(page).toHaveURL(path, { timeout: ROUTE_COMPILE_MS });
-      // the pill heads that page too
-      await expect(eventPill(page)).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+      await expect(eventPill(page)).toHaveCount(headed ? 1 : 0);
     });
   }
 
@@ -151,6 +153,27 @@ test.describe('Mobile bottom navigation', () => {
     await expect(row).toHaveAttribute('aria-current', 'true');
     await expect(page.getByText('Abholung').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Abholung/ })).toHaveCount(0);
+  });
+
+  // Owner, sign-off 24.11.2026: an unbreakable address ran under the ✕ plate of the detail head.
+  test('a long Einsatz title wraps left of the ✕', async ({ authenticatedPage: page }) => {
+    // The owner's test address: no break opportunity between the number and the street.
+    await setupBoard(page, 'Mobile Title', {
+      incidents: [{ location_address: 'Langegassestrasse 17955221789112 2, 4104 Oberwil' }],
+      layout: 'mobile',
+    });
+    await page.getByRole('heading', { name: /Langegassestrasse/ }).first().click();
+    const sheet = page.getByRole('dialog');
+    const title = sheet.locator('[data-slot="sheet-title"]');
+    await expect(title).toContainText('Langegassestrasse');
+    // The text's own boxes: a line too long for the title spills past the element's box.
+    const textEnd = await title.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return Math.max(...Array.from(range.getClientRects(), (rect) => rect.right));
+    });
+    const close = await sheet.locator('[data-slot="sheet-close"]').boundingBox();
+    expect(textEnd).toBeLessThanOrEqual(close!.x);
   });
 
   // The phone's «Neuer Einsatz» sheet opens the map picker as a step inside itself, as the desk

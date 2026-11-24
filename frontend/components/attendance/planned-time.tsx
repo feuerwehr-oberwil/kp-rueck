@@ -75,7 +75,7 @@ export function PlannedTimePicker({ kind, value, other, title, hint, fieldLabel,
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetContent side="bottom" className="mx-auto max-w-md gap-0 rounded-t-2xl p-0">
             <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12">
-              <SheetTitle className="text-lg leading-tight break-words">{title}</SheetTitle>
+              <SheetTitle className="text-lg leading-tight">{title}</SheetTitle>
               <SheetDescription>{hint}</SheetDescription>
             </SheetHeader>
             {form}

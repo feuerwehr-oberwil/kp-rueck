@@ -623,6 +623,8 @@ function SheetFooter({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
+/** A sheet's title. It wraps inside its head, never under the ✕: `break-words` splits a word
+ *  that is wider than the line – an unbreakable address (owner, sign-off 24.11.2026). */
 function SheetTitle({
   className,
   ...props
@@ -630,7 +632,7 @@ function SheetTitle({
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn('text-foreground font-semibold', className)}
+      className={cn('text-foreground font-semibold break-words', className)}
       {...props}
     />
   )

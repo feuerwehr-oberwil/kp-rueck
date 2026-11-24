@@ -29,15 +29,18 @@ change. Read the section you touch. The visual rules and their reasons are
 - **UI Components**: shadcn/ui components in `components/ui/`
 
 ## Phone layout
-- **The phone frame (owner picks 1A + 2A, 24.11.2026)**: every page with the bottom nav starts
-  with the Ereignis pill «<Ereignis> ⌄» (`components/mobile/phone-event-pill.tsx`). The pill IS
-  the menu: the open Ereignis, the switch, «Alle Ereignisse», Einstellungen, Hilfe, the account
-  and «Abmelden». The board puts `PhoneEventPill` in its own head; every other page puts
-  `PhoneEventHead` above its header. The bottom nav has five tiles: Einsätze · Lagekarte (pages)
-  · Personal · Meldungen (sheets over the page) · Mehr (the tools). Meldungen is the phone's
+- **The phone frame (owner picks 1A + 2A, 24.11.2026)**: the pages about the open Ereignis
+  (board, Lagekarte, «Alle Ereignisse», Übungs-Steuerung) start with the Ereignis pill
+  «<Ereignis> ⌄» (`components/mobile/phone-event-pill.tsx`). Einstellungen and Hilfe show their
+  own title only: nothing on them belongs to the open Ereignis. The pill IS the menu: the open
+  Ereignis, the switch, «Alle Ereignisse», Einstellungen, Hilfe, the account and «Abmelden» –
+  Einstellungen and Hilfe live there only. The board puts `PhoneEventPill` in its own head; the
+  other Ereignis pages put `PhoneEventHead` above their header. The bottom nav has five tiles:
+  Einsätze · Lagekarte (pages) · Personal · Meldungen (sheets over the page) · Mehr (the tools
+  for the open Ereignis, off without one). Meldungen is the phone's
   bell: its count is the bell's open entries plus the new Alarmeingang alarms, and its sheet
-  lists both, read-only for the board. A new nav page names its tab in `TAB_OF_PAGE` and gets
-  the head.
+  lists both, read-only for the board. A new nav page names its tab in `TAB_OF_PAGE`, and gets
+  the head if it is about the open Ereignis.
 - **Phone geometry (one source)**: `--kb-inset`, `--vv-top`, `--vv-height`, `--nav-reserve`,
   `--sheet-top` and `html[data-kb]` are measured and published on `<html>` (contract + the iOS
   model in `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard:

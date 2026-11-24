@@ -7,8 +7,8 @@
  * The phone frame (owner picks 1A + 2A, phone sweep 24.11.2026): five tiles – Einsätze ·
  * Lagekarte · Personal · Meldungen · Mehr. The two pages are links; Personal opens the phone
  * Personal sheet, Meldungen the bell's list (`PhoneNotificationSheet`, with the count of what is
- * open in it), Mehr the tools. The Ereignis and the account live in the pill at the top of the
- * page (`PhoneEventPill`), not here.
+ * open in it), Mehr the tools for the open Ereignis. The Ereignis, Einstellungen, Hilfe and the
+ * account live in the pill's menu (`PhoneEventPill`), not here (owner, sign-off 24.11.2026).
  *
  * The tab pill (owner's pick 4A, 14.11.2026): 8px of air above and below icon + label, and it
  * never grows – no scale on the current tab, no bounce on a tap. The tap answers with the app's
@@ -28,7 +28,7 @@
  * link preview (#26, `select-none` + no touch callout).
  */
 
-import { BookOpenText, Bell, ChartColumn, Columns3, Map as MapIcon, MoreHorizontal, HelpCircle, Settings, QrCode, Sparkles, Users, Truck, Printer } from 'lucide-react'
+import { BookOpenText, Bell, ChartColumn, Columns3, Map as MapIcon, MoreHorizontal, QrCode, Sparkles, Users, Truck, Printer } from 'lucide-react'
 import Link from 'next/link'
 import { useRef, useState, type Ref, type RefObject } from 'react'
 import { topLoading } from '@/components/ui/top-loading-bar'
@@ -37,7 +37,6 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Sheet, SheetBody, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useNavReserve } from '@/components/viewport-insets'
@@ -54,15 +53,16 @@ import { useBellCount, useOpenFieldRequests } from '@/lib/hooks/use-field-reques
 type NavTab = 'kanban' | 'map' | 'more'
 
 /** The pages that show the bottom nav, and the tab each one lights: the two real tabs, «Mehr»
- *  for the pages reached from it, none for «Alle Ereignisse» – the Ereignis pill's page, which
- *  marks it in its menu. A new page has to say where it belongs. */
+ *  for the Übungs-Steuerung reached from it, none for the Ereignis pill's pages («Alle
+ *  Ereignisse», Einstellungen, Hilfe), which the pill marks in its menu. A new page has to say
+ *  where it belongs. */
 const TAB_OF_PAGE = {
   kanban: 'kanban',
   map: 'map',
   events: null,
   training: 'more',
-  settings: 'more',
-  help: 'more',
+  settings: null,
+  help: null,
 } as const satisfies Record<string, NavTab | null>
 
 export type NavPage = keyof typeof TAB_OF_PAGE
@@ -122,15 +122,9 @@ export function MobileBottomNavigation({
     },
   ]
 
-  // Secondary navigation items for the «Mehr» sheet.
-  const secondaryItems = [
-    { id: 'settings', label: t('settings'), icon: Settings, href: '/settings', category: 'Verwaltung' },
-    { id: 'help', label: t('helpDocs'), icon: HelpCircle, href: '/help', category: 'Support' },
-  ]
-
-  // «Schnellzugriff» needs an Ereignis: every entry is about the open one. The editing sheets
-  // (links, vehicles, print) are an editor's; the Tagebuch and Kennzahlen everyone's. Personal
-  // is a tile of its own.
+  // «Mehr» is «Schnellzugriff» alone and needs an Ereignis: every entry is about the open one,
+  // so without one the tile is off, like Personal. The editing sheets (links, vehicles, print)
+  // are an editor's; the Tagebuch and Kennzahlen everyone's. Personal is a tile of its own.
   const quickActions: { id: string; label: string; icon: LucideIcon; open: () => void }[] = selectedEvent
     ? [
         ...(isEditor ? [{ id: 'links', label: t('linksAndQr'), icon: QrCode, open: () => setQuickSheet('links') }] : []),
@@ -144,7 +138,6 @@ export function MobileBottomNavigation({
           : []),
       ]
     : []
-  const hasQuickActions = quickActions.length > 0 || !!selectedEvent?.training_flag
 
   // One tab's frame: a 56px pill (8px + 20px icon + 4px + 16px label + 8px), so the current
   // tab's tint has air around its content; the bar adds 4px above and below it.
@@ -232,8 +225,9 @@ export function MobileBottomNavigation({
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <button
-              className={cn(tabClass, litClass('more'))}
+              className={cn(tabClass, litClass('more'), "disabled:opacity-40")}
               aria-label={t('moreOptions')}
+              disabled={!selectedEvent}
               // a page behind «Mehr» is where the operator is – said to a screen reader too
               aria-current={TAB_OF_PAGE[currentPage] === 'more' ? 'page' : undefined}
             >
@@ -258,13 +252,10 @@ export function MobileBottomNavigation({
             </SheetHeader>
 
             <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
-              {/* Quick Actions Section — viewing-first: the QR/print/personnel
-                  actions are editor-only, so viewers get a decluttered sheet.
-                  The training link shows on any Übung: spawning training incidents
-                  is the main mobile task, done with an editor account – the viewer
+              {/* Viewing-first: the QR/print/vehicle sheets are editor-only, so viewers get a
+                  decluttered sheet. The training link shows on any Übung: spawning training
+                  incidents is the main mobile task, done with an editor account – the viewer
                   role is strictly read-only (/training refuses it). */}
-              {hasQuickActions && (
-              <>
               <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('quickActions')}
@@ -304,65 +295,6 @@ export function MobileBottomNavigation({
                   )}
                 </div>
               </div>
-
-              <Separator />
-              </>
-              )}
-
-              {/* Verwaltung Section */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-2">
-                  {t('management')}
-                </h3>
-                <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Verwaltung').map((item) => {
-                    const Icon = item.icon
-                    const isActive = currentPage === item.id
-                    return (
-                      <Button
-                        key={item.id}
-                        asChild
-                        variant={isActive ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-3 touch-manipulation"
-                      >
-                        <Link href={item.href} onClick={() => setSheetOpen(false)} onNavigate={leave(item.href)}>
-                          <Icon className="size-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </Button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Support Section */}
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-2">
-                  {t('support')}
-                </h3>
-                <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Support').map((item) => {
-                    const Icon = item.icon
-                    const isActive = currentPage === item.id
-                    return (
-                      <Button
-                        key={item.id}
-                        asChild
-                        variant={isActive ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-3 touch-manipulation"
-                      >
-                        <Link href={item.href} onClick={() => setSheetOpen(false)} onNavigate={leave(item.href)}>
-                          <Icon className="size-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </Button>
-                    )
-                  })}
-                </div>
-              </div>
-
             </SheetBody>
           </SheetContent>
         </Sheet>

@@ -2,9 +2,12 @@
 
 /**
  * The phone's Ereignis pill (owner picks 1A + 2A, phone sweep 24.11.2026): «<Ereignis> ⌄» at the
- * top of every page that shows the bottom nav, with the Übung tag where it applies. It IS the
- * menu, like KP Front's Einsatz pill: the open Ereignis, the others to switch to, «Alle
- * Ereignisse», then Einstellungen and Hilfe, then who is signed in and «Abmelden».
+ * top of the pages about the open Ereignis – the board, the Lagekarte, «Alle Ereignisse», the
+ * Übungs-Steuerung – with the Übung tag where it applies. Einstellungen and Hilfe show their own
+ * title only: nothing on them belongs to the open Ereignis (owner, sign-off 24.11.2026). It IS
+ * the menu, like KP Front's Einsatz pill: the open Ereignis, the others to switch to, «Alle
+ * Ereignisse», then Einstellungen and Hilfe (here only, not in «Mehr»), then who is signed in
+ * and «Abmelden».
  *
  * Phone only (`md:hidden`): the desk has its event switcher and user menu in the header.
  * Switching is navigation, not editing – the phone board stays read-only (owner, 14.11.2026), so
@@ -75,7 +78,7 @@ export function PhoneEventPill({ className }: { className?: string }) {
     : null
 
   /** A page of the app: the row is the link; the loading bar starts on the tap (#2), and the
-   *  page the operator is on is marked, as «Mehr» marked it. */
+   *  page the operator is on is marked – no bottom tile lights for these pages. */
   const pageRow = (href: string, label: string, Icon: LucideIcon) => {
     const current = pathname === href
     return (
@@ -170,8 +173,8 @@ export function PhoneEventPill({ className }: { className?: string }) {
   )
 }
 
-/** The pill as a row of its own, above a page's header (Lagekarte, Ereignisse, Einstellungen,
- *  Hilfe, Übungs-Steuerung). `className` gives it the header's surface. */
+/** The pill as a row of its own, above a page's header (Lagekarte, Ereignisse,
+ *  Übungs-Steuerung). `className` gives it the header's surface. */
 export function PhoneEventHead({ className }: { className?: string }) {
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) return null
