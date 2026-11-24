@@ -16,7 +16,7 @@ import { useOptionalNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { usePlanned } from '@/lib/contexts/planned-context'
 import { useOpenFieldRequests } from '@/lib/hooks/use-field-requests'
-import { getIncidentRefLabel } from '@/lib/incident-types'
+import { getIncidentLocationLabel } from '@/lib/incident-types'
 import { collectTodos, GPS_TODO_TYPES, isOverdue, TODO_OVERDUE_MS, type Todo } from '@/lib/todos'
 import { useMinuteTick } from '@/components/ui/incident-time'
 
@@ -51,8 +51,9 @@ export function useTodos(): TodoState {
         operations,
         groups,
         holderLabel: (holderId) => {
+          // The short place («2 · Mühlemattstrasse 12»): the row is one line in a narrow rail.
           const op = operations.find((o) => o.id === holderId)
-          return op ? getIncidentRefLabel(op) : (groups.find((g) => g.id === holderId)?.name ?? '')
+          return op ? `${op.number ? `${op.number} · ` : ''}${getIncidentLocationLabel(op)}` : (groups.find((g) => g.id === holderId)?.name ?? '')
         },
         resourceName: (plan) => {
           const pool: readonly { id: string; name: string }[] =
