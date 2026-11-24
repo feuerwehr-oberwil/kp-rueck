@@ -212,6 +212,22 @@ it("commits the typed text on Enter when no suggestion is highlighted", async ()
   expect(onAddressChange).toHaveBeenLastCalledWith("Bahnhofstrasse 22, 3904 Naters")
 })
 
+// /alarm answered 401 to every search and the field said «Keine Adressen gefunden.» – the
+// operator took the street for unknown (owner, 24.11.2026). A failed lookup says so.
+it("says the search is unreachable when the lookup failed, not that no address exists", async () => {
+  searchAddress.mockReset()
+  searchAddress.mockResolvedValue(null)
+  const user = userEvent.setup()
+  renderWithIntl(
+    <LocationInput address="" latitude={null} longitude={null} onAddressChange={vi.fn()} onCoordinatesChange={vi.fn()} geocodeInitialAddress={false} />,
+  )
+  await user.type(screen.getByRole("combobox"), "Binningerstr")
+  expect(await screen.findByText("Adresssuche nicht erreichbar.")).toBeInTheDocument()
+  expect(screen.queryByText("Keine Adressen gefunden.")).not.toBeInTheDocument()
+  // Freetext stays the way forward.
+  expect(screen.getByText("«Binningerstr» übernehmen")).toBeInTheDocument()
+})
+
 // UX-DESKTOP-01: Ctrl ↵ focuses the Ort in the same batch as the form reset; the field
 // must still come up empty, not with the previous call's address in it.
 it("empties when the host clears the address, even while the field has the focus", async () => {

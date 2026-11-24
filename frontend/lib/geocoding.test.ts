@@ -47,7 +47,7 @@ describe('searchAddress', () => {
   it('sorts results by distance from the station, nearest first', async () => {
     const results = await searchAddress('weg', { stationCenter: [7.555, 47.515] })
 
-    expect(results.map((r) => r.display_name)).toEqual(['Near', 'Far'])
+    expect(results?.map((r) => r.display_name)).toEqual(['Near', 'Far'])
   })
 
   it('sends no viewbox when the station has no coordinates configured', async () => {
@@ -63,7 +63,7 @@ describe('searchAddress', () => {
   it('leaves result order alone when there is nothing to sort by', async () => {
     const results = await searchAddress('weg')
 
-    expect(results.map((r) => r.display_name)).toEqual(['Far', 'Near'])
+    expect(results?.map((r) => r.display_name)).toEqual(['Far', 'Near'])
   })
 
   it('restricts to Switzerland by default', async () => {
@@ -101,9 +101,38 @@ describe('authenticated geocoding transport', () => {
     }
   })
 
+  it('forwards the /alarm link token in a header – the page has no login (owner, 24.11.2026)', async () => {
+    window.history.replaceState(null, '', '/alarm?token=alarm-link')
+    try {
+      await searchAddress('Binningerstr')
+      const [url, init] = vi.mocked(fetch).mock.calls[0]
+      expect(new Headers(init?.headers).get('X-Intake-Token')).toBe('alarm-link')
+      expect(String(url)).not.toContain('alarm-link')
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
+
+  it('sends no intake token outside /alarm', async () => {
+    window.history.replaceState(null, '', '/reko?token=reko-link')
+    try {
+      await searchAddress('Testweg')
+      expect(new Headers(vi.mocked(fetch).mock.calls[0][1]?.headers).get('X-Intake-Token')).toBeNull()
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
+
+  it('tells a failed lookup apart from an empty one', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 401 }))
+    expect(await searchAddress('Binningerstr')).toBeNull()
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify([])))
+    expect(await searchAddress('Binningerstr')).toEqual([])
+  })
+
   it('rejects malformed coordinates from a provider', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify([{ ...NOMINATIM_ROWS[0], lat: 999 }])))
-    expect(await searchAddress('Testweg')).toEqual([])
+    expect(await searchAddress('Testweg')).toBeNull()
   })
 
   it('cancels a superseded search during rate-limit backoff', async () => {
@@ -114,7 +143,7 @@ describe('authenticated geocoding transport', () => {
       const result = searchAddress('Testweg', { signal: controller.signal })
       await vi.advanceTimersByTimeAsync(0)
       controller.abort()
-      expect(await result).toEqual([])
+      expect(await result).toBeNull()
       await vi.advanceTimersByTimeAsync(5000)
       expect(fetch).toHaveBeenCalledTimes(1)
     } finally { vi.useRealTimers() }
@@ -126,7 +155,7 @@ describe('authenticated geocoding transport', () => {
       vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 429, headers: { 'Retry-After': '2' } }))
       const result = searchAddress('Testweg')
       await vi.advanceTimersByTimeAsync(6000)
-      expect(await result).toEqual([])
+      expect(await result).toBeNull()
       expect(fetch).toHaveBeenCalledTimes(3)
     } finally { vi.useRealTimers() }
   })
@@ -155,7 +184,7 @@ describe('compatible cancellation and deadline', () => {
   it('does not fetch when the caller has already cancelled', async () => {
     const caller = new AbortController()
     caller.abort()
-    expect(await searchAddress('Testweg', { signal: caller.signal })).toEqual([])
+    expect(await searchAddress('Testweg', { signal: caller.signal })).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -168,7 +197,7 @@ describe('compatible cancellation and deadline', () => {
       const caller = new AbortController()
       const result = searchAddress('Testweg', { signal: caller.signal })
       caller.abort()
-      expect(await result).toEqual([])
+      expect(await result).toBeNull()
       expect(vi.getTimerCount()).toBe(0)
     } finally { vi.useRealTimers() }
   })
@@ -187,7 +216,7 @@ describe('compatible cancellation and deadline', () => {
       await vi.advanceTimersByTimeAsync(9_999)
       expect(requestSignal?.aborted).toBe(false)
       await vi.advanceTimersByTimeAsync(1)
-      expect(await result).toEqual([])
+      expect(await result).toBeNull()
       expect(requestSignal?.reason.name).toBe('TimeoutError')
       expect(vi.getTimerCount()).toBe(0)
     } finally { vi.useRealTimers() }
