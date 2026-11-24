@@ -34,7 +34,7 @@ import { sortForMapList } from "@/lib/map-list-order"
 import { type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
 import { useIncidents, useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
@@ -167,6 +167,9 @@ export default function MapPage() {
     return operations.find(op => op.id === selectedOperationId) || null
   }, [selectedOperationId, operations])
   const [resetZoomTrigger, setResetZoomTrigger] = useState(0)
+  // Flies the map to the selected Einsatz again although the selection did not change – the
+  // phone sheet's «Auf Karte anzeigen» after the map was panned away from it.
+  const [panTrigger, setPanTrigger] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilters, setStatusFilters] = useState<Record<StatusGroup, boolean>>({
     open: true,
@@ -408,6 +411,18 @@ export default function MapPage() {
     enterRekoModeFromLink()
   }, [searchParams])
 
+  // The phone has no Routenplanung and no Reko-Modus (owner, 24.11.2026): both are KP-desk
+  // tools that swap the whole list for their panel. A `?mode=reko` link opened on a phone, or a
+  // window narrowed below `md` mid-mode, leaves them – set during render, React's pattern for
+  // state that follows another value, so no effect has to catch up. A question either mode had
+  // open goes with it: confirmed afterwards, it would still change the route or the Reko.
+  if (isMobile && (planningActive || rekoModeActive)) {
+    exitPlanning()
+    exitRekoMode()
+    setPlanningAddConfirm(null)
+    setRekoOverwrite(null)
+  }
+
   // Create a new Auftrag from the panel and select it for planning.
   const handleCreatePlanningGroup = async (name: string, color: string) => {
     const created = await createGroup({ name, color })
@@ -431,8 +446,9 @@ export default function MapPage() {
 
   /**
    * «Open this Einsatz» — the ONE function behind every entry point on the map: list row
-   * (double-click / double-tap), its «Details anzeigen» icon, the E/Enter shortcut and a marker
-   * double-click. Where it goes is `incidentDetailTarget` (lib/incident-detail.ts):
+   * (double-click on the desk, a tap on the phone), its «Details anzeigen» icon, the E/Enter
+   * shortcut and a marker double-click. Where it goes is `incidentDetailTarget`
+   * (lib/incident-detail.ts):
    *
    * - desktop: back to the board, into its detail side panel — the detail belongs next to the
    *   columns, and a second copy over the map meant two surfaces mounting the same forms;
@@ -441,7 +457,8 @@ export default function MapPage() {
    *   the map (owner, 03.10.).
    *
    * The incident stays selected: a double-click is two clicks first, and the second one would
-   * otherwise have toggled the selection off again.
+   * otherwise have toggled the selection off again. Selecting flies the map to it, so on the
+   * phone the sheet opens over a map that already shows the Einsatz.
    */
   const [phoneDetailId, setPhoneDetailId] = useState<string | null>(null)
   const phoneDetailOperation = useMemo(
@@ -454,6 +471,25 @@ export default function MapPage() {
     if (target.kind === 'phone-sheet') setPhoneDetailId(target.incidentId)
     else router.push(target.href)
   }, [router, isMobile])
+  // The phone sheet's «Auf Karte anzeigen» from here: the Lagekarte is this page, so it closes
+  // the sheet and flies to the marker instead of loading `/map?highlight=` over itself.
+  // It also rides the filter exception below, so an Einsatz that turned «Beendet» while the
+  // sheet was open still shows when the map flies to it.
+  const [showOnMapId, setShowOnMapId] = useState<string | null>(null)
+  const showPhoneDetailOnMap = useCallback((incidentId: string) => {
+    setPhoneDetailId(null)
+    setSelectedIncidentId(incidentId)
+    setShowOnMapId(incidentId)
+    setPanTrigger((n) => n + 1)
+  }, [])
+  // A row tap on the phone: the sheet, over a map that flies to the Einsatz – also when it was
+  // selected already and the map has been panned away since (the trigger) – and the selection
+  // reaches the other windows, as a marker tap's does.
+  const openPhoneRow = (incidentId: string) => {
+    if (incidentId !== selectedIncidentId) broadcast("incident:selected", incidentId)
+    setPanTrigger((n) => n + 1)
+    openIncidentDetail(incidentId)
+  }
 
   // Register command palette (Cmd+K) handlers for the map view
   const { registerHandlers, clearHandlers } = useCommandPalette()
@@ -589,9 +625,10 @@ export default function MapPage() {
   // is filtered out. It rides as a one-time exception ON TOP of the filters —
   // the filter toggles themselves stay untouched (Bastian's decided behavior).
   // The exception lasts exactly as long as that incident stays selected;
-  // picking anything else lets the normal filters take over again.
+  // picking anything else lets the normal filters take over again. The phone sheet's
+  // «Auf Karte anzeigen» (`showOnMapId`) is the same act without the URL.
   const deepLinkExceptionId =
-    highlightParam && selectedIncidentId === highlightParam ? highlightParam : null
+    [highlightParam, showOnMapId].find((id) => id && id === selectedIncidentId) ?? null
 
   // Filter incidents based on status group filters and search query
   const activeIncidents = useMemo(
@@ -900,21 +937,6 @@ export default function MapPage() {
             </div>
           </>
         )}
-        {/* Phone: the two editor modes live here (see the row above). */}
-        {isMobile && isEditor && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('page.modesMenuLabel')}</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => enterPlanning()} className="cursor-pointer">
-              <Milestone className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="flex-1">{t('page.routePlanning')}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => enterRekoMode()} className="cursor-pointer">
-              <Binoculars className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="flex-1">{t('rekoMode.title')}</span>
-            </DropdownMenuItem>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -964,6 +986,7 @@ export default function MapPage() {
             <MapView
               onFirstIdle={() => setMapIdle(true)}
               selectedIncidentId={selectedIncidentId}
+              panTrigger={panTrigger}
               onMarkerClick={handleIncidentClick}
               // Not in the tap-modes: there a marker tap edits the route / the Reko, and a
               // double tap must not open a sheet on top of that.
@@ -1077,9 +1100,7 @@ export default function MapPage() {
                   «search + one menu» shape as the assignment dialog's «Filtern».
                   Three buttons above a separate search wrapped to two rows on a
                   390px screen and ate a third of the list (owner, 02.10.2026).
-                  The two editor modes move into the Ansicht menu there: they are
-                  KP-desk tools, each swaps the whole list for its panel, and one
-                  extra tap is a fair price for a whole row of list. */}
+                  The two editor modes are desktop-only (owner, 24.11.2026). */}
               {(isMobile || isEditor) && (
               <div className={isMobile ? 'flex items-center gap-2' : 'mb-3 flex flex-wrap gap-1.5'}>
                 {isMobile && (
@@ -1142,7 +1163,7 @@ export default function MapPage() {
               {/* One-line rows in sections. The rail stopped repeating the
                   board's cards: detail lives on the marker's hover card and
                   behind «Details anzeigen» (double-click, or the icon that
-                  appears on hover). A section heading toggles its status group
+                  appears on hover; a tap on the phone). A section heading toggles its status group
                   — for the list AND the map markers. */}
               <div className="space-y-3">
                 {(['open', 'active', 'completed'] as StatusGroup[]).map((group) => {
@@ -1191,14 +1212,18 @@ export default function MapPage() {
                               <div key={incident.id}>
                                 <div
                                   id={`map-incident-card-${incident.id}`}
-                                  onClick={() => handleIncidentClick(incident.id)}
-                                  onDoubleClick={() => openIncidentDetail(incident.id)}
+                                  // The phone has no hover and no double tap anybody knows of: a
+                                  // tap opens the sheet, and selects, so the map flies there. A
+                                  // marker keeps its select-first tap (phone sweep 24.11.2026).
+                                  onClick={() => (isMobile ? openPhoneRow(incident.id) : handleIncidentClick(incident.id))}
+                                  onDoubleClick={isMobile ? undefined : () => openIncidentDetail(incident.id)}
                                   // ONE selected state (A2): the selection wash, nothing else. It
                                   // was a grey wash plus a 2px bar inset 4px top and
                                   // bottom — two shapes that never lined up (owner, 02.10.).
                                   // 44px on the phone: the row's time chip is a button the touch
                                   // rule makes 44px tall, and at 32px it lay over its neighbours'.
-                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors ${
+                                  // The ring of the unseen phone detail button (below) is the row's.
+                                  className={`group relative flex h-8 max-md:h-11 cursor-pointer items-center gap-2 rounded-md px-2 transition-colors has-[>button.sr-only:focus-visible]:outline-2 has-[>button.sr-only:focus-visible]:outline-offset-2 has-[>button.sr-only:focus-visible]:outline-ring ${
                                     isSelected ? 'bg-sel-wash' : 'hover:bg-muted/50'
                                   }`}
                                   aria-current={isSelected ? 'true' : undefined}
@@ -1220,6 +1245,29 @@ export default function MapPage() {
                                     <IncidentNumber number={incident.number} className="mr-1.5 text-xs" />
                                     {incident.location_address ? formatLocation(incident.location_address) : incident.title}
                                   </span>
+                                  {/* The phone: the row is a div with a click, which VoiceOver
+                                      does not offer as a control – this unseen button, named
+                                      after the row, is the one it announces (sweep A2). */}
+                                  {isMobile ? (
+                                    <button
+                                      type="button"
+                                      data-detail-opener
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        // Focused, so the sheet hands the focus back here (see the card).
+                                        e.currentTarget.focus({ preventScroll: true })
+                                        openPhoneRow(incident.id)
+                                      }}
+                                      className="sr-only"
+                                    >
+                                      {tIncidents('mobileCard.openDetail', {
+                                        incident: getIncidentRefParts({
+                                          number: incident.number,
+                                          location: incident.location_address ? formatLocation(incident.location_address) : incident.title,
+                                        }).head,
+                                      })}
+                                    </button>
+                                  ) : (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
@@ -1235,6 +1283,7 @@ export default function MapPage() {
                                     </TooltipTrigger>
                                     <TooltipContent>{t('page.showDetails')}</TooltipContent>
                                   </Tooltip>
+                                  )}
                                   <IncidentTimeRow
                                     operation={incidentTimeSource(incident)}
                                     colorByAge
@@ -1244,13 +1293,15 @@ export default function MapPage() {
                                 {/* The pickup chip survives — it IS the
                                     «Abholung disponiert» control (decision 24).
                                     On the selected row only: everywhere else
-                                    the row stays one quiet line. */}
+                                    the row stays one quiet line. A label on the
+                                    phone: its board is read-only (owner,
+                                    14.11.2026), the KP clears it at the desk. */}
                                 {isSelected && operation?.pickupNeeded && (
                                   <PickupBadge
                                     requestedAt={operation.pickupRequestedAt}
                                     note={operation.pickupNote}
                                     incidentId={incident.id}
-                                    canEdit={isEditor}
+                                    canEdit={isEditor && !isMobile}
                                     className="mb-1 ml-6 mt-0.5"
                                   />
                                 )}
@@ -1283,6 +1334,7 @@ export default function MapPage() {
             operation={phoneDetailOperation}
             open={!!phoneDetailOperation}
             onOpenChange={(open) => { if (!open) setPhoneDetailId(null) }}
+            onShowOnMap={showPhoneDetailOnMap}
             materials={materials}
             formatLocation={formatLocation}
           />

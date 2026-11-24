@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import de from '@/messages/de.json'
 import type { Operation, Person } from '@/lib/contexts/operations-context'
@@ -58,6 +59,28 @@ describe('MobilePersonnelSheet', () => {
     )
     expect(screen.getByText('1/3 verfügbar')).toBeInTheDocument()
     expect(screen.getAllByText(/zugewiesen/)).toHaveLength(2)
+  })
+
+  // Phone sweep 24.11.2026 #23: the row named the Einsatz but led nowhere.
+  it('opens the Einsatz of a person on exactly one, and leaves a person on two a plain row', async () => {
+    const onOpenIncident = vi.fn()
+    const second = { ...operation, id: 'i2', crew: [{ personnelId: 'p3', name: 'Berger Maja' }] } as unknown as Operation
+    const third = { ...operation, id: 'i3', crew: [{ personnelId: 'p3', name: 'Berger Maja' }] } as unknown as Operation
+    renderWithIntl(
+      <MobilePersonnelSheet
+        open
+        onOpenChange={() => {}}
+        onOpenIncident={onOpenIncident}
+        operations={[operation, second, third]}
+        personnel={[
+          person({ id: 'p2', name: 'Bendik-Dimitrijević Alexandra', status: 'assigned' }),
+          person({ id: 'p3', name: 'Berger Maja', status: 'assigned' }),
+        ]}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Bendik-Dimitrijević Alexandra/ }))
+    expect(onOpenIncident).toHaveBeenCalledWith('i1')
+    expect(screen.queryByRole('button', { name: /Berger Maja/ })).toBeNull()
   })
 
   // `t(`state.${status}`)` is a dynamic key: neither tsc nor the literal-key check follows it.
