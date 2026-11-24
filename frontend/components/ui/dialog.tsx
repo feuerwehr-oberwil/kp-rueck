@@ -37,7 +37,9 @@ function DialogClose({
 
 /** The corner ✕ of DialogContent and SheetContent: a ghost square, 32px (44px under the touch
  *  rule), glyph centred. Where it stands is globals.css's (`--close-edge`, `--close-centre`), so
- *  the glyph ends on the content edge and sits on the title line whatever the box size. */
+ *  the glyph ends on the content edge and sits on the title line whatever the box size. On a
+ *  phone SHEET globals.css draws it as KP Front's `.ip-x`: an 18px glyph on a 36px muted plate
+ *  inside the 44px box, the plate ending on the edge. */
 export const CORNER_CLOSE_CLASS =
   "ring-offset-background focus:ring-ring hover:bg-muted hover:text-foreground absolute grid size-8 place-items-center rounded-md transition-colors cursor-pointer focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
 
