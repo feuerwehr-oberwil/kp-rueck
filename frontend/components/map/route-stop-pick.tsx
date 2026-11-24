@@ -83,7 +83,7 @@ export function useMoveStopConfirm() {
     <ConfirmDialog
       open={pending !== null}
       onOpenChange={(open) => !open && setPending(null)}
-      title={t("distributeConfirmTitle")}
+      title={t("distributeConfirmTitle", { auftrag: pending?.toName ?? "" })}
       description={t("distributeConfirmTransfer", {
         incident: pending?.incidentLabel ?? "",
         from: pending?.fromName ?? "",

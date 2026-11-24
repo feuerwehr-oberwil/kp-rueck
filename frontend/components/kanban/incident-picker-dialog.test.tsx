@@ -172,3 +172,14 @@ it("applies only the operator's own ticks: a stop added elsewhere while open is 
   expect(removeStop).not.toHaveBeenCalled()
   expect(onConfirm).toHaveBeenCalledWith(["open"])
 })
+
+it("names the target Auftrag in the move question's title", async () => {
+  // The title takes {auftrag} – a caller that leaves it out logs an IntlError on every render.
+  renderPicker()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole("button", { name: "Liste" }))
+  await user.click(screen.getByText("Hauptstrasse dispatched"))
+  await user.click(screen.getByRole("button", { name: /hinzufügen|Übernehmen/ }))
+
+  expect(await screen.findByText("In Auftrag «Auftrag Nord» aufnehmen?")).toBeInTheDocument()
+})
