@@ -8,8 +8,8 @@ import { dismissOverlays } from '../07-viewer-role/viewer-role.helpers';
  * seeded `admin`, so the editor-side label is «Admin».
  *
  * It is NOT in the navigation bar but in the `AccountBlock`, which Radix keeps unmounted
- * while closed: desktop at the top of the UserMenu dropdown, phone in the «Konto» section of
- * the «Mehr» sheet. So every test opens the containing menu first.
+ * while closed: desktop at the top of the UserMenu dropdown, phone at the foot of the Ereignis
+ * pill's menu. So every test opens the containing menu first.
  *
  * Its look (secondary variant, Shield/Eye icon) is the visual screens' business, not this
  * file's.
@@ -23,7 +23,8 @@ test.beforeEach(() => {
 });
 
 const USER_MENU_TRIGGER = 'Benutzermenü öffnen';
-const MOBILE_MORE_TRIGGER = 'Mehr Optionen';
+/** The phone's Ereignis pill: «Ereignis <name> – Menü». */
+const MOBILE_PILL_TRIGGER = /^Ereignis .* – Menü$/;
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
 
 /** Opens the desktop UserMenu dropdown and returns it. */
@@ -34,12 +35,12 @@ async function openUserMenu(page: Page): Promise<Locator> {
   return menu;
 }
 
-/** Opens the mobile bottom-navigation "Mehr" sheet and returns it. */
-async function openMobileMoreSheet(page: Page): Promise<Locator> {
-  await page.getByRole('button', { name: MOBILE_MORE_TRIGGER }).click();
-  const sheet = page.getByRole('dialog');
-  await expect(sheet).toBeVisible();
-  return sheet;
+/** Opens the phone's Ereignis pill menu and returns it. */
+async function openMobilePillMenu(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: MOBILE_PILL_TRIGGER }).click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  return menu;
 }
 
 /**
@@ -82,14 +83,14 @@ test.describe('Role Badge', () => {
     await expect(roleBadge(menu, ADMIN_LABEL)).toBeVisible();
   });
 
-  test('on the phone the role is in the «Mehr» sheet, in words', async ({ authenticatedPage }) => {
+  test('on the phone the role is in the Ereignis pill’s menu, in words', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize(MOBILE_VIEWPORT);
     await selectAnyEvent(authenticatedPage);
     // The desktop nav (and with it the UserMenu) is `hidden md:flex`.
     await expect(authenticatedPage.getByRole('button', { name: USER_MENU_TRIGGER })).toBeHidden();
 
-    const sheet = await openMobileMoreSheet(authenticatedPage);
-    await expect(roleBadge(sheet, ADMIN_LABEL)).toBeVisible();
+    const menu = await openMobilePillMenu(authenticatedPage);
+    await expect(roleBadge(menu, ADMIN_LABEL)).toBeVisible();
   });
 
   /**

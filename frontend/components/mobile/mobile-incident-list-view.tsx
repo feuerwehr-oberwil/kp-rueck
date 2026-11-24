@@ -2,11 +2,10 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { useTranslations } from "next-intl"
-import Link from "next/link"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { LoadingStatus } from "@/components/ui/shell-loader"
-import { Filter, Plus, Sparkles, X } from "lucide-react"
+import { Filter, X } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -34,7 +33,8 @@ import {
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { type DetailTarget } from "@/lib/detail-target"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
-import { TrainingBadge } from "@/components/training-mode-chrome"
+import { PhoneEventPill } from "./phone-event-pill"
+import { PhoneIntakeFooter } from "./phone-intake-footer"
 
 interface MobileIncidentListViewProps {
   operations: Operation[]
@@ -209,31 +209,9 @@ export function MobileIncidentListView({
     <div ref={rootRef} className="flex flex-col h-full pb-[var(--nav-reserve,0px)]">
       {/* Fixed Header with Search */}
       <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background sticky top-0 z-raised border-b border-border/50">
-        {/* Current event as context — the top navbar is hidden on mobile, so the
-            event name lives here; switching happens via the bottom nav. */}
-        {selectedEvent && (
-          <div className="flex items-center gap-2 mb-3 min-w-0">
-            <h1 className="text-lg font-bold tracking-tight truncate">{selectedEvent.name}</h1>
-            {selectedEvent.training_flag && (
-              <TrainingBadge label={t('trainingBadge')} />
-            )}
-          </div>
-        )}
-
-        {/* Primary mobile task for training events: spawn a new training incident.
-            Surfaced prominently here so it's one tap away instead of buried in
-            the "Mehr" sheet → Übungs-Steuerung. Editor-only (spawning needs edit rights).
-            It stays up here and does not join «Neuer Einsatz» in the footer: side by side at
-            390px each half is ~175px, and «Übungs-Einsatz erstellen» needs ~230px — two
-            truncated labels would be worse than one action per place. */}
-        {isTraining && isEditor && (
-          <Link href="/training" className="mb-3 block">
-            <Button variant="outline" className="w-full min-h-[48px] gap-2">
-              <Sparkles className="h-4 w-4" />
-              {t('createTrainingIncident')}
-            </Button>
-          </Link>
-        )}
+        {/* The Ereignis pill: the phone frame's head on every page, and its menu (owner picks
+            1A + 2A, phone sweep 24.11.2026). The Übung intake is in the footer (5B). */}
+        <PhoneEventPill className="mb-3" />
 
         {/* Search + ONE funnel (owner, 02.10.2026 — like KP Front's Verlauf): the chip row it
             replaces ran off the right edge at 390px. The funnel is a square that never changes
@@ -381,13 +359,11 @@ export function MobileIncidentListView({
 
       {/* The list's ONE action, in a footer directly above the bottom nav (owner, 02.10.2026):
           under the thumb, and in flow — the list ends at its top edge instead of scrolling under a
-          floating button. Editors only (the caller passes the handler only to them). */}
+          floating button. Editors only (the caller passes the handler only to them); in an Übung
+          an editor's footer is the split button with the Übung menu (owner pick 5B). */}
       {onNewIncident && (
         <div ref={footRef} className="flex-shrink-0 border-t border-border/50 bg-background px-4 py-3">
-          <Button onClick={onNewIncident} className="w-full min-h-[48px] gap-2">
-            <Plus className="h-4 w-4" />
-            {t('newIncident')}
-          </Button>
+          <PhoneIntakeFooter onNewIncident={onNewIncident} training={isTraining && isEditor} />
         </div>
       )}
 

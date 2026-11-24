@@ -40,9 +40,11 @@ export type PhoneQuickSheet = 'links' | 'attendance' | 'journal' | 'personnel' |
 interface PhoneQuickSheetsProps {
   open: PhoneQuickSheet | null
   onOpenChange: (sheet: PhoneQuickSheet | null) => void
+  /** Puts focus back on the Personal tile when its sheet closes (the tile is no SheetTrigger). */
+  onPersonnelCloseFocus?: (event: Event) => void
 }
 
-export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) {
+export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: PhoneQuickSheetsProps) {
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
   const { operations, refreshOperations } = useOperations()
@@ -123,6 +125,7 @@ export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) 
           close()
           navigateToIncident(id)
         }}
+        onCloseAutoFocus={onPersonnelCloseFocus}
       />
       <CrewDutySheet
         open={open === 'crew'}

@@ -3,9 +3,12 @@ import type { Page } from '@playwright/test';
 import { API_BASE, MOBILE_VIEWPORT, cookieHeaderFor, setupBoard } from '../../helpers/api.helper';
 
 /**
- * The phone's bottom bar: two tabs (Einsätze, Karte) and «Mehr», whose sheet reaches the
- * rest. What it must do is get the operator to every page, and keep the tabs that need an
- * Ereignis shut while none is chosen.
+ * The phone frame (owner picks 1A + 2A, 24.11.2026): the Ereignis pill on top of the Ereignis
+ * pages – its menu reaches «Alle Ereignisse», Einstellungen, Hilfe and the account – and the
+ * bottom bar's five tiles: Einsätze and Lagekarte (pages), Personal and Meldungen (sheets),
+ * «Mehr» (the tools). Einstellungen and Hilfe carry no pill (owner, sign-off 24.11.2026).
+ * What it must do is get the operator to every page, and keep the tabs that need an Ereignis
+ * shut while none is chosen.
  *
  * How it looks (active tint, muted inactive tabs, backdrop blur, safe-area padding, 44px
  * targets) used to be asserted here class by class; the phone visual screen and the
@@ -16,6 +19,9 @@ import { API_BASE, MOBILE_VIEWPORT, cookieHeaderFor, setupBoard } from '../../he
 /** The bar is the navigation landmark that holds «Mehr» (its classes differ per page). */
 const bottomNav = (page: Page) =>
   page.getByRole('navigation').filter({ has: page.getByRole('button', { name: 'Mehr Optionen' }) });
+
+/** The Ereignis pill: its accessible name is «Ereignis <name> – Menü». */
+const eventPill = (page: Page) => page.getByRole('button', { name: /^Ereignis .* – Menü$/ });
 
 /** `next dev` compiles a route on its first visit; on a busy runner that alone takes seconds. */
 const ROUTE_COMPILE_MS = 15_000;
@@ -41,18 +47,50 @@ test.describe('Mobile bottom navigation', () => {
     await expect(board).toHaveAttribute('aria-current', 'page');
   });
 
-  for (const [entry, path] of [
-    ['Alle Ereignisse', '/events'],
-    ['Einstellungen', '/settings'],
+  // «Alle Ereignisse» is about the Ereignis, so the pill heads it too; Einstellungen is not.
+  for (const [entry, path, title, headed] of [
+    ['Alle Ereignisse', '/events', 'Ereignisse', true],
+    ['Einstellungen', '/settings', 'Einstellungen', false],
   ] as const) {
-    test(`«Mehr» reaches ${entry}`, async ({ authenticatedPage: page }) => {
-      await setupBoard(page, 'Mobile Mehr', { count: 0 });
-      await bottomNav(page).getByRole('button', { name: 'Mehr Optionen' }).click();
-      // A page entry is the row itself as a link (Button asChild), not a button inside a link.
-      await page.getByRole('dialog').getByRole('link', { name: entry }).click();
+    test(`the Ereignis pill reaches ${entry}`, async ({ authenticatedPage: page }) => {
+      await setupBoard(page, 'Mobile Pill', { count: 0 });
+      await eventPill(page).click();
+      // A page entry is the row itself as a link, not a button inside a link.
+      await page.getByRole('menu').getByRole('menuitem', { name: entry }).click();
       await expect(page).toHaveURL(path, { timeout: ROUTE_COMPILE_MS });
+      await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+      await expect(eventPill(page)).toHaveCount(headed ? 1 : 0);
     });
   }
+
+  test('the Personal and Meldungen tiles open their sheets over the page', async ({ authenticatedPage: page }) => {
+    await setupBoard(page, 'Mobile Tiles', { count: 0 });
+    const nav = bottomNav(page);
+
+    // Neither tile is the sheet's own trigger: closing hands focus back to it, not to <body>.
+    const personal = nav.getByRole('button', { name: 'Personal' });
+    await personal.click();
+    await expect(page.getByRole('dialog', { name: 'Personal' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(personal).toBeFocused();
+
+    const tile = nav.getByRole('button', { name: /^Meldungen/ });
+    await tile.click();
+    const meldungen = page.getByRole('dialog', { name: 'Meldungen' });
+    await expect(meldungen).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tile).toBeFocused();
+
+    // Meldungen hands over to the Alarmeingang; closing that one comes back to the tile too.
+    await tile.click();
+    await meldungen.getByRole('button', { name: /Alarmeingang/ }).click();
+    await expect(page.getByTestId('alarm-inbox')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('alarm-inbox')).toHaveCount(0);
+    await expect(tile).toBeFocused();
+    await expect(page).toHaveURL('/');
+  });
 
   // The same menu on the board and on the Lagekarte (owner, 16.11.2026): the sheets are the
   // nav's own, so the map opens them over itself instead of offering only Kennzahlen.
@@ -68,7 +106,6 @@ test.describe('Mobile bottom navigation', () => {
       const sheet = page.getByRole('dialog');
       await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
       await expect(sheet.getByRole('button', { name: 'Links & QR' })).toBeVisible();
-      await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
       await sheet.getByRole('button', { name: 'Fahrzeuge' }).click();
 
       await expect(page.getByRole('dialog', { name: 'Fahrzeugstatus' })).toBeVisible();
@@ -116,6 +153,27 @@ test.describe('Mobile bottom navigation', () => {
     await expect(row).toHaveAttribute('aria-current', 'true');
     await expect(page.getByText('Abholung').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Abholung/ })).toHaveCount(0);
+  });
+
+  // Owner, sign-off 24.11.2026: an unbreakable address ran under the ✕ plate of the detail head.
+  test('a long Einsatz title wraps left of the ✕', async ({ authenticatedPage: page }) => {
+    // The owner's test address: no break opportunity between the number and the street.
+    await setupBoard(page, 'Mobile Title', {
+      incidents: [{ location_address: 'Langegassestrasse 17955221789112 2, 4104 Oberwil' }],
+      layout: 'mobile',
+    });
+    await page.getByRole('heading', { name: /Langegassestrasse/ }).first().click();
+    const sheet = page.getByRole('dialog');
+    const title = sheet.locator('[data-slot="sheet-title"]');
+    await expect(title).toContainText('Langegassestrasse');
+    // The text's own boxes: a line too long for the title spills past the element's box.
+    const textEnd = await title.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return Math.max(...Array.from(range.getClientRects(), (rect) => rect.right));
+    });
+    const close = await sheet.locator('[data-slot="sheet-close"]').boundingBox();
+    expect(textEnd).toBeLessThanOrEqual(close!.x);
   });
 
   // The phone's «Neuer Einsatz» sheet opens the map picker as a step inside itself, as the desk

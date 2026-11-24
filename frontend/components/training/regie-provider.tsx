@@ -4,19 +4,19 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
-import { apiClient, ApiError, type ApiIncident } from '@/lib/api-client'
+import { apiClient, ApiError } from '@/lib/api-client'
 import type { ApiRegieStepKey, ApiRegieTempo } from '@/lib/api/types'
 import { useOperations, type Operation } from '@/lib/contexts/operations-context'
 import { useAutomatikSettings } from '@/lib/hooks/use-automatik-settings'
 import { useCurrentTime } from '@/lib/hooks/use-current-time'
 import { useTrainingRegie } from '@/lib/hooks/use-training-regie'
 import { regieClock, type RegieInject } from '@/lib/training-regie'
-import { formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
+import { generateTrainingAlarm, trainingAlarmLine, TRAINING_ALARM_TOAST, type TrainingAlarm } from '@/lib/training-alarm'
 import { PickupQuestionDialog } from '@/components/training/pickup-question-dialog'
 import { RegieIncidentSheet } from '@/components/training/regie-incident-sheet'
 
 /** An alarm of «Störung einspielen»: one generated incident, or the Welle (five at once). */
-export type RegieAlarm = 'normal' | 'critical' | 'phone' | 'wave'
+export type RegieAlarm = TrainingAlarm | 'wave'
 
 /** Injects that only the incident's ⋯ offers: they are field reports, not surprises. */
 export type RegieFieldInject = RegieInject | 'arrived' | 'rapport'
@@ -174,12 +174,6 @@ function useRegieController(eventId: string) {
       settled()
     })
 
-  const toastLine = (incident: ApiIncident) => {
-    const location =
-      incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity())
-    return location ? `${incident.title} @ ${location}` : incident.title
-  }
-
   const alarm = (kind: RegieAlarm) =>
     run('alarm', async () => {
       if (kind === 'wave') {
@@ -195,17 +189,8 @@ function useRegieController(eventId: string) {
           description: incidents.map((i) => i.title).join(', '),
         })
       } else {
-        const [incident] = await apiClient.generateTrainingEmergency(
-          eventId,
-          kind === 'phone' ? { count: 1, source: 'intake' } : { category: kind, count: 1 },
-        )
-        const title =
-          kind === 'phone'
-            ? t('controls.toastPhoneGenerated')
-            : kind === 'critical'
-              ? t('controls.toastGeneratedCritical')
-              : t('controls.toastGenerated')
-        toast.success(title, { description: toastLine(incident) })
+        const incident = await generateTrainingAlarm(eventId, kind)
+        toast.success(t(`controls.${TRAINING_ALARM_TOAST[kind]}`), { description: trainingAlarmLine(incident) })
       }
       settled()
     })
@@ -214,7 +199,7 @@ function useRegieController(eventId: string) {
   const dispatch = (templateId: string, location: Parameters<typeof apiClient.manualDispatch>[2]) =>
     run('alarm', async () => {
       const incident = await apiClient.manualDispatch(eventId, templateId, location)
-      toast.success(t('controls.toastDispatched'), { description: toastLine(incident) })
+      toast.success(t('controls.toastDispatched'), { description: trainingAlarmLine(incident) })
       settled()
     })
 

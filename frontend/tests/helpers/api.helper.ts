@@ -292,12 +292,16 @@ export async function setupBoard(
   // page took long enough to hide it; REST setup arrives while the app is still
   // mounting, and the specs then assert against an empty board.
   //
-  // The heading rather than the kanban columns: `[data-column]` does not exist at
+  // The name rather than the kanban columns: `[data-column]` does not exist at
   // all on a 375px viewport, so a column-based check cost `08-navigation` a 20s
-  // timeout on every one of its mobile tests. The event name is on every layout.
-  await expect(page.getByRole('heading', { name: event.name }).first()).toBeVisible({
-    timeout: 20_000,
-  });
+  // timeout on every one of its mobile tests. The event name is on every layout:
+  // the desk's heading, the phone's Ereignis pill («Ereignis <name> – Menü»).
+  await expect(
+    page
+      .getByRole('heading', { name: event.name })
+      .or(page.getByRole('button', { name: `Ereignis ${event.name} – Menü` }))
+      .first(),
+  ).toBeVisible({ timeout: 20_000 });
   if (incidents.length) {
     await expectCardCount(page, incidents.length, options.layout ?? 'desktop');
   }
