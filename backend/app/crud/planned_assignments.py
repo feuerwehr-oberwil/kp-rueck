@@ -440,15 +440,27 @@ class PlannedView:
     ready_since: datetime | None = None
 
 
-async def _last_release(db: AsyncSession, resource_type: str, ids: list[uuid.UUID]) -> dict[uuid.UUID, datetime]:
-    """Each resource's most recent release, over Einsatz and Auftrag rows."""
+async def _last_release(
+    db: AsyncSession, event_id: uuid.UUID, resource_type: str, ids: list[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """Each resource's most recent release in this Ereignis, over Einsatz and Auftrag rows."""
     last: dict[uuid.UUID, datetime] = {}
     if not ids:
         return last
-    for model in (IncidentAssignment, IncidentGroupAssignment):
+    holders = (
+        (IncidentAssignment, Incident, IncidentAssignment.incident_id == Incident.id),
+        (IncidentGroupAssignment, IncidentGroup, IncidentGroupAssignment.incident_group_id == IncidentGroup.id),
+    )
+    for model, holder, on in holders:
         rows = await db.execute(
             select(model.resource_id, func.max(model.unassigned_at))
-            .where(model.resource_type == resource_type, model.resource_id.in_(ids), model.unassigned_at.is_not(None))
+            .join(holder, on)
+            .where(
+                holder.event_id == event_id,
+                model.resource_type == resource_type,
+                model.resource_id.in_(ids),
+                model.unassigned_at.is_not(None),
+            )
             .group_by(model.resource_id)
         )
         for rid, at in rows.tuples():
@@ -483,7 +495,7 @@ async def list_for_event(db: AsyncSession, event_id: uuid.UUID) -> list[PlannedV
         for rid, holders in (await jetzt_holders(db, event_id, resource_type, ids)).items():
             busy[(resource_type, rid)] = bool(holders)
         free = [rid for rid in ids if not busy[(resource_type, rid)]]
-        for rid, at in (await _last_release(db, resource_type, free)).items():
+        for rid, at in (await _last_release(db, event_id, resource_type, free)).items():
             released[(resource_type, rid)] = at
     seen: dict[tuple[str, uuid.UUID], int] = {}
     views = []
