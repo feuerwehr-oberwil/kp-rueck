@@ -344,6 +344,8 @@ class RegieStateResponse(BaseModel):
     tempo: RegieTempo
     paused_at: datetime | None
     started_at: datetime | None
+    # Un-paused seconds since `started_at`, at the time of this answer – the header clock.
+    running_seconds: float | None
     automatik: AutogenStateResponse
     automatik_next_at: datetime | None
     incidents: list[RegieIncident]

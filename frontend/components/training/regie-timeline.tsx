@@ -212,17 +212,16 @@ export function RegieTimeline() {
 /** The header's clock and its ⏸ / ▶: «Übung» before the start, then «Übung läuft · m:ss». */
 export function RegieTitle() {
   const t = useTranslations('training.regie')
-  const { state, now, actions, isBusy } = useRegie()
-  const startedAt = state?.started_at ? Date.parse(state.started_at) : null
+  const { state, clock, receivedAt, actions, isBusy } = useRegie()
   const paused = !!state?.paused_at
-  // Wall time since the start, standing still at the pause.
-  const until = state?.paused_at ? Date.parse(state.paused_at) : now
+  // The server's un-paused run time, ticking on from when it came (`clock` stands still while paused).
+  const running = state?.running_seconds == null ? null : state.running_seconds * 1000 + (clock - receivedAt)
   const title =
-    startedAt === null
+    running === null
       ? t('titleIdle')
       : paused
-        ? t('titlePaused', { time: formatClock(until - startedAt) })
-        : t('titleRunning', { time: formatClock(until - startedAt) })
+        ? t('titlePaused', { time: formatClock(running) })
+        : t('titleRunning', { time: formatClock(running) })
   return (
     <div className="flex min-w-0 items-center gap-2">
       <h1 className="min-w-0 truncate text-xl font-bold tracking-tight tabular-nums sm:text-2xl" title={title}>

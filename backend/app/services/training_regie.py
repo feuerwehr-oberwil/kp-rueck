@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.crud import incidents as incidents_crud
+from app.crud.locking import lock_incident_with_group
 from app.database import after_commit, async_session_maker
 from app.models import Event, FeldDeviceClaim, Incident, IncidentAssignment, Setting, User
 from app.schemas.training import (
@@ -58,6 +59,7 @@ from app.services.training_lifecycle import (
     all_pauses,
     due_at,
     plan_steps,
+    unpaused_seconds,
 )
 from app.services.training_steps import (
     DriveTarget,
@@ -272,6 +274,7 @@ async def build_state(db: AsyncSession, event_id: UUID, *, now: datetime | None 
         tempo=run.tempo,
         paused_at=run.paused_at,
         started_at=run.started_at,
+        running_seconds=unpaused_seconds(run.started_at, now, pauses) if run.started_at else None,
         automatik=automatik,
         automatik_next_at=await automatik_next_at(db, automatik, run),
         incidents=incidents,
@@ -391,7 +394,12 @@ async def _step_and_record(
     pickup_needed: bool | None = None,
     request: Request | None = None,
 ) -> None:
-    """Check that `key` is current, run it, write «Vorhin» and queue the board broadcast."""
+    """Check that `key` is current, run it, write «Vorhin» and queue the board broadcast.
+
+    The incident is locked first (crud/locking order), so a «Jetzt» and an Autopilot tick on
+    the same incident run one after the other – the second sees the step done and refuses.
+    """
+    await lock_incident_with_group(db, incident_id)
     incident = await incidents_crud.get_incident(db, incident_id)
     if incident is None or incident.event_id != event_id or incident.deleted_at is not None:
         raise NotCurrentStepError("Einsatz nicht in dieser Übung")

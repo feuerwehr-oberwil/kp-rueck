@@ -160,6 +160,8 @@ export interface ApiRegieState {
   paused_at: string | null
   /** First switch-on of Autopilot or Automatik – the «Übung läuft · m:ss» clock. */
   started_at: string | null
+  /** Un-paused seconds since `started_at` when this state was computed. */
+  running_seconds: number | null
   automatik: ApiAutogenState
   /** When the Automatik raises its next alarm; null while off or paused. */
   automatik_next_at: string | null

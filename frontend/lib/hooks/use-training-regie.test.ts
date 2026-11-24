@@ -29,6 +29,7 @@ const regie = (overrides: Partial<ApiRegieState> = {}): ApiRegieState => ({
   tempo: "normal",
   paused_at: null,
   started_at: null,
+  running_seconds: null,
   automatik: { enabled: false, run: null },
   automatik_next_at: null,
   incidents: [],

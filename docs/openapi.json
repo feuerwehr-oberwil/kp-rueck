@@ -28872,6 +28872,17 @@
             ],
             "title": "Started At"
           },
+          "running_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Seconds"
+          },
           "automatik": {
             "$ref": "#/components/schemas/AutogenStateResponse"
           },
@@ -28917,6 +28928,7 @@
           "tempo",
           "paused_at",
           "started_at",
+          "running_seconds",
           "automatik",
           "automatik_next_at",
           "incidents",

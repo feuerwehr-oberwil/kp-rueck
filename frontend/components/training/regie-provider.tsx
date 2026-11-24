@@ -245,6 +245,7 @@ function useRegieController(eventId: string) {
     reload,
     clock,
     now,
+    receivedAt,
     operations,
     operationById,
     placeOf,
