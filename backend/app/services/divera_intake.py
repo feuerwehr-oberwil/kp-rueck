@@ -41,6 +41,7 @@ from ..alarm_keywords import (
 from ..crud import divera as divera_crud
 from ..crud import events as events_crud
 from ..database import after_commit
+from ..schemas.incidents import FREE_TEXT_MAX, TITLE_MAX
 from .audit import log_action
 from .duplicates import flag_possible_duplicate
 from .settings import (
@@ -299,6 +300,25 @@ def clean_description(
     return strip_description_labels(filter_description_lines(text, drop_prefixes), label_prefixes)
 
 
+def _fit(text: str, limit: int) -> str:
+    """`text` stripped and cut to `limit` characters; a cut ends in «…»."""
+    text = text.strip()
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def _card_pin(emergency: models.DiveraEmergency) -> tuple[str | None, str | None]:
+    """The card's coordinates: both axes or none.
+
+    Divera sends `0, 0` for an alarm without a location, so that pair is no pin; one zero axis
+    is a real coordinate. Half a pair (a native Divera payload may carry one axis) gives a card
+    without a pin – the card refuses half a pair, and the alarm must not stick in the pool.
+    """
+    lat, lng = emergency.latitude, emergency.longitude
+    if lat is None or lng is None or (lat == 0 and lng == 0):
+        return None, None
+    return str(lat), str(lng)
+
+
 def incident_create_from_emergency(
     emergency: models.DiveraEmergency,
     event_id: uuid.UUID,
@@ -319,6 +339,10 @@ def incident_create_from_emergency(
     provenance record of what the Leitstelle actually sent, and it stays answerable even
     after the board copy is trimmed. Priority inference below reads the raw text for the
     same reason.
+
+    The intake contract takes a 255-character title and 5000 characters of text, the card
+    `TITLE_MAX` / `FREE_TEXT_MAX`: the card copy is cut to fit (`_fit`), so an alarm the
+    contract accepts always reaches the board, and the pool row keeps every character.
     """
     type_hint = _sender_hint(emergency, "type")
     priority_hint = _sender_hint(emergency, "priority")
@@ -334,19 +358,21 @@ def incident_create_from_emergency(
         else infer_priority_from_text(emergency.title, emergency.text)
     )
 
+    description = clean_description(
+        emergency.text,
+        drop_prefixes=description_filter_prefixes,
+        label_prefixes=description_label_prefixes,
+    )
+    lat, lng = _card_pin(emergency)
     return schemas.IncidentCreate(
         event_id=event_id,
-        title=emergency.title,
+        title=_fit(emergency.title, TITLE_MAX),
         type=incident_type,
         priority=priority,
         location_address=emergency.address,
-        location_lat=str(emergency.latitude) if emergency.latitude else None,
-        location_lng=str(emergency.longitude) if emergency.longitude else None,
-        description=clean_description(
-            emergency.text,
-            drop_prefixes=description_filter_prefixes,
-            label_prefixes=description_label_prefixes,
-        ),
+        location_lat=lat,
+        location_lng=lng,
+        description=_fit(description, FREE_TEXT_MAX) if description else description,
         status=schemas.IncidentStatus.INCOMING,
     )
 
