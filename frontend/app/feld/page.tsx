@@ -17,6 +17,7 @@
 import { SearchEmptyState } from "@/components/ui/empty-state"
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
+import { useHistoryLevel } from '@/lib/hooks/use-history-level'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
@@ -45,6 +46,7 @@ import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldPlaceLine } from '@/components/feld/feld-place-line'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
+import { LoadingStatus } from '@/components/ui/shell-loader'
 import { PlannedTimePicker } from '@/components/attendance/planned-time'
 import { IncidentNumber } from '@/components/ui/incident-number'
 import { PriorityGlyph } from '@/components/ui/priority-glyph'
@@ -239,7 +241,7 @@ export default function FeldPage() {
   // /alarm. The fallback is empty on purpose: load activity is the global top
   // bar, not a spinner in the middle of the page.
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <FeldSurface />
     </Suspense>
   )
@@ -301,6 +303,16 @@ function FeldSurface() {
    *  right there, and a dead end is the wrong answer to "das Netz war kurz weg". */
   const [errorRecoverable, setErrorRecoverable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('code')
+  /** When the list last came back, and whether the newest load failed since (phone sweep
+   *  24.11.2026): a cellar must see «Keine Verbindung – Stand 14:05», not rows that look live,
+   *  and a first load that failed must not look like a confirmed empty list. */
+  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
+  const [syncFailed, setSyncFailed] = useState(false)
+  /** The Reko row being opened: its form link is minted first, which can take a moment or fail. */
+  const [rekoOpening, setRekoOpening] = useState<{ incidentId: string; failed: boolean } | null>(null)
+  /** What the last load asked for – «Erneut versuchen» after a failed first load, when a device
+   *  restored from its cookie has no `selectedPerson` yet (that comes with the answer). */
+  const lastLoad = useRef<{ personnelId: string; token: string } | null>(null)
   const [meldenOpen, setMeldenOpen] = useState(false)
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
@@ -416,6 +428,8 @@ function FeldSurface() {
     setSelectedIncidentId(null)
     setSearchTerm('')
     setViewMode('code')
+    setSyncedAt(null)
+    setSyncFailed(false)
     clearCookie(PERSON_COOKIE, FELD_COOKIE_SCOPE)
     clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
     clearFeldName()
@@ -460,6 +474,7 @@ function FeldSurface() {
   ) => {
     const activeToken = options?.token ?? token
     if (!activeToken) return
+    lastLoad.current = { personnelId, token: activeToken }
     const silent = options?.silent === true
     if (!silent) setLoadingAssignments(true)
     try {
@@ -476,6 +491,8 @@ function FeldSurface() {
       setFunctions(roles)
       setDriverVehicles(data.driver_vehicles ?? [])
       setReports(data.reports ?? [])
+      setSyncedAt(new Date())
+      setSyncFailed(false)
       // Chased rather than awaited: the inventory is a second section, and a
       // crew standing at an address must not wait on the Magazin's table for
       // their own rows. A failure here leaves the last table standing.
@@ -518,7 +535,10 @@ function FeldSurface() {
         setAssignments([])
         return
       }
-      if (!silent) setAssignments([])
+      // Any other failure keeps the rows, silent or not, and says so: the band shows the last
+      // good time, and with nothing loaded yet the list says it could not load (never «kein
+      // Auftrag»). An offline GET resolves to nothing (`lib/api/http.ts`), so it lands here too.
+      setSyncFailed(true)
     } finally {
       if (!silent) setLoadingAssignments(false)
     }
@@ -652,6 +672,9 @@ function FeldSurface() {
    */
   const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
     if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson && linkToken) {
+      // The row says it is opening, and on a failure says so with a retry (crosscheck A3): the
+      // tap used to do nothing visible until the link came back, and nothing at all if it did not.
+      setRekoOpening({ incidentId: assignment.incident_id, failed: false })
       try {
         const { link } = await apiClient.mintFeldRekoLink(
           assignment.incident_id,
@@ -662,6 +685,7 @@ function FeldSurface() {
         router.push(withReturnTo(link, `/feld?token=${encodeURIComponent(linkToken)}`))
       } catch (err) {
         console.error('Failed to open the reko form:', err)
+        setRekoOpening({ incidentId: assignment.incident_id, failed: true })
       }
       return
     }
@@ -678,6 +702,10 @@ function FeldSurface() {
     setSelectedIncidentId(null)
     clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
   }, [])
+  /** The detail is one history entry over the list, however it opened (a tap, the cookie, the
+   *  slip): the phone's back gesture returns to the list instead of leaving /feld, and the
+   *  header's ← walks the same history (phone sweep 24.11.2026). */
+  const backToList = useHistoryLevel(viewMode === 'detail', leaveAssignment)
 
   // (The person is no longer restored from the picker: since plan 26 a returning
   // device holds a *bound* token and the mount effect above uses it directly, so
@@ -1037,9 +1065,17 @@ function FeldSurface() {
       />
     ) : null
 
+  /** Under the identity bar, list and detail: the last good load, once one has failed. The
+   *  check-in tablet's «Letzter Stand» band, same look. The 10 s poll clears it on its own. */
+  const staleBand = syncFailed && syncedAt ? (
+    <p role="status" className="bg-warning/15 px-4 py-2 text-center text-warning-foreground">
+      {t('sync.stale', { time: formatTime(syncedAt, intlLocale) })}
+    </p>
+  ) : null
+
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-background flex items-center justify-center p-4">
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">{t('accessRequired')}</div>
           <div className="text-muted-foreground">{error}</div>
@@ -1069,7 +1105,7 @@ function FeldSurface() {
   // ---------------------------------------------------------------- list
   if (viewMode === 'list') {
     return (
-      <div className="min-h-screen bg-background pb-20">
+      <div className="min-h-dvh bg-background pb-20">
         {/* The Ereignis is the heading. "Schadenplatz-Rapport" was the name of a
             FORM, printed over the screen where somebody looks for themselves in
             a list — and half the people reading it (Fahrer, Magazin, Telefon)
@@ -1153,7 +1189,7 @@ function FeldSurface() {
     // The house number stays with its street: «Mühlemattstrasse / 18» never.
     const headline = keepHouseNumber(address || selectedAssignment.incident_title)
     return (
-      <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
+      <div className="min-h-dvh bg-background pb-[env(safe-area-inset-bottom)]">
         {/* The header is meta only — the way back, who this phone is, the
             Ereignis and its day, «＋». Somebody four taps deep in a Rapport, on
             a phone that gets handed around a vehicle, must be able to answer
@@ -1169,7 +1205,7 @@ function FeldSurface() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={leaveAssignment}
+            onClick={backToList}
             aria-label={tCommon('back')}
             title={tCommon('back')}
             className="-ml-2 shrink-0"
@@ -1177,6 +1213,7 @@ function FeldSurface() {
             <ArrowLeft className="size-5" />
           </Button>
         </FeldIdentityBar>
+        {staleBand}
 
         <div className="max-w-md mx-auto p-4">
           {/* «6  Goldenthalweg 21 · Elementarereignis» under the top bar once
@@ -1435,7 +1472,7 @@ function FeldSurface() {
 
   // -------------------------------------------------------- assignments
   return (
-    <div className="min-h-screen bg-background pb-[env(safe-area-inset-bottom)]">
+    <div className="min-h-dvh bg-background pb-[env(safe-area-inset-bottom)]">
       <FeldIdentityBar
         name={selectedPerson?.name ?? ''}
         subtitle={eventLine}
@@ -1443,6 +1480,7 @@ function FeldSurface() {
         onNotMe={askNotMe}
         trailing={meldenButton}
       />
+      {staleBand}
 
       <div className="max-w-md mx-auto space-y-3 p-4">
         {/* Not here yet: the one thing worth a full-width button, because it is
@@ -1466,7 +1504,19 @@ function FeldSurface() {
             A Materialwart reading a full table of material has not been told
             nothing — telling them they have no job would contradict the screen
             they are looking at. */}
-        {loadingAssignments ? null : feed.length === 0 && !functions.includes('magazin') ? (
+        {loadingAssignments ? null : syncFailed && !syncedAt ? (
+          // Nothing ever came back: not «kein Auftrag», which would be a claim about the KP.
+          <div role="alert" className="py-12 text-center">
+            <p className="mb-2 text-base font-medium">{t('sync.failedTitle')}</p>
+            <p className="mb-4 px-2 text-sm text-muted-foreground">{t('sync.failedBody')}</p>
+            <Button
+              variant="outline"
+              onClick={() => lastLoad.current && loadAssignments(lastLoad.current.personnelId, { token: lastLoad.current.token })}
+            >
+              {t('sync.retry')}
+            </Button>
+          </div>
+        ) : feed.length === 0 && !functions.includes('magazin') ? (
           <div className="py-12 text-center animate-in fade-in duration-300">
             <div className="h-12 w-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
               {emptyState.Icon ? (
@@ -1634,10 +1684,14 @@ function FeldSurface() {
                   {/* «Reko erfassen» only while a Reko can still change what
                       the KP does; a closed window says so instead (item P2.6). */}
                   {assignment.source === 'reko' && !rekoWindowClosed(assignment) && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
-                      <FileText className="h-3 w-3" />
-                      {t('source.rekoAction')}
-                    </span>
+                    rekoOpening?.incidentId === assignment.incident_id && !rekoOpening.failed ? (
+                      <LoadingStatus className="text-xs font-medium text-foreground">{t('source.rekoOpening')}</LoadingStatus>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                        <FileText className="h-3 w-3" />
+                        {t('source.rekoAction')}
+                      </span>
+                    )
                   )}
                   {rekoWindowClosed(assignment) && (
                     <span className="text-xs text-muted-foreground">{t('source.rekoClosed')}</span>
@@ -1673,6 +1727,14 @@ function FeldSurface() {
                 </a>
               )}
               </div>
+              {rekoOpening?.incidentId === assignment.incident_id && rekoOpening.failed && (
+                <div role="alert" className="mt-1 flex items-center justify-between gap-3 rounded-lg bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  <span className="min-w-0">{t('source.rekoOpenFailed')}</span>
+                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => openAssignment(assignment)}>
+                    {t('sync.retry')}
+                  </Button>
+                </div>
+              )}
               </div>
             )
           })

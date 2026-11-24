@@ -13,6 +13,41 @@ import { API_BASE as BACKEND } from '../../helpers/api.helper';
  */
 
 test.describe('Alarm Intake - public token form', { tag: '@smoke' }, () => {
+  // Phone sweep 24.11.2026: the back gesture on «Stimmt das so?» left /alarm with the typed
+  // alarm. Through the real Next router, which reloads on a history entry it did not write.
+  test('the back gesture on the review step returns to the form with everything typed', async ({ authenticatedPage: page }) => {
+    const eventRes = await page.request.post(`${BACKEND}/api/events/`, {
+      data: { name: `Alarm Back Test ${Date.now()}`, training_flag: false, auto_attach_divera: false },
+    });
+    expect(eventRes.ok()).toBeTruthy();
+    const event = await eventRes.json();
+    try {
+      const linkRes = await page.request.post(`${BACKEND}/api/intake/generate-link?event_id=${event.id}`);
+      expect(linkRes.ok()).toBeTruthy();
+      const { link } = await linkRes.json();
+
+      await page.goto(link);
+      const address = page.getByPlaceholder('Adresse suchen …');
+      await address.fill('Hauptstrasse 12, Oberwil');
+      await address.press('Enter');
+      await page.getByLabel('Meldung *').fill('Baum auf der Fahrbahn');
+      await page.getByRole('button', { name: 'Weiter' }).click();
+      await expect(page.getByRole('heading', { name: 'Stimmt das so?' })).toBeVisible();
+
+      await page.goBack();
+      await expect(page.getByLabel('Meldung *')).toHaveValue('Baum auf der Fahrbahn');
+      await expect(address).toHaveValue('Hauptstrasse 12, Oberwil');
+      expect(new URL(page.url()).pathname).toBe('/alarm');
+
+      // And forward again: the in-page «Zurück» walks the same history.
+      await page.getByRole('button', { name: 'Weiter' }).click();
+      await page.getByRole('button', { name: 'Zurück zum Formular' }).click();
+      await expect(page.getByLabel('Meldung *')).toHaveValue('Baum auf der Fahrbahn');
+    } finally {
+      await page.request.delete(`${BACKEND}/api/events/${event.id}`);
+    }
+  });
+
   test('editor link lets a walk-in submit an intake-flagged alarm', async ({ authenticatedPage }) => {
     // 1. Create an event and generate the alarm link via the authenticated API.
     const eventRes = await authenticatedPage.request.post(`${BACKEND}/api/events/`, {

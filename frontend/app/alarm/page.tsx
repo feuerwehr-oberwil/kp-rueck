@@ -24,6 +24,8 @@ import { INCIDENT_TYPES } from '@/lib/types/incidents'
 import { getIncidentTypeLabel } from '@/lib/incident-types'
 import type { IncidentType, IncidentPriority } from '@/lib/types/incidents'
 import { apiClient } from '@/lib/api-client'
+import { ApiError } from '@/lib/api/types/common'
+import { useHistoryLevel } from '@/lib/hooks/use-history-level'
 import { getApiUrl } from '@/lib/env'
 import { cn, CONTACT_PHONE_MAX, sanitizePhoneInput } from '@/lib/utils'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
@@ -34,7 +36,7 @@ import { TrainingBadge } from '@/components/training-mode-chrome'
 
 export default function AlarmPage() {
   return (
-    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom,0px)+6rem)]">
+    <div className="min-h-dvh bg-background pb-[calc(env(safe-area-inset-bottom,0px)+6rem)]">
       <Suspense fallback={<AlarmBody><CenteredSpinner /></AlarmBody>}>
         <AlarmIntake />
       </Suspense>
@@ -246,6 +248,22 @@ async function intakeReceiptRequest(
     )
   }
   return (await response.json()) as ReceiptState
+}
+
+/**
+ * Why a send failed, as the reporter must hear it. Only a 4xx is the server saying no – its own
+ * reason stands (a demo cap, an alarm the KP has taken over). Everything else is unclear: the
+ * request may have created the Einsatz before the answer was lost, so the screen says the alarm
+ * is not confirmed and to tell the KP by radio or phone, never that it was not sent.
+ */
+type SendFailure = { kind: 'refused'; message: string } | { kind: 'unconfirmed' }
+
+function sendFailure(err: unknown): SendFailure {
+  const status = err instanceof ApiError || err instanceof ReceiptRequestError ? err.status : null
+  if (status !== null && status >= 400 && status < 500 && err instanceof Error && err.message) {
+    return { kind: 'refused', message: err.message }
+  }
+  return { kind: 'unconfirmed' }
 }
 
 function receiptPath(token: string, incidentId: string, receiptToken: string): string {
@@ -544,12 +562,15 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
 
   const [typeOpen, setTypeOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<SendFailure | null>(null)
   /** Erfassen, then read it back. Same two steps as `/feld`'s «Neue Meldung»,
    *  for the same reason: this form puts a Schadenplatz on the board, and a
    *  wrong house number sends a squad to the wrong street. A correction is read
    *  back too — it is the step that catches the second typo. */
   const [step, setStep] = useState<'form' | 'review'>('form')
+  /** The review step is one history entry over the form: the phone's back gesture returns to the
+   *  form with everything typed, instead of leaving /alarm (phone sweep 24.11.2026). */
+  const backToForm = useHistoryLevel(step === 'review', () => setStep('form'))
 
   /** A Schadenplatz without a location is the one thing this form must not
    *  produce — the address input says «required», so the gate enforces it.
@@ -649,11 +670,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         receiptToken: created.receipt_token ?? null,
       })
     } catch (err) {
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : editing ? t('correctError') : t('submitError')
-      )
+      setError(sendFailure(err))
     } finally {
       setSubmitting(false)
     }
@@ -688,8 +705,13 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {error}
+          <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            {error.kind === 'refused' ? error.message : (
+              <>
+                <p className="font-medium">{editing ? t('correctError') : t('submitError')}</p>
+                <p className="mt-1">{t('submitErrorHint')}</p>
+              </>
+            )}
           </div>
         )}
 
@@ -714,7 +736,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           </Button>
           {/* Back, not "Abbrechen": somebody who spotted a wrong house number
               wants the field it is in, not their alarm thrown away. */}
-          <Button variant="ghost" size="lg" className="w-full" disabled={submitting} onClick={() => setStep('form')}>
+          <Button variant="ghost" size="lg" className="w-full" disabled={submitting} onClick={backToForm}>
             <ChevronLeft className="size-4" />
             {t('review.back')}
           </Button>
