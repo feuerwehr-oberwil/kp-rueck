@@ -6,6 +6,7 @@ import { Binoculars, MonitorCog, Phone, Truck, Warehouse } from "lucide-react"
 import type { PersonWhere, TileRole } from "@/components/kanban/assignment-list-section"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
+import type { IncidentGroup } from "@/lib/types/groups"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { formatDuration } from "@/lib/duration"
 import { formatTime } from "@/lib/format-time"
@@ -91,11 +92,24 @@ export function tilePlan(
   }
 }
 
-/** The Einsätze a person is on the crew of, as a where-note («Hauptstrasse 5 +1»), or null. */
-export function einsatzWhere(personId: string, operations: readonly Operation[]): PersonWhere | null {
-  const labels = operations
-    .filter((op) => op.crew.some((member) => member.personnelId === personId))
-    .map((op) => getIncidentRefLabel(op, 40))
+/**
+ * The Einsätze a person is on the crew of and the Aufträge whose crew they are, as a where-note
+ * («Hauptstrasse 5 +1», «Sturmholz»), or null. An Auftrag's crew holds no row on its stops, so
+ * without `groups` a person out on an Auftrag read as free in the Fahrer and Reko pickers.
+ */
+export function einsatzWhere(
+  personId: string,
+  operations: readonly Operation[],
+  groups: readonly Pick<IncidentGroup, "name" | "assignments">[] = [],
+): PersonWhere | null {
+  const labels = [
+    ...operations
+      .filter((op) => op.crew.some((member) => member.personnelId === personId))
+      .map((op) => getIncidentRefLabel(op, 40)),
+    ...groups
+      .filter((group) => group.assignments.some((a) => a.resourceType === "personnel" && a.resourceId === personId))
+      .map((group) => group.name),
+  ]
   if (labels.length === 0) return null
   return { head: labels.length > 1 ? `${labels[0]} +${labels.length - 1}` : labels[0], full: labels.join(", ") }
 }

@@ -491,7 +491,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
         event_id=event.id,
         name="Sturmholz Oberwil",
         color="#0e6680",  # first Auftrag swatch, petrol (frontend lib/map-colors.ts AUFTRAG_SWATCHES)
-        notes="Sturmschäden nach Gewitterfront: Sturmholz räumen, Stopps in Routenreihenfolge abarbeiten.",
+        notes="Sturmschäden nach Gewitterfront: Sturmholz räumen, Stopps der Reihe nach abarbeiten.",
         position=0,
         created_by=editor_id,
         # Just before its stops go to «Disponiert» at ago(110..108).
@@ -549,7 +549,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
             "location_lat": 47.5108,
             "location_lng": 7.5548,
             "status": "enroute",
-            "description": "Mehrere Bäume über dem Waldweg. Keine Personen gefährdet, Räumung am Ende der Route.",
+            "description": "Mehrere Bäume über dem Waldweg. Keine Personen gefährdet, Räumung am Ende des Auftrags.",
             "created_at": ago(110),
         },
     ]
@@ -848,10 +848,10 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
         transition("Brand Dachstock Einfamilienhaus", "enroute", "active", 38, "Vor Ort, Löschangriff läuft"),
         # Auftrag — the whole route was dispatched in one go, so all four stops
         # carry the same incoming → enroute step, minutes apart.
-        transition("Baum auf Strasse", "incoming", "enroute", 110, "Erster Stopp der Sturmholz-Route"),
-        transition("Baum auf Stromleitung", "incoming", "enroute", 109, "Zweiter Stopp der Route"),
-        transition("Baum droht auf Hausdach zu stürzen", "incoming", "enroute", 109, "Dritter Stopp der Route"),
-        transition("Bäume auf Waldweg", "incoming", "enroute", 108, "Vierter Stopp der Route"),
+        transition("Baum auf Strasse", "incoming", "enroute", 110, "Erster Stopp des Auftrags Sturmholz"),
+        transition("Baum auf Stromleitung", "incoming", "enroute", 109, "Zweiter Stopp des Auftrags"),
+        transition("Baum droht auf Hausdach zu stürzen", "incoming", "enroute", 109, "Dritter Stopp des Auftrags"),
+        transition("Bäume auf Waldweg", "incoming", "enroute", 108, "Vierter Stopp des Auftrags"),
         # In-progress Rekos
         transition("Überflutete Unterführung", "incoming", "reko", 40, "Reko aufgeboten"),
         transition("Wasser in Tiefgarage", "incoming", "reko", 33, "Reko aufgeboten"),

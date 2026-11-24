@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useCompactFilters } from "@/lib/hooks/use-compact-filters"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
-import { isPersonOccupied, materialResourceState, personMatchesQuery } from "@/lib/resource-status"
+import { isPersonOccupied, materialResourceState } from "@/lib/resource-status"
+import { usePersonMatcher } from "@/lib/hooks/use-person-matcher"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -166,6 +167,7 @@ export function ResourceAssignmentDialog({
   const { materialGroups } = useMaterials()
   const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
   const { groups, getGroupResources, unassignResource } = useGroups()
+  const matchesPerson = usePersonMatcher()
   const { selectedEvent } = useEvent()
   // Who drives what, live. Assigning a vehicle without knowing whether anybody
   // is driving it is how a Fahrzeug reaches a Schadenplatz on the board and
@@ -516,13 +518,14 @@ export function ResourceAssignmentDialog({
 
   // Filter resources by search query + quick category filter. The shared
   // matcher also finds people by their special function ("telefondienst",
-  // "kommandoposten", a driver's vehicle name) — see lib/resource-status.ts.
+  // "kommandoposten", a driver's vehicle name) and by where they are now
+  // (Einsatz number, address, Auftrag) — see lib/resource-status.ts.
   const filteredPersonnel = useMemo(() => {
     return selectablePersonnel.filter(p =>
-      personMatchesQuery(p, searchQuery) &&
+      matchesPerson(p, searchQuery) &&
       (!categoryFilter || p.role === categoryFilter)
     )
-  }, [selectablePersonnel, searchQuery, categoryFilter])
+  }, [selectablePersonnel, searchQuery, categoryFilter, matchesPerson])
 
   /**
    * Rank first, assigned-first inside a rank, then the name.
@@ -586,7 +589,7 @@ export function ResourceAssignmentDialog({
           : 0
   const searchHitCount = !query
     ? poolCount
-    : resourceType === 'crew' ? selectablePersonnel.filter((p) => personMatchesQuery(p, query)).length
+    : resourceType === 'crew' ? selectablePersonnel.filter((p) => matchesPerson(p, query)).length
       : resourceType === 'vehicles' ? availableVehicles.filter((v) => vehicleMatchesQuery(v, query)).length
         : resourceType === 'materials' ? selectableMaterials.filter((m) => materialMatchesQuery(m, query, materialGroups)).length
           : 0

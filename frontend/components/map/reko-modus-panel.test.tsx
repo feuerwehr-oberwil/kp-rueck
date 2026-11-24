@@ -1,5 +1,5 @@
 /**
- * Reko-Modus panel (feedback 19.11.2026, #19 A): ONE Reko person in a dropdown – no tick boxes,
+ * Reko-Editor panel (feedback 19.11.2026, #19 A): ONE Reko person in a dropdown – no tick boxes,
  * since only one can be picked – and their open Rekos as a timeline the operator drags into order.
  * pragmatic-drag-and-drop is mocked to capture the reorder monitor (as in routen-editor-modal.test).
  */

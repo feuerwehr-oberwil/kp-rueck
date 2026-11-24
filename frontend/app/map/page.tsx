@@ -103,7 +103,7 @@ const COLOR_BY_SHORTCUTS: ReadonlyArray<readonly [key: string, dim: ColorByDimen
   ['a', 'auftrag'],
 ]
 
-/** The rail's tool buttons («Ansicht», «Routenplanung», «Reko-Modus»): 28px, 12/500,
+/** The rail's tool buttons («Ansicht», «Auftrags-Editor», «Reko-Editor»): 28px, 12/500,
  *  `rounded-sm` like every control under 32px. The phone overrides height and type. */
 const RAIL_TOOL = 'flex h-7 items-center gap-1.5 rounded-sm border px-2.5 text-xs font-medium transition-colors'
 
@@ -192,13 +192,13 @@ export default function MapPage() {
     setShowWeather(next)
     writeWeatherLayerPref(next)
   }
-  // Aufträge route display (all viewers) + editor-only Routenplanung mode.
+  // Aufträge route display (all viewers) + editor-only Auftrags-Editor mode.
   const [showGroupRoutes, setShowGroupRoutes] = useState(false)
   const [planningActive, setPlanningActive] = useState(false)
   const [planningGroupId, setPlanningGroupId] = useState<string | null>(null)
   const [planningAddMode, setPlanningAddMode] = useState(false)
   const [planningFocusStopId, setPlanningFocusStopId] = useState<string | null>(null)
-  // Reko-Modus — editor-only reko dispatching from the map (panel + marker taps).
+  // Reko-Editor — editor-only reko dispatching from the map (panel + marker taps).
   const [rekoModeActive, setRekoModeActive] = useState(false)
   const [rekoPersonId, setRekoPersonId] = useState<string | null>(null)
   // Tap on an incident that already has a different reko person → confirm
@@ -213,9 +213,9 @@ export default function MapPage() {
   // Shared routing hook — active only while planning a selected group.
   const planning = useRoutePlanning(planningActive ? planningGroupId : null)
   // Desktop: the right rail's width is the operator's – ONE width for the Einsätze list, the
-  // Reko-Modus and the Routenplanung (owner picks 08. + 09.11.2026) – dragged by its left edge
+  // Reko-Editor and the Auftrags-Editor (owner picks 08. + 09.11.2026) – dragged by its left edge
   // and remembered on this device. 320 = the rail's own. The storage key is the one the
-  // Routenplanung-only width had, so a width dragged there stays.
+  // Auftrags-Editor-only width had, so a width dragged there stays.
   // The row the rail sits in, measured: the rail never takes more than the row minus 12rem
   // for the map (at 768px with the notification sidebar open the row is 448px). The bounds go
   // into the hook, so the grip's value is the width that is drawn; the stored width stays and
@@ -296,10 +296,13 @@ export default function MapPage() {
     incidentId: string
     incidentLabel: string
     fromName: string | null
+    /** The Auftrag the question names – the one confirm adds to, even if the selection moves meanwhile. */
+    groupId: string
+    toName: string
   } | null>(null)
 
   const handleIncidentClick = (incidentId: string) => {
-    // In Routenplanung mode with a selected route, clicking an incident marker
+    // In Auftrags-Editor mode with a selected route, clicking an incident marker
     // adds that incident to the route instead of selecting it on the map.
     if (planningActive && planningGroupId) {
       const group = groups.find((g) => g.id === planningGroupId)
@@ -320,6 +323,8 @@ export default function MapPage() {
             incidentId,
             incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
             fromName: otherGroup?.name ?? null,
+            groupId: planningGroupId,
+            toName: group?.name ?? '',
           })
           return
         }
@@ -329,7 +334,7 @@ export default function MapPage() {
       }
       return
     }
-    // In Reko-Modus with a selected person, tapping a marker toggles that
+    // In Reko-Editor with a selected person, tapping a marker toggles that
     // person's reko assignment on the incident instead of selecting it.
     if (rekoModeActive && rekoPersonId) {
       const person = personnel.find((p) => p.id === rekoPersonId)
@@ -360,7 +365,7 @@ export default function MapPage() {
     }
   }
 
-  // Enter/exit Routenplanung; entering forces the route overlay on.
+  // Enter/exit Auftrags-Editor; entering forces the route overlay on.
   // Both modes clear the current selection so no stale highlight competes
   // with the mode's own map emphasis.
   const enterPlanning = () => {
@@ -375,7 +380,7 @@ export default function MapPage() {
     setPlanningFocusStopId(null)
   }
 
-  // Enter/exit Reko-Modus; mutually exclusive with Routenplanung (both swap the
+  // Enter/exit Reko-Editor; mutually exclusive with Auftrags-Editor (both swap the
   // sidebar). Entering auto-colours markers by reko person so each person's
   // work reads apart on the map; exit restores the previous dimension.
   const preRekoColorByRef = useRef<ColorByDimension>('priority')
@@ -392,7 +397,7 @@ export default function MapPage() {
     setColorBy((current) => (current === 'reko' ? preRekoColorByRef.current : current))
   }
 
-  // `?mode=reko` — the Setup-Checkliste's "Reko-Modus öffnen" links here rather
+  // `?mode=reko` — the Setup-Checkliste's "Reko-Editor öffnen" links here rather
   // than telling the operator where to look. Once only: leaving the mode must
   // not be undone by a re-render, and the URL is not the state.
   // `enterRekoMode` is re-created every render; the URL is what decides here.
@@ -530,7 +535,7 @@ export default function MapPage() {
     return counts
   }, [incidents])
 
-  // Reko-Modus data: reko-marked people and their open (reko not yet done)
+  // Reko-Editor data: reko-marked people and their open (reko not yet done)
   // incidents, each list in the person's order (`lib/reko-order.ts`). The selected
   // person's Rekos become enlarged, numbered pins on a dotted line in their colour,
   // so proximity between their work and unassigned incidents reads off the map.
@@ -751,7 +756,7 @@ export default function MapPage() {
         }
       }
       // 'p'/'k'/'f'/'t'/'a' pick the "Färben nach" dimension — exactly a menu
-      // click, so the Reko-Modus and route-overlay colour overrides behave the
+      // click, so the Reko-Editor and route-overlay colour overrides behave the
       // same as if the Ansicht menu item had been chosen.
       else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         const colorDim = COLOR_BY_SHORTCUTS.find(([key]) => key === e.key.toLowerCase())?.[1]
@@ -1315,7 +1320,7 @@ export default function MapPage() {
           }}
         />
 
-        {/* Routenplanung: the two adds without an undo ask first — same guard
+        {/* Auftrags-Editor: the two adds without an undo ask first — same guard
             and wording as the board's «An Auftrag verteilen» picker. */}
         <ConfirmDialog
           open={planningAddConfirm !== null}
@@ -1326,6 +1331,7 @@ export default function MapPage() {
               ? tKanban('dashboard.distributeConfirmTransfer', {
                   incident: planningAddConfirm.incidentLabel,
                   from: planningAddConfirm.fromName,
+                  to: planningAddConfirm.toName,
                 })
               : tKanban('dashboard.distributeConfirmDispatched', {
                   incident: planningAddConfirm?.incidentLabel ?? '',
@@ -1335,8 +1341,8 @@ export default function MapPage() {
           // No undo after it: Enter keeps to Abbrechen.
           initialFocus="cancel"
           onConfirm={() => {
-            if (planningAddConfirm && planningGroupId) {
-              void addStops(planningGroupId, [planningAddConfirm.incidentId]).then((ok) => {
+            if (planningAddConfirm) {
+              void addStops(planningAddConfirm.groupId, [planningAddConfirm.incidentId]).then((ok) => {
                 if (ok) toast.success(t('planning.stopAdded'))
               })
             }
@@ -1344,7 +1350,7 @@ export default function MapPage() {
           }}
         />
 
-        {/* Reko-Modus: replacing another person's reko needs a confirm */}
+        {/* Reko-Editor: replacing another person's reko needs a confirm */}
         <ConfirmDialog
           open={rekoOverwrite !== null}
           onOpenChange={(open) => { if (!open) setRekoOverwrite(null) }}

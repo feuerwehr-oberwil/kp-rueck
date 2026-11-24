@@ -153,3 +153,22 @@ it("fits a replacement map after search removes and restores every located candi
     expect(maps.at(-1)?.fitBounds).toHaveBeenCalledOnce()
   })
 })
+
+it("applies only the operator's own ticks: a stop added elsewhere while open is not detached", async () => {
+  const onConfirm = vi.fn()
+  const dialog = (ops: Operation[]) => (
+    <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Zurich">
+      <IncidentPickerDialog open onOpenChange={() => {}} operations={ops} groups={groups} targetGroupId="g-target" onConfirm={onConfirm} />
+    </NextIntlClientProvider>
+  )
+  const { rerender } = render(dialog([makeOp("open")]))
+  // Another operator puts «late» on this Auftrag while the picker is open.
+  rerender(dialog([makeOp("open"), makeOp("late", { groupId: "g-target" })]))
+  const user = userEvent.setup()
+  await user.click(screen.getByRole("button", { name: "Liste" }))
+  await user.click(screen.getByText("Hauptstrasse open"))
+  await user.click(screen.getByRole("button", { name: /hinzufügen|Übernehmen/ }))
+
+  expect(removeStop).not.toHaveBeenCalled()
+  expect(onConfirm).toHaveBeenCalledWith(["open"])
+})

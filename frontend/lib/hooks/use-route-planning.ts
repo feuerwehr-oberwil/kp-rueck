@@ -2,7 +2,7 @@
 
 /**
  * useRoutePlanning — shared Auftrag (incident group) routing logic for both the
- * Routen-Editor modal (Phase 2) and the `/map` Routenplanung mode (Phase 3).
+ * Auftrags-Editor modal (Phase 2) and the `/map` Auftrags-Editor mode (Phase 3).
  *
  * Map-engine-free by design (only pure geo helpers), so it can live in any client
  * component without dragging MapLibre into an SSR path.
