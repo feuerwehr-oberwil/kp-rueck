@@ -16,7 +16,11 @@
  * into, and clearing it is a real KP action (the chip does the same job on the
  * card and in the Restliste).
  *
- * **"Reko vor Ort" joins it here, and ONLY here** (plan 26, decision 15). The
+ * The card's right-click menu and the Übersicht's «Funkmeldungen» chips
+ * (`FieldReportFlags`) set the same two flags through the same writes – no
+ * time, no note; those stay here.
+ *
+ * **"Reko vor Ort" joins it here** (plan 26, decision 15). The
  * Reko block used to render its own "vor Ort seit …" line; that line is gone,
  * not linked, because a fact displayed in two places is a fact that will
  * disagree with itself. Same reason it is a control and not just a reading: over

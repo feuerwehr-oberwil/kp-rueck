@@ -63,6 +63,7 @@ import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promo
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
+import { FieldReportFlags } from "@/components/kanban/field-report-flags"
 import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
@@ -1450,6 +1451,9 @@ export function OperationDetailContent({
               },
             ]}
           />
+
+          {/* The card menu's «Reko vor Ort» / «Abholung nötig» (owner, 24.11.2026). */}
+          <FieldReportFlags operation={operation} disabled={!canEdit} />
 
           {/* Status — a row under Merkmale like Einsatzart / Priorität (owner pick
               U11, 08.11.2026): the chip block that used to open the resources
