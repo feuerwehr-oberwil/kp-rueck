@@ -1640,6 +1640,10 @@ class FieldRequest(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     done_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # How an Abholung was answered: the crew's «Wir fahren selbst» (True) or a lift (False).
+    # Stored, because who closed it does not say: the Übung simulates the crew's answer under
+    # the KP user, and a lift under a simulated crew member (Sol review A2 round 2, S2).
+    self_drive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # The phone's own id for this request. «Nochmals senden» after a lost answer
     # repeats it, and a repeat is a no-op instead of a second work item.
     client_request_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True, unique=True)
@@ -1653,6 +1657,11 @@ class FieldRequest(Base):
     def from_field(self) -> bool:
         """A crew tapped it (True) or the KP took it over the radio (False)."""
         return self.created_by_user_id is None
+
+    @property
+    def done_in_field(self) -> bool:
+        """An Abholung the crew answered with «Wir fahren selbst» (``self_drive``), not a lift."""
+        return self.status == "done" and self.self_drive
 
     __table_args__ = (
         CheckConstraint("kind IN ('message', 'material', 'personnel', 'pickup')", name="valid_field_request_kind"),

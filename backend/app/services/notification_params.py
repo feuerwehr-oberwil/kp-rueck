@@ -334,10 +334,6 @@ def training_escalation(title: str, text: str) -> Built:
     return (f"Lage verschärft: {title} – {text}", {"variant": "escalation", "title": title, "text": text})
 
 
-def training_reinforcement(title: str, text: str) -> Built:
-    return (f"Feld fordert Verstärkung: {text} – {title}", {"variant": "reinforcement", "title": title, "text": text})
-
-
 def training_vehicle_down(vehicle: str, title: str) -> Built:
     return (
         f"Fahrzeug {vehicle} ausgefallen: {title} – Ersatz disponieren",

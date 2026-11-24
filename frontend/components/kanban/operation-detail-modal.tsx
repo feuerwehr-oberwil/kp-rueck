@@ -8,7 +8,7 @@ import {
 } from "@/components/kanban/operation-detail-content"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { useUnsavedDraftLeaveGuard } from "@/components/kanban/field-save-status"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
+import { getIncidentRefParts } from "@/lib/incident-types"
 
 interface OperationDetailModalProps extends Omit<OperationDetailContentProps, 'operation' | 'layout' | 'active'> {
   operation: Operation | null
@@ -27,8 +27,9 @@ export function OperationDetailModal({
   const leaveGuard = useUnsavedDraftLeaveGuard(operation?.id)
 
   if (!operation) return null
-  // The title and the first crumb of a step opened inside (Reko zuweisen …): the place.
-  const title = (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || operation.incidentType
+  // The title and the first crumb of a step opened inside: «14 · Hauptstrasse 4 › Reko zuweisen»,
+  // the same name as the visible header above it (#14).
+  const title = getIncidentRefParts(operation).head
 
   return (
     <>

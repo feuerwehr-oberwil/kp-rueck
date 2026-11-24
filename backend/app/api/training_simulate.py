@@ -53,6 +53,7 @@ from ..schemas import (
     SimulateVehicleBreakdownResponse,
 )
 from ..services import incident_display, notification_params, reko_history
+from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received
 from ..services.rapport_rows import STATUS_LABELS
 from ..services.reko_history import RekoAuthor
@@ -60,7 +61,6 @@ from ..services.tokens import generate_form_token
 from ..services.training import (
     file_simulated_rapport,
     generate_training_divera_emergency,
-    has_vehicle,
     simulated_filer,
     stranded_pickup_note,
 )
@@ -73,6 +73,7 @@ from ..services.training_simulation_data import (
     generate_reko_report_data,
     scene_type,
 )
+from ..services.vehicle_facts import record_vehicle_fact
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
     broadcast_incident_update,
@@ -228,9 +229,12 @@ async def simulate_field_complete(
     the real operator path are byte-for-byte the same code, audit entry and
     notification included.
 
-    The Abholung answer (decision 24) is preselected by the situation — a crew
-    that walked there or whose vehicle drove on is usually stranded — and the
-    Übungsleiter can always override it by sending it explicitly.
+    The Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the
+    suggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a
+    vehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter
+    can always override it by sending it explicitly. It goes to
+    ``crud.feld.record_pickup`` as that answer (``self_drive``) under the same
+    KP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -238,10 +242,7 @@ async def simulate_field_complete(
     pickup_needed = payload.pickup_needed if payload else None
     pickup_note = payload.pickup_note if payload else None
     if pickup_needed is None:
-        rng = random.Random()
-        stranded = incident.zu_fuss or not await has_vehicle(db, incident)
-        rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
-        pickup_needed = rng.random() < rate
+        pickup_needed = await feld_crud.vehicle_on_site(db, incident) is None
         if pickup_needed and pickup_note is None:
             pickup_note = stranded_pickup_note(incident)
 
@@ -249,14 +250,19 @@ async def simulate_field_complete(
     # provenance rule (the personnel FKs stay NULL for a KP write, decision 28).
     await set_field_report(
         incident_id=incident_id,
-        payload=FieldReportUpdate(
-            field_complete_reported_at=datetime.now(UTC),
-            pickup_needed=pickup_needed,
-            pickup_note=pickup_note,
-        ),
+        payload=FieldReportUpdate(field_complete_reported_at=datetime.now(UTC)),
         request=request,
         db=db,
         current_user=current_user,
+    )
+    await feld_crud.record_pickup(
+        db,
+        incident,
+        actor=feld_crud.FieldActor(user=current_user),
+        needed=pickup_needed,
+        note=pickup_note,
+        request=request,
+        self_drive=not pickup_needed,
     )
 
     await db.refresh(incident)
@@ -448,7 +454,9 @@ async def simulate_escalation(
 
     Bumps the incident to high priority, appends the Lagemeldung to the
     description and raises a critical bell notification — the trainee has to
-    reassess resources and priorities mid-incident.
+    reassess resources and priorities mid-incident. The Lagemeldung is also a dated
+    fact (audit ``situation_escalated`` → Journal and Chronik): the bell is
+    dismissible and the description is editable.
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -462,6 +470,14 @@ async def simulate_escalation(
     text = generate_escalation(incident.type)
     incident.priority = "high"
     incident.description = f"{incident.description or ''}\n\n⚠️ Lagemeldung Feld: {text}".strip()
+    await log_action(
+        db=db,
+        action_type="situation_escalated",
+        resource_type="incident",
+        resource_id=incident.id,
+        user=current_user,
+        changes={"text": text, "source": "training"},
+    )
 
     message, params = notification_params.training_escalation(incident.title, text)
     db.add(
@@ -487,13 +503,17 @@ async def simulate_escalation(
 async def simulate_reinforcement_request(
     event_id: UUID,
     incident_id: UUID,
+    request: Request,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
 ) -> SimulateInjectResponse:
     """Inject "Feld fordert Verstärkung": the crew on scene asks for more.
 
-    Notification only — what (and whether) to send is the trainee's decision
-    on the board.
+    The same write a crew's «Verstärkung nötig» on `/feld` makes
+    (``crud.feld.create_field_request``, kind ``personnel``): a work item in the
+    Rapport tab, a bell entry, a Journal line and a Chronik row. It used to be a
+    bell entry only, so the request was gone once dismissed (owner, 23.11.2026).
+    What (and whether) to send is the trainee's decision on the board.
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -504,21 +524,20 @@ async def simulate_reinforcement_request(
             detail="Abgeschlossene Einsätze können keine Verstärkung anfordern",
         )
 
-    request_text = generate_reinforcement_request(incident.type)
-    message, params = notification_params.training_reinforcement(incident.title, request_text)
-    db.add(
-        Notification(
-            type="training_emergency",
-            severity="warning",
-            message=message,
-            params=params,
-            incident_id=incident.id,
-            event_id=event_id,
-            dismissed=False,
-        )
+    actor = await simulated_filer(db, incident, current_user, random.Random())
+    created = await feld_crud.create_field_request(
+        db,
+        incident,
+        actor=actor,
+        message="",
+        kind="personnel",
+        item=generate_reinforcement_request(incident.type)[:120],
+        request=request,
     )
-
-    return SimulateInjectResponse(message=message)
+    if created is None:  # never: the item is always set
+        raise HTTPException(status_code=500, detail="Verstärkung konnte nicht erfasst werden")
+    work_item, notification = created
+    return SimulateInjectResponse(message=notification.message if notification else work_item.label)
 
 
 # ---------------------------------------------------------------------------
@@ -802,7 +821,8 @@ async def simulate_pickup(
     raise the warning but never clear it.
 
     Goes through ``crud.feld.record_pickup``, so the Restliste, the map and the
-    warning bell behave exactly as they do for a crew tapping on `/feld`.
+    warning bell behave exactly as they do for a crew tapping on `/feld`. «erledigt»
+    is the lift that came (``self_drive=False``), never «Wir fahren selbst».
     """
     await _require_training_event(db, event_id)
     incident = await _get_event_incident(db, event_id, incident_id)
@@ -818,6 +838,7 @@ async def simulate_pickup(
         needed=needed,
         note=note,
         request=request,
+        self_drive=False,
     )
 
     place = incident.location_address or incident.title
@@ -876,6 +897,15 @@ async def simulate_vehicle_breakdown(
     # the two on its own — the drift `crud/materials.py` exists to prevent.
     apply_out_of_service(vehicle, True)
 
+    # The bell is dismissible; the fact stays on the incident (Journal, Chronik).
+    await record_vehicle_fact(
+        db,
+        incident_id=incident.id,
+        fact="vehicle_down",
+        vehicle_name=vehicle.name,
+        source="training",
+        user=current_user,
+    )
     message, params = notification_params.training_vehicle_down(vehicle.name, incident.title)
     db.add(
         Notification(

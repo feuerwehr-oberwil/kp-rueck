@@ -76,3 +76,23 @@ describe("IncidentTimeline – a Reko change (#6, 23.11.2026)", () => {
     expect(kp).toHaveTextContent("B. Eichenberger (KP) · Stromversorgung: leer→Notstrom nötig")
   })
 })
+
+describe("IncidentTimeline – facts a notification announced (23.11.2026)", () => {
+  it("says the journal fact, its vehicle, its source and who reported it", () => {
+    const fact = (type: string, overrides: Partial<ApiIncidentTimelineEvent> = {}): ApiIncidentTimelineEvent => ({
+      event_type: "journal",
+      timestamp: "2026-11-23T20:00:00Z",
+      actor_name: null,
+      journal_kind: "field",
+      journal_data: { type, source: "feld" },
+      ...overrides,
+    })
+    const [selfDrive, gps] = renderTimeline([
+      fact("field_pickup_self", { actor_name: "Meier Anna" }),
+      fact("vehicle_on_site", { message: "TLF 1", journal_data: { type: "vehicle_on_site", source: "gps" } }),
+    ])
+
+    expect(selfDrive).toHaveTextContent("Fährt selbst zurück · Meier Anna")
+    expect(gps).toHaveTextContent("Fahrzeug am Einsatzort: TLF 1 (GPS)")
+  })
+})

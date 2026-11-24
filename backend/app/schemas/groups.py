@@ -177,6 +177,30 @@ class AddStopsRequest(BaseModel):
     via_vehicle_id: UUID | None = None
 
 
+class TransferToAuftragRequest(BaseModel):
+    """«Übertragen» an Einsatz onto this Auftrag: it becomes the last stop, its resources move up."""
+
+    incident_id: UUID
+
+
+class TransferToAuftragResponse(BaseModel):
+    """What the transfer wrote – the ids its «Rückgängig» sends back."""
+
+    group_assignment_ids: list[UUID]
+    released_assignment_ids: list[UUID]
+
+
+class TransferToAuftragUndoRequest(BaseModel):
+    """«Rückgängig» of a transfer onto an Auftrag: the ids that transfer answered with.
+
+    Refused (409) unless the Einsatz is still a stop of this Auftrag and every row is unchanged.
+    """
+
+    incident_id: UUID
+    group_assignment_ids: list[UUID]
+    released_assignment_ids: list[UUID]
+
+
 class GroupAnnouncementRequest(BaseModel):
     """Record that a Funkdurchsage was made for an Auftrag.
 

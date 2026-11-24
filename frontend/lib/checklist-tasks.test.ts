@@ -71,7 +71,7 @@ describe('the setup checklist links into what it is asking for', () => {
 
   it('opens the Reko picker instead of leaving for the map', () => {
     // The setup step is «wer ist Reko» — a picker on the board answers it.
-    // Handing out addresses stays with the map's Reko-Modus.
+    // Handing out addresses stays with the map's Reko-Editor.
     const onOpenRekoPicker = vi.fn()
     const task = byId('assign-reko', tasks({ onOpenRekoPicker }))
     expect(task?.actionButtons?.[0].href).toBeUndefined()

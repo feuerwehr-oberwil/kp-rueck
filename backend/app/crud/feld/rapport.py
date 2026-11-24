@@ -250,19 +250,26 @@ async def _event_personnel(db: AsyncSession, incident: Incident) -> _PersonnelOf
         .where(Personnel.in_scope(incident.event_id))
         .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
     )
-    roster = [
-        {"personnel_id": person.id, "name": person.name, "kennung": person.kennung}
-        for person in roster_result.scalars().all()
-    ]
+    people = roster_result.scalars().all()
+    roster = [{"personnel_id": person.id, "name": person.name, "kennung": person.kennung} for person in people]
 
     dispatched = [row for row in roster if row["personnel_id"] in assigned_ids]
     # Somebody assigned who is not on the roster at all cannot happen through the
     # board, but a stale assignment row could outlive a deleted person; the
     # checklist's stored rows carry the name for that case.
+    # Grad and tags only on the offer: the add-picker searches them like every person picker
+    # (owner, 23.11.2026); the confirm rows are stored and stay as they were.
     candidates = [
-        {**row, "checked_in": row["personnel_id"] in checked_in_ids}
-        for row in roster
-        if row["personnel_id"] not in assigned_ids
+        {
+            "personnel_id": person.id,
+            "name": person.name,
+            "kennung": person.kennung,
+            "role": person.role,
+            "tags": person.tags or [],
+            "checked_in": person.id in checked_in_ids,
+        }
+        for person in people
+        if person.id not in assigned_ids
     ]
     # The Appell first: those are the people who plausibly stood there.
     candidates.sort(key=lambda row: not row["checked_in"])
@@ -774,6 +781,8 @@ async def save_rapport(
         # everyone with an account, and the owner block is citizen PII (§9).
         changes={
             "is_draft": report.is_draft,
+            # The crew member's name is not owner PII; the Journal and the Chronik say who filed it.
+            "personnel_name": actor.personnel_name,
             "source": "feld" if actor.is_field else "kp",
         },
         request=request,

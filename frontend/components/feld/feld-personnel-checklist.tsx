@@ -129,6 +129,7 @@ export function FeldPersonnelChecklist({
           key: candidate.personnel_id,
           name: candidate.name,
           group: checkedIn ? t('groupCheckedIn') : t('groupAll'),
+          person: { name: candidate.name, role: candidate.role, tags: candidate.tags },
         }))
     return [...items(true), ...items(false)]
   }, [candidates, rows, t])

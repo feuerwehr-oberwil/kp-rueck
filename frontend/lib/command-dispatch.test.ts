@@ -373,6 +373,17 @@ describe("parseDispatch — the Einsatz", () => {
     }
     expect(parseDispatch("14 tlf", doubled).plan).toMatchObject({ kind: "blocked", reason: "ambiguous" })
   })
+
+  // Owner feedback 23.11.2026 #7: a closed Einsatz takes nothing new – not even with a status word.
+  it("blocks a new assignment onto a closed Einsatz, but still moves its status", () => {
+    const closed: DispatchVocabulary = {
+      ...vocabulary,
+      incidents: [...vocabulary.incidents, { id: "inc-7", number: 7, label: "Dorf", status: "complete", priority: "low" }],
+    }
+    expect(parseDispatch("7 tlf", closed).plan).toMatchObject({ kind: "blocked", reason: "closed", incident: { id: "inc-7" } })
+    expect(parseDispatch("7 tlf neu", closed).plan).toMatchObject({ kind: "blocked", reason: "closed" })
+    expect(parseDispatch("7 neu", closed).plan).toMatchObject({ kind: "dispatch", status: "incoming" })
+  })
 })
 
 describe("parseDispatch — what the preview shows", () => {

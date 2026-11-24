@@ -8,7 +8,7 @@ const refreshOperations = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/api-client', () => ({ apiClient: { setIncidentFieldReport } }))
 vi.mock('@/lib/contexts/operations-context', () => ({
-  useOperations: () => ({ refreshOperations }),
+  useOperations: () => ({ refreshOperations, operations: [] }),
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 

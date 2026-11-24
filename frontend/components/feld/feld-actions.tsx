@@ -147,10 +147,12 @@ export function FeldActions({
   const pickupNeeded = assignment.pickup_needed
   const pickupSince = toDate(assignment.pickup_requested_at)
   // The vehicles parked at (or travelling with) this Schadenplatz — everything
-  // whose driver did not «kehrt zurück» (stays === false). If one is standing
-  // outside, «Wir fahren selbst» is the answer the follow-up should lead with,
-  // and an Abholung is almost certainly a mis-tap.
+  // whose driver did not «kehrt zurück» (stays === false). While one is there,
+  // «Wir fahren selbst» is the suggested answer. Only a suggestion: the KP may
+  // have forgotten the pill, so the Abholung stays one tap away (owner,
+  // 23.11.2026, #7; the simulator follows the same rule, `crud.feld.vehicle_on_site`).
   const vehiclesOnSite = assignment.vehicles.filter(vehicle => vehicle.stays !== false).map(vehicle => vehicle.name)
+  const suggestSelfDrive = vehiclesOnSite.length > 0
 
   // The confirmation is a receipt, not a permanent banner — but it has to stay
   // long enough to be read by somebody holding a hose. A failure never expires:
@@ -341,10 +343,10 @@ export function FeldActions({
      Rendered INSIDE the chain, directly under «Beendet gemeldet · hh:mm» —
      it is that report's own question, and at the bottom of the section it
      read as a separate topic. With a vehicle standing at the address the
-     answer is known: «Wir fahren selbst» leads as the primary choice and the
-     Abholung drops to a quiet second — marked redundant, not disabled,
-     because the vehicle leaving without the crew (driver called away) is
-     rare but real. */
+     answer is likely: «Wir fahren selbst» is the main button, the line above
+     it says which vehicle, and the Abholung stays as the quiet second (the
+     vehicle may have left without the KP knowing). Without one, the Abholung
+     is the main button. Same order either way, so the buttons never jump. */
   const pickupFollowup = (
     <div className="mt-2 rounded-lg border border-border bg-background p-3 space-y-3">
       <p className="text-sm font-medium">{tPickup('followupQuestion')}</p>
@@ -359,27 +361,26 @@ export function FeldActions({
         onChange={e => setNote(e.target.value)}
         className="text-sm"
       />
-      {vehiclesOnSite.length > 0 ? (
-        <div className="grid grid-cols-1 gap-2">
-          <Button size="lg" disabled={busy} onClick={() => handlePickup(false)}>
-            {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
-            {tPickup('selfReturn')}
-          </Button>
-          <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(true)}>
-            {tPickup('needPickup')}
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2">
-          <Button size="lg" variant="outline" disabled={busy} onClick={() => handlePickup(false)}>
-            {tPickup('selfReturn')}
-          </Button>
-          <Button size="lg" disabled={busy} onClick={() => handlePickup(true)}>
-            {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
-            {tPickup('needPickup')}
-          </Button>
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-2">
+        <Button
+          size="lg"
+          variant={suggestSelfDrive ? 'default' : 'outline'}
+          disabled={busy}
+          onClick={() => handlePickup(false)}
+        >
+          {suggestSelfDrive && isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
+          {tPickup('selfReturn')}
+        </Button>
+        <Button
+          size="lg"
+          variant={suggestSelfDrive ? 'outline' : 'default'}
+          disabled={busy}
+          onClick={() => handlePickup(true)}
+        >
+          {!suggestSelfDrive && isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
+          {tPickup('needPickup')}
+        </Button>
+      </div>
     </div>
   )
 

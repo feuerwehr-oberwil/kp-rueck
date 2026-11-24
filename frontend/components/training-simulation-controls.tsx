@@ -771,11 +771,11 @@ export function TrainingSimulationControls() {
 
               Emphasis, deliberately moved: «Lage entscheidet» used to be the
               primary. It is not an answer to the question — it hands the
-              decision to the backend's inference (zu Fuss / kein Fahrzeug), and
-              as the loud default it made the pickup inject almost unreachable
-              in a normal exercise, because a crew with a vehicle always infers
-              "fährt selbst". So it is the aside. The primary is
-              «Fährt selbst»: the true answer in the large majority of cases and
+              decision to the backend, which follows the «bleibt vor Ort» pill
+              (a vehicle on site → "fährt selbst", none → Abholung), and as the
+              loud default it would make every exercise follow the pill, while
+              the KP forgetting it is part of what an exercise trains. So it
+              is the aside. The primary is «Fährt selbst»: the true answer in the large majority of cases and
               the only one of the three that costs the operator nothing. */}
           <AlternativeAnswer onClick={() => pickupPrompt && handleFieldComplete(pickupPrompt)}>
             {t('pickupAuto')}

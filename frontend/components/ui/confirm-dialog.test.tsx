@@ -72,3 +72,23 @@ describe('ConfirmDialog initial focus', () => {
     expect(screen.getByRole('button', { name: 'Abbrechen' })).toHaveFocus()
   })
 })
+
+describe('ConfirmDialog subject', () => {
+  // #14 (23.11.2026): a question about one Einsatz names it under the title, number first.
+  it('sets the Einsatz on its own line under the title', () => {
+    renderWithIntl(
+      <ConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        title="Abholung disponiert?"
+        subject={{ number: 14, place: 'Hauptstrasse 4' }}
+        description="Der Trupp wird abgeholt."
+        onConfirm={vi.fn()}
+      />,
+    )
+    const subject = screen.getByTestId('dialog-subject')
+    // The middle dot is on screen, not only in the hover title.
+    expect(subject).toHaveTextContent(/^14 · Hauptstrasse 4$/)
+    expect(subject).toHaveAttribute('title', '14 · Hauptstrasse 4')
+  })
+})

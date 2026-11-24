@@ -4,7 +4,7 @@
  * RoutenplanungPanel — editor-only route-building panel for the `/map` page; on a phone it only
  * shows the route (no optimise, no reorder, no add/remove – the phone board is read-only).
  *
- * The full-screen counterpart to the Routen-Editor modal: it drives the same
+ * The full-screen counterpart to the Auftrags-Editor modal: it drives the same
  * `useRoutePlanning` hook and reuses the shared `RouteStopList`, but leaves the
  * map itself to the page (which mounts `<GroupRoutes>` via map-view and forwards
  * map clicks / marker clicks here through page state).
@@ -130,7 +130,7 @@ export function RoutenplanungPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Header – the exit never wraps. Where the rail (`@container/rail`, the map page) has
-          the room it reads «✕ Beenden»; narrower it is the ✕ alone, named «Routenplanung
+          the room it reads «✕ Beenden»; narrower it is the ✕ alone, named «Auftrags-Editor
           beenden» with the same words as its tooltip. It used to wrap under the title in a
           narrow rail. The threshold is the room the label needs, per language; the longer French
           title takes a second line in the narrowest rails instead. */}
