@@ -717,10 +717,6 @@ async def test_incident(db_session: AsyncSession, test_user: User, test_event: E
 async def test_settings(db_session: AsyncSession) -> list[Setting]:
     """Create default test settings."""
     settings = [
-        Setting(key="polling_interval_ms", value="5000"),
-        Setting(key="training_mode", value="false"),
-        Setting(key="auto_archive_timeout_hours", value="24"),
-        Setting(key="notification_enabled", value="false"),
         Setting(key="alarm_webhook_secret", value="test_secret"),
     ]
     for setting in settings:

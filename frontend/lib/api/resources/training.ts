@@ -13,7 +13,6 @@ import type {
   ApiRegieStepKey,
   ApiRegieTempo,
   ApiIncident,
-  ApiRekoReportResponse,
   ApiEmergencyTemplate,
   ApiTrainingLocation,
   ApiSimulatedRapport,
@@ -82,11 +81,6 @@ export class TrainingApi {
   /** Stop a trickled check-in; `stopped` = how many people no longer arrive (0: none was running). */
   async stopSimulatedCheckin(eventId: string): Promise<{ stopped: number }> {
     return httpRequest(`/api/training/events/${eventId}/simulate/checkin`, { method: 'DELETE' })
-  }
-
-  /** The Automatik's switch and run. */
-  async getAutogen(): Promise<ApiAutogenState> {
-    return httpRequest<ApiAutogenState>('/api/training/autogen')
   }
 
   /** Switch the Automatik; on starts a run for THIS Übung (the «heisse Phase» counts from now). */
@@ -162,26 +156,6 @@ export class TrainingApi {
     )
   }
 
-  async simulateReko(
-    eventId: string,
-    incidentId: string
-  ): Promise<ApiRekoReportResponse> {
-    return httpRequest<ApiRekoReportResponse>(`/api/training/events/${eventId}/simulate/reko/${incidentId}`, {
-      method: 'POST',
-    })
-  }
-
-  /** Mark the Reko crew as "vor Ort" (arrived) without submitting a report –
-   *  the first of the two Reko conductor steps. */
-  async simulateRekoArrived(
-    eventId: string,
-    incidentId: string
-  ): Promise<ApiIncident> {
-    return httpRequest<ApiIncident>(`/api/training/events/${eventId}/simulate/reko-arrived/${incidentId}`, {
-      method: 'POST',
-    })
-  }
-
   // GPS drive simulation – simulated positions feed the same pipeline as real Traccar data
   // (map, distances, arrival/return prompts). Drives start from the Regie's drive steps.
   async getGpsSimulations(): Promise<ApiGpsSimDrive[]> {
@@ -192,26 +166,6 @@ export class TrainingApi {
     return httpRequest<{ stopped: number }>('/api/training/gps-sim/stop', {
       method: 'POST',
       body: JSON.stringify({ vehicle_id: vehicleId ?? null }),
-    })
-  }
-
-  /** Field crew reports the incident finished ("Einsatz beendet") – sets an
-   *  informational badge for the operator; does NOT change status.
-   *
-   *  `pickupNeeded` is the follow-up the field gets ("Kommt ihr selbst
-   *  zurück?"): omit it and the backend preselects it from the situation – a
-   *  crew that walked there or whose vehicle drove on is usually stranded. */
-  async simulateFieldComplete(
-    eventId: string,
-    incidentId: string,
-    options?: { pickupNeeded?: boolean; pickupNote?: string }
-  ): Promise<ApiIncident> {
-    return httpRequest<ApiIncident>(`/api/training/events/${eventId}/simulate/field-complete/${incidentId}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        pickup_needed: options?.pickupNeeded ?? null,
-        pickup_note: options?.pickupNote ?? null,
-      }),
     })
   }
 
