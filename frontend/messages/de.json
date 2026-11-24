@@ -1649,7 +1649,8 @@
       "auftrag": "Auftrag"
     },
     "rail": {
-      "exit": "Fertig"
+      "exit": "Fertig",
+      "exitName": "Fertig – {mode}"
     },
     "rekoMode": {
       "title": "Reko-Modus",

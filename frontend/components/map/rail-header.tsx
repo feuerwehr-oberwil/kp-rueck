@@ -22,9 +22,11 @@ const EXIT_LABEL_ROOM: Record<string, string> = {
  * nor the picker row below it, and both exits read the one word «Fertig» (VIS.13).
  *
  * The exit never wraps. Where the rail (`@container/rail`, the map page) has the room it
- * reads «✕ Fertig»; narrower it is the ✕ alone. Either way it is named by the mode's
- * `exitLabel` («Routenplanung beenden») – the same words as its tooltip. It used to wrap under the title in a narrow rail. The longer French title takes
- * a second line in the narrowest rails instead.
+ * reads «✕ Fertig»; narrower it is the ✕ alone. Either way its accessible name starts with
+ * the visible word, then names the mode («Fertig – Routenplanung beenden»), so a voice
+ * command for what is on screen finds it; the tooltip is the mode's `exitLabel` alone. It
+ * used to wrap under the title in a narrow rail. The longer French title takes a second line
+ * in the narrowest rails instead.
  */
 export function RailHeader({
   icon: Icon,
@@ -34,7 +36,8 @@ export function RailHeader({
 }: {
   icon: ComponentType<{ className?: string }>
   title: string
-  /** Accessible name and tooltip of the exit, naming the mode («Routenplanung beenden»). */
+  /** The exit's tooltip and the end of its accessible name, naming the mode
+   *  («Routenplanung beenden»). */
   exitLabel: string
   onExit: () => void
 }) {
@@ -53,7 +56,7 @@ export function RailHeader({
             variant="ghost"
             className="h-8 shrink-0 gap-1.5 px-2 max-md:h-11 max-md:min-w-11"
             onClick={onExit}
-            aria-label={exitLabel}
+            aria-label={t("exitName", { mode: exitLabel })}
           >
             <X className="size-3.5" />
             <span className={cn("hidden", EXIT_LABEL_ROOM[locale] ?? EXIT_LABEL_ROOM.de)}>{t("exit")}</span>

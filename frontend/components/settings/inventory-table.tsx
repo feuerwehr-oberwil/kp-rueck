@@ -97,7 +97,7 @@ export function LifecycleCells<T extends ArchivableRow>({
         ) : (
           <span className="flex items-center gap-2">
             {/* The label is the box's 44px phone target (globals.css): no row text to tap here. */}
-            <label className="flex cursor-pointer items-center max-md:min-w-11">
+            <label className="flex cursor-pointer items-center">
               <Checkbox
                 checked={row.out_of_service}
                 onCheckedChange={(checked) => { void actions.setOutOfService(row, checked === true); }}

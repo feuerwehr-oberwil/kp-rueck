@@ -63,6 +63,7 @@ import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
+import { useSettledAfter } from "@/lib/hooks/use-settled-after"
 import { useMapRelayout } from "@/lib/hooks/use-map-relayout"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { cardSide, estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, type LabelCandidate, type LabelSide } from "@/lib/map-labels"
@@ -454,21 +455,28 @@ interface CardFit {
   root: RefObject<HTMLElement | null>
 }
 
+/** The longest gap a double-click spans (the Windows default) – how long a just-pinned card
+ *  holds still for the second click (`useCardSide`). */
+const DOUBLE_CLICK_MS = 500
+
 /**
  * The side an open incident card hangs on: `cardSide` at the current view, for the rendered
  * card (`card`), re-measured whenever that can change (`useMapRelayout`: the map comes to rest,
- * the card changes size, the chrome under `root` changes – the legend opens). Without `fit` it
- * is always the right.
+ * the card changes size, the chrome under `root` changes – the legend opens). `undefined`
+ * without `fit`, and for DOUBLE_CLICK_MS after the card is pinned: the first click of a
+ * double-click pins it, and a card that flipped sides there would miss the second click (Sol
+ * review H round 2). The caller keeps the side the card had until then.
  */
 function useCardSide(
   fit: CardFit | undefined,
   card: RefObject<HTMLElement | null>,
   latitude: number,
   longitude: number,
-): LabelSide {
+): LabelSide | undefined {
   const [side, setSide] = useState<LabelSide>("right")
   const map = fit?.map
   const chrome = fit?.chrome
+  const settled = useSettledAfter(!!map, DOUBLE_CLICK_MS)
   const measure = useCallback(() => {
     const element = card.current
     if (!map || !chrome || !element) return
@@ -484,7 +492,7 @@ function useCardSide(
     )
   }, [map, chrome, card, latitude, longitude])
   useMapRelayout(map, measure, { root: fit?.root, target: card, settleMs: REVEAL_MS + 50 })
-  return fit ? side : "right"
+  return settled ? side : undefined
 }
 
 /**
@@ -521,8 +529,9 @@ function IncidentLabel({
   longitude: number
   /** Which side of the pin the bubble hangs on (`placeLabelSides`). */
   side: LabelSide
-  /** Desktop, a pinned (selected) incident card: hang it on the side the map chrome covers
-   *  least (`useCardSide`) instead of `side`. Never a hover card – it must stay under the pointer. */
+  /** Desktop, a pinned (selected) incident card: once a double-click can no longer land, hang
+   *  it on the side the map chrome covers least (`useCardSide`) instead of `side`. Never a hover
+   *  card – it must stay under the pointer. */
   fit?: CardFit
   /** `incidentZ('label', …)`: under every resting pin, in front once pointed at or selected. */
   zIndex: number
@@ -540,8 +549,7 @@ function IncidentLabel({
   children: ReactNode
 }) {
   const doubleClickRef = useOpenOnDoubleClick(onOpen)
-  const fitted = useCardSide(fit, doubleClickRef, latitude, longitude)
-  const shown = fit ? fitted : side
+  const shown = useCardSide(fit, doubleClickRef, latitude, longitude) ?? side
   const shift = shown === "right" ? `${LABEL_OFFSET_X}px` : `calc(-100% - ${LABEL_OFFSET_X}px)`
   return (
     <Marker

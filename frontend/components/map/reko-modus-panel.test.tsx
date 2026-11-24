@@ -95,11 +95,11 @@ describe("RekoModusPanel – one person", () => {
 })
 
 // VIS.13 / Sol review H: both rail modes exit with the one word «Fertig» (RailHeader), and
-// the button still names its mode for a screen reader and in the tooltip.
+// the button still names its mode for a screen reader – after the visible word (round 2).
 describe("RekoModusPanel – the exit", () => {
-  it("reads «Fertig» and is named «Reko-Modus beenden»", () => {
+  it("reads «Fertig» and is named «Fertig – Reko-Modus beenden»", () => {
     renderPanel(null)
-    expect(screen.getByRole("button", { name: "Reko-Modus beenden" })).toHaveTextContent("Fertig")
+    expect(screen.getByRole("button", { name: "Fertig – Reko-Modus beenden" })).toHaveTextContent("Fertig")
   })
 })
 

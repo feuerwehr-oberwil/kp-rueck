@@ -2747,7 +2747,8 @@
       "auftrag": "Mission"
     },
     "rail": {
-      "exit": "Terminé"
+      "exit": "Terminé",
+      "exitName": "Terminé – {mode}"
     },
     "rekoMode": {
       "title": "Mode reconnaissance",

@@ -716,9 +716,12 @@
        A grouped option (print sheet, Divera recipients) is a label row; a lone
        table checkbox (Einstellungen → Fahrzeuge, «Nicht einsatzbereit») gets
        a label of its own. An invisible overhang around the 16px box overlapped
-       the next option in a dense list, so the target takes up its space. */
+       the next option in a dense list, so the target takes up its space. Both
+       dimensions here, at this one breakpoint: a call site's `max-md:` stops
+       at 767px, this rule at 768px. */
     label:has([data-slot="checkbox"]) {
       min-height: 44px;
+      min-width: 44px;
     }
 
     /* Improve tap targets for small UI elements */
