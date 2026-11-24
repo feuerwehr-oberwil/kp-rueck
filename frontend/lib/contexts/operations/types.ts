@@ -167,7 +167,8 @@ export interface Operation {
   rekoSummary: RekoSummary | null
   /** `assignmentId` + `purpose`: the row behind it, from the board load (`reconcile.ts`).
    *  A Reko-function person's crew row is drawn here too; `purpose` says which it is, and a
-   *  release names `assignmentId`. Absent on an optimistic assign until the next load. */
+   *  release names `assignmentId`. Absent on an optimistic assign until its POST answers – no
+   *  release until then (`removeReko`). */
   assignedReko: { id: string; name: string; assignmentId?: string; purpose?: AssignmentPurpose } | null
   /** Where this Reko stands in its Reko person's order (0 = first; `lib/reko-order.ts`).
    *  null/absent for a Reko not numbered yet – it sorts last. */

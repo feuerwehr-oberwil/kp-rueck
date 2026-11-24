@@ -124,7 +124,8 @@ export function CardResources({
             <RemovableChip
               variant="secondary"
               className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
-              onRemove={() => onRemoveReko?.()}
+              // No ✕ before the row's id is known (an assign still in flight, `removeReko`).
+              onRemove={operation.assignedReko.assignmentId ? () => onRemoveReko?.() : undefined}
               removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
               removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
               removeIconClassName="h-2.5 w-2.5"

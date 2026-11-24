@@ -187,9 +187,9 @@ export class RekoApi {
   }
 
   /** `assignmentId`: release exactly the row the board shows (404 when it is gone). */
-  async unassignRekoPersonnel(incidentId: string, personnelId: string, assignmentId?: string): Promise<void> {
+  async unassignRekoPersonnel(incidentId: string, personnelId: string, assignmentId: string): Promise<void> {
     return httpRequest<void>(
-      `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}${assignmentId ? `?assignment_id=${encodeURIComponent(assignmentId)}` : ''}`,
+      `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}?assignment_id=${encodeURIComponent(assignmentId)}`,
       {
         method: 'DELETE',
       }

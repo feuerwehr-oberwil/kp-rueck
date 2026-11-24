@@ -10,6 +10,7 @@ import type {
   BulkCategorySortOrderUpdate,
   ApiPersonnel,
   ApiPersonnelListItem,
+  ApiCheckInResponse,
   ApiCheckInStats,
   ApiPersonnelCreate,
   ApiPersonnelUpdate,
@@ -122,8 +123,8 @@ export class PersonnelApi {
     personnelId: string,
     eventId: string,
     { onlyIfFree = false }: { onlyIfFree?: boolean } = {},
-  ): Promise<ApiPersonnel> {
-    return httpRequest<ApiPersonnel>(
+  ): Promise<ApiCheckInResponse> {
+    return httpRequest<ApiCheckInResponse>(
       `/api/personnel/check-in/${personnelId}/out?event_id=${encodeURIComponent(eventId)}${onlyIfFree ? '&only_if_free=true' : ''}`,
       { method: 'POST' }
     )

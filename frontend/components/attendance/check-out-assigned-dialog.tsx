@@ -18,7 +18,9 @@ export function CheckOutAssignedDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   name: string
-  /** What the person is still on, as the surface names it («14 · Talstrasse 25»). */
+  /** What the person is still on, as the surface names it («14 · Talstrasse 25»). Empty when
+   *  the surface does not know yet (a refused check-out it had not caught up with): the
+   *  question then says only that they are still bound. */
   where: string
   onConfirm: () => Promise<void> | void
 }) {
@@ -28,7 +30,7 @@ export function CheckOutAssignedDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={open ? t('assignedTitle', { name }) : ''}
-      description={open ? t('assignedDescription', { name, where }) : ''}
+      description={open ? (where ? t('assignedDescription', { name, where }) : t('assignedDescriptionUnknown', { name })) : ''}
       confirmText={t('checkOutAnyway')}
       onConfirm={onConfirm}
     />

@@ -14,7 +14,7 @@
  * The footer: «Anwesend seit 17:08» + «Auschecken» (a person still bound gets the Appell's
  * own question first, `CheckOutAssignedDialog`; a free one goes at once – the server refuses
  * if they are bound after all, and the question comes then – with an undo of exactly that
- * departure), and the
+ * departure, offered only when this call wrote it), and the
  * plan («kommt um» / «geht um») with the Appell's picker and API call.
  *
  * Everything is read live from the board while the popover is open; a viewer sees the ticks
@@ -68,7 +68,7 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
   const tAttendance = useTranslations("kanban.attendance")
   const tPlan = useTranslations("common.attendancePlan")
   const { operations, removeReko, refreshOperations } = useOperations()
-  const { getGroupResources } = useGroups()
+  const { getGroupResources, refreshGroups } = useGroups()
   const { items, toggle, busy, dialogs } = usePersonFunctions({
     personnelId: person.id,
     personnelName: person.name,
@@ -83,6 +83,10 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
     return op ? { id: op.id, label: getIncidentRefLabel(op, 60) } : null
   })
   const editable = canEdit && !!eventId
+
+  /** A Reko tick releases its row only once the row's id is known (`removeReko`). */
+  const canRelease = (binding: ResourceBinding) =>
+    binding.target !== REKO_TARGET || !!operations.find((o) => o.id === binding.targetId)?.assignedReko?.assignmentId
 
   const releasePlace = (binding: ResourceBinding) => {
     if (!binding.targetId) return
@@ -119,11 +123,14 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
     const name = person.name
     let checkedOutAt: string | null
     try {
-      checkedOutAt = (await apiClient.checkOutPersonnelForEvent(person.id, eventId, { onlyIfFree })).checked_out_at
+      const result = await apiClient.checkOutPersonnelForEvent(person.id, eventId, { onlyIfFree })
+      // Somebody else had already checked them out (`changed` false): not ours to take back.
+      checkedOutAt = result.changed ? (result.checked_out_at ?? null) : null
     } catch (error) {
       if (onlyIfFree && ApiError.isConflictError(error)) {
-        // The question names what binds them once the board has the new state.
-        void refreshOperations()
+        // The question names what binds them once the board has the new state – Einsätze
+        // and Aufträge both; what is still unknown then reads as a generic line.
+        await Promise.allSettled([refreshOperations(), refreshGroups()])
         setConfirmOut(true)
         return
       }
@@ -133,13 +140,17 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
     }
     onClose()
     void refreshOperations()
+    if (!checkedOutAt) {
+      toast.success(tp("checkedOut", { name }))
+      return
+    }
+    const resume = checkedOutAt
     undoToast(tp("checkedOut", { name }), {
       onUndo: async () => {
         try {
           // The same stint again: «anwesend seit» and the plan stay (backend `resume`) – but
           // only this departure; a later check-in or check-out answers 409.
-          if (!checkedOutAt) throw new Error("check-out answered no checked_out_at")
-          await apiClient.checkInPersonnelForEvent(person.id, eventId, { resume: checkedOutAt })
+          await apiClient.checkInPersonnelForEvent(person.id, eventId, { resume })
           void refreshOperations()
         } catch (error) {
           if (ApiError.isConflictError(error)) {
@@ -170,7 +181,7 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
             key={binding.key}
             checked
             label={binding.label}
-            disabled={!editable}
+            disabled={!editable || !canRelease(binding)}
             onCheckedChange={() => releasePlace(binding)}
           >
             <button

@@ -2466,6 +2466,7 @@
       "assignedTo": "attribuée : {where}",
       "assignedTitle": "{name} est encore attribué",
       "assignedDescription": "{name} est encore attribué à {where} – l’annoncer partant quand même ? L’attribution est conservée.",
+      "assignedDescriptionUnknown": "{name} est encore attribué – l’annoncer partant quand même ? L’attribution est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",
       "checkOutAll": "Annoncer tous partants",
       "checkOutAllTitle": "Annoncer tous partants ?",

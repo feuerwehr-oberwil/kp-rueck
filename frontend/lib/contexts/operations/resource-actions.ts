@@ -99,11 +99,15 @@ export function createResourceActions(board: BoardMutationContext) {
     return Promise.resolve(true)
   }
 
+  /** Releases exactly the row the board shows. No release before its id is known (an
+   *  optimistic assign whose POST has not answered): that POST may still be refused, and a
+   *  release without an id would take whatever active row the person has there. */
   const removeReko = (operationId: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation || !operation.assignedReko) return
 
-    const rekoPersonId = operation.assignedReko.id
+    const { id: rekoPersonId, assignmentId } = operation.assignedReko
+    if (isLoaded && !assignmentId) return
 
     armAssignmentCooldown()
 
@@ -112,9 +116,8 @@ export function createResourceActions(board: BoardMutationContext) {
       ops.map((op) => (op.id === operationId ? { ...op, assignedReko: null } : op))
     )
 
-    if (isLoaded) {
-      // Use the unassign reko API – naming the row, when the board load knows it
-      apiClient.unassignRekoPersonnel(operationId, rekoPersonId, operation.assignedReko.assignmentId)
+    if (isLoaded && assignmentId) {
+      apiClient.unassignRekoPersonnel(operationId, rekoPersonId, assignmentId)
         .catch(err => {
           console.error("Failed to unassign reko:", err)
           toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeRekoFailedDescription') })
@@ -332,8 +335,16 @@ export function createResourceActions(board: BoardMutationContext) {
 
     if (isLoaded) {
       try {
-        // Use the reko assignment API (backend auto-moves status to "reko" if eingegangen)
-        await apiClient.assignRekoPersonnel(operationId, personId)
+        // Use the reko assignment API (backend auto-moves status to "reko" if eingegangen).
+        // The row's id makes it releasable (`removeReko`).
+        const assignment = await apiClient.assignRekoPersonnel(operationId, personId)
+        setOperations((ops) =>
+          ops.map((op) =>
+            op.id === operationId && op.assignedReko?.id === personId
+              ? { ...op, assignedReko: { ...op.assignedReko, assignmentId: assignment.id, purpose: assignment.purpose ?? "reko" } }
+              : op
+          )
+        )
       } catch (err) {
         console.error("Failed to assign reko person:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {

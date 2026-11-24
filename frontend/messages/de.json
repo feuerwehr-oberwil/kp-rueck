@@ -1149,6 +1149,7 @@
       "assignedTo": "zugewiesen: {where}",
       "assignedTitle": "{name} ist noch zugewiesen",
       "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.",
+      "assignedDescriptionUnknown": "{name} ist noch zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.",
       "checkOutAnyway": "Trotzdem auschecken",
       "checkOutAll": "Alle auschecken",
       "checkOutAllTitle": "Alle auschecken?",

@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Operation, Person } from '@/lib/contexts/operations-context'
 import type { ResourceBinding } from '@/lib/board-sidebar'
-import { RESOURCES_TARGET } from '@/lib/detail-target'
+import { REKO_TARGET, RESOURCES_TARGET } from '@/lib/detail-target'
 import { ApiError } from '@/lib/api/types'
 
-const { api, undoToast, toastError, board } = vi.hoisted(() => ({
+const { api, undoToast, toastError, toastSuccess, refresh, board } = vi.hoisted(() => ({
   api: {
     checkOutPersonnelForEvent: vi.fn(),
     checkInPersonnelForEvent: vi.fn(),
@@ -17,11 +17,13 @@ const { api, undoToast, toastError, board } = vi.hoisted(() => ({
   },
   undoToast: vi.fn(),
   toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+  refresh: { operations: vi.fn(), groups: vi.fn() },
   board: { operations: [] as Operation[], personnel: [] as Person[], drivers: new Map<string, { name: string; personnelId: string }>() },
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('@/lib/toast-undo', () => ({ undoToast }))
-vi.mock('sonner', () => ({ toast: { error: toastError } }))
+vi.mock('sonner', () => ({ toast: { error: toastError, success: toastSuccess } }))
 vi.mock('@/lib/contexts/operations-context', () => ({
   useOperations: () => ({
     operations: board.operations,
@@ -32,10 +34,12 @@ vi.mock('@/lib/contexts/operations-context', () => ({
     ],
     removeCrew: vi.fn(),
     removeReko: vi.fn(),
-    refreshOperations: vi.fn(),
+    refreshOperations: refresh.operations,
   }),
 }))
-vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ getGroupResources: () => ({ personnel: [] }) }) }))
+vi.mock('@/lib/contexts/groups-context', () => ({
+  useGroups: () => ({ getGroupResources: () => ({ personnel: [] }), refreshGroups: refresh.groups }),
+}))
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: { id: 'event-1' } }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => board.drivers }))
 // The Reko hand-over is not under test here and needs the whole board.
@@ -131,8 +135,16 @@ describe('PersonPopoverBody', () => {
     expect(release.releaseCrew).toHaveBeenCalledWith('op-14', 'p-peter')
   })
 
+  it('offers a Reko tick for release only once its row id is known', () => {
+    const rekoBinding: ResourceBinding = { ...crewBinding, key: 'reko-op-14', target: REKO_TARGET, purpose: 'reko' }
+    // The assign POST has not answered: the row may still be refused, so no release.
+    board.operations = [{ ...op14, crew: [], assignedReko: { id: 'p-sina', name: 'Unternährer Sina' } } as Operation]
+    renderPopover(person({ isReko: true }), [rekoBinding])
+    expect(screen.getByRole('checkbox', { name: '14 · Poststrasse 6' })).toBeDisabled()
+  })
+
   it('checks a free person out at once, and the undo resumes exactly that departure', async () => {
-    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T18:00:00.123456Z' })
+    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T18:00:00.123456Z', changed: true })
     api.checkInPersonnelForEvent.mockResolvedValue({})
     const { onClose } = renderPopover(person({}))
     expect(screen.getByText(/Anwesend seit/)).toBeInTheDocument()
@@ -146,8 +158,19 @@ describe('PersonPopoverBody', () => {
     expect(api.checkInPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1', { resume: '2026-11-24T18:00:00.123456Z' })
   })
 
+  it('offers no undo when somebody else had already checked the person out', async () => {
+    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T17:30:00Z', changed: false })
+    const { onClose } = renderPopover(person({}))
+
+    await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(toastSuccess).toHaveBeenCalledWith('Unternährer Sina ausgecheckt')
+    expect(undoToast).not.toHaveBeenCalled()
+  })
+
   it('says so when the undo finds the person checked in or out again meanwhile', async () => {
-    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T18:00:00Z' })
+    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T18:00:00Z', changed: true })
     api.checkInPersonnelForEvent.mockRejectedValue(new ApiError('changed', 409, true))
     renderPopover(person({}))
 
@@ -160,11 +183,21 @@ describe('PersonPopoverBody', () => {
 
   it('asks the question when the server finds a person shown free still bound', async () => {
     api.checkOutPersonnelForEvent.mockRejectedValueOnce(new ApiError('bound', 409, true)).mockResolvedValue({ checked_out_at: null })
+    let groupsLoaded = () => {}
+    refresh.operations.mockResolvedValue(undefined)
+    refresh.groups.mockReturnValue(new Promise<void>((resolve) => { groupsLoaded = resolve }))
     const { onClose } = renderPopover(person({}))
 
     await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
 
+    // Not before both sources (Einsätze and Aufträge) have the new state.
+    await waitFor(() => expect(refresh.groups).toHaveBeenCalled())
+    expect(refresh.operations).toHaveBeenCalled()
+    expect(screen.queryByText('Unternährer Sina ist noch zugewiesen')).not.toBeInTheDocument()
+    groupsLoaded()
     expect(await screen.findByText('Unternährer Sina ist noch zugewiesen')).toBeInTheDocument()
+    // Still nothing on this board that binds them: a generic line, not an empty «».
+    expect(screen.getByText('Unternährer Sina ist noch zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.')).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Trotzdem auschecken' }))
     await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenLastCalledWith('p-sina', 'event-1', { onlyIfFree: false }))
