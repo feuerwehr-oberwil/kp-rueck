@@ -8,7 +8,7 @@ rewriting other incidents' recon reports.
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -376,7 +376,16 @@ async def update_report(
     # that took the row first would deadlock against the other. The status move files
     # drafts under the same card lock, so whether this save files is decided on the row as
     # it is once that move is done (Sol review S2).
-    await lock_incident_with_group(db, existing.incident_id)
+    card = await lock_incident_with_group(db, existing.incident_id)
+    if card is not None and card.merged_into_id is not None:
+        # Both cards had a report: this one stays hidden on the merged-away card, and a tab
+        # still open on that card must not edit it (Sol review G, S5). The form and the photo
+        # routes resolve the card it went into; this route names the row.
+        raise CodedHTTPException(
+            409,
+            ErrorCode.REKO_REPORT_MERGED,
+            "Dieser Einsatz wurde zusammengeführt. Bitte neu laden und den Reko-Bericht dort bearbeiten.",
+        )
     existing = await db.scalar(
         select(RekoReport).where(RekoReport.id == report_id).with_for_update().execution_options(populate_existing=True)
     )
@@ -855,6 +864,9 @@ async def serve_photo(
     request: Request,
     token: str | None = Query(None, description="Viewer share token, when there is no session"),
     reko_token: str | None = Query(None, description="Reko form token, restricted to its report's photos"),
+    view: Literal["full"] | None = Query(
+        None, description="`full`: the in-app viewer – never cached, so every open is a logged view"
+    ),
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
@@ -878,6 +890,10 @@ async def serve_photo(
       tokens also require their device claim to remain live.
 
     Files outside a valid token's scope return 404 so links cannot probe them.
+
+    A thumbnail may come from the operator's browser cache; the in-app viewer asks with
+    `?view=full`, answered `no-store`, so opening a photo always reaches this route and
+    its `view_photo` entry (Sol review G, S8).
 
     Args:
         incident_id: Incident UUID
@@ -943,6 +959,7 @@ async def serve_photo(
         changes={
             "filename": filename,
             "via": "reko_token" if reko_token is not None else "viewer_token" if viewer_event_id else "session",
+            **({"view": view} if view else {}),
         },
         request=request,
     )
@@ -953,7 +970,7 @@ async def serve_photo(
         file_path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "private, no-store" if by_link else "private, max-age=3600",
+            "Cache-Control": "private, no-store" if by_link or view else "private, max-age=3600",
             "Referrer-Policy": "no-referrer",
         },
     )

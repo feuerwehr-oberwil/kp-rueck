@@ -3583,6 +3583,7 @@
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",
       "reko_report_no_access": "Kein Zugriff auf diesen Bericht.",
+      "reko_report_merged": "Dieser Einsatz wurde zusammengeführt. Bitte neu laden und den Reko-Bericht dort bearbeiten.",
       "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen.",
       "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert.",
       "assignment_race": "Ressource bereits zugewiesen",

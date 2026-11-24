@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  fullViewSrc,
   groupRuns,
   lightboxKeyAction,
   lineUp,
@@ -66,5 +67,12 @@ describe('the photo line-up', () => {
       ['reko', [0, 1]],
       ['rapport', [2]],
     ])
+  })
+})
+
+describe('fullViewSrc', () => {
+  it('asks for the uncached full view, keeping a share token', () => {
+    expect(fullViewSrc('/api/photos/i/a.jpg')).toBe('/api/photos/i/a.jpg?view=full')
+    expect(fullViewSrc('/api/photos/i/a.jpg?token=t')).toBe('/api/photos/i/a.jpg?token=t&view=full')
   })
 })

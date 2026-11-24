@@ -13097,7 +13097,7 @@
           "photos"
         ],
         "summary": "Serve Photo",
-        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos the incident's\n  Reko report lists, draft included – the report the link edits. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
+        "description": "Serve photo file with authentication and authorization.\n\nEach credential grants a different photo scope.\n\n* A **session** reads any photo of any incident — an operator on the board\n  already sees the whole event.\n* A **viewer share token** (`?token=`) reads only the Reko photos of the\n  event it was minted for, and only those a submitted report lists. Without\n  it the share board draws the Reko result but a broken image where the\n  picture of the damage should be, which is the most useful part of it.\n  Anyone holding the link can then see those photos — that is the cost the\n  link has always carried for everything else on the display, and the\n  narrowing above is what keeps it to that.\n\n* A **Reko form token** (`?reko_token=`) reads only photos the incident's\n  Reko report lists, draft included – the report the link edits. Field-derived\n  tokens also require their device claim to remain live.\n\nFiles outside a valid token's scope return 404 so links cannot probe them.\n\nA thumbnail may come from the operator's browser cache; the in-app viewer asks with\n`?view=full`, answered `no-store`, so opening a photo always reaches this route and\nits `view_photo` entry (Sol review G, S8).\n\nArgs:\n    incident_id: Incident UUID\n    filename: Photo filename\n    token: Viewer share token, checked before the session cookie\n    reko_token: Form credential, checked before either of the other doors\n    db: Database session\n\nReturns:\n    Image file with cache headers\n\nRaises:\n    HTTPException 400: If the Reko form credential is invalid or expired\n    HTTPException 401: If no credential opens a door, or the device was revoked\n    HTTPException 404: If the photo is not found, or out of the token's reach",
         "operationId": "serve_photo_api_photos__incident_id___filename__get",
         "parameters": [
           {
@@ -13154,6 +13154,25 @@
               "title": "Reko Token"
             },
             "description": "Reko form token, restricted to its report's photos"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "full",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`full`: the in-app viewer – never cached, so every open is a logged view",
+              "title": "View"
+            },
+            "description": "`full`: the in-app viewer – never cached, so every open is a logged view"
           },
           {
             "name": "access_token",

@@ -12,8 +12,9 @@
  * incident, and the desktop strip groups them «Reko · 3 | Rapport · 2».
  *
  * Desktop: dark scrim, «2 / 5» + the incident, ✕, arrows and ← → (Home/End), Esc closes.
- * Phone: swipe left/right, page dots, pull down to close. The image loads from the same URL
- * the thumbnail used (unoptimized), so the photo endpoint still logs every view (`view_photo`).
+ * Phone: swipe left/right, page dots, pull down to close. The image loads from the thumbnail's
+ * URL plus `view=full` (`fullViewSrc`, unoptimized), which the server never lets the browser
+ * cache – so the photo endpoint logs every open (`view_photo`).
  * Without a provider (the /feld and /reko forms) nothing opens and the thumbnails stay as
  * they were.
  */
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { formatTime } from '@/lib/format-time'
 import { PhotoViewerContext, type PhotoViewerApi } from '@/lib/hooks/use-photo-viewer'
 import {
+  fullViewSrc,
   groupRuns,
   lightboxKeyAction,
   lineUp,
@@ -202,10 +204,10 @@ function PhotoLightbox({
               >
                 {/* unoptimized: the browser fetches the photo itself, with the credential
                     it carries (session cookie or the share token in the URL) – which is
-                    also what logs the view (`view_photo`). */}
+                    also what logs the view (`view_photo`; `fullViewSrc` is never cached). */}
                 <Image
                   key={`${photo.group}:${photo.filename}`}
-                  src={photo.src}
+                  src={fullViewSrc(photo.src)}
                   alt={t('alt', { index: index + 1, count })}
                   fill
                   sizes="100vw"

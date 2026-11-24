@@ -139,6 +139,22 @@ async def test_an_autosave_burst_is_one_chronik_row_per_author_and_field(
     assert len(await _changes(db_session, report_id)) == 3
 
 
+async def test_links_that_name_nobody_never_share_a_row(
+    client: AsyncClient, db_session: AsyncSession, incident_id: UUID
+):
+    # Sol review G, S6: two crews on two unbound links look the same – each save keeps its row.
+    first, second = (generate_form_token(str(incident_id), "reko") for _ in range(2))
+    opened = await client.get("/api/reko/form", params={"incident_id": str(incident_id), "token": first})
+    report_id = opened.json()["id"]
+    for token, text in ((first, "Keller 20 cm"), (second, "Keller 30 cm")):
+        saved = await client.patch(
+            f"/api/reko/{report_id}", headers={"X-Reko-Token": token}, json={"summary_text": text}
+        )
+        assert saved.status_code == 200, saved.text
+    rows = await _changes(db_session, UUID(report_id))
+    assert [(r.old_value, r.new_value) for r in rows] == [(None, "Keller 20 cm"), ("Keller 20 cm", "Keller 30 cm")]
+
+
 async def test_a_change_taken_back_inside_the_window_leaves_no_row(
     editor_client: AsyncClient, db_session: AsyncSession, incident_id: UUID
 ):

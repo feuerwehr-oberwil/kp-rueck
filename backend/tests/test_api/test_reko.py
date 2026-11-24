@@ -1305,6 +1305,29 @@ async def test_serve_photo_logs_access(editor_client: AsyncClient, test_incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_the_viewer_open_is_never_cached(editor_client: AsyncClient, test_incident: Incident):
+    """Sol review G, S8: `?view=full` (the in-app viewer) answers no-store, so each open is logged."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+        tmp_file.write(b"fake jpeg content")
+        tmp_path = Path(tmp_file.name)
+    try:
+        with patch("app.api.reko.photo_storage") as mock_storage:
+            mock_storage.get_photo_path = MagicMock(return_value=tmp_path)
+            url = f"/api/photos/{test_incident.id}/full.jpg"
+            thumbnail = await editor_client.get(url)
+            full = await editor_client.get(url, params={"view": "full"})
+        assert thumbnail.headers["cache-control"] == "private, max-age=3600"
+        assert full.status_code == 200
+        assert full.headers["cache-control"] == "private, no-store"
+    finally:
+        tmp_path.unlink()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_generate_link_custom_form_type(editor_client: AsyncClient, test_incident: Incident):
     """Test generating link with custom form type."""
     response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom")

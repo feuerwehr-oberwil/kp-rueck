@@ -646,8 +646,10 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
         Ergänzt im KP durch B. Eichenberger (Funkmeldung), 08.08.2026 19:41
 
     A report the KP both created and submitted stamps the same user in both
-    columns; that is one act, not two, and prints as one line. Every single edit, field or
-    KP, is in the incident's Chronik (`reko_history`), not here.
+    columns; that is one act, not two, and prints as one line – unless that user edited it
+    again after the filing (`updated_by_user_at` past `submitted_at`). A crew-filed report
+    prints the KP's edit whoever opened the draft (Sol review G, S7). Every single edit,
+    field or KP, is in the incident's Chronik (`reko_history`), not here.
     """
     lines: list[str] = []
     if report.submitted_by_personnel_id:
@@ -665,12 +667,17 @@ def reko_filing_lines(data: EventReportData, report: RekoReport) -> list[str]:
             )
         )
 
-    if report.updated_by_user_id and report.updated_by_user_id != report.created_by_user_id:
+    # The KP's own time: the field edits the same report and moves `updated_at`.
+    amended_at = report.updated_by_user_at or report.updated_at
+    filed_by_user = None if report.submitted_by_personnel_id else report.created_by_user_id
+    if report.updated_by_user_id and (
+        report.updated_by_user_id != filed_by_user
+        or (report.submitted_at is not None and amended_at is not None and amended_at > report.submitted_at)
+    ):
         lines.append(
             LABELS["reko_amended_kp"].format(
                 name=_user_display(data, report.updated_by_user_id) or LABELS["rapport_unknown_person"],
-                # The KP's own time: the field edits the same report and moves `updated_at`.
-                at=_fmt_dt(report.updated_by_user_at or report.updated_at),
+                at=_fmt_dt(amended_at),
             )
         )
     return [_tidy(line) for line in lines]

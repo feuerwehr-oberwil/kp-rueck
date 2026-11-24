@@ -20,6 +20,15 @@ export interface ViewerPhoto {
   at: string | null
 }
 
+/**
+ * The URL the viewer loads a photo from: the thumbnail's, plus `view=full`. The photo route
+ * answers that one `no-store`, so every open reaches the server and logs a `view_photo`
+ * (Sol review G, S8); the thumbnail stays cacheable. A share-token URL keeps its token.
+ */
+export function fullViewSrc(src: string): string {
+  return `${src}${src.includes('?') ? '&' : '?'}view=full`
+}
+
 export type LightboxAction = 'prev' | 'next' | 'first' | 'last' | 'close'
 
 /** What a key does in the open viewer; null leaves the key to the page. */

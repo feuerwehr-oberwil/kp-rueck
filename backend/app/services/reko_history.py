@@ -10,7 +10,9 @@ writer of its fields brackets the write the same way::
 `record_changes` writes one `RekoReportChange` per field that moved, and folds an
 autosave burst into the row it started: the same author on the same field within
 `COALESCE_WINDOW` moves that row on instead of adding one, so typing a sentence is one
-Chronik line, not forty. A field typed back to where it was drops its row.
+Chronik line, not forty. A field typed back to where it was drops its row. A link that
+names nobody (`RekoAuthor.identified` false) never coalesces: two crews on two such links
+look the same, so each of their saves keeps its own row.
 
 `timeline_events` reads them back as `reko_change` events for `incident_history.timeline`.
 The values stay raw (`TRACKED_FIELDS`): the client words them in the operator's language.
@@ -47,6 +49,12 @@ class RekoAuthor:
     @classmethod
     def feld(cls, personnel_id: uuid.UUID | None) -> "RekoAuthor":
         return cls(source="feld", personnel_id=personnel_id)
+
+    @property
+    def identified(self) -> bool:
+        """Whether two writes with this author are surely one person – not for a link that
+        names nobody (Sol review G, S6)."""
+        return self.personnel_id is not None or self.user_id is not None
 
 
 def _text(value: Any) -> str | None:
@@ -126,7 +134,12 @@ async def record_changes(
             .order_by(models.RekoReportChange.changed_at.desc())
             .limit(1)
         )
-        if latest is not None and _same_author(latest, author) and at - latest.changed_at < COALESCE_WINDOW:
+        if (
+            latest is not None
+            and author.identified
+            and _same_author(latest, author)
+            and at - latest.changed_at < COALESCE_WINDOW
+        ):
             if latest.old_value == new:
                 await db.delete(latest)
             else:

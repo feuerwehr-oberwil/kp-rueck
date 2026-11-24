@@ -690,6 +690,7 @@
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",
       "reko_report_no_access": "Pas d’accès à ce rapport.",
+      "reko_report_merged": "Cette intervention a été fusionnée. Recharge la page et modifie le rapport de reconnaissance là-bas.",
       "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée.",
       "text_conflict": "Modifié ailleurs entre-temps – non enregistré.",
       "assignment_race": "Ressource déjà attribuée",

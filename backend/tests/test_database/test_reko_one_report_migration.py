@@ -97,7 +97,7 @@ def test_the_fold_keeps_the_newest_filed_report_and_comes_back_on_downgrade(monk
                             "draft": True,
                             "at": now,
                             "text": "Entwurf",
-                            "photos": "[]",
+                            "photos": '["d.jpg"]',
                             "arr": None,
                         },
                     ),
@@ -110,7 +110,8 @@ def test_the_fold_keeps_the_newest_filed_report_and_comes_back_on_downgrade(monk
         assert set(folded) == {newest}
         kept = folded[newest]
         assert kept.summary_text == "Ergänzung"
-        assert kept.photos_json == ["b.jpg", "a.jpg"]  # no picture drops out
+        # No filed picture drops out; the draft's stays unshared, parked with its row (Sol G S2).
+        assert kept.photos_json == ["b.jpg", "a.jpg"]
         assert kept.arrived_at == now - timedelta(minutes=40)  # the earliest arrival
 
         command.downgrade(cfg, BEFORE)
@@ -120,5 +121,6 @@ def test_the_fold_keeps_the_newest_filed_report_and_comes_back_on_downgrade(monk
         assert restored[newest].arrived_at is None
         assert restored[old].summary_text == "Erste Meldung"
         assert restored[draft].summary_text == "Entwurf"
+        assert restored[draft].photos_json == ["d.jpg"]
     finally:
         asyncio.run(drop_scratch_database(url))

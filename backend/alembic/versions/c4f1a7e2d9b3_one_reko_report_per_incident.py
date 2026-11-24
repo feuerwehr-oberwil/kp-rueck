@@ -10,12 +10,16 @@ The fold, per incident that has more than one report:
   filed one, the newest draft. Its answers and its provenance stay as they are – a newer
   report was prefilled from the older one, so it already carries what the older said.
 * **photos**: every photo of the other rows that the kept one does not list is appended,
-  so no picture drops out of the report.
+  so no picture drops out of the report – except a draft's photos onto a filed kept
+  report: a filed report's photos are what a /display share link may open, and a draft's
+  were never shared. Those stay in `reko_reports_folded` only (the downgrade restores them).
 * **arrival**: the earliest `arrived_at` of all rows (and its author), which is what the
   board showed before.
 * the other rows are deleted. Every row of a folded incident, the kept one as it was
   before the fold included, is parked in `reko_reports_folded` (`to_jsonb` of the row):
-  the downgrade puts them back from there, so up/down loses nothing.
+  the downgrade puts them back from there, so up/down loses nothing. The downgrade
+  restores the rows as they were before the upgrade: a change made after it is not carried
+  back.
 
 `updated_by_user_at` is new: «Ergänzt im KP durch … um …» needs the KP's own time now
 that the field's edits also move `updated_at`. Backfilled from `updated_at` where a KP
@@ -61,7 +65,7 @@ def _fold_reports(bind: sa.Connection) -> None:
     rows = bind.execute(
         sa.text(
             """
-            SELECT r.id, r.incident_id, f.kept, r.photos_json, r.arrived_at,
+            SELECT r.id, r.incident_id, f.kept, r.is_draft, r.photos_json, r.arrived_at,
                    r.arrived_reported_by_user_id, r.submitted_at
             FROM reko_reports r JOIN reko_reports_folded f ON f.id = r.id
             ORDER BY r.incident_id, r.submitted_at
@@ -76,7 +80,9 @@ def _fold_reports(bind: sa.Connection) -> None:
         kept = next(row for row in group if row.kept)
         others = [row for row in group if not row.kept]
         photos = list(kept.photos_json or [])
-        for row in others:  # oldest first: a later photo stays later
+        # A filed report's photos are share-visible; a draft's never were (docstring).
+        sources = others if kept.is_draft else [row for row in others if not row.is_draft]
+        for row in sources:  # oldest first: a later photo stays later
             photos.extend(name for name in (row.photos_json or []) if name not in photos)
         arrivals = [row for row in group if row.arrived_at is not None]
         first_arrival = min(arrivals, key=lambda row: row.arrived_at) if arrivals else None

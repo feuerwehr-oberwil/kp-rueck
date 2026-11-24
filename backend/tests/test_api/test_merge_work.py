@@ -273,6 +273,10 @@ class TestRekoRapportPhotos:
         await _merge(editor_client, dup_id, target_id)
         assert (await _get(db_session, RekoReport, kept_id)).incident_id == target_id
         assert (await _get(db_session, RekoReport, other_id)).incident_id == dup_id
+        # A tab still open on the merged-away card cannot edit its hidden report (Sol G S5).
+        stale = await editor_client.patch(f"/api/reko/{other_id}", json={"summary_text": "zu spät"})
+        assert (stale.status_code, stale.json()["code"]) == (409, "reko_report_merged")
+        assert (await _get(db_session, RekoReport, other_id)).summary_text == "Zweiter Trupp"
         await _unmerge(editor_client, dup_id)
         assert (await _get(db_session, RekoReport, other_id)).incident_id == dup_id
 

@@ -198,6 +198,26 @@ class TestRekoProvenanceInTheReport:
         assert "(Funkmeldung)" in text
 
     @pytest.mark.asyncio
+    async def test_kp_edit_prints_when_the_kp_opened_the_draft_the_crew_filed(
+        self,
+        test_event: Event,
+        test_incident: Incident,
+        test_personnel: Personnel,
+        test_editor: User,
+    ):
+        # Sol review G, S7: the KP opened the draft, the crew filed it, the same KP user edited it.
+        report = self._report(
+            test_incident,
+            created_by_user_id=test_editor.id,
+            submitted_by_personnel_id=test_personnel.id,
+            updated_by_user_id=test_editor.id,
+            updated_by_user_at=datetime(2026, 6, 1, 19, 41, tzinfo=UTC),
+        )
+        text = self._pdf_text(test_event, test_incident, report, personnel=test_personnel, users=(test_editor,))
+        assert "Erfasst von" in text
+        assert "Ergänzt im KP durch" in text
+
+    @pytest.mark.asyncio
     async def test_arrival_prints_with_its_own_channel(
         self, test_event: Event, test_incident: Incident, test_editor: User
     ):

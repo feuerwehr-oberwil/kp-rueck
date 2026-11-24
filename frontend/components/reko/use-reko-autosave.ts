@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { toast } from 'sonner'
 import type { SyncState } from '@/components/kanban/field-save-status'
 import { toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
-import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
+import { apiClient, ApiError, type ApiRekoReportResponse } from '@/lib/api-client'
 import { classifySaveFailure } from '@/lib/field-save'
 
 /** How long the form waits after the last edit before it saves – one request per pause,
@@ -159,6 +160,9 @@ async function sendSession(session: AutosaveSession, incidentId: string): Promis
   } catch (error) {
     session.inFlight = false
     setState(session, { status: 'failed', reason: classifySaveFailure(error) })
+    // The card was merged away and its report hidden (409 `reko_report_merged`, Sol review G
+    // S5): the 409 raises no toast of its own, and «inzwischen geändert» alone would not say where.
+    if (error instanceof ApiError && error.code === 'reko_report_merged') toast.error(error.message)
   }
 }
 
