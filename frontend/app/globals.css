@@ -386,6 +386,9 @@
      --z-index-maplibre-ctrl 2000   MapLibre's four control corners, lifted from
                                     their stock `2` so a marker cannot paint over
                                     the zoom buttons and swallow their clicks.
+     --z-index-map-float    2100    The phone Lagekarte's floating search row (its
+                                    results hang over the zoom buttons) and the
+                                    Einsatz peek on the map's foot (over the ⓘ).
 
    Outside the scale on purpose: the print view's `z-index: 99999` in the
    `@media print` block below (there everything else is hidden, so the number
@@ -414,6 +417,7 @@
   --z-index-map-chrome: 30;
   --z-index-map-control: 1000;
   --z-index-maplibre-ctrl: 2000;
+  --z-index-map-float: 2100;
 }
 
 /* The chosen option of a choice that has no border of its own (segmented

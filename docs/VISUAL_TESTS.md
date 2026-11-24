@@ -6,7 +6,7 @@
 
 A unit test cannot see that the board lost its column colours, that a merged design pass
 quietly disappeared in a later rebuild, or that a phone card grew a second scrollbar. A
-screenshot can. This suite renders nine frozen states of the app and compares each with a PNG
+screenshot can. This suite renders frozen states of the app (the table below) and compares each with a PNG
 committed in the repository; a screen that changed fails the job and shows you the diff.
 
 It uses nothing but Playwright's own `expect(page).toHaveScreenshot` — no service, no SaaS, no
@@ -22,6 +22,7 @@ extra package.
 | `board-phone.png` | `/`, the phone list | 390×844 | dark |
 | `feld-phone.png` | `/feld`, Müller Hans's Schadenplatz (EL), reached through the real door | 390×844 | light |
 | `map-desktop.png` | `/map`, markers on a flat basemap | 1920×1080 | dark |
+| `map-phone.png` | `/map` on a phone: full-screen map, floating chrome, the peek on «Langegasse 28» | 390×844 | dark |
 | `display-board.png` | `/display/board`, the wall | 1920×1080 | dark |
 | `display-status.png` | `/display/status`, the wall | 1920×1080 | dark |
 | `settings.png` | `/settings`, Allgemein | 1920×1080 | light |
@@ -100,7 +101,7 @@ make a flaky state pass — find what moves (see «When the job is red»).
 ## Running it locally
 
 ```bash
-just visual                    # build, seed, run all nine, tear down
+just visual                    # build, seed, run them all, tear down
 just visual board              # only the board specs
 VISUAL_SKIP_BUILD=1 just visual   # reuse frontend/.next
 ```
@@ -163,6 +164,6 @@ Recorded when the suite was introduced (2026-10-09), local runs on a WSL box:
   image's collation (see «Ordering») and crew lists ordered by an `assigned_at` the demo story
   gives a whole crew at once (`_break_assignment_ties` in the seed spreads ties a second apart,
   in name order). The hover state of a clicked card is moved off it before the shot.
-- **Run time:** the nine specs take 12–30 s on two workers once the stack is up; the
+- **Run time:** the specs take 12–30 s on two workers once the stack is up; the
   production build is most of the job. CI numbers are in the pull request that added the
   suite.

@@ -456,6 +456,26 @@ interface CardFit {
   root: RefObject<HTMLElement | null>
 }
 
+/**
+ * The phone Lagekarte's floating family (consistency 9): MapLibre's zoom group and ⓘ in the
+ * shape of our own floating controls – 44px, `rounded-md`, the card surface. The zoom group sits
+ * under the search row on the right (its corner moved down to 52px + its own 10px margin = 62px,
+ * 8px under the 44px row at 10px); the ⓘ keeps the bottom-right corner, a 44px square. The
+ * selectors name the corner, so they outrank base-map's CONTROL_LOOK (both `!`). The hairline
+ * ring stays the border, under the family's `shadow-md`.
+ */
+const FLOATING_FAMILY =
+  '[&_.maplibregl-ctrl-top-right]:top-[52px]! ' +
+  '[&_.maplibregl-ctrl-top-right_.maplibregl-ctrl-group]:rounded-md! ' +
+  '[&_.maplibregl-ctrl-top-right_.maplibregl-ctrl-group]:shadow-[0_0_0_1px_var(--border),0_4px_6px_-1px_rgb(0_0_0/0.1),0_2px_4px_-2px_rgb(0_0_0/0.1)]! ' +
+  '[&_.maplibregl-ctrl-top-right_.maplibregl-ctrl-group_button]:size-11! ' +
+  '[&_.maplibregl-ctrl-bottom-right_.maplibregl-ctrl-attrib.maplibregl-compact]:min-h-10! ' +
+  '[&_.maplibregl-ctrl-bottom-right_.maplibregl-ctrl-attrib.maplibregl-compact]:pr-11! ' +
+  '[&_.maplibregl-ctrl-bottom-right_.maplibregl-ctrl-attrib.maplibregl-compact]:rounded-md! ' +
+  '[&_.maplibregl-ctrl-bottom-right_.maplibregl-ctrl-attrib.maplibregl-compact]:shadow-[0_0_0_1px_var(--border),0_4px_6px_-1px_rgb(0_0_0/0.1),0_2px_4px_-2px_rgb(0_0_0/0.1)]! ' +
+  '[&_.maplibregl-ctrl-bottom-right_.maplibregl-ctrl-attrib-button]:size-11! ' +
+  '[&_.maplibregl-ctrl-bottom-right_.maplibregl-ctrl-attrib-button]:rounded-md!'
+
 /** The longest gap a double-click spans (the Windows default) – how long a just-pinned card
  *  holds still for the second click (`useCardSide`). */
 const DOUBLE_CLICK_MS = 500
@@ -1227,7 +1247,18 @@ function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[],
  * Positioned over the map like the legend. Pointer events are stopped so pressing it never
  * doubles as a map drag.
  */
-function FitAllButton({ map, incidents, padding }: { map: MlMap | null; incidents: Incident[]; padding: FitPadding }) {
+function FitAllButton({
+  map,
+  incidents,
+  padding,
+  floating,
+}: {
+  map: MlMap | null
+  incidents: Incident[]
+  padding: FitPadding
+  /** The phone Lagekarte: under the zoom buttons on the RIGHT, in the floating family's shape. */
+  floating: boolean
+}) {
   const t = useTranslations('map')
   const points = locatedPoints(incidents)
   if (!map || points.length === 0) return null
@@ -1246,7 +1277,9 @@ function FitAllButton({ map, incidents, padding }: { map: MlMap | null; incident
       // Under the zoom buttons, which are 44px tall each on a touch screen (top-[106px]). It sat
       // at 88px over the «−» for as long as nobody saw it: the button never rendered until the
       // map fired `load`, and that never happened before the worker fix (base-map.tsx).
-      className="absolute left-3 top-[88px] pointer-coarse:top-[106px] pointer-coarse:size-11 z-map-control flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card"
+      className={`absolute z-map-control flex items-center justify-center rounded-md border border-border bg-card/95 shadow-md backdrop-blur-sm hover:bg-card ${
+        floating ? `right-2.5 top-[158px] size-11` : 'left-3 top-[88px] h-9 w-9 pointer-coarse:top-[106px] pointer-coarse:size-11'
+      }`}
       title={t('fitAll')}
       aria-label={t('fitAll')}
     >
@@ -1269,9 +1302,12 @@ function MissingLocationsWarning({
   onIncidentClick,
   isExpanded,
   setIsExpanded,
+  alignStart,
 }: {
   incidents: Incident[]
   onIncidentClick?: (incidentId: string) => void
+  /** The chip stands at the row's start (the phone Lagekarte): its list hangs to the right. */
+  alignStart: boolean
   /** Owned by MapView: while the list is open the legend folds to its pill (owner pick r28 2A). */
   isExpanded: boolean
   setIsExpanded: (open: boolean) => void
@@ -1283,7 +1319,7 @@ function MissingLocationsWarning({
   return (
     // Not positioned itself: it is one item of the map's top-right control row (see MapView), so
     // a page's own controls sit beside it instead of on top of it. The list hangs below the chip.
-    <div className="relative flex flex-col items-end">
+    <div className={`relative flex flex-col ${alignStart ? 'items-start' : 'items-end'}`}>
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -1301,7 +1337,7 @@ function MissingLocationsWarning({
       </button>
 
       {/* Slides open/closed (Reveal) — the list used to pop in at full height. */}
-      <Reveal open={isExpanded} className="absolute right-0 top-full w-max min-w-48 max-w-[min(18rem,calc(100vw-5rem))]">
+      <Reveal open={isExpanded} className={`absolute top-full w-max min-w-48 max-w-[min(18rem,calc(100vw-5rem))] ${alignStart ? 'left-0' : 'right-0'}`}>
         <ul data-map-chrome className="mt-1.5 w-full max-h-60 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card/95 p-1 text-sm text-foreground shadow-md backdrop-blur-sm">
           {incidents.map((incident) => (
             <li key={incident.id}>
@@ -1332,6 +1368,13 @@ interface MapViewProps {
    *  top-right row with the map's «ohne Koordinaten» chip, which wraps instead of overlapping —
    *  laid over the map separately, the two piled onto each other (owner, 03.10.). */
   topRightControls?: ReactNode
+  /** The phone Lagekarte (owner pick 3A, 24.11.2026). The map fills its box edge to edge and
+   *  `top` (search + «Ansicht») floats over its top edge. The map's own controls are ONE floating
+   *  family (consistency 9): 44px tall, one corner (`rounded-md`), one surface – zoom and fit-all
+   *  on the right under `top`, the Legende above the ⓘ bottom-right. The chip row
+   *  (`topRightControls`, Unwetter, «ohne Koordinaten») moves to the left under `top`. `foot`
+   *  (the Einsatz peek) lies over the map's foot; every flight keeps its points above it. */
+  floating?: { top: ReactNode; foot?: ReactNode }
   selectedIncidentId?: string | null
   onMarkerClick?: (incidentId: string) => void
   /** Double-click on a marker or its label: open the Einsatz (the page decides the surface). */
@@ -1425,6 +1468,7 @@ export default function MapView({
   vehicleStaleMinutes,
   onGpsAvailabilityChange,
   topRightControls,
+  floating,
   onFirstIdle,
   showWeather = false,
   onWeatherAvailabilityChange,
@@ -1679,6 +1723,14 @@ export default function MapView({
     setOpenSpotKey(null)
     onMarkerClick?.(incidentId)
   }
+  // …and so does a selection made elsewhere (a search hit, the Abholung chip) of an Einsatz that is
+  // not in the open list. Set during render, React's pattern for state that follows another value.
+  const [spotSelection, setSpotSelection] = useState(selectedIncidentId)
+  if (spotSelection !== selectedIncidentId) {
+    setSpotSelection(selectedIncidentId)
+    const open = spots.find((spot) => spot.key === openSpotKey)
+    if (open && selectedIncidentId && !open.incidents.some((member) => member.id === selectedIncidentId)) setOpenSpotKey(null)
+  }
   const dockedSpot = compactMap
     ? spots.find((spot) => spot.key === openSpotKey && spot.incidents.length > 1 && !clusteredKeys.has(spot.key))
     : undefined
@@ -1714,9 +1766,14 @@ export default function MapView({
   const fitPadding = useCallback<FitPadding>((base) => {
     const root = rootRef.current
     if (!root) return pad(base)
+    // The phone: the chip row stands under the floating search row – the lower of the two that
+    // holds anything is the top cover.
+    const chipRow = topRowRef.current?.getBoundingClientRect()
+    const floatTop = root.querySelector("[data-map-float-top]")?.getBoundingClientRect()
     return chromeFitPadding(base, root.getBoundingClientRect(), {
       legend: root.querySelector("[data-map-legend-panel]")?.getBoundingClientRect(),
-      topRow: topRowRef.current?.getBoundingClientRect(),
+      topRow: chipRow && chipRow.height > 0 ? chipRow : floatTop,
+      foot: root.querySelector("[data-map-foot]")?.getBoundingClientRect(),
     })
   }, [])
   useFitBoundsOnce(map, mappableIncidents, fitPadding)
@@ -1822,8 +1879,9 @@ export default function MapView({
     // stay inside the map's layer — see MAP_STACKING in base-map.tsx. No overlay is ever below.
     <div
       ref={rootRef}
-      // The legend keeps clear of the top-right chip row while that row holds anything.
-      className="relative isolate w-full h-full rounded-lg overflow-hidden [&:has([data-map-top-row]>*)]:[--legend-top:6rem]"
+      // The legend keeps clear of the top-right chip row while that row holds anything – on the
+      // phone Lagekarte of the zoom buttons and fit-all on its own right edge.
+      className={`relative isolate w-full h-full overflow-hidden ${floating ? `${FLOATING_FAMILY} [--legend-top:17rem]` : 'rounded-lg [&:has([data-map-top-row]>*)]:[--legend-top:6rem]'}`}
       role="region"
       aria-label={t('view.mapAria')}
     >
@@ -1833,7 +1891,7 @@ export default function MapView({
         onClick={onMapClick ? handleMapClick : undefined}
       >
         {/* Leaflet's `zoomControl` — <BaseMap> deliberately ships none of its own. */}
-        <NavigationControl position="top-left" showCompass={false} />
+        <NavigationControl position={floating ? "top-right" : "top-left"} showCompass={false} />
 
         {/* Overlay layers, bottom to top — the mount order IS the draw order. */}
         {/* Radar first: weather lies under every line, route and marker. Always mounted (a
@@ -2112,7 +2170,7 @@ export default function MapView({
                       sits under whatever the card shows (crew, notes) and the selected-label
                       measure (`usePanToSelected`) includes it. Its click is its own, not a
                       second select. */}
-                  {pinned && openDetail && (
+                  {pinned && openDetail && !floating && (
                     <div className="mt-1.5">
                       <Button
                         size="xs"
@@ -2135,12 +2193,25 @@ export default function MapView({
       </BaseMap>
 
       {/* Fit-all sits over the map, not inside it — the map's own children are markers. */}
-      <FitAllButton map={map} incidents={mappableIncidents} padding={fitPadding} />
+      <FitAllButton map={map} incidents={mappableIncidents} padding={fitPadding} floating={!!floating} />
+
+      {/* The phone Lagekarte's search row (see `floating`). Chrome: vehicle pills keep clear of it. */}
+      {floating && (
+        <div data-map-float-top data-map-chrome className="absolute inset-x-2.5 top-2.5 z-map-float flex items-start gap-2">
+          {floating.top}
+        </div>
+      )}
 
       {/* Top-right control row: the page's controls, then the warning for incidents without a
           location. One flex row that wraps (right-aligned) and keeps clear of the zoom buttons
           (`left-16`), so nothing in it can overlap at any width. Only its children take clicks. */}
-      <div ref={topRowRef} data-map-top-row className="pointer-events-none absolute top-2.5 right-2.5 left-16 z-map-chrome flex flex-wrap items-start justify-end gap-2 [&>*]:pointer-events-auto">
+      <div
+        ref={topRowRef}
+        data-map-top-row
+        className={`pointer-events-none absolute z-map-chrome flex flex-wrap items-start gap-2 [&>*]:pointer-events-auto ${
+          floating ? 'top-[62px] left-2.5 right-16 justify-start' : 'top-2.5 right-2.5 left-16 justify-end'
+        }`}
+      >
         {topRightControls}
         {weather && <WeatherWarningChip weather={weather} warnings={warnings} now={now} />}
         <MissingLocationsWarning
@@ -2148,6 +2219,7 @@ export default function MapView({
           onIncidentClick={onMarkerClick}
           isExpanded={missingListOpen}
           setIsExpanded={setMissingOpen}
+          alignStart={!!floating}
         />
       </div>
 
@@ -2164,6 +2236,7 @@ export default function MapView({
         // folds to its pill, and comes back as it was when the list closes. Its pill closes the list.
         folded={missingListOpen}
         onUnfold={() => setMissingOpen(false)}
+        floating={!!floating}
       />
 
       {/* Phone: the tapped same-address pin's list, docked along the map's foot – after the
@@ -2197,6 +2270,15 @@ export default function MapView({
 
       {/* Simulated-drive indicator — map only, so exercises stay realistic elsewhere */}
       <GpsSimBanner />
+
+      {/* The phone Lagekarte's Einsatz peek, over everything on the map's foot (the ⓘ, the
+          Legende, the radar controls). Measured by `fitPadding`. It steps aside while a shared
+          pin's list is docked on the same foot – that list is what the tap asked for. */}
+      {floating?.foot && !dockedSpot && (
+        <div data-map-foot data-map-chrome className="absolute inset-x-0 bottom-0 z-map-float">
+          {floating.foot}
+        </div>
+      )}
     </div>
   )
 }

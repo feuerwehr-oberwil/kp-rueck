@@ -2770,7 +2770,14 @@
       "routePlanning": "Éditeur de mission",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
-      "modes": "Mode"
+      "modes": "Mode",
+      "searchPlaceholderPhone": "Rechercher une intervention …",
+      "searchHits": "Résultats",
+      "noSearchHits": "Aucun résultat",
+      "showGroups": "Afficher",
+      "pickupCount": "{count, plural, one {# récupération} other {# récupérations}}",
+      "nextPickup": "afficher la suivante : {incident}",
+      "allDetails": "Tous les détails"
     },
     "planning": {
       "title": "Éditeur de mission",

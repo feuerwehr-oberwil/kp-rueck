@@ -33,6 +33,7 @@ vi.mock('@/components/reko/reko-report-section', () => ({ default: () => null })
 
 import { MobileIncidentCard } from '@/components/mobile/mobile-incident-card'
 import { MobileIncidentDetailSheet } from '@/components/mobile/mobile-incident-detail-sheet'
+import { MapIncidentPeek } from '@/components/mobile/map-incident-peek'
 
 const REQUESTED = new Date('2026-08-09T21:14:00Z')
 
@@ -137,5 +138,27 @@ describe('the Abholung banner in the phone detail sheet', () => {
   it('offers no clear button', () => {
     renderWithIntl(sheet(WAITING))
     expect(screen.queryByRole('button', { name: 'Abholung disponiert' })).not.toBeInTheDocument()
+  })
+})
+
+describe('the Lagekarte peek on the phone', () => {
+  function peek(op: Operation, handlers = { onClose: vi.fn(), onOpenDetail: vi.fn() }) {
+    renderWithIntl(<MapIncidentPeek operation={op} formatLocation={(a) => a} {...handlers} />)
+    return handlers
+  }
+
+  it('shows the Abholung as a label, never the «Abholung disponiert» button', () => {
+    peek(WAITING)
+    expect(screen.getByText('Abholung')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Abholung/ })).not.toBeInTheDocument()
+  })
+
+  it('opens the full detail sheet from «Alle Details», and ✕ only closes', () => {
+    const handlers = peek(WAITING)
+    screen.getByRole('button', { name: /Alle Details/ }).click()
+    expect(handlers.onOpenDetail).toHaveBeenCalledTimes(1)
+    screen.getByRole('button', { name: 'Schliessen' }).click()
+    expect(handlers.onClose).toHaveBeenCalledTimes(1)
+    expect(handlers.onOpenDetail).toHaveBeenCalledTimes(1)
   })
 })
