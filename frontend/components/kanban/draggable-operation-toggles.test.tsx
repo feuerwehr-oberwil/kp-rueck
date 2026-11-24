@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComponentProps } from 'react'
-import { screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Material, Operation } from '@/lib/contexts/operations-context'
@@ -18,6 +18,7 @@ import { CARD_VIEW_KEYS, CARD_VIEW_PRESETS, type CardViewSettings } from '@/lib/
 const mockGroups: { id: string; name: string; stopIds: string[]; color: string | null }[] = []
 const refreshOperations = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const updateAssignment = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const updateOperation = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/contexts/materials-context', () => ({
   useMaterials: () => ({ materialGroups: [] }),
@@ -30,6 +31,7 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
     materialOnSite: new Map(),
     personnel: [{ id: 'p-1', name: 'Muster Hans', role: 'Wachtmeister' }],
     refreshOperations,
+    updateOperation,
   }),
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
@@ -495,5 +497,49 @@ describe('the «Echt-Alarm» badge', () => {
     mockEvent.training_flag = true
     renderCard(CARD_VIEW_PRESETS.kompakt, operation({ fromRealAlarm: true }))
     expect(screen.getByTestId('real-alarm-badge')).toBeInTheDocument()
+  })
+})
+
+// Owner pick 5A (24.11.2026): the reason is asked on the card, not in the detail.
+describe('the «Am Warten» / «Nachbarhilfe» note popover', () => {
+  beforeEach(() => updateOperation.mockClear())
+
+  it('a click on the amber chip opens it with the reason; Enter saves it without opening the detail', async () => {
+    const onClick = vi.fn()
+    renderWithIntl(card(CARD_VIEW_PRESETS.standard, operation({ amWarten: true, amWartenNote: 'DL' }), { onClick }))
+    await userEvent.click(screen.getByRole('button', { name: /Am Warten · DL/ }))
+    const field = await screen.findByLabelText('Am Warten – Grund')
+    expect(field).toHaveValue('DL')
+    await userEvent.clear(field)
+    await userEvent.type(field, 'wartet auf DL aus Reinach{Enter}')
+    expect(updateOperation).toHaveBeenCalledWith('incident-1', { amWarten: true, amWartenNote: 'wartet auf DL aus Reinach' })
+    await waitFor(() => expect(screen.queryByLabelText('Am Warten – Grund')).not.toBeInTheDocument())
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('from the chip the other answer is «Aufheben», which clears the flag', async () => {
+    renderWithIntl(card(CARD_VIEW_PRESETS.standard, operation({ nachbarhilfe: true, nachbarhilfeNote: 'Therwil' })))
+    await userEvent.click(screen.getByRole('button', { name: /Nachbarhilfe · Therwil/ }))
+    expect(await screen.findByLabelText('Nachbarhilfe – Vermerk')).toHaveValue('Therwil')
+    await userEvent.click(screen.getByRole('button', { name: 'Aufheben' }))
+    expect(updateOperation).toHaveBeenCalledWith('incident-1', { nachbarhilfe: false })
+  })
+
+  it('the menu row sets the flag, then asks for the reason with «Ohne Grund»', async () => {
+    const onToggleAmWarten = vi.fn()
+    const view = renderWithIntl(card(CARD_VIEW_PRESETS.standard, operation(), { onToggleAmWarten }))
+    fireEvent.contextMenu(screen.getByTestId('incident-card'))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Als Am Warten markieren' }))
+    expect(onToggleAmWarten).toHaveBeenCalledTimes(1)
+    // The board's write lands (optimistic): the chip is there, and the popover with it.
+    view.rerender(card(CARD_VIEW_PRESETS.standard, operation({ amWarten: true }), { onToggleAmWarten }))
+    expect(await screen.findByLabelText('Am Warten – Grund')).toHaveValue('')
+    await userEvent.click(screen.getByRole('button', { name: 'Ohne Grund' }))
+    expect(updateOperation).toHaveBeenCalledWith('incident-1', { amWarten: true, amWartenNote: '' })
+  })
+
+  it('a viewer’s chip stays text', () => {
+    renderWithIntl(card(CARD_VIEW_PRESETS.standard, operation({ amWarten: true }), { canDrag: false }))
+    expect(screen.queryByRole('button', { name: /Am Warten/ })).not.toBeInTheDocument()
   })
 })

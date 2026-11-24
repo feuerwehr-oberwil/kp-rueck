@@ -2103,7 +2103,17 @@
       "deleteIncident": "Supprimer l'intervention",
       "realAlarmBadge": "Alarme réelle",
       "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs.",
-      "numberTitle": "Intervention {number}"
+      "numberTitle": "Intervention {number}",
+      "flagNote": {
+        "amWartenTitle": "En attente – motif",
+        "nachbarhilfeTitle": "Entraide – remarque",
+        "hint": "Entrée enregistre · vide possible",
+        "withoutReason": "Sans motif",
+        "withoutNote": "Sans remarque",
+        "clear": "Retirer",
+        "save": "Enregistrer",
+        "chipHint": "Clic : modifier ou retirer"
+      }
     },
     "column": {
       "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",

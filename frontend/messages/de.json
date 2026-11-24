@@ -783,7 +783,17 @@
       "deleteIncident": "Einsatz löschen",
       "realAlarmBadge": "Echt-Alarm",
       "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger.",
-      "numberTitle": "Einsatz {number}"
+      "numberTitle": "Einsatz {number}",
+      "flagNote": {
+        "amWartenTitle": "Am Warten – Grund",
+        "nachbarhilfeTitle": "Nachbarhilfe – Vermerk",
+        "hint": "Enter speichert · leer geht auch",
+        "withoutReason": "Ohne Grund",
+        "withoutNote": "Ohne Vermerk",
+        "clear": "Aufheben",
+        "save": "Speichern",
+        "chipHint": "Klick: ändern oder aufheben"
+      }
     },
     "column": {
       "ariaLabelWithCount": "Spalte {title} ({count, plural, one {# Einsatz} other {# Einsätze}})",

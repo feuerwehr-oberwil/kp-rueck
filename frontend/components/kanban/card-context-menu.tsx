@@ -35,6 +35,9 @@ interface CardContextMenuProps {
   printerEnabled?: boolean
   /** Editors: the «Reko vor Ort» / «Abholung nötig» checkboxes (the Funkmeldungen). */
   canReport?: boolean
+  /** The menu closed and is about to hand focus back to the card – the card opens its note
+   *  popover here instead (`preventDefault`), see draggable-operation.tsx. */
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /** From «Disponiert» on, until it is closed, an Einsatz has a Funkdurchsage to repeat. */
@@ -64,6 +67,7 @@ export function CardContextMenu({
   onRepeatRadio,
   printerEnabled,
   canReport,
+  onCloseAutoFocus,
 }: CardContextMenuProps) {
   const t = useTranslations('kanban')
   const tReorder = useTranslations('common.reorder')
@@ -84,6 +88,7 @@ export function CardContextMenu({
     <ContextMenuContent
       className="w-max min-w-52 max-w-[min(22rem,var(--radix-context-menu-content-available-width))] [&_[data-slot=context-menu-item]]:whitespace-nowrap [&_[data-slot=context-menu-checkbox-item]]:whitespace-nowrap [&_[data-slot=context-menu-sub-trigger]]:whitespace-nowrap max-h-[var(--radix-context-menu-content-available-height)] overflow-y-auto"
       collisionPadding={{ top: 8, bottom: 80, left: 8, right: 8 }}
+      onCloseAutoFocus={onCloseAutoFocus}
     >
       {/* Bearbeiten */}
       <ContextMenuItem onClick={() => onEdit()}>
