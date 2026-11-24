@@ -113,10 +113,20 @@ export class GroupsApi {
   /** Attach existing incidents to an Auftrag as stops (appended to the end). With
    *  `viaVehicleId` (#23) only while each is lone and live and the vehicle still on the
    *  Auftrag – 409 otherwise. */
-  async addStopsToGroup(groupId: string, incidentIds: string[], viaVehicleId?: string): Promise<ApiIncidentGroup> {
+  /** `guard` makes the add conditional (409 when it no longer holds): `viaVehicleId` for
+   *  «In Auftrag aufnehmen», `onlyUnassigned` for a released stop's «Rückgängig». */
+  async addStopsToGroup(
+    groupId: string,
+    incidentIds: string[],
+    guard: { viaVehicleId?: string; onlyUnassigned?: boolean } = {},
+  ): Promise<ApiIncidentGroup> {
     return httpRequest<ApiIncidentGroup>(`/api/incident-groups/${groupId}/stops`, {
       method: 'POST',
-      body: JSON.stringify(viaVehicleId ? { incident_ids: incidentIds, via_vehicle_id: viaVehicleId } : { incident_ids: incidentIds }),
+      body: JSON.stringify({
+        incident_ids: incidentIds,
+        ...(guard.viaVehicleId ? { via_vehicle_id: guard.viaVehicleId } : {}),
+        ...(guard.onlyUnassigned ? { only_unassigned: true } : {}),
+      }),
     })
   }
 

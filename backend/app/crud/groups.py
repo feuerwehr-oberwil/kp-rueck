@@ -360,8 +360,13 @@ async def add_stops_to_group(
     current_user: User,
     request: Request,
     via_vehicle_id: uuid.UUID | None = None,
+    only_unassigned: bool = False,
 ) -> list[uuid.UUID] | None:
     """Attach existing incidents to an Auftrag, appended at the end of the route.
+
+    ``only_unassigned`` (the «Rückgängig» of a released stop): every incident must still be
+    in no Auftrag (or already in this one) – a stop another board put on its own Auftrag
+    meanwhile stays there; otherwise ``StopsChangedError`` and nothing is written.
 
     Returns the list of newly-attached incident ids, or ``None`` if the group
     does not exist. Unknown ids are skipped; already-member ids are skipped.
@@ -410,6 +415,12 @@ async def add_stops_to_group(
         )
         if vehicle_on_route is None or not lone:
             raise StopsChangedError
+
+    if only_unassigned and any(
+        (incident := incidents_by_id.get(incident_id)) is None or incident.group_id not in (None, group_id)
+        for incident_id in incident_ids
+    ):
+        raise StopsChangedError
 
     # Verify same event: reject cross-event incidents outright.
     for incident_id in incident_ids:

@@ -171,10 +171,14 @@ class AddStopsRequest(BaseModel):
     ``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone
     Einsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every
     Einsatz is still live, open and in no Auftrag and the vehicle still on this one.
+
+    ``only_unassigned``: the undo of a released stop – 409 when a stop is gone or another
+    Auftrag took it meanwhile, instead of pulling it out of that Auftrag.
     """
 
     incident_ids: list[UUID]
     via_vehicle_id: UUID | None = None
+    only_unassigned: bool = False
 
 
 class TransferToAuftragRequest(BaseModel):
