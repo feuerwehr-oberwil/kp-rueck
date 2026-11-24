@@ -430,7 +430,12 @@ export function useIncidentStatusWorkflow({
       : null
     const release: CompletionRelease = {
       operationId: operation.id,
-      crew: [...operation.crew.map(personInline), ...(routeSquad?.personnel.map((person) => person.name) ?? [])],
+      // The Reko is held apart from the crew on the board, and the server frees it too.
+      crew: [
+        ...operation.crew.map(personInline),
+        ...(operation.assignedReko ? [operation.assignedReko.name] : []),
+        ...(routeSquad?.personnel.map((person) => person.name) ?? []),
+      ],
       vehicles: [...operation.vehicles.map(vehicleLabel), ...(routeSquad?.vehicles.map((vehicle) => vehicle.name) ?? [])],
     }
 
@@ -1145,7 +1150,8 @@ export function IncidentStatusWorkflowDialogs({
         cancelText={tMat("cancel")}
         confirmText={continuation
           ? tCompletion("stopConfirm")
-          : release
+          // A held completion is made by this answer: it says so, also for material alone.
+          : release || controller.completionFromStatus
             ? tCompletion("confirm")
             : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
               ? tMat("confirmRapport")

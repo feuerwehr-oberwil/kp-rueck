@@ -342,6 +342,15 @@ describe("shared incident detail status workflow", () => {
     expect(result.current.completionRelease).toMatchObject({ crew: ["Roth Til"], vehicles: ["TLF"] })
   })
 
+  it("holds a Reko-only completion and names the Reko – the server frees it", () => {
+    const { result, changeStatusToTop } = renderWorkflow(
+      operation({ status: "active", assignedReko: { id: "p9", name: "Suter Beat" } }),
+    )
+    act(() => result.current.requestCompletion("incident-1"))
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.completionRelease?.crew).toEqual(["Suter Beat"])
+  })
+
   it("discards local decisions when the material decision is cancelled", () => {
     const { result } = renderWorkflow(operation({ status: "returning", materials: ["material-1"] }))
 

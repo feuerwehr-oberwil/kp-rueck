@@ -81,6 +81,8 @@ export function DisponierTransitionDialog({
   // only «Durchgegeben» does – see `markSpoken`.
   const [frozenFull, setFrozenFull] = useState<boolean | null>(null)
   const announcedKeyRef = useRef<string | null>(null)
+  // The (Auftrag, stop) whose Funkdurchsage was confirmed as spoken in this dialog.
+  const [spokenKey, setSpokenKey] = useState<string | null>(null)
 
   // A grouped incident carries no resources itself — the Auftrag (route) owns
   // them. Resolve the route's resources + stop position so both the Funkdurchsage
@@ -110,6 +112,7 @@ export function DisponierTransitionDialog({
     if (!open) {
       announcedKeyRef.current = null
       setFrozenFull(null)
+      setSpokenKey(null)
       return
     }
     if (!radio || !auftrag || !operation) return
@@ -121,12 +124,12 @@ export function DisponierTransitionDialog({
 
   // «Durchgegeben»: the text on screen was read out. Only this records it – the next stop
   // of the route then gets the short continuation, and «Funkdurchsage wiederholen» shows
-  // the time. Closing, a copy or a print says nothing about the radio.
+  // the time. Closing, a copy or a print says nothing about the radio. The dialog stays
+  // open (the batch offer and the Aufgebot are still to come); the button turns into a tick.
   const markSpoken = () => {
-    if (radio && auftrag && operation) {
-      void recordAnnouncement(auftrag.id, { fingerprint: radio.fingerprint, stopId: operation.id, full: radio.full })
-    }
-    onOpenChange(false)
+    if (!radio || !auftrag || !operation) return
+    void recordAnnouncement(auftrag.id, { fingerprint: radio.fingerprint, stopId: operation.id, full: radio.full })
+    setSpokenKey(`${auftrag.id}:${operation.id}`)
   }
 
   if (!operation) return null
@@ -313,8 +316,12 @@ export function DisponierTransitionDialog({
           <div className="flex flex-col gap-2">
             {/* Only on an Auftrag stop: the record decides full vs. short for the next stop. */}
             {radio && (
-              <Button className="justify-start gap-2" onClick={markSpoken}>
-                <Radio className="h-4 w-4" />
+              <Button
+                className="justify-start gap-2"
+                onClick={markSpoken}
+                disabled={spokenKey === `${auftrag?.id}:${operation.id}`}
+              >
+                {spokenKey === `${auftrag?.id}:${operation.id}` ? <Check className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
                 {t('disponiert.markSpoken')}
               </Button>
             )}

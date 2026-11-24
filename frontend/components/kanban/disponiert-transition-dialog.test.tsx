@@ -73,7 +73,7 @@ describe("DisponierTransitionDialog — Funkdurchsage recorded only when spoken"
     expect(recordAnnouncement).not.toHaveBeenCalled()
   })
 
-  it("«Durchgegeben» records the text on screen and closes", async () => {
+  it("«Durchgegeben» records the text on screen once and keeps the dialog open", async () => {
     const onOpenChange = vi.fn()
     renderWithIntl(
       <DisponierTransitionDialog open onOpenChange={onOpenChange} operation={stops[0]} materials={[]} />,
@@ -85,6 +85,8 @@ describe("DisponierTransitionDialog — Funkdurchsage recorded only when spoken"
       full: true,
       fingerprint: expect.any(String),
     })
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    // The batch offer and the Aufgebot are still to come; the button is done.
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole("button", { name: "Durchgegeben" })).toBeDisabled()
   })
 })
