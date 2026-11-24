@@ -5,8 +5,9 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Operation, Person } from '@/lib/contexts/operations-context'
 import type { ResourceBinding } from '@/lib/board-sidebar'
 import { RESOURCES_TARGET } from '@/lib/detail-target'
+import { ApiError } from '@/lib/api/types'
 
-const { api, undoToast, board } = vi.hoisted(() => ({
+const { api, undoToast, toastError, board } = vi.hoisted(() => ({
   api: {
     checkOutPersonnelForEvent: vi.fn(),
     checkInPersonnelForEvent: vi.fn(),
@@ -15,10 +16,12 @@ const { api, undoToast, board } = vi.hoisted(() => ({
     unassignSpecialFunction: vi.fn(),
   },
   undoToast: vi.fn(),
+  toastError: vi.fn(),
   board: { operations: [] as Operation[], personnel: [] as Person[] },
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('@/lib/toast-undo', () => ({ undoToast }))
+vi.mock('sonner', () => ({ toast: { error: toastError } }))
 vi.mock('@/lib/contexts/operations-context', () => ({
   useOperations: () => ({
     ...board,
@@ -103,19 +106,43 @@ describe('PersonPopoverBody', () => {
     expect(release.releaseCrew).toHaveBeenCalledWith('op-14', 'p-peter')
   })
 
-  it('checks a free person out at once, and the undo resumes the same stint', async () => {
-    api.checkOutPersonnelForEvent.mockResolvedValue({})
+  it('checks a free person out at once, and the undo resumes exactly that departure', async () => {
+    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T18:00:00.123456Z' })
     api.checkInPersonnelForEvent.mockResolvedValue({})
     const { onClose } = renderPopover(person({}))
     expect(screen.getByText(/Anwesend seit/)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
 
-    await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1'))
+    await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1', { onlyIfFree: true }))
     expect(onClose).toHaveBeenCalled()
     expect(undoToast).toHaveBeenCalledWith('Unternährer Sina ausgecheckt', expect.anything())
     await undoToast.mock.calls[0][1].onUndo()
-    expect(api.checkInPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1', { resume: true })
+    expect(api.checkInPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1', { resume: '2026-11-24T18:00:00.123456Z' })
+  })
+
+  it('says so when the undo finds the person checked in or out again meanwhile', async () => {
+    api.checkOutPersonnelForEvent.mockResolvedValue({ checked_out_at: '2026-11-24T18:00:00Z' })
+    api.checkInPersonnelForEvent.mockRejectedValue(new ApiError('changed', 409, true))
+    renderPopover(person({}))
+
+    await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
+    await waitFor(() => expect(undoToast).toHaveBeenCalled())
+    await undoToast.mock.calls[0][1].onUndo()
+
+    expect(toastError).toHaveBeenCalledWith('Nicht mehr rückgängig – die Anwesenheit von Unternährer Sina hat sich inzwischen geändert')
+  })
+
+  it('asks the question when the server finds a person shown free still bound', async () => {
+    api.checkOutPersonnelForEvent.mockRejectedValueOnce(new ApiError('bound', 409, true)).mockResolvedValue({ checked_out_at: null })
+    const { onClose } = renderPopover(person({}))
+
+    await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
+
+    expect(await screen.findByText('Unternährer Sina ist noch zugewiesen')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Trotzdem auschecken' }))
+    await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenLastCalledWith('p-sina', 'event-1', { onlyIfFree: false }))
   })
 
   it('asks the Appell’s question before checking out a person who is still bound', async () => {
@@ -129,6 +156,6 @@ describe('PersonPopoverBody', () => {
     expect(api.checkOutPersonnelForEvent).not.toHaveBeenCalled()
 
     await userEvent.click(screen.getByRole('button', { name: 'Trotzdem auschecken' }))
-    await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1'))
+    await waitFor(() => expect(api.checkOutPersonnelForEvent).toHaveBeenCalledWith('p-sina', 'event-1', { onlyIfFree: false }))
   })
 })

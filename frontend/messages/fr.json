@@ -2243,7 +2243,8 @@
       "hint": "Décocher = terminer (avec confirmation) · Interventions : décocher = libérer",
       "presentSince": "Présent depuis {time}",
       "checkOut": "Annoncer partant",
-      "checkedOut": "{name} annoncé partant"
+      "checkedOut": "{name} annoncé partant",
+      "undoGone": "Annulation impossible – la présence de {name} a changé entre-temps"
     },
     "assignmentDialog": {
       "titleVehicles": "Attribuer des véhicules",

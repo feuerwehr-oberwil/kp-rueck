@@ -12,7 +12,9 @@
  * toggles.
  *
  * The footer: «Anwesend seit 17:08» + «Auschecken» (a person still bound gets the Appell's
- * own question first, `CheckOutAssignedDialog`; a free one goes at once, with undo), and the
+ * own question first, `CheckOutAssignedDialog`; a free one goes at once – the server refuses
+ * if they are bound after all, and the question comes then – with an undo of exactly that
+ * departure), and the
  * plan («kommt um» / «geht um») with the Appell's picker and API call.
  *
  * Everything is read live from the board while the popover is open; a viewer sees the ticks
@@ -33,6 +35,7 @@ import { PlannedTimeChip, PlannedTimePicker, type PlanKind } from "@/components/
 import { STATION_FUNCTION_ICONS, stationFunctionLabel } from "@/components/kanban/person-function-labels"
 import { usePersonFunctions } from "@/components/kanban/use-person-functions"
 import { apiClient } from "@/lib/api-client"
+import { ApiError } from "@/lib/api/types"
 import type { ResourceBinding } from "@/lib/board-sidebar"
 import { useOperations, type Person } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -105,12 +108,24 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
     }
   }
 
-  const checkOut = async () => {
+  /**
+   * `onlyIfFree`: the button's own call for a person shown free – the server refuses (409) when
+   * they are bound after all (this board had not caught up), and the popover asks instead.
+   * The confirmed call after the question goes without it.
+   */
+  const checkOut = async ({ onlyIfFree = false }: { onlyIfFree?: boolean } = {}) => {
     if (!eventId) return
     const name = person.name
+    let checkedOutAt: string | null
     try {
-      await apiClient.checkOutPersonnelForEvent(person.id, eventId)
+      checkedOutAt = (await apiClient.checkOutPersonnelForEvent(person.id, eventId, { onlyIfFree })).checked_out_at
     } catch (error) {
+      if (onlyIfFree && ApiError.isConflictError(error)) {
+        // The question names what binds them once the board has the new state.
+        void refreshOperations()
+        setConfirmOut(true)
+        return
+      }
       console.error("Check-out failed:", error)
       toast.error(tAttendance("writeFailed"))
       return
@@ -120,10 +135,17 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
     undoToast(tp("checkedOut", { name }), {
       onUndo: async () => {
         try {
-          // The same stint again: «anwesend seit» and the plan stay (backend `resume`).
-          await apiClient.checkInPersonnelForEvent(person.id, eventId, { resume: true })
+          // The same stint again: «anwesend seit» and the plan stay (backend `resume`) – but
+          // only this departure; a later check-in or check-out answers 409.
+          if (!checkedOutAt) throw new Error("check-out answered no checked_out_at")
+          await apiClient.checkInPersonnelForEvent(person.id, eventId, { resume: checkedOutAt })
           void refreshOperations()
         } catch (error) {
+          if (ApiError.isConflictError(error)) {
+            toast.error(tp("undoGone", { name }))
+            void refreshOperations()
+            return
+          }
           console.error("Undo check-out failed:", error)
           toast.error(tAttendance("writeFailed"))
         }
@@ -272,7 +294,7 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
             <Button
               size="sm"
               variant="outline"
-              onClick={() => (checklist.count > 0 ? setConfirmOut(true) : void checkOut())}
+              onClick={() => (checklist.count > 0 ? setConfirmOut(true) : void checkOut({ onlyIfFree: true }))}
             >
               <LogOut className="size-3.5" aria-hidden />
               {tp("checkOut")}
@@ -309,7 +331,7 @@ export function PersonPopoverBody({ person, places, onGo, onClose, canEdit, even
         onOpenChange={setConfirmOut}
         name={person.name}
         where={checklist.held.map(heldLabel).join(", ")}
-        onConfirm={checkOut}
+        onConfirm={() => checkOut()}
       />
     </div>
   )

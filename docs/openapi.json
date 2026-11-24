@@ -7992,7 +7992,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In",
-        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\n`resume` (editor session only) takes back a check-out instead of starting a new stint.\nBroadcasts real-time update via WebSocket.",
+        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\n`resume` (editor session only) takes back exactly that check-out instead of starting a\nnew stint, or answers 409 when the person was checked in or out again meanwhile.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_in_api_personnel_check_in__personnel_id__in_post",
         "parameters": [
           {
@@ -8047,12 +8047,19 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "boolean",
-              "description": "Board only: undo a check-out – the same stint continues (check-in time and plan kept)",
-              "default": false,
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Board only: undo the check-out that answered this `checked_out_at` – the same stint continues (check-in time and plan kept). 409 when that departure is no longer there.",
               "title": "Resume"
             },
-            "description": "Board only: undo a check-out – the same stint continues (check-in time and plan kept)"
+            "description": "Board only: undo the check-out that answered this `checked_out_at` – the same stint continues (check-in time and plan kept). 409 when that departure is no longer there."
           },
           {
             "name": "access_token",
@@ -8101,7 +8108,7 @@
           "personnel-checkin"
         ],
         "summary": "Check Out",
-        "description": "Check out a person from the event (mark as left).\n\nEither a valid check-in token or an editor session with `event_id`.\nAn assigned person is refused through the phone (it has no way to release the\nassignment) and allowed through the board, which warns first and leaves the\nassignment standing.\nBroadcasts real-time update via WebSocket.",
+        "description": "Check out a person from the event (mark as left).\n\nEither a valid check-in token or an editor session with `event_id`.\nAn assigned person is refused through the phone (it has no way to release the\nassignment) and allowed through the board, which warns first and leaves the\nassignment standing.\n`only_if_free` is the board's check-out without a question: 409 when the person is\nbound after all (its view was stale), so it can ask first.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_out_api_personnel_check_in__personnel_id__out_post",
         "parameters": [
           {
@@ -8150,6 +8157,18 @@
               "title": "Event Id"
             },
             "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "only_if_free",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Board: refuse (409) when an assignment or a function still binds the person",
+              "default": false,
+              "title": "Only If Free"
+            },
+            "description": "Board: refuse (409) when an assignment or a function still binds the person"
           },
           {
             "name": "access_token",

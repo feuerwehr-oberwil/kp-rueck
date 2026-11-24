@@ -926,7 +926,8 @@
       "hint": "Häkchen weg = beenden (fragt nach) · Einsätze: Häkchen weg = freigeben",
       "presentSince": "Anwesend seit {time}",
       "checkOut": "Auschecken",
-      "checkedOut": "{name} ausgecheckt"
+      "checkedOut": "{name} ausgecheckt",
+      "undoGone": "Nicht mehr rückgängig – die Anwesenheit von {name} hat sich inzwischen geändert"
     },
     "assignmentDialog": {
       "titleVehicles": "Fahrzeuge zuweisen",
