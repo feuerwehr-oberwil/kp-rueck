@@ -49,6 +49,8 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
   const { notifications, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
   const openRequests = useOpenFieldRequests()
   const todos = useTodos()
+  // A viewer reads the list: no Alarmeingang, no dismissing (POST …/dismiss is an editor's).
+  // The role, not `isEditor` – a standby-led Ereignis turns that off for editors too.
   const { isViewer } = useAuth()
   // «Alarmeingang» closes this sheet first and opens the inbox once it is gone (one layer at a
   // time): set here, read where the sheet hands focus back.
@@ -124,21 +126,23 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
                     {activeNotifications.length}
                   </span>
                 </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void dismissAllNotifications(openRequests.representedIds)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  {t('dismissAll')}
-                </Button>
+                {!isViewer && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void dismissAllNotifications(openRequests.representedIds)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    {t('dismissAll')}
+                  </Button>
+                )}
               </div>
               <div className="space-y-2">
                 {activeNotifications.map((notification) => (
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onDismiss={dismissNotification}
+                    onDismiss={isViewer ? undefined : dismissNotification}
                     onClickIncident={openIncident}
                     readOnly
                   />

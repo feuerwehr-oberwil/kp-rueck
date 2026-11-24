@@ -48,7 +48,7 @@ const DOCUMENT_FLOW_ROUTES = ['/reko', '/alarm', '/check-in', '/feld']
  */
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isViewer } = useAuth()
   const isDisplay = isDisplayPath(pathname)
 
   const isDocumentFlow = DOCUMENT_FLOW_ROUTES.some(
@@ -64,7 +64,7 @@ export function AppShell({ children }: AppShellProps) {
         <StaleDataBanner />
         <IncidentTruncationBanner />
         {children}
-        {isAuthenticated && <CommandPalette />}
+        {isAuthenticated && !isViewer && <CommandPalette />}
         {isAuthenticated && <GlobalShortcuts />}
         <UpdateNotice />
       </>
@@ -93,7 +93,9 @@ export function AppShell({ children }: AppShellProps) {
         </main>
         {!isDisplay && <PersistentNotificationSidebar />}
       </div>
-      {isAuthenticated && !isDisplay && <CommandPalette />}
+      {/* Not a viewer's (on a phone only, lib/role-home.ts): its commands write or open
+          writing sheets. The role, not `isEditor` – standby turns that off for editors. */}
+      {isAuthenticated && !isViewer && !isDisplay && <CommandPalette />}
       {isAuthenticated && <GlobalShortcuts />}
       <UpdateNotice />
     </div>

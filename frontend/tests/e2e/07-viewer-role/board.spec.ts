@@ -20,10 +20,11 @@ import {
  * or deleted — so nothing is asserted absent here without the editor half of the
  * same test proving it exists.
  *
- * What it turns out to cover: the ~130 `isEditor` call sites in `app/page.tsx`
- * never run for a `viewer`, because `ProtectedRoute` redirects the role to
- * /display/board before the board renders. The gate that actually holds is the
- * redirect, so that is what these tests pin down.
+ * What it turns out to cover: on the desk the ~130 `isEditor` call sites in
+ * `app/page.tsx` never run for a `viewer`, because `ProtectedRoute` redirects the
+ * role to /display/board before the board renders. The gate that actually holds
+ * there is the redirect, so that is what these tests pin down (desktop-sized).
+ * The phone, where a viewer does get the board, is phone-shell.spec.ts.
  */
 
 test.describe('Viewer role — operations board', () => {

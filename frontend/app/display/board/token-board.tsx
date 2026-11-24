@@ -213,7 +213,7 @@ export function TokenBoard({ token }: { token: string }) {
     <div className="flex h-full flex-col bg-background text-foreground">
 
       {/* No header of its own: the display layout's bar already carries this
-          Ereignis, the clock and the «Nur-Lesen» badge, and two bars stacked
+          Ereignis, the clock and the «Nur Ansicht» badge, and two bars stacked
           said the same thing twice on the screen with the least room for it. */}
 
       {/* min-h-0 lets the columns scroll internally instead of the last card

@@ -3,10 +3,10 @@
 /**
  * The operations board.
  *
- * Reached only by editors and admins: `ProtectedRoute` sends every `viewer` to
- * `/display/board` before this renders. The `isEditor` checks below are therefore
- * constant-true today — kept deliberately, see the note in
- * `components/protected-route.tsx` for why and for what actually enforces the role.
+ * A `viewer` reaches it on a phone only (the phone shell, read-only – lib/role-home.ts);
+ * anywhere wider `ProtectedRoute` sends it to `/display/board`. So the `isEditor` checks
+ * below are constant-true on the desk and live on the phone – see the note in
+ * `components/protected-route.tsx` for what actually enforces the role.
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
@@ -210,7 +210,8 @@ export default function FireStationDashboard() {
   // material sidebar, its counter and every drop read one frei/gebunden.
   const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
-  const { isEditor } = useAuth()
+  // `isViewer` is the role itself; `isEditor` is also off on a standby-led Ereignis.
+  const { isEditor, isViewer } = useAuth()
   // While a standby box leads the open Ereignis this board is look-only, but new things – an
   // Einsatz, a Verlauf line – may still be added (`StandbyProvider`).
   const { canAddNew } = useStandby()
@@ -522,14 +523,15 @@ export default function FireStationDashboard() {
    *  dialog — a modal mounted inside the checklist popover dies with it. */
   const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
-  // Auto-generate check-in QR code URL when no personnel are available
+  // Auto-generate check-in QR code URL when no personnel are available – never for a viewer:
+  // the link is a credential (POST, CurrentEditor), and a viewer's phone shows no QR.
   useEffect(() => {
-    if (!selectedEvent || checkInUrl || isLoading) return
+    if (isViewer || !selectedEvent || checkInUrl || isLoading) return
     if (personnel.filter((p) => p.status === "available").length > 0) return
     apiClient.generateCheckInLink(selectedEvent.id).then((response) => {
       setCheckInUrl(`${window.location.origin}${response.link}`)
     }).catch(() => {})
-  }, [selectedEvent, personnel, checkInUrl, isLoading])
+  }, [isViewer, selectedEvent, personnel, checkInUrl, isLoading])
 
   const gPrefix = useGPrefixNavigation(router, '/')
   const cmdHint = useCommandPaletteHint()
@@ -785,6 +787,7 @@ export default function FireStationDashboard() {
 
   useKanbanShortcuts(
     {
+      readOnly: isViewer,
       modalOpen:
         detailModalOpen ||
         newEmergencyModalOpen ||

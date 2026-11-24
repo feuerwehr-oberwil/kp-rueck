@@ -327,7 +327,8 @@
       "allEvents": "Alle Ereignisse",
       "app": "App",
       "settings": "Einstellungen",
-      "help": "Hilfe"
+      "help": "Hilfe",
+      "viewOnly": "Nur Ansicht"
     },
     "pageNav": {
       "main": "Hauptnavigation",
@@ -4133,8 +4134,9 @@
       "exitFullscreen": "Vollbild beenden",
       "fullscreen": "Vollbild",
       "searchPlaceholder": "Suchen …",
-      "readOnly": "Nur-Lesen",
-      "selectEvent": "Ereignis wählen"
+      "readOnly": "Nur Ansicht",
+      "selectEvent": "Ereignis wählen",
+      "pagesNav": "Ansichten"
     },
     "map": {
       "authRequired": "Bitte melde dich an oder verwende einen Zugangscode (?token=xxx)"
@@ -4164,7 +4166,7 @@
       "rekoCompleted": "Reko-Bericht ausgefüllt",
       "rekoOnSite": "Reko vor Ort",
       "invalidLink": "Ungültiger oder abgelaufener Link. Bitte einen neuen Link anfordern.",
-      "readOnly": "Nur-Lesen",
+      "readOnly": "Nur Ansicht",
       "showCompleted": "Abgeschlossen anzeigen"
     },
     "standby": {

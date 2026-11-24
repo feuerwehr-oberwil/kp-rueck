@@ -53,6 +53,18 @@ change. Read the section you touch. The visual rules and their reasons are
   status, age, EL, vehicles, the Abholung as a label; «Alle Details» opens the phone detail
   sheet. A second tap on the marker, ✕ or a tap on empty map closes it. Every flight keeps the
   pin above the peek (`chromeFitPadding`'s `foot`). The desktop /map is not touched by any of it.
+- **A viewer on a phone gets the same shell, read-only (owner pick 4A, 24.11.2026)**. Below
+  `md` a signed-in viewer opens the board, the Lagekarte and «Alle Ereignisse»; every other
+  page sends it to the phone board. Anywhere wider it gets the wall board (`/display/board`).
+  The rule lives in `lib/role-home.ts` (`ProtectedRoute`, the login's landing). The viewer's
+  head says «Nur Ansicht» (`ViewOnlyTag`). Its pill has no Einstellungen, its Meldungen no
+  Alarmeingang and no dismiss, its «Mehr» only Verlauf and Kennzahlen. A phone control that
+  writes is hidden from a viewer: `isViewer` is the role, `isEditor` is also off for an editor
+  on a standby-led Ereignis. Add it to `tests/e2e/07-viewer-role/phone-shell.spec.ts`,
+  which also fails on any write request or 401/403 in a phone viewer's session. The QR viewer
+  link (`/display?token=…`, no login) is a separate, token-scoped surface: on a phone it opens
+  its board, not the four-mode picker. The page tabs sit in a bottom bar with their words, the
+  Ereignis name keeps one line, and the search has a row of its own below `lg`.
 - **Phone geometry (one source)**: `--kb-inset`, `--vv-top`, `--vv-height`, `--nav-reserve`,
   `--sheet-top` and `html[data-kb]` are measured and published on `<html>` (contract + the iOS
   model in `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard:

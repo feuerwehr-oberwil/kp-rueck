@@ -15,6 +15,7 @@ vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ re
 // The pill is its own component (phone-event-pill.test.tsx); here only where it stands.
 vi.mock('@/components/mobile/phone-event-pill', () => ({
   PhoneEventPill: () => <button type="button">Ereignis-Pill</button>,
+  ViewOnlyTag: () => null,
 }))
 vi.mock('@/components/mobile/mobile-incident-card', () => ({
   MobileIncidentCard: ({ operation }: { operation: Operation }) => <div data-testid="card">{operation.location}</div>,

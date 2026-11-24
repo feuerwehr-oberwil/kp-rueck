@@ -6,7 +6,7 @@ import { useIntlLocale } from "@/lib/date-locale"
 import { Clock, Wifi, WifiOff, ArrowLeft, Map, LayoutGrid, BarChart3, Maximize, Minimize, Eye, CalendarRange, Hourglass } from "lucide-react"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { useSearchParams, usePathname, useRouter } from "next/navigation"
+import { useSearchParams, usePathname } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { usePolling } from "@/lib/hooks/use-polling"
 import { isTypingTarget } from "@/lib/typing-target"
@@ -21,6 +21,8 @@ import { useDisplayErrorRecovery } from "@/components/display-error"
 import { RouteSlot } from "@/components/route-slot"
 import { useWallIdle } from "@/components/display/use-wall-idle"
 import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { useReplaceRoute } from "@/lib/hooks/use-replace-route"
 
 import { useViewerFeed, ViewerPayloadContext } from "@/lib/hooks/use-viewer-situation"
 import { DisplayStaleBanner } from "@/components/display/display-stale-banner"
@@ -89,11 +91,11 @@ function DisplayChrome({
   const intlLocale = useIntlLocale()
   const { selectedEvent } = useEvent()
   const pathname = usePathname()
-  const router = useRouter()
   const { isAuthenticated, loading: authLoading } = useAuth()
   const feed = useViewerFeed(token)
   const tCommon = useTranslations("common")
   const isIndexPage = pathname === "/display"
+  const isMobile = useIsMobile()
   const isSubPage = !isIndexPage
 
   // The display views exist for a wall screen behind a login, or for a share link behind a
@@ -104,10 +106,11 @@ function DisplayChrome({
   // Waits for `authLoading`: the session resolves asynchronously, and redirecting before it
   // does would bounce somebody who IS logged in.
   const mayView = !!token || isAuthenticated
-  useEffect(() => {
-    if (authLoading || mayView) return
-    router.replace("/")
-  }, [authLoading, mayView, router])
+  // The QR viewer link on a phone opens its board, not the four-mode picker (phone sweep
+  // 24.11.2026, field.8: four unexplained buttons were the first thing a QR viewer saw); the
+  // bottom tabs reach the other three. Decided here, before the token's feed has answered.
+  const toTokenBoard = token && isIndexPage && isMobile ? `/display/board?token=${token}` : null
+  useReplaceRoute(!authLoading && !mayView ? "/" : toTokenBoard)
 
   // Clears the error-boundary retry backoff once this display has been up and
   // healthy for a while, so an unrelated fault hours later starts from the
@@ -119,6 +122,9 @@ function DisplayChrome({
   const { query, setQuery } = useDisplaySearch()
   const isSearchable = SEARCHABLE_PAGES.includes(pathname)
   const searchRef = useRef<HTMLInputElement>(null)
+  // The search's own row below `lg` (the bar has no room for it there): a phone or tablet
+  // viewer searches the board too (phone sweep 24.11.2026, crosscheck A1).
+  const rowSearchRef = useRef<HTMLInputElement>(null)
 
   // Idle chrome (owner pick U5 B): after 10 s without a mouse move or a key, the
   // back arrow and the search field fade IN PLACE – opacity, not display, so the
@@ -151,7 +157,9 @@ function DisplayChrome({
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (isTypingTarget(e.target) || isModalOpen()) return
       e.preventDefault()
-      searchRef.current?.focus()
+      // whichever of the two fields this width shows (a hidden one has no offsetParent)
+      const field = searchRef.current?.offsetParent ? searchRef.current : rowSearchRef.current
+      field?.focus()
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
@@ -215,21 +223,24 @@ function DisplayChrome({
           needs no `order-first` to stay above the control bar that goes
           `order-last` on mobile, and it costs this column no height. */}
       {isTraining && <TrainingBand />}
-      {/* Control bar — top navbar on desktop, bottom bar on mobile (order-last
-          keeps it thumb-reachable there). Pinned: it is the only bar the display
-          pages have, and on a share link it also carries the «Nur-Lesen» badge
+      {/* Control bar — on top at every width. Pinned: it is the only bar the display
+          pages have, and on a share link it also carries the «Nur Ansicht» badge
           that used to sit in a second header of its own.
           Token/viewer mode omits the back link so there's no path to the editor.
           From `sm` up the two things read across the room – which Ereignis, what
           time – are pinned in px (Ereignis 18/600, clock 20/600 mono), and so is
           the bar's 44px: the wall boards fit their root size (use-wall-fit), and
-          a rem bar made the name 12px on a full board (hill climb r19). */}
-      <header className="order-last sm:order-first flex items-center justify-between gap-3 border-t sm:border-t-0 sm:border-b border-border bg-header px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:py-1 min-h-10 sm:min-h-[44px] shrink-0">
+          a rem bar made the name 12px on a full board (hill climb r19).
+          On a phone (below `md`, the app's phone breakpoint) the page tabs move to a
+          bar of their own at the bottom, with their words (`PhoneDisplayTabs`); below
+          `sm` the name keeps one line (phone sweep 24.11.2026, field.8 – it wrapped to
+          three). */}
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-header px-3 py-1 min-h-11 sm:min-h-[44px] shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           {!token && (
             // One box for the arrow and its divider, so the idle fade has one
             // target; `gap-2` is the row's own gap, so nothing moves.
-            <div className={cn("hidden sm:flex items-center gap-2 shrink-0", idleChromeClass)}>
+            <div className={cn("flex items-center gap-2 shrink-0", idleChromeClass)}>
               <Link
                 href={isIndexPage ? "/" : "/display"}
                 className="flex items-center justify-center h-7 w-7 pointer-coarse:size-11 shrink-0 rounded-sm hover:bg-muted transition-colors"
@@ -251,13 +262,18 @@ function DisplayChrome({
               {t('layout.selectEvent')}
             </Link>
           ) : (
-            <h1 className={cn("min-w-0 max-w-[42vw] sm:max-w-none text-sm sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground", WALL_TEXT_WRAP)}>{eventName}</h1>
+            <h1
+              title={eventName}
+              className={cn("min-w-0 max-sm:truncate text-base sm:text-[18px] sm:leading-[24px] font-semibold tracking-tight text-foreground", WALL_TEXT_WRAP)}
+            >
+              {eventName}
+            </h1>
           )}
           {isTraining && <TrainingBadge label={t('layout.training')} />}
           {/* Was a panel of its own on the share-link board, under a header that
               repeated the Ereignis name this one already carries. */}
           {token && (
-            <span className="hidden items-center gap-1.5 rounded-sm bg-foreground/10 px-2 py-0.5 text-xs font-medium text-foreground sm:inline-flex shrink-0">
+            <span className="inline-flex items-center gap-1.5 rounded-sm bg-foreground/10 px-2 py-0.5 text-xs font-medium text-foreground shrink-0">
               <Eye className="h-3.5 w-3.5" />
               {t('layout.readOnly')}
             </span>
@@ -284,9 +300,9 @@ function DisplayChrome({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Display page tabs */}
+          {/* Display page tabs (from `md`; the phone has its bottom bar) */}
           {isSubPage && (
-            <nav className="flex items-center rounded-md border border-border bg-muted/50 p-0.5">
+            <nav className="hidden md:flex items-center rounded-md border border-border bg-muted/50 p-0.5">
               {displayPages.map((p) => {
                 const isActive = pathname === p.href
                 return (
@@ -318,7 +334,7 @@ function DisplayChrome({
             </nav>
           )}
 
-          <div className="w-px h-5 bg-border" />
+          <div className="hidden md:block w-px h-5 bg-border" />
 
           {/* Utility icons — grouped for consistent visual weight */}
           <div className="flex items-center gap-0.5">
@@ -347,6 +363,18 @@ function DisplayChrome({
         </div>
       </header>
 
+      {isSearchable && (
+        <div className={cn("shrink-0 border-b border-border bg-header px-3 py-2 lg:hidden", idleChromeClass)}>
+          <SearchInput
+            ref={rowSearchRef}
+            value={query}
+            onValueChange={setQuery}
+            placeholder={t('layout.searchPlaceholder')}
+            hint={pointerFine ? <Kbd>S</Kbd> : undefined}
+          />
+        </div>
+      )}
+
       {token && feed.snapshot && <DisplayStaleBanner lastRefresh={feed.snapshot.received} />}
       <main className="flex-1 overflow-hidden">
         {/* Nothing is rendered while the redirect above is in flight — a flash of the display
@@ -364,6 +392,41 @@ function DisplayChrome({
           </ViewerPayloadContext.Provider>
         )}
       </main>
+
+      {isSubPage && <PhoneDisplayTabs pathname={pathname} token={token} />}
     </div>
+  )
+}
+
+/** The page tabs on a phone (below `md`): a bottom bar under the thumb, each glyph with its
+ *  word – like the phone shell's tabs and KP Front's (phone sweep 24.11.2026, field.8: four bare
+ *  glyphs told a QR viewer nothing). */
+function PhoneDisplayTabs({ pathname, token }: { pathname: string; token: string | null }) {
+  const t = useTranslations('display')
+  return (
+    <nav
+      aria-label={t('layout.pagesNav')}
+      className="grid shrink-0 grid-cols-4 gap-1 border-t border-border bg-card px-2 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
+    >
+      {displayPages.map((p) => {
+        const isActive = pathname === p.href
+        return (
+          <Link
+            key={p.href}
+            href={token ? `${p.href}?token=${token}` : p.href}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-colors touch-manipulation",
+              isActive ? "bg-foreground/[0.09] text-foreground" : "text-muted-foreground",
+            )}
+          >
+            <p.icon className="size-5" aria-hidden />
+            <span className={cn("max-w-full truncate text-xs font-medium", isActive && "font-semibold")}>
+              {t(`layout.${p.labelKey}`)}
+            </span>
+          </Link>
+        )
+      })}
+    </nav>
   )
 }

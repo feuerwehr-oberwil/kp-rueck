@@ -45,6 +45,9 @@ interface EventRestlisteProps {
    *  the same rule the board's other print buttons already follow. Fetched once
    *  on the page rather than per event card. */
   printerEnabled?: boolean
+  /** May this user write here (clear a pickup, queue the Abholliste)? Off for a viewer
+   *  (on a phone only, lib/role-home.ts): the rows stay, the pickups are labels. */
+  canEdit?: boolean
 }
 
 /** A row's Schadenplatz the way the board names it, «12 · Hauptstrasse 8»; the
@@ -60,7 +63,7 @@ function restlisteRef(
   })
 }
 
-export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false }: EventRestlisteProps) {
+export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false, canEdit = true }: EventRestlisteProps) {
   const t = useTranslations('events.restliste')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
@@ -182,7 +185,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
               <span>{t('materialOnSite', { count: material.length })}</span>
             </button>
             {/* The sheet that goes along the next morning (decision 25). */}
-            {printerEnabled && (
+            {printerEnabled && canEdit && (
               <Button
                 variant="ghost"
                 size="xs"
@@ -227,6 +230,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                     variant="compact"
                     incidentId={row.incident_id}
                     onCleared={reload}
+                    canEdit={canEdit}
                     className="shrink-0"
                   />
                 </div>

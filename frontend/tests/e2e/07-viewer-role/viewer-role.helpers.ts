@@ -22,7 +22,8 @@ export {
 
 export type { BoardFixture } from '../../helpers/api.helper';
 
-/** Where ProtectedRoute sends every `viewer` account (components/protected-route.tsx). */
+/** Where ProtectedRoute sends a `viewer` wider than a phone (lib/role-home.ts); on a phone it
+ *  gets the phone shell instead (phone-shell.spec.ts). The fixture's viewer is desktop-sized. */
 export const VIEWER_LANDING = '/display/board';
 
 /** Assert that `page` (a viewer) was bounced out of an editor-only route. */

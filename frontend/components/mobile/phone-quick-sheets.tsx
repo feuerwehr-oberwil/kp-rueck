@@ -9,6 +9,10 @@
  * nav owns them. The desktop board keeps its footer's own instances (`board-dialogs.tsx`); this
  * component is mounted only on a phone, so a desktop never carries two of each.
  *
+ * Mounted for a viewer too (the phone shell is every role's, owner pick 4A, 24.11.2026): the
+ * sheets that write – Links & QR, the Appell, Fahrzeuge, Drucken – are an editor's and are not
+ * mounted for anyone else; Tagebuch, Personal and Dienstzeiten only read for a viewer.
+ *
  * Controlled: the nav says which one is open (`open`), the sheet closing says `null`. Opening the
  * Appell from «Links & QR» replaces that sheet (two layers for one job is one too many), and so
  * does «Dienstzeiten» from Personal.
@@ -83,15 +87,17 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
 
   return (
     <>
-      <LinksQrSheet
-        open={open === 'links'}
-        onOpenChange={closes('links')}
-        eventId={eventId}
-        eventName={selectedEvent?.name ?? null}
-        printerEnabled={printerEnabled}
-        onOpenAttendance={() => onOpenChange('attendance')}
-      />
-      {selectedEvent && (
+      {isEditor && (
+        <LinksQrSheet
+          open={open === 'links'}
+          onOpenChange={closes('links')}
+          eventId={eventId}
+          eventName={selectedEvent?.name ?? null}
+          printerEnabled={printerEnabled}
+          onOpenAttendance={() => onOpenChange('attendance')}
+        />
+      )}
+      {isEditor && selectedEvent && (
         <AttendanceModal
           open={open === 'attendance'}
           onOpenChange={closes('attendance')}
@@ -99,7 +105,7 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelFor}
           onAttendanceChange={refreshPersonnel}
-          canCheckIn={isEditor}
+          canCheckIn
         />
       )}
       <JournalSheet
@@ -145,14 +151,18 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
           }
         }}
       />
-      <VehicleStatusSheet open={open === 'vehicles'} onOpenChange={closes('vehicles')} eventId={eventId} />
-      <PrintHubSheet
-        open={open === 'print'}
-        onOpenChange={closes('print')}
-        onThermoPrint={print}
-        isThermoPrinting={printing}
-        printerEnabled={printerEnabled}
-      />
+      {isEditor && (
+        <>
+          <VehicleStatusSheet open={open === 'vehicles'} onOpenChange={closes('vehicles')} eventId={eventId} />
+          <PrintHubSheet
+            open={open === 'print'}
+            onOpenChange={closes('print')}
+            onThermoPrint={print}
+            isThermoPrinting={printing}
+            printerEnabled={printerEnabled}
+          />
+        </>
+      )}
     </>
   )
 }

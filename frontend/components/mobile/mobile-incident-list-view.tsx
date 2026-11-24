@@ -33,7 +33,7 @@ import {
 import { MobileIncidentCard } from "./mobile-incident-card"
 import { type DetailTarget } from "@/lib/detail-target"
 import { MobileIncidentDetailSheet } from "./mobile-incident-detail-sheet"
-import { PhoneEventPill } from "./phone-event-pill"
+import { PhoneEventPill, ViewOnlyTag } from "./phone-event-pill"
 import { PhoneIntakeFooter } from "./phone-intake-footer"
 
 interface MobileIncidentListViewProps {
@@ -211,7 +211,11 @@ export function MobileIncidentListView({
       <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-background sticky top-0 z-raised border-b border-border/50">
         {/* The Ereignis pill: the phone frame's head on every page, and its menu (owner picks
             1A + 2A, phone sweep 24.11.2026). The Übung intake is in the footer (5B). */}
-        <PhoneEventPill className="mb-3" />
+        <div className="mb-3 flex items-center gap-2">
+          <PhoneEventPill className="min-w-0" />
+          {/* A viewer's head says why nothing here writes (owner pick 4A, 24.11.2026). */}
+          <ViewOnlyTag className="ml-auto" />
+        </div>
 
         {/* Search + ONE funnel (owner, 02.10.2026 — like KP Front's Verlauf): the chip row it
             replaces ran off the right edge at 390px. The funnel is a square that never changes

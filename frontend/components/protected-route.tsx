@@ -4,40 +4,48 @@
  * Protected route wrapper
  * Redirects to login if user is not authenticated
  *
- * **This redirect is the role gate for the whole interactive app.** A `viewer` never
- * reaches the board, the map or the settings page — it is sent to `/display/board`, the
- * read-only wall view, which is what the shared/kiosk viewer account exists for
- * (`backend/app/seed.py`). Everyone who gets past here is an editor or an admin.
+ * **This redirect is the role gate for the whole interactive app** (`lib/role-home.ts`). A
+ * `viewer` on a phone may open the phone shell – the board, the Lagekarte, «Alle Ereignisse»
+ * (owner pick 4A, phone sweep 24.11.2026) – and is sent to the phone board from every other
+ * page. A viewer on anything wider never reaches the interactive app: it is sent to
+ * `/display/board`, the read-only wall view the shared/kiosk viewer account exists for
+ * (`backend/app/seed.py`). The gate follows the viewport: a phone turned past `md` goes to
+ * the wall board.
  *
  * Two consequences worth knowing before changing anything here:
  *
- * 1. The ~69 `isEditor` checks in `app/page.tsx`, `app/map/page.tsx` and
- *    `app/settings/page.tsx` are therefore **constant-true in practice** — their false
- *    branch is unreachable while this redirect stands. They were kept on purpose: they
- *    are what would make "let viewers open the real board read-only" a cheap change
- *    rather than a re-derivation. Do not read their presence as evidence that the
- *    controls are gated *here*.
+ * 1. On the desk, the ~69 `isEditor` checks in `app/page.tsx`, `app/map/page.tsx` and
+ *    `app/settings/page.tsx` are **constant-true** – their false branch never runs there.
+ *    On the phone they are live: the phone shell's write controls are gated on `isEditor`,
+ *    and `tests/e2e/07-viewer-role/phone-shell.spec.ts` holds that no viewer reaches one and
+ *    that no write request leaves a phone viewer's session.
  * 2. This is a convenience and UX guard, **not** the security boundary. The boundary is
  *    the backend: mutations require `CurrentEditor` and the admin surfaces require
  *    `CurrentAdmin`, so bypassing this redirect exposes no data — `GET /api/users` and
  *    `GET /api/audit` both refuse a viewer. Verified 2026-07-30.
  *
- * If you ever remove or weaken the redirect, those `isEditor` checks stop being
- * decoration and start being the thing that keeps the UI honest.
+ * Before opening another page to a viewer, gate its writes on `isEditor` and extend that spec.
  */
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/contexts/auth-context';
 import { checkBackendHealth } from '@/lib/auth-client';
 import { useEffect, useState } from 'react';
 import { BootScreen } from '@/components/boot-screen';
 import { useBootGate, useLaunchCoverUp } from '@/lib/boot-cover';
+import { homeFor, mayOpen } from '@/lib/role-home';
+import { isMobileViewport, useIsMobile } from '@/components/ui/use-mobile';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const t = useTranslations('login.protectedRoute');
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  // Render: may this user see this page? The redirect below asks the viewport itself –
+  // the hydrating render answers «desktop» (`useIsMobile`), which must not bounce a phone.
+  const isMobile = useIsMobile();
+  const mayEnter = !!user && mayOpen(user.role, pathname, isMobile);
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [checkingBackend, setCheckingBackend] = useState(false);
   const coverUp = useLaunchCoverUp();
@@ -53,18 +61,20 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
           router.push('/login');
         }
       });
-    } else if (!loading && user?.role === 'viewer') {
-      // Viewer accounts only ever see the read-only display board
-      router.push('/display/board');
+    } else if (!loading && user) {
+      const phone = isMobileViewport();
+      // A viewer off its pages: the phone board on a phone, the wall board anywhere wider
+      if (!mayOpen(user.role, pathname, phone)) router.replace(homeFor(user.role, phone));
     }
-  }, [user, loading, router]);
+    // `isMobile`: a phone turned past `md` (or a window widened) is asked again
+  }, [user, loading, router, pathname, isMobile]);
 
   // The launch cover (components/boot-cover.tsx) waits for the session before anything else:
-  // decided means signed in as an editor, or the server-unreachable screen. Signed out and
-  // viewers are on their way to another route, which lifts the cover by itself.
+  // decided means signed in on a page this role may open, or the server-unreachable screen.
+  // Signed out and bounced viewers are on their way to another route, which lifts the cover.
   useBootGate(
     'session',
-    !loading && !checkingBackend && (user ? user.role !== 'viewer' : !backendAvailable),
+    !loading && !checkingBackend && (user ? mayEnter : !backendAvailable),
     loading ? t('preparingLogin') : t('checkingServer'),
     0,
   );
@@ -112,9 +122,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
-  // Redirecting viewers to /display/board — don't flash the editor board
-  if (user.role === 'viewer') return null;
+  // Signed out, or a viewer on its way home — don't flash the page it may not open
+  if (!mayEnter) return null;
 
   return <>{children}</>;
 }

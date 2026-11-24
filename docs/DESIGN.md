@@ -45,7 +45,8 @@ phone is used for *viewing* (and, with an editor account, for spawning training 
 for running the board. The one tablet surface here is `/display/bereitschaft`: a shared tablet
 at the station on which a waiting crew *reads* what is ready, what waits and who is out – it
 writes nothing, and the other `/display` pages are navigable by touch, not laid out for it.
-The viewer role is strictly read-only. Sizing decisions follow from this –
+The viewer role is strictly read-only: on a phone it gets the editor's phone shell with every
+write gated off, anywhere wider the wall board (`lib/role-home.ts`). Sizing decisions follow from this –
 see the button size scale in `frontend/components/ui/button.tsx`.
 
 ## Brand personality
