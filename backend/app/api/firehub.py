@@ -69,6 +69,10 @@ async def receive_firehub_webhook(
     return await _handle_start(db, payload, background_tasks)
 
 
+#: An `AlarmIn` field → the FireHub payload field it came from (`FireHubWebhook.to_alarm`).
+_FIREHUB_FIELD = {"address": "street", "number": "opsNumber", "started_at": "created", "source_id": "opsID"}
+
+
 async def _handle_start(
     db: AsyncSession,
     payload: schemas.FireHubWebhook,
@@ -79,8 +83,14 @@ async def _handle_start(
         alarm = payload.to_alarm()
     except ValidationError as e:
         # A blank title or one coordinate passes the FireHub shape but not the alarm's own
-        # rules: that is the sender's to fix – 422 with the field, not a 500 (hunt 2026-11-24).
-        raise RequestValidationError(e.errors(include_url=False)) from e
+        # rules: that is the sender's to fix – 422 naming ITS field, not a 500 (hunt 2026-11-24).
+        op = payload.operation
+        errors = []
+        for error in e.errors(include_url=False):
+            # The pair check is model-level (no field): name the coordinate that is missing.
+            field = str(error["loc"][0]) if error["loc"] else ("lng" if op.lat is not None else "lat")
+            errors.append({**error, "loc": ("body", "operation", _FIREHUB_FIELD.get(field, field))})
+        raise RequestValidationError(errors) from e
     # opsID is required, so the dedupe key is always present — take it straight from the
     # payload (a str, unlike the Optional AlarmIn.source_id) for the lookups below.
     source_id = str(payload.operation.ops_id)

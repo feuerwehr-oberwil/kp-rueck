@@ -17,7 +17,8 @@ class DiveraWebhookPayload(BaseModel):
     # The pool's column limits (`DiveraEmergency`): longer used to reach the database and
     # answer 500 – it is the sender's input to fix, so 422 (hunt 2026-11-24).
     number: str | None = Field(default=None, max_length=50)  # Incident number like "E-123"
-    title: str = Field(min_length=1, max_length=255)
+    # No minimum: Divera may send an empty title, and the poller fills a missing one with "".
+    title: str = Field(max_length=255)
     text: str | None = None
     address: str | None = None
     lat: float | None = None

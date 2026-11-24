@@ -265,12 +265,15 @@ async def test_firehub_end_for_unknown_operation_is_noop(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.parametrize("operation", [{"title": "   "}, {"lat": 47.5}], ids=["blank-title", "one-coordinate"])
-async def test_a_malformed_start_is_the_senders_to_fix(client, db_session, webhook_secret, operation):
-    """422 with the field, not a 500 – and nothing stored (hunt 2026-11-24)."""
+@pytest.mark.parametrize(
+    ("operation", "field"), [({"title": "   "}, "title"), ({"lat": 47.5}, "lng")], ids=["blank-title", "one-coordinate"]
+)
+async def test_a_malformed_start_is_the_senders_to_fix(client, db_session, webhook_secret, operation, field):
+    """422 naming the FireHub field, not a 500 – and nothing stored (hunt 2026-11-24)."""
     response = await _post(client, firehub_payload("start", **operation))
 
     assert response.status_code == 422
+    assert [error["loc"] for error in response.json()["detail"]] == [["body", "operation", field]]
     assert (await db_session.execute(select(DiveraEmergency))).scalars().all() == []
 
 
