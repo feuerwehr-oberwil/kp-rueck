@@ -163,7 +163,9 @@ export function PersonnelSidebar({
           </button>
         </ShortcutTooltip>
         {/* Search. px-2 / gap-1 (both sidebars): with px-3 the field was 6px too narrow for
-            «Personal suchen …» beside its P hint and the filter button (overflow sweep, 03.10.). */}
+            «Personal suchen …» beside its P hint and the filter button (overflow sweep, 03.10.).
+            The filter button with its count («≡ 2») took the rest: «Person suchen …», the
+            assignment dialog's words (sign-off 24.11.2026). */}
         <div className="flex items-center gap-1 px-2 pt-3 pb-2">
           <SearchInput
             id="personnel-search-input"

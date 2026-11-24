@@ -399,7 +399,7 @@ export default function FireStationDashboard() {
   } = useBoardLayoutPrefs(isMobile)
   // Both sidebars' widths are the operator's, dragged by their inner edge and remembered on this
   // device (owner pick 09.11.2026). 256 = the w-64 they always had, and also the floor: any
-  // narrower and «Personal suchen …» / «Material suchen …» no longer fit beside their key hint
+  // narrower and «Person suchen …» / «Material suchen …» no longer fit beside their key hint
   // and toggle, while the rows already end in «Baumann Mi…».
   const personnelWidth = useResizableWidth({
     storageKey: 'kp-board-personnelWidth',
