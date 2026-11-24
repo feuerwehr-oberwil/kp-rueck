@@ -47,6 +47,16 @@ class AssignmentResponse(BaseModel):
     purpose: Literal["crew", "reko"] = "crew"
 
 
+class MaterialCollectedResponse(BaseModel):
+    """«Abgeholt – freigeben» answered: when the assignment was released.
+
+    The undo's token – ``DELETE …/material-collected/{id}?released_at=…`` reverses only the
+    release that carries exactly this time, never a regular release or a later one.
+    """
+
+    released_at: datetime
+
+
 # Transfer
 class TransferAssignmentsRequest(BaseModel):
     """Request to transfer all assignments from one incident to another.

@@ -373,7 +373,9 @@
       "openDetails": "Details öffnen",
       "removeFromIncident": "Vom Einsatz freigeben",
       "removeFromAuftrag": "Vom Auftrag freigeben",
-      "remove": "Freigeben"
+      "remove": "Freigeben",
+      "changeDriver": "Fahrer ändern …",
+      "driverStays": "Fahrer bleibt vor Ort"
     },
     "participants": {
       "title": "Bisher im Einsatz",
@@ -662,7 +664,16 @@
         "toggleTitle": "{count, plural, one {# Gerät steht noch an einem Schadenplatz} other {# Geräte stehen noch an einem Schadenplatz}} – älteste zuerst",
         "rowTitle": "{name} steht noch bei {address}",
         "since": "seit {duration}",
-        "unknownAddress": "Ohne Adresse"
+        "unknownAddress": "Ohne Adresse",
+        "collect": "Abgeholt",
+        "collectLabel": "{name} abgeholt …",
+        "confirmTitle": "Abgeholt und zurück im Magazin?",
+        "confirmHint": "Hält «abgeholt {time}» im Verlauf fest, dann frei – mit Rückgängig.",
+        "cancel": "Abbrechen",
+        "confirm": "Abgeholt – freigeben",
+        "collectedToast": "{name} abgeholt – freigegeben",
+        "collectFailed": "{name} konnte nicht freigegeben werden",
+        "undoFailed": "«Abgeholt» für {name} nicht rückgängig"
       },
       "linksAndQr": "Links & QR",
       "distributeConfirmTitle": "In Auftrag «{auftrag}» aufnehmen?",
@@ -798,7 +809,17 @@
       "deleteIncident": "Einsatz löschen",
       "realAlarmBadge": "Echt-Alarm",
       "realAlarmTooltip": "Echter Alarm in einer Übung – die Ausalarmierung wird nur simuliert, die Überfällig-Schwellen sind 50 % länger.",
-      "numberTitle": "Einsatz {number}"
+      "numberTitle": "Einsatz {number}",
+      "flagNote": {
+        "amWartenTitle": "Am Warten – Grund",
+        "nachbarhilfeTitle": "Nachbarhilfe – Vermerk",
+        "hint": "Enter speichert · leer geht auch",
+        "withoutReason": "Ohne Grund",
+        "withoutNote": "Ohne Vermerk",
+        "clear": "Aufheben",
+        "save": "Speichern",
+        "chipHint": "Klick: ändern oder aufheben"
+      }
     },
     "column": {
       "ariaLabelWithCount": "Spalte {title} ({count, plural, one {# Einsatz} other {# Einsätze}})",
@@ -1420,6 +1441,9 @@
       "othersSection": "Andere",
       "noAvailablePersons": "Keine verfügbaren Personen",
       "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht anwesend",
+      "loading": "Fahrer werden geladen …",
+      "loadFailed": "Die Fahrer konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
       "conflictTitle": "{name} ist schon im Einsatz",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictConfirm": "Vom Einsatz freigeben & zuweisen",
@@ -1484,7 +1508,10 @@
       "readyForOperation": "Bereit für Einsatz",
       "changeDriver": "Fahrer ändern",
       "assignDriver": "Fahrer zuweisen",
-      "auftragLabel": "Auftrag «{name}»"
+      "auftragLabel": "Auftrag «{name}»",
+      "rowMenu": "Aktionen für {vehicle}",
+      "openIncident": "Einsatz öffnen",
+      "changeDriverMenu": "Fahrer ändern …"
     },
     "gpsArrival": {
       "fallbackVehicle": "Fahrzeug",
@@ -4802,7 +4829,9 @@
         "vehicle_on_site": "Fahrzeug am Einsatzort",
         "vehicle_returned": "Fahrzeug zurück im Magazin",
         "vehicle_down": "Fahrzeug ausgefallen",
-        "situation_escalated": "Lage verschärft"
+        "situation_escalated": "Lage verschärft",
+        "material_collected": "Abgeholt",
+        "material_collected_cleared": "«Abgeholt» zurückgenommen"
       },
       "itemsMoved": "Übernommen von {other}",
       "itemsReturned": "Zurück von {other}"

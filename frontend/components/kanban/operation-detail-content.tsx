@@ -23,6 +23,7 @@ import { rapportApplies } from "@/lib/rapport-visibility"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
+import { useVehicleChipMenu } from "@/components/kanban/vehicle-chip-menu"
 import {
   OPERATION_DETAIL_TABS,
   readRememberedTab,
@@ -256,10 +257,11 @@ export function OperationDetailContent({
   const t = useTranslations('kanban')
   const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
+  const vehicleChipMenu = useVehicleChipMenu()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
   const { materialGroups } = useMaterials()
-  const { groups, getGroupResources } = useGroups()
+  const { groups, getGroupResources, setRouteDriverStay } = useGroups()
   // Releasing a route resource here offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   // The «·» separator has to vanish with the chip, or a closed incident keeps an
@@ -781,6 +783,15 @@ export function OperationDetailContent({
                     driver && naming.inline(driver),
                     driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                   ].filter(Boolean).join(' · ')}
+                  // A click on the chip opens its menu (owner pick 2B, 24.11.2026): the
+                  // driver picker, the stay flag, «Fahrzeug freigeben».
+                  menuActions={canEdit ? vehicleChipMenu({
+                    driver,
+                    onPickDriver: () => requestVehicleDriver({ vehicleId, vehicleName }),
+                    driverStay: assignmentId ? !!driverStay : undefined,
+                    onToggleStay: () => toggleDriverStay(operation.id, vehicleId),
+                  }) : undefined}
+                  mouseMenu={canEdit ? 'click' : undefined}
                 >
                   {/* Two halves that wrap as wholes, like the card's vehicle chip
                       (card-resources.tsx): WHICH vehicle — «Name · Funkrufname» —
@@ -1605,6 +1616,7 @@ export function OperationDetailContent({
                 onUnassign={(assignmentId) => void release.releaseRouteResource(auftrag.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
                 onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
+                onSetDriverStay={(assignmentId, driverStay) => void setRouteDriverStay(auftrag.id, assignmentId, driverStay)}
                 driversKnown={vehicleDriversLoaded}
                 readOnly={!canEdit || !onAssignResource}
               />

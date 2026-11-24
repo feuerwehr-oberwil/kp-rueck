@@ -168,7 +168,7 @@ SELECTS: tuple[str, ...] = (
     f"""
     SELECT i.event_id, i.id, 'field',
            COALESCE(NULLIF(btrim(l.changes_json->>'pickup_note'), ''), NULLIF(btrim(l.changes_json->>'vehicle_name'), ''),
-                    NULLIF(btrim(l.changes_json->>'text'), '')),
+                    NULLIF(btrim(l.changes_json->>'material_name'), ''), NULLIF(btrim(l.changes_json->>'text'), '')),
            jsonb_build_object('type',
                CASE WHEN l.action_type = 'field_pickup_cleared' AND l.changes_json->>'self_drive' = 'true'
                     THEN 'field_pickup_self' ELSE l.action_type END,
@@ -184,7 +184,8 @@ SELECTS: tuple[str, ...] = (
     WHERE l.resource_type = 'incident'
       AND l.action_type IN ('field_arrived', 'field_arrived_cleared', 'field_complete', 'field_complete_cleared',
                             'field_pickup_requested', 'field_pickup_cleared', 'rapport_submitted',
-                            'vehicle_on_site', 'vehicle_returned', 'vehicle_down', 'situation_escalated')
+                            'vehicle_on_site', 'vehicle_returned', 'vehicle_down', 'situation_escalated',
+                            'material_collected', 'material_collected_cleared')
     """,
     # Anfrage vom Feld: in Arbeit / erledigt / wieder offen (R13)
     f"""

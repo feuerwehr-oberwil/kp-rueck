@@ -274,7 +274,7 @@ const REKO_SUMMARIES = {
 
 const RESTLISTE = {
   material_on_site: [
-    { material_id: "m-pump", incident_id: "inc-full", location_address: "Hauptstrasse 12", incident_title: "Wasser im Keller", since: "2026-09-23T09:00:00Z" },
+    { material_id: "m-pump", assignment_id: "a-pump", incident_id: "inc-full", location_address: "Hauptstrasse 12", incident_title: "Wasser im Keller", since: "2026-09-23T09:00:00Z" },
     { material_id: "m-saw", incident_id: "inc-full", location_address: null, incident_title: "Wasser im Keller", since: null },
     // Hand-named material has no id and no sidebar row.
     { material_id: null, incident_id: "inc-full", location_address: null, incident_title: null, since: null },
@@ -477,8 +477,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
     const board = await loaded()
     expect(board.materialOnSite).toEqual(
       new Map([
-        ["m-pump", { incidentId: "inc-full", address: "Hauptstrasse 12", since: "2026-09-23T09:00:00Z" }],
-        ["m-saw", { incidentId: "inc-full", address: "Wasser im Keller", since: null }],
+        ["m-pump", { incidentId: "inc-full", assignmentId: "a-pump", address: "Hauptstrasse 12", since: "2026-09-23T09:00:00Z" }],
+        ["m-saw", { incidentId: "inc-full", assignmentId: null, address: "Wasser im Keller", since: null }],
       ]),
     )
     expect(board.outOfServiceVehicleIds).toEqual(new Set(["v-dlk"]))

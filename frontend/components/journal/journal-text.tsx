@@ -45,6 +45,9 @@ const FIELD_TYPES = new Set([
   "vehicle_down",
   // the Übung's «Lage verschärft»; the text is the Lagemeldung (backend api/training_simulate)
   "situation_escalated",
+  // a unit left on site collected, and its undo; the text is the unit (crud/assignments.collect_material)
+  "material_collected",
+  "material_collected_cleared",
 ])
 
 /** Who besides the crew reported a fact: the KP from the radio, the GPS, the Übung. */

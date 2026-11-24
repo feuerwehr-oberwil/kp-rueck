@@ -388,6 +388,27 @@ def material_left_on_site_names(report: SchadenplatzReport | None) -> list[str]:
     ]
 
 
+def left_on_site_assignment_ids(report: SchadenplatzReport | None) -> list[uuid.UUID]:
+    """The board assignments a FILED rapport marks «vor Ort verblieben», in checklist order.
+
+    The one test for "the crew says this unit is still at the address": the Restliste
+    (``crud/feld/material.event_restliste``) reads it, and «Abgeholt»
+    (``crud/assignments.collect_material``) rechecks it before it releases. Empty for no
+    rapport or a draft. Consumables are NOT filtered here – that needs the Material row.
+    """
+    if report is None or report.is_draft:
+        return []
+    ids: list[uuid.UUID] = []
+    for row in material_checklist_rows(report):
+        if not row.get("left_on_site"):
+            continue
+        try:
+            ids.append(uuid.UUID(str(row.get("assignment_id"))))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
 def extra_material_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
     """ "Weiteres gebrauchtes Material" as ``{name, left_on_site}`` rows (§18.35).
 

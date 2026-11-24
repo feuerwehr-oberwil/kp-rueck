@@ -28,6 +28,7 @@ import { PersonName, usePersonNaming } from "@/components/person-name"
 import { vehicleLabel } from "@/lib/vehicle-label"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
+import { useVehicleChipMenu } from "@/components/kanban/vehicle-chip-menu"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { cn } from "@/lib/utils"
 import type { GroupResources } from "@/lib/types/groups"
@@ -337,14 +338,18 @@ interface RouteResourceSectionsProps {
   /** Open the driver picker for a route vehicle that has nobody driving it —
    *  the «Fahrer wählen» action beside its amber «Kein Fahrer» note. */
   onPickDriver?: (vehicle: { resourceId: string; name: string }) => void
+  /** «Fahrer bleibt vor Ort» in the vehicle chip's menu – the route assignment's stay flag
+   *  (`setRouteDriverStay`, the dispatch gate's write for an Auftrag). */
+  onSetDriverStay?: (assignmentId: string, driverStay: boolean) => void
   /** Whether `vehicleDrivers` has actually loaded. Defaults to «a map was
    *  passed»; callers with a loading map pass the real flag so a vehicle does
    *  not flash «Kein Fahrer» before the first answer. */
   driversKnown?: boolean
 }
 
-export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader, onPickDriver, driversKnown }: RouteResourceSectionsProps) {
+export function RouteResourceSections({ resources, onAssign, onUnassign, vehicleDrivers, readOnly = false, onPromoteLeader, onPickDriver, onSetDriverStay, driversKnown }: RouteResourceSectionsProps) {
   const naming = usePersonNaming()
+  const vehicleChipMenu = useVehicleChipMenu()
   const knowsDrivers = driversKnown ?? Boolean(vehicleDrivers)
   const t = useTranslations("kanban")
   // The leader slot only where it can hold something (see `CrewChipSlot`).
@@ -426,6 +431,14 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
               title={v.callsign ? t("common.funkrufname", { callsign: v.callsign }) : undefined}
               menuTitle={v.name}
               menuSubtitle={[v.callsign, driver && naming.inline(driver)].filter(Boolean).join(" · ") || undefined}
+              // The same chip menu as on the card and in the detail (owner pick 2B, 24.11.2026).
+              menuActions={!readOnly && onPickDriver ? vehicleChipMenu({
+                driver,
+                onPickDriver: () => onPickDriver({ resourceId: v.resourceId, name: v.name }),
+                driverStay: onSetDriverStay ? Boolean(v.driverStay) : undefined,
+                onToggleStay: () => onSetDriverStay?.(v.assignmentId, !v.driverStay),
+              }) : undefined}
+              mouseMenu={!readOnly && onPickDriver ? "click" : undefined}
               removeLabel={t("chipMenu.removeFromAuftrag")}
             >
               {vehicleLabel(v)}

@@ -569,6 +569,8 @@ function AuftragCard({
   const planning = useRoutePlanning(group.id)
   // «Fahrer wählen» on a driverless route vehicle opens the board's driver prompt.
   const { requestVehicleDriver } = useOperations()
+  // «Fahrer bleibt vor Ort» in a route vehicle's chip menu.
+  const { setRouteDriverStay } = useGroups()
 
   // The shared optimise action: start anchors with provenance, the save, the
   // toast naming the start used, and the server-guarded undo.
@@ -855,6 +857,7 @@ function AuftragCard({
             onUnassign={onUnassignResource}
             onPromoteLeader={onPromoteLeader}
             onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
+            onSetDriverStay={(assignmentId, driverStay) => void setRouteDriverStay(group.id, assignmentId, driverStay)}
             driversKnown={vehicleDriversLoaded}
             readOnly={!canEdit}
           />

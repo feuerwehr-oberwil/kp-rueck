@@ -28,6 +28,11 @@ export interface ApiAssignmentCreate {
   resource_id: string
 }
 
+/** «Abgeholt – freigeben» answered: the release time, the undo's token. */
+export interface ApiMaterialCollected {
+  released_at: string
+}
+
 export interface ApiTransferAssignmentsResponse {
   transferred_count: number
   assignment_ids: string[]

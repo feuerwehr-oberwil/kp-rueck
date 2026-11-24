@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { useTranslations } from "next-intl"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -8,6 +8,8 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
+import { driversFromSpecialFunctions } from "@/lib/hooks/use-vehicle-drivers"
+import type { VehicleNeedingDriver } from "@/lib/contexts/operations/types"
 
 /**
  * Listens for vehicles that need a driver (see operations-context
@@ -35,6 +37,11 @@ import { DriverAssignmentDialog } from "./driver-assignment-dialog"
  * the Auftrag. Opened from a «Fahrer wählen» action instead (no target), closing
  * just closes — the operator asked for the picker and knows what they left.
  *
+ * **«Fahrer ändern …» too.** The vehicle chip's menu (card, detail, Auftrag) opens this
+ * same prompt for a vehicle that HAS a driver: the dialog starts on the current driver,
+ * read from the special functions loaded for that request – and waits for them (load error:
+ * «Erneut versuchen»), so a quick «Übernehmen» cannot add a second driver.
+ *
  * Mounted once in the root layout so it covers every assignment entry point
  * (kanban drag-drop, map, command palette, context menu, Aufträge).
  */
@@ -53,7 +60,26 @@ export function VehicleDriverPrompt() {
   const t = useTranslations('kanban.driverPrompt')
   const eventId = selectedEvent?.id ?? null
 
-  const [specialFunctions, setSpecialFunctions] = useState<ApiEventSpecialFunctionResponse[]>([])
+  // Tagged with the request they were loaded for: a row list from an earlier request
+  // must not name the previous driver of another vehicle. Until this request's rows are
+  // in, the picker waits (`driversPending`) – it cannot know who drives yet.
+  const [loaded, setLoaded] = useState<
+    | { request: VehicleNeedingDriver; attempt: number; rows: ApiEventSpecialFunctionResponse[] }
+    | { request: VehicleNeedingDriver; attempt: number; failed: true }
+    | null
+  >(null)
+  // «Erneut versuchen» bumps it, which runs the load again.
+  const [attempt, setAttempt] = useState(0)
+  const current = loaded && loaded.request === vehicleNeedingDriver && loaded.attempt === attempt ? loaded : null
+  const specialFunctions = current && "rows" in current ? current.rows : []
+  const driversPending: ComponentProps<typeof DriverAssignmentDialog>["driversPending"] = !current
+    ? { status: "loading" }
+    : "failed" in current
+      ? { status: "failed", retry: () => setAttempt((n) => n + 1) }
+      : undefined
+  const currentDriver = vehicleNeedingDriver
+    ? driversFromSpecialFunctions(specialFunctions).get(vehicleNeedingDriver.vehicleId) ?? null
+    : null
   /** The dismissed-without-a-driver question, held after the picker closed. */
   const [driverless, setDriverless] = useState<
     | { vehicleName: string; vehicleId: string; incidentId: string; groupId?: undefined }
@@ -71,19 +97,21 @@ export function VehicleDriverPrompt() {
   // are already driving another vehicle.
   useEffect(() => {
     if (!vehicleNeedingDriver || !eventId) return
+    const request = vehicleNeedingDriver
     let cancelled = false
     apiClient
       .getEventSpecialFunctions(eventId)
       .then((functions) => {
-        if (!cancelled) setSpecialFunctions(functions)
+        if (!cancelled) setLoaded({ request, attempt, rows: functions })
       })
       .catch((err) => {
         console.error("Failed to load special functions for driver prompt:", err)
+        if (!cancelled) setLoaded({ request, attempt, failed: true })
       })
     return () => {
       cancelled = true
     }
-  }, [vehicleNeedingDriver, eventId])
+  }, [vehicleNeedingDriver, eventId, attempt])
 
   const incident = driverless?.incidentId ? operations.find((op) => op.id === driverless.incidentId) : undefined
   const incidentLabel = incident
@@ -149,11 +177,12 @@ export function VehicleDriverPrompt() {
       vehicleId={vehicleNeedingDriver.vehicleId}
       vehicleName={vehicleNeedingDriver.vehicleName}
       eventId={eventId}
-      currentDriverId={null}
-      currentDriverName={null}
+      currentDriverId={currentDriver?.personnelId ?? null}
+      currentDriverName={currentDriver?.name ?? null}
       personnel={personnel}
       operations={operations}
       specialFunctions={specialFunctions}
+      driversPending={driversPending}
       onDriverAssigned={() => {
         // Notify the sidebar / vehicle status sheet of the change (same-tab).
         window.dispatchEvent(new Event("driver-assignment-changed"))

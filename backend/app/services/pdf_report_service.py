@@ -858,6 +858,8 @@ _FIELD_LABELS: dict[str, str] = {
     "vehicle_returned": "Fahrzeug zurück im Magazin",
     "vehicle_down": "Fahrzeug ausgefallen",
     "situation_escalated": "Lage verschärft",
+    "material_collected": "Abgeholt",
+    "material_collected_cleared": "«Abgeholt» zurückgenommen",
     "rapport_submitted": "Schadenplatz-Rapport erfasst",
     "reko_arrived": "Reko vor Ort",
     "reko_arrived_cleared": "Reko-Ankunft zurückgenommen",

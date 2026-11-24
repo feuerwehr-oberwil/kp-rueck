@@ -11,6 +11,7 @@ import type { ApiVehicleStatus } from "@/lib/api-client"
 const api = vi.hoisted(() => ({
   getVehicleStatuses: vi.fn(),
   getEventSpecialFunctions: vi.fn(async () => []),
+  updateVehicle: vi.fn(async () => ({})),
 }))
 const push = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/api-client", () => ({ apiClient: api }))
@@ -19,7 +20,10 @@ vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({ personnel: [], operations: [], removeCrew: vi.fn() }),
 }))
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))
-vi.mock("./driver-assignment-dialog", () => ({ DriverAssignmentDialog: () => null }))
+vi.mock("./driver-assignment-dialog", () => ({
+  DriverAssignmentDialog: ({ open, vehicleName }: { open: boolean; vehicleName: string }) =>
+    open ? <div>Fahrer-Dialog für {vehicleName}</div> : null,
+}))
 
 import { VehicleStatusSheet } from "./vehicle-status-sheet"
 
@@ -162,5 +166,48 @@ describe("VehicleStatusSheet", () => {
     await user.keyboard("{ArrowDown}{Enter}")
 
     expect(push).toHaveBeenCalledWith("/?highlight=i-old&detail=1&tab=overview&section=resources")
+  })
+})
+
+describe("VehicleStatusSheet – the row's ⋯ menu (owner pick 3B)", () => {
+  it("only for editors", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle()])
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-menu-viewer" />)
+    expect(await screen.findByText("TLF")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Aktionen für TLF" })).not.toBeInTheDocument()
+  })
+
+  it("«Nicht einsatzbereit» shows the flag and writes the same field as Einstellungen; the row does not open", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle({ deployments: [deployment("i1", "Poststrasse 6", 30)] })])
+    api.updateVehicle.mockClear()
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-menu-oos" canEdit />)
+    await userEvent.click(await screen.findByRole("button", { name: "Aktionen für TLF" }))
+    const notReady = await screen.findByRole("menuitemcheckbox", { name: "Nicht einsatzbereit" })
+    expect(notReady).toHaveAttribute("aria-checked", "false")
+    await userEvent.click(notReady)
+    expect(api.updateVehicle).toHaveBeenCalledWith("v1", { out_of_service: true })
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it("a flagged vehicle says since when, and the box is ticked", async () => {
+    api.getVehicleStatuses.mockResolvedValue([
+      vehicle({ status: "unavailable", out_of_service: true, out_of_service_since: "2026-11-23T21:51:00Z" }),
+    ])
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-menu-flagged" canEdit />)
+    expect(await screen.findByText("Nicht einsatzbereit · seit 23.11.")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Aktionen für TLF" }))
+    expect(await screen.findByRole("menuitemcheckbox", { name: "Nicht einsatzbereit" })).toHaveAttribute("aria-checked", "true")
+  })
+
+  it("«Fahrer ändern …» opens the row's driver dialog, «Einsatz öffnen» opens the Einsatz", async () => {
+    api.getVehicleStatuses.mockResolvedValue([vehicle({ deployments: [deployment("i1", "Poststrasse 6", 30)] })])
+    renderWithIntl(<VehicleStatusSheet open onOpenChange={() => {}} eventId="e-menu-driver" canEdit />)
+    await userEvent.click(await screen.findByRole("button", { name: "Aktionen für TLF" }))
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Fahrer ändern …" }))
+    expect(await screen.findByText("Fahrer-Dialog für TLF")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: "Aktionen für TLF" }))
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Einsatz öffnen" }))
+    expect(push).toHaveBeenCalledTimes(1)
   })
 })

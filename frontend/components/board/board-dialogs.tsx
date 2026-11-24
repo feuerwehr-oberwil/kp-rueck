@@ -277,6 +277,7 @@ export function BoardDialogs({
         open={vehicleStatusSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'vehicles' && setActiveFooterSheet(null)}
         eventId={selectedEvent?.id || null}
+        canEdit={isEditor}
       />
 
       {/* Aufträge (multi-stop route) Sheet */}
