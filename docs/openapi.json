@@ -11561,7 +11561,7 @@
           "reko"
         ],
         "summary": "Transfer Reko Assignments",
-        "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).\n\nThe new person gets NEW assignments, so ``ensure_assignable`` applies: an\narchived Ereignis refuses the whole handover (409), an unknown person is a 404.\nLock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person.",
+        "description": "Transfer all open reko assignments from one person to another.\n\nOnly transfers incidents that are in reko status (not yet completed).\n\nThe new person gets NEW assignments, so ``ensure_assignable`` applies: an\narchived Ereignis refuses the whole handover (409), an unknown person is a 404.\nLock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person with the\nEinsätze's crew, sorted.",
         "operationId": "transfer_reko_assignments_api_reko_transfer_rekos_post",
         "parameters": [
           {
