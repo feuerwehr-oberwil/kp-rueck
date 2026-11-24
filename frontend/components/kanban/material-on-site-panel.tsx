@@ -140,9 +140,10 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
               >
                 {/* Name and place wrap (two lines each) rather than cut: beside «Abgeholt»
                     and with the detail open the aside is narrow, and «Tauchpumpe S…» did not
-                    say which pump (sign-off 24.11.). */}
+                    say which pump (sign-off 24.11.). `hyphens-auto` (with <html lang>) breaks a long
+                    word as «Tauch-pumpe», not «Tauchpu / mpe»; `break-words` stays the fallback. */}
                 <span className="flex items-baseline gap-2">
-                  <span className="min-w-0 flex-1 line-clamp-2 break-words text-xs font-medium text-foreground">
+                  <span className="min-w-0 flex-1 line-clamp-2 break-words hyphens-auto text-xs font-medium text-foreground">
                     {entry.name}
                   </span>
                   {/* Age, not a clock time: "seit 6h 12'" is the number that
@@ -153,7 +154,7 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
                     </span>
                   )}
                 </span>
-                <span className="line-clamp-2 break-words text-[11px] text-muted-foreground">
+                <span className="line-clamp-2 break-words hyphens-auto text-[11px] text-muted-foreground">
                   {entry.address ?? t("unknownAddress")}
                 </span>
               </button>
