@@ -204,15 +204,26 @@ async def move_work_in(
                 break
         await db.flush()
 
-    # ── Reko reports (+ photos) ─────────────────────────────────────────────
-    rekos = list(
-        (await db.execute(select(models.RekoReport).where(models.RekoReport.incident_id == report.id))).scalars().all()
-    )
-    for reko in rekos:
-        await _copy_photos(report.id, target.id, list(reko.photos_json or []))
-        reko.incident_id = target.id
-    if rekos:
-        items.append("Reko-Bericht" if len(rekos) == 1 else f"{len(rekos)} Reko-Berichte")
+    # ── Reko report (+ photos), one per Einsatz ─────────────────────────────
+    # Moves when the surviving card has none. When both have one, this one stays on its own
+    # (hidden) row, like the Rapport below – the surviving card's report is THE report there.
+    rekos: list[models.RekoReport] = []
+    loser_reko = (
+        await db.execute(select(models.RekoReport).where(models.RekoReport.incident_id == report.id))
+    ).scalar_one_or_none()
+    if loser_reko is not None:
+        target_reko = (
+            await db.execute(select(models.RekoReport.id).where(models.RekoReport.incident_id == target.id))
+        ).scalar_one_or_none()
+        if target_reko is None:
+            await _copy_photos(report.id, target.id, list(loser_reko.photos_json or []))
+            loser_reko.incident_id = target.id
+            rekos.append(loser_reko)
+            items.append("Reko-Bericht")
+        else:
+            items.append(
+                f"Reko-Bericht (bleibt bei #{report.number})" if report.number else "Reko-Bericht (bleibt erhalten)"
+            )
 
     # ── Schadenplatz-Rapport (one per Einsatz) ──────────────────────────────
     loser_rapport = (

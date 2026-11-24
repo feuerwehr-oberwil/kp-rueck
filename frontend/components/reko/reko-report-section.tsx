@@ -1,45 +1,27 @@
 'use client'
 
 /**
- * The Reko block of the incident detail — a **read AND write** surface since
- * plan 26 §5.1.
+ * The Reko block of the incident detail – THE Reko report of the Einsatz (one per incident,
+ * owner pick 23.11.2026, #6: «treat Reko more as the current state of how we see things»).
  *
- * It renders in two shapes, chosen by the `dense` prop. The board (`dense`)
- * gets `DetailField` rows: the Übersicht's own vocabulary, 104px label gutter,
- * whitespace between rows, values at 13px — because at the KP the report is read
- * beside the fields it is being compared against, and it has to line up with
- * them. The phone sheet and the wall display get the card below, which keeps
- * its thumb targets and its 16px finding on purpose.
+ * **Board (`canEdit`)**: the form, always open and always editable – no «Ergänzen» step, no
+ * read view to swap. The field and the KP edit the same report; every answer is saved as it
+ * is given (`useRekoAutosave`, «Synchronisiert – hh:mm» in the head row), and a newer read
+ * (the field typed, another board saved – `reko_update`) comes into the open form unless this
+ * operator has something unsent. Who changed what and when is in the detail's Chronik only
+ * (`reko_change` rows) – the owner wanted no history here. A new report is a draft until
+ * «Einsatz relevant?» is answered: the server files it then like the crew's submit (bell,
+ * the card to «Reko abgeschlossen»), once.
  *
- * It used to be a renderer and nothing else: it could display a recon report
- * faithfully and produce none of it. `POST /api/reko/` took a per-incident form
- * token and had no user path, so an editor could not file one at all — and the
- * normal case is a radio message, because the crew has no signal in the cellar,
- * no free hands, or simply will not open an app at 02:00.
+ * **Phone sheet and wall display (`canEdit` false)**: the filed report as a card, read only.
+ * `dense` gives the board's `DetailField` rows (104px gutter, values at 13px) – the Übersicht's
+ * vocabulary one tab over; the card keeps thumb targets and its 16px finding.
  *
- * It **expands in place**, collapsed until needed, the same shape
- * `SchadenplatzRapportSection` has one column over. Deliberately not a dialog:
- * that would be a modal over a modal, and it would hide the Feldmeldungen the
- * operator is reading from while dictating.
+ * Deliberately not a dialog: a modal over the detail would hide the Feldmeldungen the
+ * operator is dictating from. The «vor Ort seit …» line is not here (decision 15): the
+ * arrival lives in the Feldmeldungen row (`dataSlot`).
  *
- * "Reko-Bericht erfassen" appears on an incident that has **no report and never
- * had field contact** — the create-from-nothing case, which is this phase's
- * acceptance criterion. With a report present the button amends the existing one
- * (`PATCH`) instead of filing a second, so a crew's authorship survives and the
- * row carries both provenance lines.
- *
- * **No save button** (owner pick 19.11.2026, #30): every answer is saved as it is
- * given (`useRekoAutosave`, «Synchronisiert – hh:mm» under the form). A new report
- * is the operator's KP draft until «Einsatz relevant?» is answered – the server files
- * it then like the crew's submit (bell, Reko done, the card to «Reko abgeschlossen»).
- * An amendment edits the filed report directly. The operator's own draft is picked
- * up again on the next open.
- *
- * The "vor Ort seit …" line this section used to render is **gone** (decision
- * 15), not moved and not linked. `arrived_at` is displayed and written in
- * exactly one place now, the Feldmeldungen row — a fact shown twice is a fact
- * that will eventually disagree with itself. Accepted price: this block alone no
- * longer says whether Reko is on site.
+ * Photos open in the incident's viewer (`components/photos/photo-viewer.tsx`), never in a tab.
  */
 
 import { formatTime } from '@/lib/format-time'
@@ -48,65 +30,39 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type React
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { DETAIL_CONTROL_INDENT, DetailField } from '@/components/kanban/detail-field'
+import { DetailField } from '@/components/kanban/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle2, XCircle, CircleHelp, AlertTriangle, Binoculars, FileText, ChevronDown, History, CheckCheck, Pencil, Plus, X } from 'lucide-react'
+import { CheckCircle2, XCircle, CircleHelp, Binoculars, FileText, CheckCheck } from 'lucide-react'
 import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
-import { RekoReportForm, EMPTY_REKO_FORM, hasRekoContent, toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
+import { RekoReportForm, EMPTY_REKO_FORM, type RekoFormData } from '@/components/reko/reko-report-form'
 import { useRekoAutosave } from '@/components/reko/use-reko-autosave'
 import { SyncStatusLine } from '@/components/kanban/field-save-status'
+import { usePhotoViewer, useRegisterPhotos } from '@/lib/hooks/use-photo-viewer'
+import { rekoPhotoUrl } from '@/lib/reko-photos'
 import { useAuth } from '@/lib/contexts/auth-context'
-import { getApiUrl } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
 import { getIntlLocale } from '@/lib/date-locale'
 import { LoadingStatus } from '@/components/ui/shell-loader'
-import { Reveal } from "@/components/ui/reveal"
 
 interface RekoReportSectionProps {
   incidentId: string
   /** Editor-only: archive the incident (status → complete). When provided and the
-      latest report is "nicht relevant", a "Einsatz abschliessen" button is shown. */
+      report says "nicht relevant", an "Einsatz abschliessen" button is shown. */
   onRequestComplete?: () => void
-  /** Whether this mount may write. False on the phone, which is viewing-first. */
+  /** Whether this mount may write: the board's form. False on the phone and the wall. */
   canEdit?: boolean
   /**
-   * `split` puts the filed reports in one column and the entry surface in the
-   * other — the modal has the width, and in a two-column reading «was gemeldet
-   * wurde» and «was ich erfasse» stop pushing each other down the page. The
-   * panel stays stacked; 420px has no second column to give.
-   */
-  layout?: 'stacked' | 'split'
-  /**
-   * Rendered at the top of the DATA column — the Funkmeldung «Reko vor Ort».
-   * It belongs beside the reports it is about, not across both columns above
-   * them, where it read as a heading for the entry surface as well.
+   * Rendered at the top – the Funkmeldung «Reko vor Ort». It belongs beside the report it
+   * is about.
    */
   dataSlot?: ReactNode
   /**
-   * Open the entry form on arrival. A NONCE rather than a boolean: the caller
-   * that wants this is a deep link («Reko-Details öffnen» in the completion
-   * gate), the same incident can be deep-linked twice in a session, and a
-   * boolean that is already `true` cannot say "again". Ignored while the
-   * mount cannot write.
-   */
-  openEditorNonce?: number
-  /**
-   * The board's mount — the incident detail, modal and 420px panel alike.
-   *
-   * It renders the report as `DetailField` rows: 104px label gutter, ~30px
-   * lines, whitespace between them (no hairlines), values at 13px. That is the Übersicht's
-   * own vocabulary one tab over, and using it is the whole of Variante A — a
-   * Reko report is read while deciding what to send, next to the fields it is
-   * being compared against, so it has to line up with them.
-   *
-   * Left FALSE on purpose for the phone sheet and the wall display: those are
-   * touch and distance surfaces with thumb targets and their own type scale,
-   * and shrinking a report to a 30px row is exactly wrong there. They keep the
-   * card below, which is why it has not been deleted.
+   * The board's mount – the incident detail, modal and 420px panel alike: the read view as
+   * `DetailField` rows, the form in its dense shape. Left FALSE on purpose for the phone
+   * sheet and the wall display (touch and distance surfaces with their own type scale).
    */
   dense?: boolean
   /** Told `true` once the first read answered and the reports are drawn, `false` on unmount.
@@ -117,166 +73,104 @@ interface RekoReportSectionProps {
 
 const POLL_INTERVAL_MS = 5000 // Fallback poll while the socket is down
 
-/**
- * An action that belongs to a row, not a toolbar: grey, underlined, never
- * blue — colour on this board means status, not "clickable".
- */
-const ROW_ACTION =
-  "cursor-pointer text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-
 export default function RekoReportSection({
   incidentId,
   onRequestComplete,
   canEdit = false,
-  layout = 'stacked',
   dataSlot,
-  openEditorNonce,
   dense = false,
   onLoadedChange,
 }: RekoReportSectionProps) {
-  const split = layout === 'split'
   const t = useTranslations('reko.reportSection')
   const tLoading = useTranslations('common')
-  const [reports, setReports] = useState<ApiRekoReportResponse[]>([])
+  /** The newest read – a fresh object per read, so the form takes each one in (below). */
+  const [read, setRead] = useState<{ report: ApiRekoReportResponse | null } | null>(null)
+  const report = read?.report ?? null
   const [isLoading, setIsLoading] = useState(true)
-  const [historyOpen, setHistoryOpen] = useState(false)
-  /** Which earlier report is unfolded, board mount only — one at a time. */
-  const [openHistoryId, setOpenHistoryId] = useState<string | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<RekoFormData>(EMPTY_REKO_FORM)
-  /** The operator's own unfilled KP report (`is_draft`, written by this user, no crew). */
-  const [ownDraft, setOwnDraft] = useState<ApiRekoReportResponse | null>(null)
   const { user } = useAuth()
   const userId = user?.id ?? null
-  // Reloads overlap (a save settling, `reko_update`, the poll): only the newest read's answer
-  // is applied – an older one answering last would bring back a stale list (Sol pass 5, S6).
-  const readRef = useRef(0)
-  const loadReports = useCallback(async () => {
-    const read = ++readRef.current
-    try {
-      const data = await apiClient.getIncidentRekoReports(incidentId)
-      if (read !== readRef.current) return
-      // Only submitted reports are shown (newest first); the one draft kept is the
-      // operator's own, to pick up again.
-      setReports(data.filter(r => !r.is_draft))
-      setOwnDraft(data.find(r => r.is_draft && !!userId && r.created_by_user_id === userId && !r.submitted_by_personnel_id) ?? null)
-    } catch (error) {
-      console.error('Failed to load Reko reports:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [incidentId, userId])
 
-  // WebSocket for instant updates, a poll only while the socket is down.
-  //
-  // This used to poll every 5 s even with the socket connected, as a safety net
-  // for the first report arriving while the modal mounted («first emergency
-  // doesn't show right away»). What actually loses that `reko_update` is a
-  // socket that is not in the room — reconnecting, or down — and `usePolling`
-  // covers exactly that: it polls while disconnected and runs once more the
-  // moment the socket is back. The subscription is set up in the same effect
-  // pass as the first load, so there is no mount gap for an event to fall into.
-  useEffect(() => {
-    // Listen for reko updates matching this incident (instant refresh)
-    return wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
-      if (data.data?.incident_id === incidentId) {
-        loadReports()
-      }
-    })
-  }, [loadReports, incidentId])
-  usePolling(loadReports, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
-  // A draft save emits no `reko_update`, so the section reloads once a save settled.
-  /** The form as it was opened, or as a save answered it – not an edit, so not saved. */
+  /** The form as the server has it (opened, refreshed, or a save's answer) – not an edit,
+   *  so not saved. */
   const openedForm = useRef<RekoFormData | null>(null)
-  /** A save answered: show the report as the server has it (another board's answers too),
-   *  with this operator's edits made meanwhile on top – without saving that as an edit. */
   const adoptForm = useCallback((form: RekoFormData) => {
     openedForm.current = form
     setFormData(form)
   }, [])
-  const autosave = useRekoAutosave({ incidentId, userId, onSettled: loadReports, onAdopt: adoptForm })
 
-  const latestReport: ApiRekoReportResponse | undefined = reports[0]
-  const previousReports = reports.slice(1)
-  // A KP row that says nothing is no draft – «Reko vor Ort» over the radio creates one.
-  const draftWithContent = ownDraft && hasRekoContent(toRekoFormData(ownDraft)) ? ownDraft : null
+  // Reloads overlap (a save settling, `reko_update`, the poll): only the newest read's answer
+  // is applied – an older one answering last would bring back a stale report (Sol pass 5, S6).
+  const readRef = useRef(0)
+  const loadReport = useCallback(async () => {
+    const read = ++readRef.current
+    try {
+      const data = await apiClient.getIncidentRekoReports(incidentId)
+      if (read !== readRef.current) return
+      setRead({ report: data[0] ?? null })
+    } catch (error) {
+      console.error('Failed to load Reko report:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [incidentId])
 
-  /**
-   * The board's photo door (§6.1, same case the Schadenplatz-Rapport already
-   * covers): the crew has no signal at the Schadenplatz and sends the picture
-   * over WhatsApp, so the operator attaches it to the report they are
-   * transcribing. No token — the session is the credential, and the default
-   * read path (`GET /api/photos/…`) is the session-authenticated one.
-   */
-  // The row the form writes into – the draft once the first save created it.
-  const autosaveReportId = autosave.reportId
-  const photoTransport = useMemo(
-    () => ({
-      upload: async (file: File) =>
-        (await apiClient.uploadRekoPhotoAsEditor(incidentId, file, autosaveReportId() ?? undefined)).filename,
-      remove: (filename: string) =>
-        apiClient.deleteRekoPhotoAsEditor(incidentId, filename, autosaveReportId() ?? undefined),
-    }),
-    [incidentId, autosaveReportId],
-  )
+  // WebSocket for instant updates – every save of the report sends one, drafts too – and a
+  // poll only while the socket is down (`usePolling` also runs once the moment it is back).
+  useEffect(() => {
+    return wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
+      if (data.data?.incident_id === incidentId) void loadReport()
+    })
+  }, [loadReport, incidentId])
+  usePolling(loadReport, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })
 
+  const autosave = useRekoAutosave({ incidentId, userId, onSettled: loadReport, onAdopt: adoptForm })
 
-  /** Whether the open form is the operator's own draft (not yet filed) rather than an
-   *  amendment of a filed report – its title and hint say which. */
-  const [editingDraft, setEditingDraft] = useState(false)
+  // The first read opens the form (a save of this operator still pending wins), every later
+  // one refreshes it – the field's and the other boards' answers, live.
+  const formOpened = useRef(false)
+  const takeServerReport = useEffectEvent((next: ApiRekoReportResponse | null) => {
+    if (!canEdit) return
+    const form = formOpened.current ? autosave.refresh(next) : autosave.resume(next)
+    formOpened.current = true
+    if (form) adoptForm(form)
+  })
+  useEffect(() => {
+    if (read) takeServerReport(read.report)
+  }, [read])
 
-  /** Open the form on `source` – or on this mount's own newer edits, which the list may not
-   *  show yet (`useRekoAutosave.resume`). */
-  function openForm(source: ApiRekoReportResponse | null) {
-    const opened = autosave.resume(source)
-    openedForm.current = opened
-    setEditingDraft(!source || source.is_draft)
-    setFormData(opened)
-    setIsEditing(true)
-  }
-
-  /** Amending starts from what is already there, a new report from the operator's own draft
-   *  when there is one. */
-  function startEditing() {
-    openForm(latestReport ?? ownDraft ?? null)
-  }
-
-  /** The operator's own draft beside a filed report – a crew filed meanwhile (Sol pass 3,
-   *  S16). Without this the draft could no longer be reached: «ergänzen» opens the filed one. */
-  function continueOwnDraft() {
-    openForm(draftWithContent)
-  }
-
-  // Every change saves (debounced). `formData` changes only through the form while
-  // it is open, and the value it was opened with is not an edit.
+  // Every change saves (debounced); the value the server gave is not an edit, and nothing
+  // saves before the first read opened the form.
   const scheduleSave = autosave.schedule
   useEffect(() => {
-    if (!isEditing || formData === openedForm.current) return
+    if (!canEdit || openedForm.current === null || formData === openedForm.current) return
     scheduleSave(formData)
-  }, [formData, isEditing, scheduleSave])
+  }, [formData, canEdit, scheduleSave])
 
-  /** Close the form: a save still waiting goes out now (the reload follows once it
-   *  settled), the draft stays on the server. */
-  function stopEditing() {
-    const saving = autosave.flush()
-    setIsEditing(false)
-    if (!saving) void loadReports()
-  }
+  /**
+   * The board's photo door (§6.1): the crew has no signal and sends the picture over
+   * WhatsApp, so the operator attaches it to the report. The session is the credential; the
+   * server puts it on the Einsatz's one report.
+   */
+  const photoTransport = useMemo(
+    () => ({
+      upload: async (file: File) => (await apiClient.uploadRekoPhotoAsEditor(incidentId, file)).filename,
+      remove: (filename: string) => apiClient.deleteRekoPhotoAsEditor(incidentId, filename),
+    }),
+    [incidentId],
+  )
 
-  // Deep-linked straight into the entry form. Waits for `isLoading`, because
-  // `startEditing` prefills from `latestReport` and opening before the fetch
-  // lands would give an amend an empty form. Keyed on the nonce so a second
-  // deep link to the same incident opens it again — and so a later re-render
-  // cannot re-open a form the operator has closed.
-  // `startEditing` is a plain function redeclared every render, read through an effect event.
-  const openedForNonce = useRef<number | null>(null)
-  const startEditingFromLink = useEffectEvent(startEditing)
-  useEffect(() => {
-    if (openEditorNonce === undefined || !canEdit || isLoading) return
-    if (openedForNonce.current === openEditorNonce) return
-    openedForNonce.current = openEditorNonce
-    startEditingFromLink()
-  }, [openEditorNonce, canEdit, isLoading])
+  // The incident's viewer gets the photos this block shows: the form's on the board, the
+  // filed report's elsewhere.
+  const filed = report && !report.is_draft ? report : null
+  const shownPhotos = canEdit ? formData.photos_json : (filed?.photos_json ?? [])
+  useRegisterPhotos('reko', shownPhotos.map(filename => ({
+    group: 'reko' as const,
+    filename,
+    src: rekoPhotoUrl(incidentId, filename),
+    by: report?.submitted_by_personnel_name ?? null,
+    at: filed?.submitted_at ?? null,
+  })))
 
   // The drawn reports' root attaching IS «loaded» – a ref, not an effect on `isLoading`.
   const loadedRootRef = useCallback((node: HTMLDivElement | null) => {
@@ -293,206 +187,85 @@ export default function RekoReportSection({
     )
   }
 
-  return (
-    <div ref={loadedRootRef} className={cn(split ? "grid grid-cols-2 gap-6" : "space-y-2")}>
-      {dense ? (
-      // The board: one column of rows. No `space-y` — the rows carry their own
-      // `py-1` and sit flush against each other, the way the Übersicht's do.
-      <div>
-      {dataSlot && <div className="mb-2">{dataSlot}</div>}
-      {latestReport ? (
-        <>
-          <RekoReportCard
-            report={latestReport}
-            incidentId={incidentId}
-            onRequestComplete={onRequestComplete}
-            dense
-          />
-
-          {/* Frühere Meldungen: one row each, unfolding in place. No collapsed
-              container in front of them — the whole history of three reports
-              costs less height than the trigger plus one dashed card did, and
-              «was hat sich seit 19:02 geändert» is the question the board
-              actually asks. */}
-          {previousReports.map((report) => {
-            const open = openHistoryId === report.id
-            return (
-              <Fragment key={report.id}>
-                <DetailField
-                  label={formatStamp(report.submitted_at)}
-                  action={
-                    <button
-                      type="button"
-                      className={ROW_ACTION}
-                      onClick={() => setOpenHistoryId(open ? null : report.id)}
-                    >
-                      {open ? t('collapse') : t('expand')}
-                    </button>
-                  }
-                >
-                  <div className="flex min-w-0 items-center gap-1.5 text-sm">
-                    <VerdictIcon value={report.is_relevant} className="size-3.5 shrink-0" />
-                    <span className="shrink-0">{t(verdictKey(report.is_relevant, 'short'))}</span>
-                    {report.summary_text && (
-                      <span className="truncate text-muted-foreground">· {report.summary_text}</span>
-                    )}
-                  </div>
-                </DetailField>
-                {/* Unfolded, the older report is the SAME rows as the current
-                    one, indented onto the label column — there is no second
-                    card design for «alt». */}
-                <Reveal open={open} innerClassName={DETAIL_CONTROL_INDENT}>
-                  <RekoReportBody report={report} incidentId={incidentId} dense />
-                </Reveal>
-              </Fragment>
-            )
-          })}
-
-          {/* The operator's own draft beside a report the crew filed meanwhile – the way
-              back into it, and what will file it (the same rule the form's hint says). */}
-          {canEdit && draftWithContent && !isEditing && (
-            <DetailField
-              label={t('ownDraftLabel')}
-              action={
-                <button type="button" className={ROW_ACTION} onClick={continueOwnDraft}>
-                  {t('continueShort')}
-                </button>
-              }
-            >
-              <div className="min-w-0 text-sm">
-                <span className="italic text-muted-foreground/60">{t('draftShort')}</span>
-                <p className="text-xs text-muted-foreground">{t('draftHint')}</p>
-              </div>
-            </DetailField>
-          )}
-        </>
-      ) : (
-        // The empty state is the row that would carry the report, saying it has
-        // none and carrying the way to fix that — not a dashed box with the
-        // button that answers it standing outside.
-        !isEditing && (
-          <DetailField
-            label={t('reportLabel')}
-            action={canEdit ? (
-              <button type="button" className={ROW_ACTION} onClick={startEditing}>
-                {draftWithContent ? t('continueShort') : t('createShort')}
-              </button>
-            ) : undefined}
-          >
-            <span className="text-sm italic text-muted-foreground/60">
-              {draftWithContent ? t('draftShort') : t('noReportShort')}
-            </span>
+  if (!canEdit) {
+    return (
+      <div ref={loadedRootRef} className={cn(!dense && 'space-y-2')}>
+        {dataSlot && <div className={cn(dense && 'mb-2')}>{dataSlot}</div>}
+        {filed ? (
+          <RekoReportCard report={filed} incidentId={incidentId} onRequestComplete={onRequestComplete} dense={dense} />
+        ) : dense ? (
+          <DetailField label={t('reportLabel')}>
+            <span className="text-sm italic text-muted-foreground/60">{t('noReportShort')}</span>
           </DetailField>
-        )
-      )}
-      </div>
-      ) : (
-      <div className="space-y-2">
-      {dataSlot}
-      {latestReport ? (
-        <>
-          {/* Latest Report - Full display */}
-          <RekoReportCard
-            report={latestReport}
-            incidentId={incidentId}
-            onRequestComplete={onRequestComplete}
-          />
-
-          {/* Previous Reports - Collapsible */}
-          {previousReports.length > 0 && (
-            <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-              <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50" tabIndex={-1}>
-                <History className="h-3 w-3" />
-                <span>{t('previousReports', { count: previousReports.length })}</span>
-                <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", historyOpen && "rotate-180")} />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 pt-1">
-                {previousReports.map((report) => (
-                  <RekoReportCardCompact
-                    key={report.id}
-                    report={report}
-                    incidentId={incidentId}
-                  />
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </>
-      ) : (
-        // While stacked, the placeholder gives way to the form opening below
-        // it; side by side the columns are independent, and an empty column
-        // that says nothing reads as a rendering fault.
-        (split || !isEditing) && (
+        ) : (
           <div className="rounded-lg border border-dashed p-3 flex items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-4 w-4 shrink-0" />
             <p className="text-sm">{t('noReport')}</p>
           </div>
-        )
-      )}
-
+        )}
       </div>
-      )}
+    )
+  }
 
-      {/* The editing surface. In place, not a dialog — a modal over the incident
-          detail would hide the Feldmeldungen the operator is dictating from.
-          Its own column when there is one, so a long report and a long form do
-          not queue up behind each other. */}
-      <div className={cn(split && "border-l border-border pl-6", !split && !dense && "space-y-2", dense && "pt-2")}>
-      {canEdit && (
-        isEditing ? (
-          // No card in the split layout, and none on the board either: the tab
-          // column IS the frame, and a border inside a border inside the modal
-          // is two frames around one form.
-          <div className={cn(dense ? "space-y-1" : "space-y-3", !split && !dense && "rounded-lg border border-border p-4")}>
-            {/* The form's one sync line sits in this row, left of «Schliessen»: at the foot
-                of the form it was under the column's fade and needed a scroll to read. */}
-            <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", dense && "pb-1.5")}>
-              <h3 className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                <Binoculars className="h-3.5 w-3.5 shrink-0" />
-                {editingDraft ? t('createTitle') : t('amendTitle')}
-              </h3>
-              <div className="ml-auto flex min-w-0 items-center">
-                <SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />
-              </div>
-              <Button
-                type="button"
-                size="xs"
-                variant="ghost"
-                onClick={stopEditing}
-              >
-                <X className="size-3.5" />
-                {t('close')}
-              </Button>
-            </div>
-            {/* Says out loud which channel this is, so nothing about the
-                resulting report reads as a crew report – and when it counts. */}
-            <p className="text-xs text-muted-foreground">
-              {t('radioHint')} {editingDraft ? t('draftHint') : t('amendHint')}
-            </p>
-            <RekoReportForm
-              incidentId={incidentId}
-              value={formData}
-              onChange={setFormData}
-              photos={photoTransport}
-              mount="kp"
-            />
-          </div>
-        ) : (
-          // On the board an incident WITHOUT a report already carries «erfassen»
-          // on its empty row, so only the amendment needs a button of its own —
-          // and it stands at the right, where the form's own actions stand.
-          (!dense || latestReport) && (
-            <div className={cn(dense && "flex justify-end")}>
-              <Button type="button" size="xs" variant="outline" onClick={startEditing}>
-                {latestReport ? <Pencil className="size-3.5" /> : <Plus className="size-3.5" />}
-                {latestReport ? t('amend') : t('create')}
-              </Button>
-            </div>
-          )
-        )
-      )}
+  return (
+    <div ref={loadedRootRef} className={cn(dense ? 'space-y-1' : 'space-y-3')}>
+      {dataSlot && <div className="mb-2">{dataSlot}</div>}
+      {/* Head row: who reported it and when, the one sync line, and the close shortcut
+          a «nicht relevant» report offers. */}
+      <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1', dense && 'pb-1.5')}>
+        <ReportByline report={report} />
+        <div className="ml-auto flex min-w-0 items-center">
+          <SyncStatusLine state={autosave.state} onRetry={() => void autosave.retry()} />
+        </div>
+        {formData.is_relevant === false && onRequestComplete && (
+          <Button size="xs" variant="secondary" onClick={onRequestComplete}>
+            <CheckCheck className="size-3.5" />
+            {t('completeIncident')}
+          </Button>
+        )}
       </div>
+      {/* Until it is filed, say when it will be – and that a KP entry reads as one. */}
+      {(!report || report.is_draft) && (
+        <p className="text-xs text-muted-foreground">
+          {t('radioHint')} {t('draftHint')}
+        </p>
+      )}
+      <RekoReportForm
+        incidentId={incidentId}
+        value={formData}
+        onChange={setFormData}
+        photos={photoTransport}
+        mount="kp"
+      />
     </div>
+  )
+}
+
+/** «Keller Marco · Übermittelt 19:05 · aktualisiert 19:24», or that nothing is filed yet. */
+function ReportByline({ report }: { report: ApiRekoReportResponse | null }) {
+  const t = useTranslations('reko.reportSection')
+  if (!report || report.is_draft) {
+    return (
+      <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <Binoculars className="size-3.5 shrink-0" />
+        {report ? t('draftShort') : t('noReportShort')}
+      </span>
+    )
+  }
+  const submittedStamp = formatStamp(report.submitted_at)
+  const updatedStamp = formatStamp(report.updated_at)
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+      <Binoculars className="size-3.5 shrink-0" />
+      {report.submitted_by_personnel_name && (
+        <>
+          <span className="font-semibold">{report.submitted_by_personnel_name}</span>
+          <span aria-hidden="true">·</span>
+        </>
+      )}
+      {t('submittedShort', { time: submittedStamp })}
+      {updatedStamp !== submittedStamp && ` · ${t('updatedShort', { time: updatedStamp })}`}
+    </span>
   )
 }
 
@@ -540,9 +313,29 @@ function formatStamp(iso: string): string {
   return `${date.toLocaleDateString(getIntlLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })} ${time}`
 }
 
-/** Where a stored Reko photo is read back from, on a mount that has a session. */
-function rekoPhotoUrl(incidentId: string, filename: string): string {
-  return `${getApiUrl()}/api/photos/${incidentId}/${filename}`
+/** A filed report's photo: opens in the incident's viewer, where one is mounted. */
+function ReportPhoto({ incidentId, filename, alt, sizes, className }: {
+  incidentId: string
+  filename: string
+  alt: string
+  sizes: string
+  className: string
+}) {
+  const open = usePhotoViewer()
+  // unoptimized: photos come from the backend at a runtime-determined origin, which Next's
+  // optimizer cannot resolve (hosts are configured at build time).
+  const image = <Image src={rekoPhotoUrl(incidentId, filename)} alt={alt} fill sizes={sizes} unoptimized className="object-cover" />
+  if (!open) return <span className={className}>{image}</span>
+  return (
+    <button
+      type="button"
+      onClick={() => open('reko', filename)}
+      title={filename}
+      className={cn(className, 'cursor-zoom-in transition-opacity hover:opacity-80')}
+    >
+      {image}
+    </button>
+  )
 }
 
 /**
@@ -669,34 +462,21 @@ function RekoReportBody({ report, incidentId, dense = false }: RekoReportCardPro
         ))}
         {photos.length > 0 && (
           // 96px, not the 40px marks this used to be: at 40 a storm photo was
-          // an unreadable smudge, so EVERY picture had to be opened in a tab to
-          // find out what it showed. Big enough to recognise the subject, small
-          // enough that a row of them still wraps inside the column. Opening one
-          // is still there for the detail. The filename rides along as `title`.
+          // an unreadable smudge. Big enough to recognise the subject, small enough
+          // that a row of them still wraps inside the column. A click opens the viewer.
           <DetailField label={t('photosCount', { count: photos.length })}>
             <div className="flex flex-wrap items-center gap-1.5">
               {photos.map((filename, index) => (
-                <a
+                <ReportPhoto
                   key={filename}
-                  href={rekoPhotoUrl(incidentId, filename)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={filename}
-                  className="relative block size-24 shrink-0 overflow-hidden rounded-md bg-muted transition-opacity hover:opacity-80"
-                  tabIndex={-1}
-                >
-                  {/* unoptimized: see the grid in the card below. */}
-                  <Image
-                    src={rekoPhotoUrl(incidentId, filename)}
-                    alt={report.submitted_by_personnel_name
-                      ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
-                      : t('photoAlt', { number: index + 1 })}
-                    fill
-                    sizes="96px"
-                    unoptimized
-                    className="object-cover"
-                  />
-                </a>
+                  incidentId={incidentId}
+                  filename={filename}
+                  alt={report.submitted_by_personnel_name
+                    ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
+                    : t('photoAlt', { number: index + 1 })}
+                  sizes="96px"
+                  className="relative block size-24 shrink-0 overflow-hidden rounded-md bg-muted"
+                />
               ))}
             </div>
           </DetailField>
@@ -737,28 +517,16 @@ function RekoReportBody({ report, incidentId, dense = false }: RekoReportCardPro
           <h5 className="text-xs text-muted-foreground mb-1.5">{t('photosCount', { count: photos.length })}</h5>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {photos.map((filename, index) => (
-              <a
-                key={index}
-                href={rekoPhotoUrl(incidentId, filename)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative block aspect-square rounded overflow-hidden hover:opacity-80 transition-opacity"
-                tabIndex={-1}
-              >
-                {/* unoptimized: photos come from the backend at a
-                    runtime-determined origin, which Next's optimizer cannot
-                    resolve (hosts are configured at build time). */}
-                <Image
-                  src={rekoPhotoUrl(incidentId, filename)}
-                  alt={report.submitted_by_personnel_name
-                    ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
-                    : t('photoAlt', { number: index + 1 })}
-                  fill
-                  sizes="33vw"
-                  unoptimized
-                  className="object-cover"
-                />
-              </a>
+              <ReportPhoto
+                key={filename}
+                incidentId={incidentId}
+                filename={filename}
+                alt={report.submitted_by_personnel_name
+                  ? t('photoAltBy', { number: index + 1, name: report.submitted_by_personnel_name })
+                  : t('photoAlt', { number: index + 1 })}
+                sizes="33vw"
+                className="relative block aspect-square overflow-hidden rounded"
+              />
             ))}
           </div>
         </div>
@@ -865,75 +633,6 @@ function RekoReportCard({ report, incidentId, onRequestComplete, dense = false }
         </div>
 
         <RekoReportBody report={report} incidentId={incidentId} />
-      </div>
-    </div>
-  )
-}
-
-/**
- * An earlier report, compact — the phone sheet and the wall display only.
- *
- * The board no longer renders this: there a previous report is one 30px row
- * that unfolds into the same field rows as the current one, so «alt» has no
- * design of its own. It survives because a 30px row with a text link is the
- * wrong target on a phone and the wrong size on a wall.
- */
-function RekoReportCardCompact({ report }: RekoReportCardProps) {
-  const t = useTranslations('reko.reportSection')
-
-  const hasDangers = report.dangers_json && (
-    report.dangers_json.fire ||
-    report.dangers_json.fire_danger ||
-    report.dangers_json.explosion ||
-    report.dangers_json.collapse ||
-    report.dangers_json.chemical ||
-    report.dangers_json.electrical
-  )
-
-  return (
-    <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm">
-      <div className="flex items-start gap-2">
-        <VerdictIcon value={report.is_relevant} className="h-4 w-4 flex-shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-xs">
-              {t(verdictKey(report.is_relevant, 'short'))}
-            </span>
-            {/* Same rule as the current card's provenance: today's reports say
-                only the clock, older ones bring the date back. */}
-            <span className="text-xs text-muted-foreground">
-              {formatStamp(report.submitted_at)}
-            </span>
-          </div>
-
-          {/* Compact info row */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {report.submitted_by_personnel_name && (
-              <span className="flex items-center gap-1">
-                <Binoculars className="h-3 w-3" />
-                {report.submitted_by_personnel_name}
-              </span>
-            )}
-            {/* Same warning tone the current report's card uses — the history
-                row was the last place a Reko danger still read as red. */}
-            {hasDangers && (
-              <span className="flex items-center gap-1 text-warning-foreground">
-                <AlertTriangle className="h-3 w-3" />
-                {t('dangers')}
-              </span>
-            )}
-            {report.photos_json && report.photos_json.length > 0 && (
-              <span>{t('photoCount', { count: report.photos_json.length })}</span>
-            )}
-          </div>
-
-          {/* Summary if exists */}
-          {report.summary_text && (
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              {report.summary_text}
-            </p>
-          )}
-        </div>
       </div>
     </div>
   )

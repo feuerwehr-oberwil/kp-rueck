@@ -701,11 +701,25 @@
        `[role="switch"]` is excluded: a Radix Switch renders a <button>, so this
        rule squared it into a 44x44 blob wherever one appeared on a phone. A
        switch is not a tap-anywhere target — its ROW is, and the rows that carry
-       one are labels wrapping the whole thing. */
-    button:not([role="switch"]),
+       one are labels wrapping the whole thing. The Radix Checkbox (also a
+       <button>) is excluded for the same reason: it became a 44x44 empty dark
+       square with a small tick (VIS.8). */
+    button:not([role="switch"]):not([data-slot="checkbox"]),
     a,
     [role="button"],
     .interactive-element {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* …and its 44px TARGET is the label around it, a real box in the layout.
+       A grouped option (print sheet, Divera recipients) is a label row; a lone
+       table checkbox (Einstellungen → Fahrzeuge, «Nicht einsatzbereit») gets
+       a label of its own. An invisible overhang around the 16px box overlapped
+       the next option in a dense list, so the target takes up its space. Both
+       dimensions here, at this one breakpoint: a call site's `max-md:` stops
+       at 767px, this rule at 768px. */
+    label:has([data-slot="checkbox"]) {
       min-height: 44px;
       min-width: 44px;
     }

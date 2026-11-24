@@ -26,6 +26,19 @@ vi.mock('@/lib/websocket-client', () => ({
   wsClient: { on: () => () => {}, getStatus: () => 'disconnected', onStatusChange: () => () => {} },
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+// The board: Bürgin Anton is crew of Einsatz 12 (the Appell search finds people there too).
+vi.mock('@/lib/contexts/operations-context', () => ({
+  useOperations: () => ({
+    personnel: [],
+    operations: [
+      {
+        id: 'op-12', number: 12, location: 'Ringstrasse 4', locationDisplay: null, status: 'active', groupId: null,
+        crew: [{ personnelId: 'Bürgin Anton' }], vehicles: [], assignedReko: null,
+      },
+    ],
+  }),
+}))
+vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [] }) }))
 
 import {
   AttendanceModal,
@@ -225,6 +238,25 @@ describe('AttendanceModal', () => {
     await waitFor(() =>
       expect(checkOutPersonnelForEvent).toHaveBeenCalledWith('Bürgin Anton', 'ev-1')
     )
+  })
+
+  it('searches like every person picker: tags and where the person is now', async () => {
+    getEventCheckInList.mockResolvedValue({
+      personnel: [present, { ...absent, tags: ['Atemschutz'] }, left],
+      event_id: 'ev-1',
+      event_name: 'Unwetter 08.08.',
+    })
+    renderWithIntl(<AttendanceModal open onOpenChange={() => {}} eventId="ev-1" eventName="Unwetter 08.08." />)
+    const search = await screen.findByRole('textbox')
+
+    await userEvent.type(search, 'atemschutz')
+    expect(screen.getByRole('button', { name: /Frey Marc/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Bürgin Anton/ })).not.toBeInTheDocument()
+
+    await userEvent.clear(search)
+    await userEvent.type(search, '12')
+    expect(screen.getByRole('button', { name: /Bürgin Anton/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Frey Marc/ })).not.toBeInTheDocument()
   })
 
   it('warns before sending home somebody who is still assigned, and only then writes', async () => {

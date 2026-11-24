@@ -336,7 +336,7 @@ export function BoardDialogs({
         }}
       />
 
-      {/* Routen-Editor (map-first multi-stop route editing for one Auftrag) */}
+      {/* Auftrags-Editor (map-first multi-stop route editing for one Auftrag) */}
       <RoutenEditorModal
         open={routenEditorGroupId !== null}
         onOpenChange={(open) => {

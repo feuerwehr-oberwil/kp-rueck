@@ -141,8 +141,9 @@ interface MaterialAssignmentListProps {
   groups: MaterialAssignmentGroup[]
   ungroupedFree: Material[]
   ungroupedBusy: Material[]
-  /** Nothing free, something spoken for: say so where the free block would be. */
-  allBusy: boolean
+  /** Nothing free, something spoken for: the line said where the free block would be
+   *  (the frame's `allBusyText`, search-aware), or null. */
+  allBusyText: string | null
   /** Ticked in the dialog (not yet committed). */
   selectedMaterials: ReadonlySet<string>
   occupiedElsewhereMaterialIds: ReadonlySet<string>
@@ -164,7 +165,7 @@ export function MaterialAssignmentList({
   groups,
   ungroupedFree,
   ungroupedBusy,
-  allBusy,
+  allBusyText,
   selectedMaterials,
   occupiedElsewhereMaterialIds,
   materialElsewhereLabel,
@@ -177,7 +178,6 @@ export function MaterialAssignmentList({
 }: MaterialAssignmentListProps) {
   const t = useTranslations('kanban')
   const isMaterialSelected = (materialId: string) => selectedMaterials.has(materialId)
-  const allBusyText = t('assignmentDialog.allBusyMaterials')
 
 /** One material tile — shared by the free block, the spoken-for block and
  *  the expanded module groups. */
@@ -308,7 +308,7 @@ const renderMaterialTile = (material: Material) => {
       })}
       {/* Ungrouped materials — free first, spoken-for underneath.
           Module groups above stay whole: a module is a unit. */}
-      {allBusy && (
+      {allBusyText && (
         <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
           <p className="text-sm text-muted-foreground">{allBusyText}</p>
         </ListSection>

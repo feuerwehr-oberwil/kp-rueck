@@ -6,7 +6,7 @@ import { MapPin } from "lucide-react"
 import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
 import { reportStatusConflict } from "@/lib/status-conflict"
-import { getIncidentRefLabel } from "@/lib/incident-types"
+import { getIncidentRefParts, incidentSubject, type Subject } from "@/lib/incident-types"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -16,7 +16,10 @@ import { useTranslations } from "next-intl"
 interface ArrivalPrompt {
   incidentId: string
   vehicleName: string
+  /** «14 · Hauptstrasse 4» – for the toast. */
   incidentLabel: string
+  /** The header's Einsatzzeile (#14): the window pops up unasked and must say what it is about. */
+  subject: Subject
 }
 
 /**
@@ -55,19 +58,24 @@ export function GpsArrivalPrompt() {
     if (!isEditor || !onOperatorPage) return
     const unsubscribe = wsClient.on("gps_arrival_prompt", async (payload: Record<string, string>) => {
       if (!payload?.incident_id) return
-      // The WS payload label is address-only (built server-side); enrich it with
-      // type + Meldung so the operator knows WHICH incident without cross-checking.
+      // The WS payload label is address-only (built server-side); the incident adds its
+      // number, so the operator knows WHICH one without cross-checking.
       let incidentLabel = payload.incident_label || t('fallbackIncident')
+      let subject: Subject = { place: incidentLabel }
       // If the operator already moved the card past Disponiert, the bell
       // notification is enough — don't interrupt with a stale modal.
       try {
         const incident = await apiClient.getIncident(payload.incident_id)
         if (incident.status !== "enroute") return
-        incidentLabel = getIncidentRefLabel({
+        const ref = {
           location: incident.location_address || incident.title,
+          locationDisplay: incident.location_display ?? undefined,
           incidentType: incident.type ?? undefined,
           notes: incident.description ?? undefined,
-        }, 40)
+          number: incident.number,
+        }
+        incidentLabel = getIncidentRefParts(ref).head
+        subject = incidentSubject(ref)
       } catch {
         // Can't verify — show the prompt with the payload label; the status
         // endpoint re-checks on confirm.
@@ -78,6 +86,7 @@ export function GpsArrivalPrompt() {
         incidentId: payload.incident_id,
         vehicleName: payload.vehicle_name || t('fallbackVehicle'),
         incidentLabel,
+        subject,
       })
     })
     return () => unsubscribe()
@@ -129,14 +138,11 @@ export function GpsArrivalPrompt() {
       title={
         <span className="flex items-center gap-2">
           <MapPin className="h-5 w-5 text-muted-foreground" />
-          {t('title')}
+          {t('title', { vehicle: prompt.vehicleName })}
         </span>
       }
-      description={t.rich('description', {
-        vehicle: prompt.vehicleName,
-        label: prompt.incidentLabel,
-        strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
-      })}
+      subject={prompt.subject}
+      description={t('description')}
       cancelText={t('decline')}
       confirmText={t('confirm')}
       onConfirm={handleAdvance}

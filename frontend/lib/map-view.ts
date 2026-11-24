@@ -66,7 +66,7 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  * `label` and `incident` are the floors of three-step priority bands; read them through
  * `incidentZ`, not directly.
  *
- * The dialog maps (Routen-Editor, Einsatz-Picker) keep their own small local scales – separate
+ * The dialog maps (Auftrags-Editor, Einsatz-Picker) keep their own small local scales – separate
  * maps, no incident markers, no reason to couple them.
  */
 export const Z = {

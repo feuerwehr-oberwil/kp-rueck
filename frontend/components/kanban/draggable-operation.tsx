@@ -25,6 +25,7 @@ import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/prag
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { sameCrew, sameVehicles } from "@/lib/operation-equality"
+import { isResourceDrag, takesAssignments } from "@/lib/assignable"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -392,10 +393,9 @@ function DraggableOperationBase({
         : []),
       dropTargetForElements({
         element,
-        canDrop: () => {
-          // Can drop anything on operation cards
-          return true
-        },
+        // Cards always (a move into or within «Abgeschlossen»); a resource only
+        // while the Einsatz takes new assignments – a closed card shows no ring.
+        canDrop: ({ source }) => !isResourceDrag(source.data) || takesAssignments(operation),
         getData: ({ input }) => {
           return attachClosestEdge(
             { type: "operation-drop", operationId: operation.id, index },

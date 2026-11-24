@@ -99,7 +99,11 @@ export function FieldRequestItem({
   const worked =
     request.status === 'done'
       ? request.done_by_name
-        ? t('doneBy', { time: formatTime(request.done_at), name: request.done_by_name })
+        ? // The crew's «Wir fahren selbst» closed it, not the KP's «Abholung disponiert».
+          t(request.kind === 'pickup' && request.done_in_field ? 'selfDriveBy' : 'doneBy', {
+            time: formatTime(request.done_at),
+            name: request.done_by_name,
+          })
         : t('doneAt', { time: formatTime(request.done_at) })
       : request.status === 'in_progress' && request.in_progress_by_name
         ? t('inProgressBy', { name: request.in_progress_by_name })

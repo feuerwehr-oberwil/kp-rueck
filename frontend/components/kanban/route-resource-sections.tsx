@@ -318,8 +318,10 @@ export function ResourceSourceBlock({ variant, title, hint, accentColor, childre
 
 interface RouteResourceSectionsProps {
   resources: GroupResources
-  /** Opens the resource dialog scoped to the ROUTE (works with 0 stops). */
-  onAssign: (resourceType: "crew" | "vehicles" | "materials") => void
+  /** Opens the resource dialog scoped to the ROUTE (works with 0 stops). Omitted = no
+   *  «Zuweisen» (a closed stop, an Auftrag whose stops are all closed – lib/assignable.ts);
+   *  releasing stays. */
+  onAssign?: (resourceType: "crew" | "vehicles" | "materials") => void
   /** Detach a route-owned resource by its group-assignment id. */
   onUnassign: (assignmentId: string) => void
   /** vehicle id → driver name, so a Fahrzeug chip names who is behind the
@@ -353,8 +355,8 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
       <ResourceRow
         icon={Users}
         label={t("common.crewCount", { count: resources.personnel.length })}
-        addLabel={!readOnly ? t("common.assignCrew") : undefined}
-        onAdd={!readOnly ? () => onAssign("crew") : undefined}
+        addLabel={!readOnly && onAssign ? t("common.assignCrew") : undefined}
+        onAdd={!readOnly && onAssign ? () => onAssign("crew") : undefined}
         isEmpty={resources.personnel.length === 0}
         emptyLabel={t("detail.resourceEmpty")}
       >
@@ -398,8 +400,8 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
       <ResourceRow
         icon={Truck}
         label={t("common.vehiclesCount", { count: resources.vehicles.length })}
-        addLabel={!readOnly ? t("common.assignVehicle") : undefined}
-        onAdd={!readOnly ? () => onAssign("vehicles") : undefined}
+        addLabel={!readOnly && onAssign ? t("common.assignVehicle") : undefined}
+        onAdd={!readOnly && onAssign ? () => onAssign("vehicles") : undefined}
         isEmpty={resources.vehicles.length === 0}
         emptyLabel={t("detail.resourceEmpty")}
       >
@@ -461,8 +463,8 @@ export function RouteResourceSections({ resources, onAssign, onUnassign, vehicle
       <ResourceRow
         icon={Package}
         label={t("common.materialsCount", { count: resources.materials.length })}
-        addLabel={!readOnly ? t("common.assignMaterial") : undefined}
-        onAdd={!readOnly ? () => onAssign("materials") : undefined}
+        addLabel={!readOnly && onAssign ? t("common.assignMaterial") : undefined}
+        onAdd={!readOnly && onAssign ? () => onAssign("materials") : undefined}
         isEmpty={resources.materials.length === 0}
         emptyLabel={t("detail.resourceEmpty")}
       >

@@ -30,8 +30,9 @@ import { translateOutsideReact } from "./i18n-messages"
 type StatusAccent = {
   /** Column header / section background tint. */
   surface: string
-  /** Left edge, where an edge means status (route-stop rows). Never on an
-   *  incident CARD — there the left edge means priority. */
+  /** Left bar, where an edge means status (route-stop rows): a `before:bg-*`
+   *  class for `ACCENT_BAR`. Never on an incident CARD — there the left edge
+   *  means priority. */
   border: string
   /** Text and icon tint. */
   text: string
@@ -42,7 +43,7 @@ type StatusAccent = {
 /** The one grey every status without a crew out wears. */
 const NEUTRAL_ACCENT: StatusAccent = {
   surface: "bg-zinc-200/80 dark:bg-zinc-800/70",
-  border: "border-l-zinc-500",
+  border: "before:bg-zinc-500",
   text: "text-zinc-600 dark:text-zinc-400",
   dot: "bg-zinc-500",
 }
@@ -51,7 +52,7 @@ export const STATUS_ACCENT: Record<OperationStatus, StatusAccent> = {
   incoming: NEUTRAL_ACCENT,
   reko: {
     surface: "bg-violet-100/80 dark:bg-violet-950/70",
-    border: "border-l-violet-500",
+    border: "before:bg-violet-500",
     text: "text-violet-700 dark:text-violet-400",
     dot: "bg-violet-500",
   },
@@ -59,7 +60,7 @@ export const STATUS_ACCENT: Record<OperationStatus, StatusAccent> = {
   enroute: NEUTRAL_ACCENT,
   active: {
     surface: "bg-fuchsia-100/80 dark:bg-fuchsia-950/70",
-    border: "border-l-fuchsia-500",
+    border: "before:bg-fuchsia-500",
     text: "text-fuchsia-700 dark:text-fuchsia-400",
     dot: "bg-fuchsia-500",
   },
@@ -274,7 +275,7 @@ export function rekoColorOrder(
 }
 
 /** A Reko person's map colour: their turn in `rekoColorOrder` (without it: a hashed tone).
- *  The pins, the Reko-Modus dropdown and the dotted order line all take it from here. */
+ *  The pins, the Reko-Editor dropdown and the dotted order line all take it from here. */
 export function rekoPersonColor(personId: string, rekoOrder?: ReadonlyMap<string, number>): string {
   const turn = rekoOrder?.get(personId) ?? hashString(personId)
   return REKO_PALETTE[turn % REKO_PALETTE.length]
@@ -448,12 +449,20 @@ export function stopStatusTextClass(status: StopMirrorStatus): string {
   return STATUS_ACCENT[status].text
 }
 
-/** Left edge of a route-stop ROW, which — unlike an incident card — means
- *  status: a stop row lives in a route, not in a status column, so nothing else
- *  on it says which column it mirrors. */
+/** Left bar of a route-stop ROW (with `ACCENT_BAR`), which — unlike an incident
+ *  card — means status: a stop row lives in a route, not in a status column, so
+ *  nothing else on it says which column it mirrors. */
 export function stopStatusBorderClass(status: StopMirrorStatus): string {
   return STATUS_ACCENT[status].border
 }
+
+/** A status accent as a straight bar at the left of a ROUNDED row or card. A
+ *  `border-l-*` on a rounded box follows the corner radius and draws a «(» that
+ *  thins out top and bottom (sweep VIS.2); this draws the bar as the row's
+ *  `::before`, inset from the corners. Colour it with a `before:bg-*` class
+ *  (`stopStatusBorderClass` for a stop row), widen it with `before:w-1`. */
+export const ACCENT_BAR =
+  "relative before:pointer-events-none before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full"
 
 /** Collapse an incident's full status onto one of the four route-stop mirror
  *  columns (Offen / Disponiert / Einsatz / Beendet). Pure counterpart to the

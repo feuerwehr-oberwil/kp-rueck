@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, PHONE_LABEL_MIN_ZOOM, type LabelCandidate } from './map-labels'
+import { cardSide, estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, PHONE_LABEL_MIN_ZOOM, type LabelCandidate } from './map-labels'
 
 const GEOMETRY = { labelOffsetX: 20, labelHeight: 28, dotSize: 24 }
 
@@ -170,5 +170,25 @@ describe('focusOffset', () => {
     const padding = { top: 10, right: 0, bottom: 10, left: 0 }
     const [, dy] = focusOffset({ width: 400, height: 60, padding, box: PIN_AND_CARD })
     expect(60 / 2 + dy + PIN_AND_CARD.top).toBe(10)
+  })
+})
+
+// The open legend covered the selected card's right half (sweep VIS.18).
+describe('cardSide', () => {
+  const viewport = { width: 1000, height: 800 }
+  const card = { width: 300, height: 140 }
+  // The legend, bottom right: x 720–990, y 380–790.
+  const legend = { x: 855, y: 585, width: 270, height: 410 }
+
+  it('hangs right when nothing is in the way', () => {
+    expect(cardSide({ anchor: { x: 400, y: 400 }, card, labelOffsetX: 20, chrome: [], viewport })).toBe('right')
+  })
+
+  it('flips left when the open legend covers it on the right', () => {
+    expect(cardSide({ anchor: { x: 560, y: 470 }, card, labelOffsetX: 20, chrome: [legend], viewport })).toBe('left')
+  })
+
+  it('stays right when the left covers more (the map edge counts too)', () => {
+    expect(cardSide({ anchor: { x: 120, y: 470 }, card, labelOffsetX: 20, chrome: [{ x: 290, y: 470, width: 60, height: 60 }], viewport })).toBe('right')
   })
 })

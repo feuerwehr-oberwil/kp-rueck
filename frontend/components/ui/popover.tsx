@@ -3,7 +3,8 @@
 import * as React from 'react'
 import * as PopoverPrimitive from '@radix-ui/react-popover'
 
-import { cn, footerCollisionPadding } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { useFooterCollisionPadding } from '@/lib/hooks/use-footer-collision-padding'
 import { ignoreToastLayer } from '@/lib/toast-layer'
 
 function Popover({
@@ -23,18 +24,19 @@ function PopoverContent({
   align = 'center',
   sideOffset = 4,
   // Keep the panel clear of the board's footer toolbar — see
-  // footerCollisionPadding. A caller-supplied value still wins.
+  // useFooterCollisionPadding. A caller-supplied value still wins.
   collisionPadding,
   onInteractOutside,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  const reserved = useFooterCollisionPadding()
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}
-        collisionPadding={collisionPadding ?? footerCollisionPadding()}
+        collisionPadding={collisionPadding ?? reserved}
         // Dismissing a toast must never dismiss the popover behind it.
         onInteractOutside={ignoreToastLayer(onInteractOutside)}
         className={cn(

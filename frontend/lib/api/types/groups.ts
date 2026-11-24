@@ -59,6 +59,12 @@ export interface ApiIncidentGroup {
   last_announced_full: boolean
 }
 
+/** What «Übertragen» onto an Auftrag wrote – the ids its «Rückgängig» sends back. */
+export interface ApiTransferToAuftragResult {
+  group_assignment_ids: string[]
+  released_assignment_ids: string[]
+}
+
 /** Body for recording a Funkdurchsage (see `ApiIncidentGroup.last_announced_*`). */
 export interface ApiGroupAnnouncement {
   fingerprint: string

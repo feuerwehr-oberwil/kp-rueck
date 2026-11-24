@@ -4,7 +4,7 @@ import random
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from app.seed_training import EMERGENCY_TEMPLATES
 
@@ -1184,32 +1184,36 @@ _ESCALATIONS: dict[str, list[str]] = {
 }
 
 # Reinforcement requests ("Feld fordert Verstärkung") — what the crew on scene
-# asks the command post for. The operator decides what to actually send.
-_REINFORCEMENTS: dict[str, list[str]] = {
+# asks the command post for. The operator decides what to actually send. Each text
+# is filed as the request a crew taps on /feld: «Verstärkung nötig» (`personnel`:
+# people, or a vehicle with its crew) or «Material nötig» (`material`).
+ReinforcementKind = Literal["personnel", "material"]
+
+_REINFORCEMENTS: dict[str, list[tuple[ReinforcementKind, str]]] = {
     "brandbekaempfung": [
-        "zusätzlichen Atemschutztrupp",
-        "TLF mit Wasser zur Ablösung",
-        "DLK für den Aussenangriff",
+        ("personnel", "zusätzlichen Atemschutztrupp"),
+        ("personnel", "TLF mit Wasser zur Ablösung"),
+        ("personnel", "DLK für den Aussenangriff"),
     ],
     "elementarereignis": [
-        "zusätzliche Pumpe und Schläuche",
-        "2 AdF mit Nasssauger",
-        "Sandsäcke und Transporthilfe",
-        "Motorsäge und Sicherungsmaterial",
+        ("material", "zusätzliche Pumpe und Schläuche"),
+        ("personnel", "2 AdF mit Nasssauger"),
+        ("material", "Sandsäcke und Transporthilfe"),
+        ("material", "Motorsäge und Sicherungsmaterial"),
     ],
     "oelwehr": [
-        "zusätzliches Öl-Bindemittel",
-        "Ölsperre für den Bachlauf",
+        ("material", "zusätzliches Öl-Bindemittel"),
+        ("material", "Ölsperre für den Bachlauf"),
     ],
     "strassenrettung": [
-        "2 AdF für den Verkehrsdienst",
-        "zusätzliches Sicherungsmaterial",
+        ("personnel", "2 AdF für den Verkehrsdienst"),
+        ("material", "zusätzliches Sicherungsmaterial"),
     ],
     "_default": [
-        "2 zusätzliche AdF",
-        "zusätzliches Material ab Magazin",
-        "Ablösung für die eingesetzte Gruppe",
-        "Beleuchtungsmaterial für die Nacht",
+        ("personnel", "2 zusätzliche AdF"),
+        ("material", "zusätzliches Material ab Magazin"),
+        ("personnel", "Ablösung für die eingesetzte Gruppe"),
+        ("material", "Beleuchtungsmaterial für die Nacht"),
     ],
 }
 
@@ -1220,8 +1224,8 @@ def generate_escalation(incident_type: str | None) -> str:
     return random.choice(pool)
 
 
-def generate_reinforcement_request(incident_type: str | None) -> str:
-    """What the field crew asks for — type-matched, with generic fallbacks."""
+def generate_reinforcement_request(incident_type: str | None) -> tuple[ReinforcementKind, str]:
+    """What the field crew asks for, and as which request — type-matched, with generic fallbacks."""
     pool = _REINFORCEMENTS.get(incident_type or "", []) + _REINFORCEMENTS["_default"]
     return random.choice(pool)
 
@@ -1278,11 +1282,6 @@ class RapportSimProfile:
     # **rounded down**, so a gap always remains. Those gaps are why the
     # Restliste exists, and finding them is the exercise.
     bulk_coverage: float = 0.80
-    # "Abholung nötig" after "Einsatz beendet" (decision 24), preselected by the
-    # situation: a crew that walked there or whose vehicle drove on is usually
-    # stranded, everyone else usually is not.
-    pickup_when_stranded: float = 0.70
-    pickup_otherwise: float = 0.15
 
 
 RAPPORT_SIM_PROFILE = RapportSimProfile()

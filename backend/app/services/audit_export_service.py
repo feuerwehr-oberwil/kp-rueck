@@ -206,6 +206,7 @@ async def collect_event_report_data(db: AsyncSession, event_id: uuid.UUID) -> Ev
                 uid
                 for uid in (
                     reko.created_by_user_id,
+                    reko.submitted_by_user_id,
                     reko.updated_by_user_id,
                     reko.arrived_reported_by_user_id,
                 )

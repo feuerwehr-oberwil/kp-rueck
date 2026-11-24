@@ -86,7 +86,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     }
     // Reko is an Ereignis-level function first and an incident assignment second:
     // `isReko` is set from the event's special functions, while `assignedReko`
-    // needs an assignment row on a specific incident. A Reko-Offizier who has not
+    // needs an assignment row on a specific incident. A Reko-Person who has not
     // been sent anywhere yet has the flag and no incident — and produced exactly
     // nothing when clicked, because the loop above found no binding to list.
     // Same shape as the Fahrer below: the incident when there is one, the bare
@@ -184,7 +184,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
    *
    * Every early return here used to be a click that did nothing: a free person
    * failed the occupancy gate, and an occupied one with no listable binding (the
-   * Reko-Offizier who is not on an incident yet) fell through the second. The
+   * Reko-Person who is not on an incident yet) fell through the second. The
    * popover now opens in both cases and says so in words; only the one-incident
    * shortcut still jumps straight to the card, which is what operators know.
    */

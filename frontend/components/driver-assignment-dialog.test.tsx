@@ -15,8 +15,9 @@ const toastError = vi.hoisted(() => vi.fn())
 const toastSuccess = vi.hoisted(() => vi.fn())
 
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ refreshOperations }),
+  useOperations: () => ({ refreshOperations, operations: [], personnel: [] }),
 }))
+vi.mock("@/lib/contexts/groups-context", () => ({ useGroups: () => ({ groups: [] }) }))
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: {

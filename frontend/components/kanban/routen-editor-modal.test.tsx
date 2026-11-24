@@ -1,5 +1,5 @@
 /**
- * Routen-Editor tests.
+ * Auftrags-Editor tests.
  *
  * A mocked map checks replacement-instance fitting without WebGL. The modal's
  * route-planning substance is tested where it actually lives:

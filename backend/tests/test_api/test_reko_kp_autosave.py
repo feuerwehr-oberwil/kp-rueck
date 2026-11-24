@@ -4,7 +4,7 @@ Owner pick 19.11.2026 (#30, simplified: «One rule: relevance answer files»): t
 form has no save button. Every field goes out at once as a KP draft (`POST /api/reko/?submit=false`,
 then `PATCH …?submit=false`). The moment «Einsatz relevant?» is answered (Ja or Nein) the
 report is filed exactly like the crew's submit – the card from «Reko» to «Reko abgeschlossen»,
-priority bump, the bell (`api.reko._kp_draft_files_now`, `crud.reko.process_reko_submission`),
+priority bump, the bell (`api.reko._board_save_files_now`, `crud.reko.process_reko_submission`),
 wherever the card is. A status move files nothing.
 """
 
@@ -124,48 +124,46 @@ async def test_without_the_answer_a_draft_stays_a_draft_whatever_the_status(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_filing_stamps_the_submission_time_so_the_newer_report_leads(
+async def test_the_kp_answer_files_a_crew_draft_and_names_the_kp_as_filer(
     editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_editor: User
 ):
-    """Pass 5 S2: a KP draft opened before the crew filed, answered after – it is the newest."""
+    """One live report (23.11.2026): the KP's «Einsatz relevant?» files the crew's open draft too.
+
+    The crew opened the link and is still typing; the KP hears «relevant» over the radio.
+    The board's answer files THE report – once, stamped now – and the KP is its one filer
+    (Sol review G round 3, S2): bell, briefing, journal and PDF name the same person.
+    """
     from datetime import UTC, datetime, timedelta
 
     incident_id = await _incident(db_session, test_event, test_editor)
-    now = datetime.now(UTC)
     person = Personnel(id=uuid4(), name="Muster Hans", role="Feuerwehrmann", status="available")
-    kp_draft = RekoReport(
+    db_session.add(person)
+    await db_session.flush()
+    crew_draft = RekoReport(
         id=uuid4(),
         incident_id=incident_id,
         token=generate_form_token(str(incident_id), "reko"),
         is_draft=True,
-        created_by_user_id=test_editor.id,
-        summary_text="KP: Keller 20 cm",
-        submitted_at=now - timedelta(minutes=10),
-    )
-    crew = RekoReport(
-        incident_id=incident_id,
-        token=generate_form_token(str(incident_id), "reko"),
-        is_draft=False,
         submitted_by_personnel_id=person.id,
-        is_relevant=False,
-        summary_text="Trupp: nichts",
-        submitted_at=now - timedelta(minutes=5),
+        summary_text="Trupp: Keller 20 cm",
+        submitted_at=datetime.now(UTC) - timedelta(minutes=10),
     )
-    db_session.add(person)
-    await db_session.flush()
-    db_session.add_all([kp_draft, crew])
+    db_session.add(crew_draft)
     await db_session.commit()
 
-    filed = await editor_client.patch(f"/api/reko/{kp_draft.id}?submit=false", json={"is_relevant": True})
+    filed = await editor_client.patch(f"/api/reko/{crew_draft.id}?submit=false", json={"is_relevant": True})
+    assert filed.status_code == 200, filed.text
     assert filed.json()["is_draft"] is False
-    amended = await editor_client.patch(f"/api/reko/{kp_draft.id}?submit=false", json={"additional_notes": "Nachtrag"})
+    assert filed.json()["submitted_by_personnel_id"] is None
+    assert datetime.fromisoformat(filed.json()["submitted_at"]) > datetime.now(UTC) - timedelta(minutes=1)
+    assert await _reko_bells(db_session, incident_id) == 1
 
-    listed = (await editor_client.get(f"/api/reko/incident/{incident_id}/reports")).json()
-    assert next(r["summary_text"] for r in listed if not r["is_draft"]) == "KP: Keller 20 cm"
-    summaries = (await editor_client.get(f"/api/reko/event/{test_event.id}/summaries")).json()["summaries"]
-    assert summaries[str(incident_id)]["summary_text"] == "KP: Keller 20 cm"
-    # An amendment keeps the submission time.
+    amended = await editor_client.patch(
+        f"/api/reko/{crew_draft.id}?submit=false", json={"additional_notes": "Nachtrag"}
+    )
+    # An amendment keeps the submission time and rings nothing.
     assert amended.json()["submitted_at"] == filed.json()["submitted_at"]
+    assert await _reko_bells(db_session, incident_id) == 1
 
 
 @pytest.mark.asyncio

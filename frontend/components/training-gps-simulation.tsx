@@ -280,10 +280,13 @@ export function TrainingGpsSimulation() {
             const drive = driveFor(vehicle.id);
             const busy = busyIds.has(vehicle.id);
             const live = drive ? liveDrive(drive, drivesFetchedAt, now) : null;
+            // flex-wrap + the buttons as one group that takes a line of its own below `sm`:
+            // on a phone the name, the text and two buttons do not fit one line – the text
+            // shrank to 0px and «Stopp» ran past the card (VIS.4). Like the incident cards.
             return (
               <div
                 key={vehicle.id}
-                className={`flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm ${
+                className={`flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border px-2 py-1.5 text-sm ${
                   drive ? 'border-foreground/40' : 'border-border'
                 }`}
               >
@@ -297,32 +300,34 @@ export function TrainingGpsSimulation() {
                       {' · '}
                       {Math.round(live.progress * 100)}% · {formatEta(live.eta)}
                     </div>
-                    {/* Arrival gate uses the SERVER eta, not the extrapolated one —
-                        the extrapolation oscillates around the threshold between
-                        polls and made this button flicker. Hidden while busy so it
-                        vanishes the moment the return is requested. */}
-                    {drive.kind === 'incident' && drive.eta_seconds <= 5 && !busy && (
+                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:basis-full">
+                      {/* Arrival gate uses the SERVER eta, not the extrapolated one —
+                          the extrapolation oscillates around the threshold between
+                          polls and made this button flicker. Hidden while busy so it
+                          vanishes the moment the return is requested. */}
+                      {drive.kind === 'incident' && drive.eta_seconds <= 5 && !busy && (
+                        <Button
+                          onClick={() => handleReturn(vehicle)}
+                          disabled={!magazinConfigured}
+                          size="sm"
+                          className="flex-shrink-0"
+                          title={magazinConfigured ? t('returnTitle') : t('magazinMissing')}
+                        >
+                          <Warehouse className="size-3.5" />
+                          {t('returnButton')}
+                        </Button>
+                      )}
                       <Button
-                        onClick={() => handleReturn(vehicle)}
-                        disabled={!magazinConfigured}
+                        onClick={() => handleStop(vehicle.id)}
+                        disabled={busy}
+                        variant="outline"
                         size="sm"
                         className="flex-shrink-0"
-                        title={magazinConfigured ? t('returnTitle') : t('magazinMissing')}
                       >
-                        <Warehouse className="size-3.5" />
-                        {t('returnButton')}
+                        <Square className="size-3.5" />
+                        {t('stopButton')}
                       </Button>
-                    )}
-                    <Button
-                      onClick={() => handleStop(vehicle.id)}
-                      disabled={busy}
-                      variant="outline"
-                      size="sm"
-                      className="flex-shrink-0"
-                    >
-                      <Square className="size-3.5" />
-                      {t('stopButton')}
-                    </Button>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -350,27 +355,29 @@ export function TrainingGpsSimulation() {
                     </Select>
                     {/* The default target can resolve to Magazin (vehicle in
                         Einsatz/Rückfahrt) — guard start too, not only the picker. */}
-                    <Button
-                      onClick={() => handleStart(vehicle)}
-                      disabled={
-                        busy ||
-                        demoLocked ||
-                        !targetFor(vehicle.id) ||
-                        (targetFor(vehicle.id) === MAGAZIN_TARGET && !magazinConfigured)
-                      }
-                      size="sm"
-                      className="flex-shrink-0"
-                      title={
-                        demoLocked
-                          ? t('lockedDemo')
-                          : targetFor(vehicle.id) === MAGAZIN_TARGET && !magazinConfigured
-                            ? t('magazinMissing')
-                            : undefined
-                      }
-                    >
-                      <Play className="size-3.5" />
-                      {t('startDrive')}
-                    </Button>
+                    <div className="flex flex-shrink-0 items-center max-sm:basis-full">
+                      <Button
+                        onClick={() => handleStart(vehicle)}
+                        disabled={
+                          busy ||
+                          demoLocked ||
+                          !targetFor(vehicle.id) ||
+                          (targetFor(vehicle.id) === MAGAZIN_TARGET && !magazinConfigured)
+                        }
+                        size="sm"
+                        className="flex-shrink-0"
+                        title={
+                          demoLocked
+                            ? t('lockedDemo')
+                            : targetFor(vehicle.id) === MAGAZIN_TARGET && !magazinConfigured
+                              ? t('magazinMissing')
+                              : undefined
+                        }
+                      >
+                        <Play className="size-3.5" />
+                        {t('startDrive')}
+                      </Button>
+                    </div>
                   </>
                 )}
               </div>
