@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   checkOutPersonnel: vi.fn(),
   createPersonnel: vi.fn(),
   setAttendancePlan: vi.fn(),
+  checkInGuest: vi.fn(),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('@/lib/websocket-client', () => ({ wsClient: { getStatus: () => 'disconnected', connect: vi.fn(), disconnect: vi.fn(), on: () => () => {} } }))
@@ -144,16 +145,51 @@ describe('/check-in', () => {
     expect(api.checkOutPersonnel).not.toHaveBeenCalled()
   })
 
-  // Owner, 24.11.2026: the «+ bis» chip hung between two cards. It belongs in the card, beside
-  // the state pill – and nothing else may sit between the cards.
-  it('puts the «bis» chip inside the person\'s card, beside the state pill', async () => {
+  // Owner, 24.11.2026: the «+ bis» chip hung between two cards. It belongs in the row, on the
+  // same line (8A, phone sweep 24.11.) – and nothing else may sit between the rows.
+  it('puts the «bis» chip in the person\'s one-line row, which says its state once', async () => {
     roster()
     renderWithIntl(<CheckInPage />)
     const chip = await screen.findByRole('button', { name: 'Geht um setzen' })
     const card = chip.closest('[data-testid="checkin-card"]')
     expect(card).toHaveTextContent('Bühler Nadja')
-    expect(chip.parentElement).toHaveTextContent('Anwesend')
+    expect(screen.getByRole('button', { name: /Bühler Nadja/ })).toHaveAccessibleDescription('Anwesend')
+    expect(screen.getByRole('button', { name: /Acker Reto/ })).toHaveAccessibleDescription('Nicht anwesend')
+    // The pill «Nicht anwesend» is gone: the glyph says it, the word is for the screen reader.
+    expect(screen.getByText('Nicht anwesend')).toHaveClass('sr-only')
     const list = card!.parentElement!
     expect([...list.children].every(child => child.matches('[data-testid="checkin-card"]'))).toBe(true)
+  })
+
+  // 7A (phone sweep 24.11.2026): a name that is not on the list checks in as a guest, one tap.
+  it('offers «‹Name› als Gast einchecken» while a search has no hits, and checks the guest in', async () => {
+    roster()
+    api.checkInGuest.mockResolvedValue({ id: 'g1', name: 'Gast Peter', checked_in: true, is_assigned: false, tags: ['Gast'] })
+    const user = userEvent.setup()
+    renderWithIntl(<CheckInPage />)
+    const search = await screen.findByPlaceholderText('Personal suchen …')
+    expect(screen.queryByRole('button', { name: /als Gast einchecken/ })).not.toBeInTheDocument()
+
+    await user.type(search, '  Gast   Peter ')
+    expect(screen.getByText('Kein Name «Gast Peter» auf der Personalliste.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /«Gast Peter» als Gast einchecken/ }))
+
+    await waitFor(() => expect(api.checkInGuest).toHaveBeenCalledWith('tok', 'Gast Peter'))
+    expect(api.checkInGuest).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(search).toHaveValue(''))
+    expect(await screen.findByRole('button', { name: /Gast Peter/ })).toHaveAccessibleDescription('Anwesend')
+    expect(toast).toHaveBeenCalledWith('Gast Peter ist als Gast eingecheckt.')
+  })
+
+  it('says «beim KP melden» when the door cannot settle the name', async () => {
+    roster()
+    const { ApiError } = await import('@/lib/api/types')
+    api.checkInGuest.mockRejectedValue(new ApiError('Diesen Namen kann die Liste nicht zuordnen. Bitte beim KP melden.', 409, true, 'checkin_guest_ask_kp'))
+    const user = userEvent.setup()
+    renderWithIntl(<CheckInPage />)
+    await user.type(await screen.findByPlaceholderText('Personal suchen …'), 'Meier Alex')
+    await user.click(screen.getByRole('button', { name: /als Gast einchecken/ }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Diesen Namen kann die Liste nicht zuordnen. Bitte beim KP melden.'))
+    expect(screen.getByPlaceholderText('Personal suchen …')).toHaveValue('Meier Alex')
   })
 })

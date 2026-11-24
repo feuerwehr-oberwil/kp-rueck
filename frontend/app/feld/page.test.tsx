@@ -470,6 +470,17 @@ describe('/feld before the Schadenplatz was disponiert', () => {
     expect(screen.getByText('Sturm Oberwil · Sa 14.11.')).toBeInTheDocument()
   })
 
+  // 6C (phone sweep 24.11.2026): «Mannschaft» marks the EL; the header does not say it again –
+  // unless the crew list cannot (a finished Schadenplatz released its crew).
+  it.each([
+    [['Weber Martin', 'Moser Lea'], 0],
+    [[], 1],
+  ])('names the EL in the header only when «Mannschaft» does not (crew %j)', async (crew, lines) => {
+    await openDetail({ has_been_dispatched: true, leader_personnel_id: 'p-9', leader_name: 'Weber Martin', crew })
+    const header = screen.getByRole('heading', { level: 1 }).closest('section')!
+    expect(header.querySelectorAll('[data-slot="feld-leader-line"]')).toHaveLength(lines)
+  })
+
   it('shows the KP\'s messages to the squad (§P3.2)', async () => {
     await openDetail({
       incident_status: 'active',

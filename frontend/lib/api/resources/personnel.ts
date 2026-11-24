@@ -89,6 +89,19 @@ export class PersonnelApi {
     )
   }
 
+  /**
+   * «‹Name› als Gast einchecken» – the link's walk-in door. A listed name checks that person
+   * in; an unknown one becomes a guest of the link's Ereignis. 409 `checkin_guest_ask_kp`
+   * when the door cannot settle the name. No toast here: the kiosk says each outcome itself.
+   */
+  async checkInGuest(token: string, name: string): Promise<ApiPersonnelListItem> {
+    return linkRequest<ApiPersonnelListItem>(`/api/personnel/check-in/guest?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+      skipToast: true,
+    })
+  }
+
   // --- The same three routes through the board's door -----------------------
   // Same endpoints, same rows; the difference is that these carry the editor's
   // cookie and name the Ereignis explicitly, because only the token knows it

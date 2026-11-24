@@ -35,7 +35,10 @@ change. Read the section you touch. The visual rules and their reasons are
   - A phone list under the nav ends with `pb-nav-reserve`.
   - A sheet's foot ends with `pb-sheet-safe`. A modal sheet covers the nav, so it has no nav
     reserve inside it.
-  - A bar fixed at the bottom stands on `var(--kb-inset)`.
+  - A bar fixed at the bottom stands on `var(--kb-inset)`. On a link page (/feld Schadenplatz,
+    /reko) that bar is `LinkPageFooter`: it publishes its height as `--nav-reserve` (the page
+    root ends with `pb-nav-reserve`) and steps aside while a keyboard is up, unless it holds the
+    focus.
   - A phone form goes in a bottom `SheetContent` (`SheetBody` scrolls, footer stays). While a
     keyboard is up, the sheet FILLS the visible band exactly (`top: var(--vv-top)`,
     `height: var(--vv-height)`), with the footer on the keys. iOS never shrinks the layout

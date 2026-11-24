@@ -32,6 +32,7 @@ import { Check, Send } from 'lucide-react'
 
 import { DetailField, DENSE_CONTROL } from '@/components/kanban/detail-field'
 import { Button } from '@/components/ui/button'
+import { LinkPageFooter } from '@/components/link-page/link-page-footer'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -133,8 +134,8 @@ interface RekoReportFormProps {
    *  says "wird übermittelt" about a background draft save. */
   busy?: boolean
   disabled?: boolean
-  /** The field mount's note under the button (autosave state, last save, …). The board
-   *  mount has no button and draws none. */
+  /** The field mount's status line (what the KP has, «Jetzt senden»): it rides above the
+   *  button in the fixed footer (9C, phone sweep 24.11.2026). The board mount has neither. */
   footer?: React.ReactNode
 }
 
@@ -634,9 +635,11 @@ export function RekoReportForm({
         </>
       )}
 
-      {/* Action */}
-      <div className="space-y-3 pt-4">
-        <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-14 w-full" size="lg">
+      {/* Action: a fixed footer with the status line and the send (9C, phone sweep 24.11.2026,
+          KP Front's phone-form footer) – on screen however far the form scrolls. Inside the
+          <form>, so the button still submits it. */}
+      <LinkPageFooter status={footer}>
+        <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-12 w-full" size="lg">
           {isSubmitting ? (
             <>
               <ShellLoader className="h-5 w-5" />
@@ -649,9 +652,7 @@ export function RekoReportForm({
             </>
           )}
         </Button>
-
-        {footer}
-      </div>
+      </LinkPageFooter>
     </form>
   )
 }

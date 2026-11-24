@@ -279,3 +279,34 @@ describe('after the report is sent', () => {
     expect(unmutedToast).not.toHaveBeenCalled()
   })
 })
+
+// 9C (phone sweep 24.11.2026): what the KP has and the send ride in one fixed footer.
+describe('the fixed footer', () => {
+  afterEach(() => {
+    saveRekoDraft.mockReset()
+    localStorage.clear()
+    vi.useRealTimers()
+  })
+
+  it('says what the KP has beside «übermitteln», and offers «Jetzt senden» when a save fails', async () => {
+    vi.useFakeTimers()
+    params.value = new URLSearchParams({ incident_id: 'footer-incident', token: 'link-f' })
+    getRekoForm.mockResolvedValueOnce({ id: 'report-f', summary_text: 'A', is_relevant: true, updated_at: '2025-01-01T00:00:00Z' })
+    renderWithIntl(<RekoForm />)
+    await act(async () => {})
+    const footer = () => document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+    expect(within(footer()).getByRole('button', { name: 'Reko-Bericht übermitteln' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Ich bin vor Ort/ })).not.toHaveClass('bg-action')
+
+    saveRekoDraft.mockResolvedValueOnce({})
+    fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000) })
+    expect(footer()).toHaveTextContent(/Beim KP – Stand \d\d:\d\d/)
+
+    saveRekoDraft.mockRejectedValueOnce(new TypeError('lost'))
+    fireEvent.change(screen.getByDisplayValue('B'), { target: { value: 'C' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000) })
+    expect(footer()).toHaveTextContent('Der KP sieht das noch nicht')
+    expect(within(footer()).getByRole('button', { name: 'Jetzt senden' })).toBeEnabled()
+  })
+})

@@ -183,6 +183,38 @@ describe('Angekommen', () => {
   })
 })
 
+// 6C (phone sweep 24.11.2026): the next step is in a fixed footer; the chain only points there.
+describe('the status footer', () => {
+  it('holds the one button for the step owed now, asks there, and moves on to the next', async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderWithIntl(
+      <FeldActions assignment={assignment()} personnelId="p-1" token="tok" messageChips={[]} onReported={vi.fn()} />,
+    )
+    const footer = () => document.querySelector('[data-slot="link-page-footer"]') as HTMLElement
+    expect(screen.getByText('Angekommen – unten melden')).toBeInTheDocument()
+    expect(footer()).toHaveTextContent('Nächster Schritt · 1 von 3')
+
+    await confirmArrived(user)
+    expect(footer()).toHaveTextContent('«Angekommen» ist beim KP angekommen.')
+
+    rerender(
+      <FeldActions
+        assignment={assignment({ arrived_at: '2026-08-09T20:00:00Z' })}
+        personnelId="p-1"
+        token="tok"
+        messageChips={[]}
+        onReported={vi.fn()}
+      />,
+    )
+    await waitFor(() => expect(footer()).toHaveTextContent('Einsatz beendet melden'))
+  })
+
+  it('is not there for somebody who only drives – they report no status', () => {
+    render({ source: 'driver' })
+    expect(document.querySelector('[data-slot="link-page-footer"]')).toBeNull()
+  })
+})
+
 describe('the Abholung follow-up (decision 24)', () => {
   it('asks "Kommt ihr selbst zurück?" right after Einsatz beendet', async () => {
     const user = userEvent.setup()

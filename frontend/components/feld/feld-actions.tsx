@@ -8,11 +8,16 @@
  * the form is what it does afterwards, and a phone in the rain gets one tap,
  * not a scroll.
  *
+ * **The next step sits in a fixed footer** (6C, phone sweep 24.11.2026): the
+ * chain in the card shows where the crew is, the footer (`LinkPageFooter`)
+ * holds the one button for the step owed now, on screen however far the page
+ * scrolls.
+ *
  * **Angekommen and Einsatz beendet ask first (§18.18).** A misplaced tap on a
  * wet phone cannot be undone from the field — only the KP can clear either of
- * them — so both open the same one-line follow-up panel the Abholung question
- * uses rather than a foreign dialog. One question, one tap. Abholung and Meldung
- * already have their own panels and are left exactly as they were.
+ * them — so the footer turns into the question with «Ja» on top rather than a
+ * foreign dialog. One question, one tap. Abholung and Meldung keep their own
+ * panels in the card.
  *
  * The one piece of real logic here is the **Abholung follow-up** (decision 24):
  * tapping *Einsatz beendet* immediately asks "Kommt ihr selbst zurück?", because
@@ -52,6 +57,11 @@ import { formatPickupSince, formatPickupWaiting } from '@/lib/pickup'
 import { rapportApplies } from '@/lib/rapport-visibility'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message'
+import { LinkPageFooter } from '@/components/link-page/link-page-footer'
+
+/** A panel that opens from the fixed footer lands far from the thumb: bring it into view.
+ *  A callback ref – it runs once, when the panel mounts. */
+const revealPanel = (el: HTMLElement | null) => el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
 
 /**
  * Which follow-up panel is open. Exactly one at a time, so the phone never
@@ -336,6 +346,95 @@ export function FeldActions({
   ]
   const currentIndex = journey.findIndex(step => !step.done)
   const confirmPanelFor: Record<string, FeldPanel> = { arrived: 'confirm-arrived', complete: 'confirm-complete' }
+  const current: JourneyStep | undefined = journey[currentIndex]
+  const confirming = panel === 'confirm-arrived' ? 'arrived' : panel === 'confirm-complete' ? 'complete' : null
+
+  /* --- The fixed footer (6C, phone sweep 24.11.2026) ---------------------
+     The next step is always on screen: Angekommen → Einsatz beendet → Rapport,
+     KP Front's pinned phone-form action. The ask-first confirm (§18.18) grows
+     IN the footer, Ja on top, where the thumb already is. Not while the
+     Abholung question is open (one question at a time) or once nothing is owed. */
+  // The receipt of a status report the footer sent is said in the footer, where the thumb is.
+  const statusReport = delivery.status !== 'idle' && (delivery.action === 'arrived' || delivery.action === 'complete')
+  const reportFailed = statusReport && delivery.status === 'failed'
+  const footerStatus = confirming ? (
+    <p className="font-medium">{confirming === 'arrived' ? t('confirmArrivedQuestion') : t('confirmCompleteQuestion')}</p>
+  ) : reportFailed ? (
+    <p className="flex items-start gap-1.5 text-destructive">
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <span className="min-w-0 break-words">
+        {t('failedTitle', { label: delivery.label })}
+        <span className="block text-xs opacity-90">{t('failed')}</span>
+      </span>
+    </p>
+  ) : statusReport && delivery.status === 'pending' ? (
+    <p className="flex items-center gap-1.5 text-muted-foreground">
+      <ShellLoader className="size-4 shrink-0" />
+      <span className="min-w-0 truncate">{t('sending', { label: delivery.label })}</span>
+    </p>
+  ) : statusReport && delivery.status === 'sent' ? (
+    <p className="flex items-start gap-1.5">
+      <Check className="mt-0.5 size-4 shrink-0" />
+      <span className="min-w-0 break-words">{t('sent', { label: delivery.label })}</span>
+    </p>
+  ) : current ? (
+    <div className="flex items-center gap-2 text-muted-foreground">
+      <span className="flex size-3 shrink-0 items-center justify-center rounded-full border-2 border-action">
+        <span className="size-1 rounded-full bg-action" />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{t('nextStep', { current: currentIndex + 1, total: journey.length })}</span>
+      <button
+        type="button"
+        disabled={busy}
+        className="relative hit-area inline-flex shrink-0 items-center gap-1 font-medium text-foreground underline underline-offset-2 disabled:opacity-50"
+        onClick={() => setPanel(panel === 'message' ? 'none' : 'message')}
+      >
+        <MessageSquare className="size-4" />
+        {t('message')}
+      </button>
+    </div>
+  ) : null
+  const footerAction = confirming ? (
+    <div className="grid gap-2">
+      <Button size="lg" className="h-12 w-full" disabled={busy} onClick={confirming === 'arrived' ? handleArrived : handleComplete}>
+        {isBusy(delivery, confirming) && <ShellLoader className="size-4" />}
+        {confirming === 'arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
+      </Button>
+      <Button size="lg" variant="outline" className="w-full" disabled={busy} onClick={() => setPanel('none')}>
+        {t('cancel')}
+      </Button>
+    </div>
+  ) : reportFailed ? (
+    <Button size="lg" variant="outline" className="h-12 w-full" onClick={() => retryRef.current?.()}>
+      <RefreshCw className="size-4" />
+      {t('retry')}
+    </Button>
+  ) : current?.key === 'rapport' ? (
+    onOpenRapport ? (
+      /* The one step whose form lives on this page: the button carries the eye
+         there (the form scrolls to its Kurzbericht and puts the caret in it). */
+      <Button size="lg" className="h-12 w-full" onClick={onOpenRapport}>
+        <FileText className="size-4" />
+        {t('rapportAction')}
+      </Button>
+    ) : null
+  ) : current ? (
+    <Button size="lg" className="h-12 w-full" disabled={busy} onClick={() => setPanel(confirmPanelFor[current.key])}>
+      {isBusy(delivery, current.key === 'arrived' ? 'arrived' : 'complete') ? (
+        <ShellLoader className="size-4" />
+      ) : current.key === 'arrived' ? (
+        <MapPin className="size-4" />
+      ) : (
+        <Flag className="size-4" />
+      )}
+      {current.actionLabel}
+    </Button>
+  ) : null
+  const footer =
+    isCrew && footerAction && panel !== 'pickup-followup' ? (
+      <LinkPageFooter status={footerStatus} liveStatus>{footerAction}</LinkPageFooter>
+    ) : null
+  const receiptInFooter = footer !== null && statusReport
 
   /* --- The follow-up (decision 24) ---------------------------------------
      Rendered INSIDE the chain, directly under «Beendet gemeldet · hh:mm» —
@@ -346,7 +445,7 @@ export function FeldActions({
      because the vehicle leaving without the crew (driver called away) is
      rare but real. */
   const pickupFollowup = (
-    <div className="mt-2 rounded-lg border border-border bg-background p-3 space-y-3">
+    <div ref={revealPanel} className="mt-2 rounded-lg border border-border bg-background p-3 space-y-3">
       <p className="text-sm font-medium">{tPickup('followupQuestion')}</p>
       {vehiclesOnSite.length > 0 && (
         <p className="text-xs text-muted-foreground">
@@ -395,7 +494,6 @@ export function FeldActions({
           <span aria-hidden className="absolute bottom-2 left-[7px] top-2 w-0.5 bg-muted-foreground/70" />
           {journey.map((step, index) => {
             const isCurrent = index === currentIndex
-            const confirmOpen = panel === confirmPanelFor[step.key]
             return (
               <li key={step.key} className="relative flex items-start gap-2.5">
                 {/* Marker, three states in a 16px slot centred on the connector:
@@ -428,66 +526,14 @@ export function FeldActions({
                       {step.doneLabel}
                       {step.time ? <span className="tabular-nums"> · {step.time}</span> : null}
                     </p>
+                  ) : isCurrent && (step.key !== 'rapport' || onOpenRapport) ? (
+                    /* The step owed now. Its button is in the fixed footer (6C, phone
+                       sweep 24.11.2026), so the chain only points there. */
+                    <p className="pt-px text-base font-semibold">
+                      {step.key === 'rapport' ? t('rapportBelow', { step: step.name }) : t('currentBelow', { step: step.name })}
+                    </p>
                   ) : step.key === 'rapport' ? (
-                    isCurrent && onOpenRapport ? (
-                      /* The one step whose form lives further down the page —
-                         the button carries the eye there instead of a passive
-                         «danach:» that nobody found. */
-                      <Button
-                        size="lg"
-                        className="h-12 w-full"
-                        onClick={onOpenRapport}
-                      >
-                        <FileText className="size-4" />
-                        {t('rapportAction')}
-                      </Button>
-                    ) : (
-                      <p className="pt-px text-sm text-muted-foreground">{t('rapportNext')}</p>
-                    )
-                  ) : confirmOpen ? (
-                    /* The confirmation grows IN PLACE of the button — it can
-                       never land below the fold, and the learned gesture stays
-                       "tap where you were looking". Ja on top. */
-                    <div className="space-y-2 rounded-lg border border-border bg-background p-3">
-                      <p className="text-sm font-medium">
-                        {step.key === 'arrived' ? t('confirmArrivedQuestion') : t('confirmCompleteQuestion')}
-                      </p>
-                      <Button
-                        size="lg"
-                        className="w-full"
-                        disabled={busy}
-                        onClick={step.key === 'arrived' ? handleArrived : handleComplete}
-                      >
-                        {isBusy(delivery, step.key === 'arrived' ? 'arrived' : 'complete') && (
-                          <ShellLoader className="size-4" />
-                        )}
-                        {step.key === 'arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
-                      </Button>
-                      <Button size="lg" variant="outline" className="w-full" disabled={busy} onClick={() => setPanel('none')}>
-                        {t('cancel')}
-                      </Button>
-                    </div>
-                  ) : isCurrent ? (
-                    /* The step's name, and the one pressable thing directly
-                       under it — label and button belong to each other. */
-                    <>
-                      <p className="text-base font-semibold">{step.name}</p>
-                      <Button
-                        size="lg"
-                        className="mt-1.5 h-12 w-full"
-                        disabled={busy}
-                        onClick={() => setPanel(confirmPanelFor[step.key])}
-                      >
-                        {isBusy(delivery, step.key === 'arrived' ? 'arrived' : 'complete') ? (
-                          <ShellLoader className="size-4" />
-                        ) : step.key === 'arrived' ? (
-                          <MapPin className="size-4" />
-                        ) : (
-                          <Flag className="size-4" />
-                        )}
-                        {step.actionLabel}
-                      </Button>
-                    </>
+                    <p className="pt-px text-sm text-muted-foreground">{t('rapportNext')}</p>
                   ) : (
                     /* Not this step's turn, but never a trap: a crew that
                        skipped «Angekommen» can still report beendet through
@@ -522,21 +568,21 @@ export function FeldActions({
           answer has to outlive it. `aria-live` because on a phone this line is
           often the only thing that changed. */}
       <div aria-live="polite" role="status">
-        {delivery.status === 'pending' && (
+        {!receiptInFooter && delivery.status === 'pending' && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <ShellLoader className="size-4 shrink-0" />
             {t('sending', { label: delivery.label })}
           </p>
         )}
 
-        {delivery.status === 'sent' && (
+        {!receiptInFooter && delivery.status === 'sent' && (
           <p className="flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-sm text-foreground">
             <Check className="size-4 shrink-0" />
             <span className="min-w-0 break-words">{t('sent', { label: delivery.label })}</span>
           </p>
         )}
 
-        {delivery.status === 'failed' && (
+        {!receiptInFooter && delivery.status === 'failed' && (
           <div className="space-y-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <p className="flex items-start gap-2">
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -631,10 +677,6 @@ export function FeldActions({
         </button>
       </div>
 
-      {/* The ask-first confirms (§18.18) render IN the journey chain above —
-          in place of the button they confirm, so they can never sit below the
-          fold. Ja on top, unchanged. */}
-
       {/* --- Abholung, opened deliberately rather than as a follow-up --------
           Asking only. The "Abgeholt" half of this panel was removed after the
           first field test (§18.9): nobody sitting in the car that just picked
@@ -661,7 +703,7 @@ export function FeldActions({
 
       {/* --- Freitext-Meldung ------------------------------------------------ */}
       {panel === 'message' && (
-        <div className="rounded-lg border border-border p-3 space-y-3">
+        <div ref={revealPanel} className="rounded-lg border border-border p-3 space-y-3">
           <p className="text-sm font-medium">{t('messageTitle')}</p>
           {/* The two requests the KP has to ACT on, structured (R13): what and
               how many, so the board reads «Tauchpumpe ×2», not prose. Fixed
@@ -824,6 +866,8 @@ export function FeldActions({
           </div>
         </div>
       )}
+
+      {footer}
 
       {/* --- What was asked, and what the KP did about it (R13) -------------
           Read off the KP's real actions: «Vom KP gesehen» once somebody closed

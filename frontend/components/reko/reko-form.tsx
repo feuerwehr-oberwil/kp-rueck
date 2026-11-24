@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Binoculars, MapPin, Check, CircleCheck } from 'lucide-react'
+import { AlertCircle, Binoculars, MapPin, Check, CircleCheck, CloudCheck, CloudOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation } from '@/lib/api-client'
 import { ApiError } from '@/lib/api/types'
@@ -543,7 +543,8 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
         type="button"
         onClick={handleMarkArrived}
         disabled={isMarkingArrived || !!arrivedAt}
-        variant={arrivedAt ? "secondary" : "default"}
+        // Outline, not ink: the send in the footer is the page's one main button (9C).
+        variant={arrivedAt ? "secondary" : "outline"}
         size="lg"
         className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : ''}`}
       >
@@ -584,49 +585,47 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
           remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
         }}
         footer={
-          /* Three honest states instead of one friendly lie. The question at a
-             Schadenplatz is never «wurde gespeichert?» — localStorage answers
-             that on every keystroke — it is whether the KP has it or whether it
-             is still on this phone. «Jetzt zum KP senden» is the same button
-             the Rapport form calls `sendChanges`; one pattern, two forms. */
+          /* Three honest states instead of one friendly lie, one line each in the fixed
+             footer (9C). The question at a Schadenplatz is never «wurde gespeichert?» –
+             localStorage answers that on every keystroke – it is whether the KP has it or
+             whether it is still on this phone. «Jetzt senden» is the same action the Rapport
+             form calls `sendChanges`; one pattern, two forms. */
           !unsent || !dirty ? (
-            <div className="space-y-1 text-center">
-              {lastSaved && !dirty && (
-                <p className="text-sm">
-                  {t('syncedAt', {
-                    time: formatTime(lastSaved, intlLocale),
-                  })}
-                </p>
+            <p className="flex items-center gap-2">
+              {lastSaved ? (
+                <>
+                  <CloudCheck className={`h-4 w-4 shrink-0 ${dirty ? 'text-muted-foreground' : 'text-success'}`} aria-hidden />
+                  <span className="min-w-0 truncate">{t('kpStand', { time: formatTime(lastSaved, intlLocale) })}</span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">{t('draftLive')}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">{t('autoSave')}</span>
               )}
-              <p className="text-xs text-muted-foreground">{lastSaved && !dirty ? t('syncedHint') : t('autoSave')}</p>
-            </div>
+            </p>
           ) : online ? (
-            <div className="space-y-2">
-              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">
-                <p className="font-medium">{t('unsentTitle')}</p>
-                <p className="mt-0.5">
-                  {lastSaved
-                    ? t('unsentBody', {
-                        time: formatTime(lastSaved, intlLocale),
-                      })
-                    : t('unsentBodyNever')}
-                </p>
-                <p className="mt-1 text-xs opacity-90">{t('unsentReassurance')}</p>
-              </div>
-              <Button type="button" className="w-full" disabled={isSaving} onClick={() => saveDraft()}>
+            <div className="flex items-center gap-2 text-warning-foreground">
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
+              <p className="min-w-0 flex-1">
+                <span className="block font-medium">{t('unsentTitle')}</span>
+                <span className="block text-xs">
+                  {lastSaved ? t('kpStand', { time: formatTime(lastSaved, intlLocale) }) : t('kpNothing')}
+                </span>
+              </p>
+              <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={isSaving} onClick={() => saveDraft()}>
                 {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
-                {t('sendNow')}
+                {t('sendNowShort')}
               </Button>
             </div>
           ) : (
-            /* No network is not a fault and gets no red: it is a cellar, and it
-               ends by itself. The one instruction that matters is to leave the
-               form open, because closing it is what would actually cost the
-               text. */
-            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-              <p className="font-medium">{t('offlineTitle')}</p>
-              <p className="mt-0.5">{t('offlineBody')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('offlineHint')}</p>
+            /* No network is not a fault and gets no red: it is a cellar, and it ends by
+               itself. The one instruction that matters is to leave the form open, because
+               closing it is what would actually cost the text. */
+            <div className="flex items-start gap-2">
+              <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" aria-hidden />
+              <p className="min-w-0">
+                <span className="block font-medium">{t('offlineTitle')}</span>
+                <span className="block text-xs text-muted-foreground">{t('offlineHint')}</span>
+              </p>
             </div>
           )
         }
