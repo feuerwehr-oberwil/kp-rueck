@@ -45,6 +45,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       material_name_suggestions: [],
       personnel_candidates: [],
       vehicle_candidates: [],
+      vehicle_drivers: {},
     },
     ...overrides,
   }

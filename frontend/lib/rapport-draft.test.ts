@@ -81,6 +81,7 @@ function rapport(overrides: Partial<ApiSchadenplatzRapport> = {}): ApiSchadenpla
       board_personnel_count: 6,
       material_name_suggestions: ['Nassauger', 'Tauchpumpe TP-4'],
       personnel_candidates: [],
+      vehicle_drivers: {},
       vehicle_candidates: [],
     },
     ...overrides,
