@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, waitFor, within, fireEvent } from '@testing-library/react'
+import { cleanup, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { toast } from 'sonner'
@@ -183,6 +183,16 @@ describe('Einstellungen › Telefon — nur Ansicht, ausser «Dieses Gerät»', 
     openSection(section)
     expect(screen.queryByRole('note')).toBeNull()
     expect(document.querySelector('fieldset:disabled')).toBeNull()
+  })
+
+  // The phone sweep 24.11.2026: a bare /settings opened on «Allgemein», all of it disabled.
+  it('opens a bare /settings on «Dieses Gerät», a section link still on its section', () => {
+    phone.current = true
+    renderWithIntl(<SettingsPage />)
+    expect(screen.getAllByRole('combobox')[0]).toHaveTextContent('Dieses Gerät')
+    cleanup()
+    openSection('general')
+    expect(screen.getAllByRole('combobox')[0]).toHaveTextContent('Allgemein')
   })
 
   it('Personal: the line, then its own read-only list whose search still works', async () => {

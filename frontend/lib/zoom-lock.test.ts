@@ -81,6 +81,13 @@ describe('zoom lock – the declarative half', () => {
     expect(layout).toContain('<ZoomLock />')
   })
 
+  // Without it iOS reports every env(safe-area-inset-*) as 0 (phone sweep 24.11.2026 #14).
+  it('covers the screen, so the safe-area paddings count – on the board and the public pages', async () => {
+    const { viewport: reading } = await import('@/components/link-page/reading-layout')
+    expect(APP_VIEWPORT.viewportFit).toBe('cover')
+    expect(reading.viewportFit).toBe('cover')
+  })
+
   it('has the CSS half: pan-only touch on <html>, small text steps lifted to 16px on fields', () => {
     const css = readFileSync(resolve(FRONTEND, 'app/globals.css'), 'utf8')
     expect(css).toContain('html:not(:has([data-page-zoom])) {')
