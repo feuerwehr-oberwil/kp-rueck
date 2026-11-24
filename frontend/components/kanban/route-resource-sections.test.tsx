@@ -46,3 +46,32 @@ describe("RouteResourceSections — driverless route vehicle", () => {
     expect(screen.queryByRole("button", { name: /Fahrer für/ })).not.toBeInTheDocument()
   })
 })
+
+describe("RouteResourceSections — the vehicle chip menu (owner pick 2B)", () => {
+  it("«Fahrer ändern …» opens the driver picker, «Fahrzeug bleibt vor Ort» writes the route flag", async () => {
+    const onPickDriver = vi.fn()
+    const onSetDriverStay = vi.fn()
+    renderSections({
+      resources: { ...resources, vehicles: [{ assignmentId: "a2", resourceId: "v2", name: "Pio", driverStay: false }] },
+      vehicleDrivers: new Map([["v2", { name: "Meier", personnelId: "p-meier" }]]),
+      onPickDriver,
+      onSetDriverStay,
+    })
+    await userEvent.click(screen.getByRole("button", { name: /^Pio ?\(Meier\)$/ }))
+    const driverRow = await screen.findByRole("menuitem", { name: /^Fahrer ändern …/ })
+    expect(driverRow).toHaveTextContent("Meier")
+    await userEvent.click(driverRow)
+    expect(onPickDriver).toHaveBeenCalledWith({ resourceId: "v2", name: "Pio" })
+
+    await userEvent.click(screen.getByRole("button", { name: /^Pio ?\(Meier\)$/ }))
+    const stay = await screen.findByRole("menuitemcheckbox", { name: "Fahrzeug bleibt vor Ort" })
+    expect(stay).toHaveAttribute("aria-checked", "false")
+    await userEvent.click(stay)
+    expect(onSetDriverStay).toHaveBeenCalledWith("a2", true)
+  })
+
+  it("read-only: no chip menu", () => {
+    renderSections({ vehicleDrivers: new Map(), readOnly: true, onPickDriver: vi.fn(), onSetDriverStay: vi.fn() })
+    expect(screen.queryByRole("button", { name: "TLF" })).not.toBeInTheDocument()
+  })
+})

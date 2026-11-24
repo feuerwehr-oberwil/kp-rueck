@@ -10,6 +10,7 @@ import type {
   BulkCategorySortOrderUpdate,
   ApiPersonnel,
   ApiPersonnelListItem,
+  ApiCheckInResponse,
   ApiCheckInStats,
   ApiPersonnelCreate,
   ApiPersonnelUpdate,
@@ -115,16 +116,29 @@ export class PersonnelApi {
     )
   }
 
-  async checkInPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+  /** `resume`: the board's undo of its own check-out – the `checked_out_at` that check-out
+   *  answered. The same stint continues («anwesend seit» and the plan kept); a 409 when that
+   *  departure is gone (somebody checked the person in or out since). */
+  async checkInPersonnelForEvent(
+    personnelId: string,
+    eventId: string,
+    { resume }: { resume?: string } = {},
+  ): Promise<ApiPersonnel> {
     return httpRequest<ApiPersonnel>(
-      `/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}`,
+      `/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}${resume ? `&resume=${encodeURIComponent(resume)}` : ''}`,
       { method: 'POST' }
     )
   }
 
-  async checkOutPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
-    return httpRequest<ApiPersonnel>(
-      `/api/personnel/check-in/${personnelId}/out?event_id=${encodeURIComponent(eventId)}`,
+  /** `onlyIfFree`: the person popover's check-out without a question – a 409 when an
+   *  assignment or a function binds the person after all. The Appell leaves it off. */
+  async checkOutPersonnelForEvent(
+    personnelId: string,
+    eventId: string,
+    { onlyIfFree = false }: { onlyIfFree?: boolean } = {},
+  ): Promise<ApiCheckInResponse> {
+    return httpRequest<ApiCheckInResponse>(
+      `/api/personnel/check-in/${personnelId}/out?event_id=${encodeURIComponent(eventId)}${onlyIfFree ? '&only_if_free=true' : ''}`,
       { method: 'POST' }
     )
   }

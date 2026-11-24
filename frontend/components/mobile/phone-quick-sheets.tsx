@@ -33,6 +33,7 @@ import { usePersonPlaces } from '@/lib/hooks/use-person-matcher'
 import { usePrintBoard } from '@/lib/hooks/use-print-board'
 import { useStationCapabilities } from '@/lib/hooks/use-station-capabilities'
 import { getIncidentRefParts } from '@/lib/incident-types'
+import { personNowLink } from '@/lib/detail-target'
 
 export type PhoneQuickSheet = 'links' | 'attendance' | 'journal' | 'personnel' | 'crew' | 'vehicles' | 'print'
 
@@ -130,6 +131,16 @@ export function PhoneQuickSheets({ open, onOpenChange }: PhoneQuickSheetsProps) 
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={settings.fatigue_hours}
+        // «Jetzt» opens the phone Einsatz sheet on the block of the place its line names, as the
+        // desk's does. An Auftrag has no phone surface, so that line stays text.
+        openNowFor={(person) => {
+          const link = personNowLink(person, personEngagements.get(person.id), operations)
+          if (link?.kind !== 'incident') return undefined
+          return () => {
+            close()
+            navigateToIncident(link.targetId, link.target.tab, link.target.section)
+          }
+        }}
       />
       <VehicleStatusSheet open={open === 'vehicles'} onOpenChange={closes('vehicles')} eventId={eventId} />
       <PrintHubSheet

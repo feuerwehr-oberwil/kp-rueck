@@ -23,6 +23,7 @@ import { rapportApplies } from "@/lib/rapport-visibility"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
+import { useVehicleChipMenu } from "@/components/kanban/vehicle-chip-menu"
 import {
   OPERATION_DETAIL_TABS,
   readRememberedTab,
@@ -62,6 +63,7 @@ import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promo
 import { PersonMenuSubtitle } from "@/components/kanban/chip-menu-subtitle"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { FieldReportsRow, FieldMessageThread } from "@/components/kanban/field-reports-row"
+import { FieldReportFlags } from "@/components/kanban/field-report-flags"
 import { FieldRequestList } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
@@ -254,12 +256,13 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge } = useOperations()
+  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko } = useOperations()
   const toggleDriverStay = useToggleDriverStay()
+  const vehicleChipMenu = useVehicleChipMenu()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
   const { materialGroups } = useMaterials()
-  const { groups, getGroupResources } = useGroups()
+  const { groups, getGroupResources, setRouteDriverStay } = useGroups()
   // Releasing a route resource here offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   // The «·» separator has to vanish with the chip, or a closed incident keeps an
@@ -781,6 +784,15 @@ export function OperationDetailContent({
                     driver && naming.inline(driver),
                     driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                   ].filter(Boolean).join(' · ')}
+                  // A click on the chip opens its menu (owner pick 2B, 24.11.2026): the
+                  // driver picker, the stay flag, «Fahrzeug freigeben».
+                  menuActions={canEdit ? vehicleChipMenu({
+                    driver,
+                    onPickDriver: () => requestVehicleDriver({ vehicleId, vehicleName }),
+                    driverStay: assignmentId ? !!driverStay : undefined,
+                    onToggleStay: () => toggleDriverStay(operation.id, vehicleId),
+                  }) : undefined}
+                  mouseMenu={canEdit ? 'click' : undefined}
                 >
                   {/* Two halves that wrap as wholes, like the card's vehicle chip
                       (card-resources.tsx): WHICH vehicle — «Name · Funkrufname» —
@@ -1440,6 +1452,9 @@ export function OperationDetailContent({
             ]}
           />
 
+          {/* The card menu's «Reko vor Ort» / «Abholung nötig» (owner, 24.11.2026). */}
+          <FieldReportFlags operation={operation} disabled={!canEdit} />
+
           {/* Status — a row under Merkmale like Einsatzart / Priorität (owner pick
               U11, 08.11.2026): the chip block that used to open the resources
               column pushed «Kräfte» under the laptop's footer, and the board moves
@@ -1605,6 +1620,7 @@ export function OperationDetailContent({
                 onUnassign={(assignmentId) => void release.releaseRouteResource(auftrag.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
                 onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
+                onSetDriverStay={(assignmentId, driverStay) => void setRouteDriverStay(auftrag.id, assignmentId, driverStay)}
                 driversKnown={vehicleDriversLoaded}
                 readOnly={!canEdit || !onAssignResource}
               />
@@ -1688,15 +1704,35 @@ export function OperationDetailContent({
                 <div>
                   <DetailField
                     label={t('common.reko')}
-                    action={canAssignReko ? (
-                      <button
-                        type="button"
-                        className={ROW_ACTION}
-                        onClick={() => setRekoDialogOpen(true)}
-                      >
-                        <ArrowRightLeft className="size-3" />
-                        {assignedRekoPersonnel ? t('common.switch') : t('common.assign')}
-                      </button>
+                    action={canEdit && (canAssignReko || operation.assignedReko) ? (
+                      <span className="flex items-center gap-3">
+                        {canAssignReko && (
+                          <button
+                            type="button"
+                            className={ROW_ACTION}
+                            onClick={() => setRekoDialogOpen(true)}
+                          >
+                            <ArrowRightLeft className="size-3" />
+                            {assignedRekoPersonnel ? t('common.switch') : t('common.assign')}
+                          </button>
+                        )}
+                        {/* The card chip's ✕ (`removeReko`), so the detail need not be
+                            closed to find the card. Releasing stays possible on a closed
+                            Einsatz; assigning does not (`canAssignReko`). Greyed out until
+                            the row's id is known (its assign POST still in flight). */}
+                        {operation.assignedReko && (
+                          <button
+                            type="button"
+                            className={ROW_ACTION}
+                            disabled={!operation.assignedReko.assignmentId}
+                            onClick={() => removeReko(operation.id)}
+                            title={t(operation.assignedReko.assignmentId ? 'common.removeNamed' : 'common.rekoStillSaving', { name: operation.assignedReko.name })}
+                          >
+                            <UserMinus className="size-3" />
+                            {t('chipMenu.remove')}
+                          </button>
+                        )}
+                      </span>
                     ) : undefined}
                   >
                     {assignedRekoPersonnel ? (

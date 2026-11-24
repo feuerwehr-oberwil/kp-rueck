@@ -16,7 +16,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, EventAttendance, IncidentGroup, IncidentGroupAssignment, Personnel
+from app.models import Event, EventAttendance, EventSpecialFunction, IncidentGroup, IncidentGroupAssignment, Personnel
 from app.services.tokens import generate_checkin_token, generate_link_token
 
 # ============================================
@@ -300,6 +300,100 @@ async def test_checkout_not_checked_in(client: AsyncClient, valid_token: str, te
     response = await client.post(f"/api/personnel/check-in/{person.id}/out?token={valid_token}")
     # Should handle gracefully
     assert response.status_code in [200, 400, 404]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_resume_undoes_a_board_check_out(editor_client: AsyncClient, test_event: Event, test_personnel):
+    """The board's «Rückgängig»: back in, with the same «anwesend seit»."""
+    person = test_personnel[0]
+    query = {"event_id": str(test_event.id)}
+    first = await editor_client.post(f"/api/personnel/check-in/{person.id}/in", params=query)
+    out = await editor_client.post(f"/api/personnel/check-in/{person.id}/out", params=query)
+
+    response = await editor_client.post(
+        f"/api/personnel/check-in/{person.id}/in", params={**query, "resume": out.json()["checked_out_at"]}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["checked_in"] is True
+    assert response.json()["checked_out_at"] is None
+    assert response.json()["checked_in_at"] == first.json()["checked_in_at"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_resume_of_a_departure_that_is_gone_is_409(editor_client: AsyncClient, test_event: Event, test_personnel):
+    """Somebody checked the person in and out again: the old undo is refused, not replayed."""
+    person = test_personnel[0]
+    query = {"event_id": str(test_event.id)}
+    path = f"/api/personnel/check-in/{person.id}"
+    await editor_client.post(f"{path}/in", params=query)
+    out = await editor_client.post(f"{path}/out", params=query)
+    await editor_client.post(f"{path}/in", params=query)
+    await editor_client.post(f"{path}/out", params=query)
+
+    response = await editor_client.post(f"{path}/in", params={**query, "resume": out.json()["checked_out_at"]})
+
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_check_out_somebody_else_already_made_is_not_ours_to_undo(
+    editor_client: AsyncClient, test_event: Event, test_personnel
+):
+    """Operator A checked the person out; B's stale popover checks out again: 200, but
+    `changed` is false – B gets no undo that would reopen A's departure."""
+    person = test_personnel[0]
+    query = {"event_id": str(test_event.id)}
+    path = f"/api/personnel/check-in/{person.id}"
+    await editor_client.post(f"{path}/in", params=query)
+    first = await editor_client.post(f"{path}/out", params={**query, "only_if_free": "true"})
+
+    again = await editor_client.post(f"{path}/out", params={**query, "only_if_free": "true"})
+
+    assert first.json()["changed"] is True
+    assert again.status_code == 200
+    assert again.json()["changed"] is False
+    assert again.json()["checked_out_at"] == first.json()["checked_out_at"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_resume_through_the_link_is_a_new_stint(client: AsyncClient, valid_token: str, test_personnel):
+    """The link has no check-out to take back: `resume` changes nothing there."""
+    person = test_personnel[0]
+    path = f"/api/personnel/check-in/{person.id}"
+    first = await client.post(f"{path}/in", params={"token": valid_token})
+    out = await client.post(f"{path}/out", params={"token": valid_token})
+
+    response = await client.post(f"{path}/in", params={"token": valid_token, "resume": out.json()["checked_out_at"]})
+
+    assert response.status_code == 200
+    assert response.json()["checked_in"] is True
+    assert response.json()["checked_in_at"] != first.json()["checked_in_at"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_only_if_free_refuses_a_bound_person(
+    editor_client: AsyncClient, db_session, test_event: Event, test_personnel
+):
+    """The popover's question-less check-out: 409 for a person with a function; plain call goes through."""
+    person = test_personnel[0]
+    query = {"event_id": str(test_event.id)}
+    path = f"/api/personnel/check-in/{person.id}"
+    await editor_client.post(f"{path}/in", params=query)
+    db_session.add(EventSpecialFunction(event_id=test_event.id, personnel_id=person.id, function_type="magazin"))
+    await db_session.commit()
+
+    refused = await editor_client.post(f"{path}/out", params={**query, "only_if_free": "true"})
+    assert refused.status_code == 409
+
+    confirmed = await editor_client.post(f"{path}/out", params=query)
+    assert confirmed.status_code == 200
+    assert confirmed.json()["checked_in"] is False
 
 
 # ============================================

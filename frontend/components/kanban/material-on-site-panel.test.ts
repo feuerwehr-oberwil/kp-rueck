@@ -24,6 +24,7 @@ function material(overrides: Partial<Material> = {}): Material {
 function at(overrides: Partial<MaterialOnSiteLocation> = {}): MaterialOnSiteLocation {
   return {
     incidentId: 'incident-1',
+    assignmentId: 'assignment-1',
     address: 'Hauptstrasse 1',
     since: '2026-08-09T18:00:00Z',
     ...overrides,
@@ -42,6 +43,7 @@ describe('selectMaterialOnSite', () => {
         materialId: 'material-1',
         name: 'Tauchpumpe 1',
         incidentId: 'incident-1',
+        assignmentId: 'assignment-1',
         address: 'Hauptstrasse 1',
         since: new Date('2026-08-09T18:00:00Z'),
       },

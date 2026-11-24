@@ -96,6 +96,29 @@ describe('CrewDutySheet', () => {
     expect(screen.getByText('3 anwesend · 2 über 4h')).toBeInTheDocument()
   })
 
+  it('opens «Jetzt» from the desk column and from the phone line, for a place only', async () => {
+    getEventPersonnelActivity.mockResolvedValue([])
+    const open = vi.fn()
+    renderWithIntl(
+      <CrewDutySheet
+        open
+        onOpenChange={() => {}}
+        eventId="event-1"
+        personnel={[eva, anna, hans]}
+        personEngagements={engagements}
+        fatigueHours={4}
+        openNowFor={(p) => (engagements.has(p.id) ? () => open(p.id) : undefined)}
+      />,
+    )
+    const [hansRow, annaRow] = screen.getAllByRole('listitem')
+    // The desk column and the phone line (CSS picks one per width): both open the same place.
+    const links = within(hansRow).getAllByRole('button', { name: 'Langegasse 28' })
+    expect(links).toHaveLength(2)
+    for (const link of links) link.click()
+    expect(open.mock.calls).toEqual([[hans.id], [hans.id]])
+    expect(within(annaRow).queryByRole('button', { name: 'Telefondienst' })).toBeNull()
+  })
+
   it('asks again when an assignment changes, and only then', async () => {
     getEventPersonnelActivity.mockResolvedValue([{ personnel_id: hans.id, assignment_count: 4 }])
     const props = {

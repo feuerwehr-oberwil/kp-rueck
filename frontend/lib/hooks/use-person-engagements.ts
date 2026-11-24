@@ -22,6 +22,9 @@
  * 240px row as «Langegasse 28 (Brandbekä…» (hill climb r22); it stays in `full`,
  * which the row puts in its `title`.
  *
+ * Each entry carries the `link` of the place it names, so Dienstzeiten «Jetzt» opens exactly
+ * what it says (`personNowLink` in lib/detail-target.ts).
+ *
  * Keyed by personnel id — two people may share a name. Computed once per board
  * render and passed down as a prop, so the memoized person cards do not each
  * subscribe to the whole operations context.
@@ -33,6 +36,7 @@ import { useTranslations } from 'next-intl'
 import { auftragByResource } from '@/lib/auftrag-by-resource'
 import { useGroups } from '@/lib/contexts/groups-context'
 import { useOperations } from '@/lib/contexts/operations-context'
+import { RESOURCES_TARGET, type PersonNowLink } from '@/lib/detail-target'
 import { getIncidentRefLabel, getIncidentRefParts } from '@/lib/incident-types'
 
 export interface PersonEngagement {
@@ -40,6 +44,8 @@ export interface PersonEngagement {
   short: string
   /** Place + «(Einsatzart: Meldung)», untruncated, for hover titles. */
   full: string
+  /** Where that place opens: the Einsatz on Ressourcen, or the Auftrag. */
+  link: PersonNowLink
 }
 
 export function usePersonEngagements(): Map<string, PersonEngagement> {
@@ -52,7 +58,11 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
     for (const op of operations) {
       // A completed incident has released its crew, so `crew` is empty there —
       // no stale engagement survives a closed card.
-      const label = { short: getIncidentRefParts(op).head, full: getIncidentRefLabel(op, 1000) }
+      const label: PersonEngagement = {
+        short: getIncidentRefParts(op).head,
+        full: getIncidentRefLabel(op, 1000),
+        link: { kind: 'incident', targetId: op.id, target: RESOURCES_TARGET },
+      }
       for (const { personnelId } of op.crew) {
         if (!map.has(personnelId)) map.set(personnelId, label)
       }
@@ -67,11 +77,14 @@ export function usePersonEngagements(): Map<string, PersonEngagement> {
       map.set(person.id, {
         short: `${role} · ${getIncidentRefParts(op).head}`,
         full: `${role} · ${getIncidentRefLabel(op, 1000)}`,
+        link: { kind: 'incident', targetId: op.id, target: RESOURCES_TARGET },
       })
     }
     // Route-level crew: the same lookup the wall's destination column reads.
     for (const [personId, group] of auftragByResource(groups, 'personnel')) {
-      if (!map.has(personId)) map.set(personId, { short: group.name, full: group.name })
+      if (!map.has(personId)) {
+        map.set(personId, { short: group.name, full: group.name, link: { kind: 'route', targetId: group.id } })
+      }
     }
     return map
   }, [operations, personnel, groups, t])

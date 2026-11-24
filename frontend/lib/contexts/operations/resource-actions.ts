@@ -99,11 +99,17 @@ export function createResourceActions(board: BoardMutationContext) {
     return Promise.resolve(true)
   }
 
-  const removeReko = (operationId: string) => {
+  /** Releases exactly the row the board shows. No release before its id is known (an
+   *  optimistic assign whose POST has not answered): that POST may still be refused, and a
+   *  release without an id would take whatever active row the person has there.
+   *  `expectedAssignmentId` (⌘K's undo): only while the card still shows that row. */
+  const removeReko = (operationId: string, expectedAssignmentId?: string) => {
     const operation = operations.find(op => op.id === operationId)
     if (!operation || !operation.assignedReko) return
 
-    const rekoPersonId = operation.assignedReko.id
+    const { id: rekoPersonId, assignmentId } = operation.assignedReko
+    if (isLoaded && !assignmentId) return
+    if (expectedAssignmentId !== undefined && assignmentId !== expectedAssignmentId) return
 
     armAssignmentCooldown()
 
@@ -112,9 +118,8 @@ export function createResourceActions(board: BoardMutationContext) {
       ops.map((op) => (op.id === operationId ? { ...op, assignedReko: null } : op))
     )
 
-    if (isLoaded) {
-      // Use the unassign reko API
-      apiClient.unassignRekoPersonnel(operationId, rekoPersonId)
+    if (isLoaded && assignmentId) {
+      apiClient.unassignRekoPersonnel(operationId, rekoPersonId, assignmentId)
         .catch(err => {
           console.error("Failed to unassign reko:", err)
           toast.error(translateOutsideReact('notifications.operations.removeFailedTitle'), { description: translateOutsideReact('notifications.operations.removeRekoFailedDescription') })
@@ -318,10 +323,16 @@ export function createResourceActions(board: BoardMutationContext) {
     const currentOp = operations.find(op => op.id === operationId)
     const shouldAutoMoveToReko = currentOp?.status === "incoming"
 
+    // This request's own entry, and its token: the answer lands only while the card still
+    // holds exactly this object. Assign A, switch to B, back to A – a late answer to the
+    // first A would otherwise install the id of a row the switch has already released.
+    const optimistic: NonNullable<Operation["assignedReko"]> = { id: personId, name: personName }
+    const isOurs = (op: Operation) => op.id === operationId && op.assignedReko === optimistic
+
     setOperations((ops) =>
       ops.map((op) => {
         if (op.id !== operationId) return op
-        const updated = { ...op, assignedReko: { id: personId, name: personName } }
+        const updated = { ...op, assignedReko: optimistic }
         if (shouldAutoMoveToReko) {
           updated.status = "reko"
           updated.statusChangedAt = new Date()
@@ -331,18 +342,29 @@ export function createResourceActions(board: BoardMutationContext) {
     )
 
     if (isLoaded) {
+      // Settling until the POST answers: ⌘K's dispatch reports (and offers its undo) only
+      // once the row's id is on the card – see `beginAssignmentSettling`.
+      const settled = beginAssignmentSettling()
       try {
-        // Use the reko assignment API (backend auto-moves status to "reko" if eingegangen)
-        await apiClient.assignRekoPersonnel(operationId, personId)
+        // Use the reko assignment API (backend auto-moves status to "reko" if eingegangen).
+        // The row's id makes it releasable (`removeReko`).
+        const assignment = await apiClient.assignRekoPersonnel(operationId, personId)
+        setOperations((ops) =>
+          ops.map((op) =>
+            isOurs(op)
+              ? { ...op, assignedReko: { ...optimistic, assignmentId: assignment.id, purpose: assignment.purpose ?? "reko" } }
+              : op
+          )
+        )
       } catch (err) {
         console.error("Failed to assign reko person:", err)
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
           description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
         })
-        // Revert on error
+        // Revert on error – only our own entry; a later assign on this card stays.
         setOperations((ops) =>
           ops.map((op) => {
-            if (op.id !== operationId) return op
+            if (!isOurs(op)) return op
             const reverted = { ...op, assignedReko: null }
             if (shouldAutoMoveToReko) {
               reverted.status = "incoming" as OperationStatus
@@ -356,6 +378,7 @@ export function createResourceActions(board: BoardMutationContext) {
           description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
         })
       } finally {
+        settled()
         releaseAssignmentCooldown()
       }
     } else {

@@ -13,11 +13,13 @@
  * So every caller here scrolls, rings AND opens the detail — in the side panel,
  * beside the board, which is where a desktop operator reads.
  *
- * Two things stay optional, and they are different questions:
+ * Three things stay optional, and they are different questions:
  *  * `tab` — WHICH part of the detail this click was about (§18.27). A row that
  *    says «Meldung vom Feld» lands on the Feld tab; a device binding in the
  *    material sidebar points at the card and nothing more specific, so it opens
  *    on whatever tab that card was last left on.
+ *  * `section` — a block inside that tab (Übersicht's Ressourcen, say), for a
+ *    caller that knows more than the tab (`lib/detail-target.ts`).
  *  * `allowModal` — whether this click may fall back to the full-screen modal on
  *    a narrow viewport. True for notifications, which are read wherever the
  *    operator is. False for a sidebar binding: on a phone that modal would bury
@@ -25,12 +27,13 @@
  *    device?" is the ringed card, not a modal over it.
  */
 
-import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
+import type { OperationDetailSection, OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 
 const HIGHLIGHT_EVENT = 'kp:incident-highlight'
 
 export interface IncidentHighlightOptions {
   tab?: OperationDetailTab
+  section?: OperationDetailSection
   /** May this open the modal on a narrow viewport? Notifications: yes. */
   allowModal?: boolean
 }
@@ -48,7 +51,7 @@ export function requestIncidentHighlight(
   if (typeof window === 'undefined') return
   window.dispatchEvent(
     new CustomEvent<IncidentHighlightDetail>(HIGHLIGHT_EVENT, {
-      detail: { incidentId, tab: options.tab, allowModal: options.allowModal ?? false },
+      detail: { incidentId, tab: options.tab, section: options.section, allowModal: options.allowModal ?? false },
     })
   )
 }
@@ -59,7 +62,7 @@ export function onIncidentHighlight(
 ): () => void {
   const listener = (event: Event) => {
     const detail = (event as CustomEvent<IncidentHighlightDetail>).detail
-    if (detail?.incidentId) handler(detail.incidentId, { tab: detail.tab, allowModal: detail.allowModal })
+    if (detail?.incidentId) handler(detail.incidentId, { tab: detail.tab, section: detail.section, allowModal: detail.allowModal })
   }
   window.addEventListener(HIGHLIGHT_EVENT, listener)
   return () => window.removeEventListener(HIGHLIGHT_EVENT, listener)

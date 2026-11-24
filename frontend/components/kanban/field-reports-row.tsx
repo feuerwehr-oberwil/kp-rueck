@@ -16,7 +16,11 @@
  * into, and clearing it is a real KP action (the chip does the same job on the
  * card and in the Restliste).
  *
- * **"Reko vor Ort" joins it here, and ONLY here** (plan 26, decision 15). The
+ * The card's right-click menu and the Übersicht's «Funkmeldungen» chips
+ * (`FieldReportFlags`) set the same two flags through the same writes – no
+ * time, no note; those stay here.
+ *
+ * **"Reko vor Ort" joins it here** (plan 26, decision 15). The
  * Reko block used to render its own "vor Ort seit …" line; that line is gone,
  * not linked, because a fact displayed in two places is a fact that will
  * disagree with itself. Same reason it is a control and not just a reading: over
@@ -42,8 +46,9 @@ import { cn } from '@/lib/utils'
 import { DETAIL_CONTROL_INDENT, DetailGroupHeading } from '@/components/kanban/detail-field'
 import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
-import { useOperations, type Operation } from '@/lib/contexts/operations-context'
+import type { Operation } from '@/lib/contexts/operations-context'
 import { useGroups } from '@/lib/contexts/groups-context'
+import { useFieldReportWrites } from '@/lib/hooks/use-field-report-writes'
 import { operationVehicleOnSite } from '@/lib/vehicle-on-site'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
@@ -68,7 +73,6 @@ type Row = 'rekoArrived' | 'pickup'
 
 export function FieldReportsRow({ operation, canEdit = true, only }: FieldReportsRowProps) {
   const t = useTranslations('feld.kp')
-  const { refreshOperations } = useOperations()
   const { personnel } = usePersonnel()
   const { groups, getGroupResources } = useGroups()
   const [saving, setSaving] = useState<Row | null>(null)
@@ -80,37 +84,25 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
 
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
 
+  // The same writes as the card's right-click menu (`useFieldReportWrites`).
+  const writes = useFieldReportWrites()
   const save = useCallback(
     async (row: Row, update: ApiFieldReportUpdate) => {
       setSaving(row)
-      try {
-        await apiClient.setIncidentFieldReport(operation.id, update)
-        await refreshOperations()
-      } catch (error) {
-        console.error('Failed to save field report:', error)
-        toast.error(t('saveFailed'))
-      } finally {
-        setSaving(null)
-      }
+      await writes.saveFieldReport(operation.id, update)
+      setSaving(null)
     },
-    [operation.id, refreshOperations, t],
+    [operation.id, writes],
   )
 
   /** "Reko meldet: vor Ort" — a different table, the same gesture. */
   const saveRekoArrived = useCallback(
     async (at: string | null | undefined) => {
       setSaving('rekoArrived')
-      try {
-        await apiClient.setRekoArrived(operation.id, at)
-        await refreshOperations()
-      } catch (error) {
-        console.error('Failed to save reko arrival:', error)
-        toast.error(t('saveFailed'))
-      } finally {
-        setSaving(null)
-      }
+      await writes.saveRekoArrived(operation.id, at)
+      setSaving(null)
     },
-    [operation.id, refreshOperations, t],
+    [operation.id, writes],
   )
 
   /**

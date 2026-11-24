@@ -64,12 +64,14 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
 
-  // «Rapport erfassen» is a write, so the caret belongs in the Kurzbericht.
-  // Everything that merely opens the same tab to read (a Feldmeldung in the
-  // bell, the green icon on a card that already has one) passes no section.
-  const handleOpenRapport = useCallback((operationId: string) => {
+  // An «Offen» row is «Rapport erfassen», a write, so the caret belongs in the
+  // Kurzbericht. A filed one («Erfasst») is opened to read, like a Feldmeldung in
+  // the bell or the green icon on a card: no section, or the next shortcut types
+  // into a filed report.
+  const handleOpenRapport = useCallback((operationId: string, filed: boolean) => {
     setActiveFooterSheet(null)
-    openIncidentDetail(operationId, 'rapport', 'kurzbericht')
+    if (filed) openIncidentDetail(operationId, 'rapport')
+    else openIncidentDetail(operationId, 'rapport', 'kurzbericht')
   }, [openIncidentDetail, setActiveFooterSheet])
 
   /** Opening the Appell closes the sheet underneath it — two stacked layers for one job

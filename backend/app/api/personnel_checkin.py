@@ -13,6 +13,7 @@ silently outvote the event the operator is looking at.
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Query, Request
@@ -215,6 +216,13 @@ async def check_in(
     request: Request,
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
+    resume: datetime | None = Query(
+        default=None,
+        description=(
+            "Board only: undo the check-out that answered this `checked_out_at` – the same stint"
+            " continues (check-in time and plan kept). 409 when that departure is no longer there."
+        ),
+    ),
     access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
@@ -222,6 +230,8 @@ async def check_in(
     Check in a person (mark as present for the event).
 
     Either a valid check-in token or an editor session with `event_id`.
+    `resume` (editor session only) takes back exactly that check-out instead of starting a
+    new stint, or answers 409 when the person was checked in or out again meanwhile.
     Broadcasts real-time update via WebSocket.
     """
     event_id, current_user = await _resolve_event_and_actor(
@@ -239,7 +249,13 @@ async def check_in(
             personnel_id=personnel_id,
             current_user=current_user,
             request=request,
+            # The link has no «Auschecken» to take back; only the board resumes a stint.
+            resume=resume if current_user is not None else None,
         )
+    except crud.CheckOutChangedError as e:
+        raise HTTPException(
+            status_code=409, detail="Die Anwesenheit hat sich inzwischen geändert – nicht mehr rückgängig zu machen."
+        ) from e
     except ValueError as e:
         logger.warning("Personnel check-in failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
@@ -272,6 +288,10 @@ async def check_out(
     request: Request,
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
+    only_if_free: bool = Query(
+        default=False,
+        description="Board: refuse (409) when an assignment or a function still binds the person",
+    ),
     access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
@@ -282,6 +302,8 @@ async def check_out(
     An assigned person is refused through the phone (it has no way to release the
     assignment) and allowed through the board, which warns first and leaves the
     assignment standing.
+    `only_if_free` is the board's check-out without a question: 409 when the person is
+    bound after all (its view was stale), so it can ask first.
     Broadcasts real-time update via WebSocket.
     """
     event_id, current_user = await _resolve_event_and_actor(
@@ -300,7 +322,10 @@ async def check_out(
             current_user=current_user,
             request=request,
             allow_assigned=current_user is not None,
+            refuse_bound=only_if_free,
         )
+    except crud.PersonStillBoundError as e:
+        raise HTTPException(status_code=409, detail="Die Person ist noch zugewiesen.") from e
     except ValueError as e:
         # Only reachable through the field door now. It used to escape as a 500.
         logger.warning("Personnel check-out failed: %s", e)

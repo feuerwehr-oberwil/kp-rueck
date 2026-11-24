@@ -65,6 +65,10 @@ interface RekoReportSectionProps {
    * sheet and the wall display (touch and distance surfaces with their own type scale).
    */
   dense?: boolean
+  /** Told `true` once the first read answered and the reports are drawn, `false` on unmount.
+   *  The phone sheet waits for it before it scrolls to this block (TAB.8). Pass a stable
+   *  function (a state setter, a `useCallback`): a new one each render reports again. */
+  onLoadedChange?: (loaded: boolean) => void
 }
 
 const POLL_INTERVAL_MS = 5000 // Fallback poll while the socket is down
@@ -75,6 +79,7 @@ export default function RekoReportSection({
   canEdit = false,
   dataSlot,
   dense = false,
+  onLoadedChange,
 }: RekoReportSectionProps) {
   const t = useTranslations('reko.reportSection')
   const tLoading = useTranslations('common')
@@ -167,6 +172,13 @@ export default function RekoReportSection({
     at: filed?.submitted_at ?? null,
   })))
 
+  // The drawn reports' root attaching IS «loaded» – a ref, not an effect on `isLoading`.
+  const loadedRootRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || !onLoadedChange) return
+    onLoadedChange(true)
+    return () => onLoadedChange(false)
+  }, [onLoadedChange])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -177,7 +189,7 @@ export default function RekoReportSection({
 
   if (!canEdit) {
     return (
-      <div className={cn(!dense && 'space-y-2')}>
+      <div ref={loadedRootRef} className={cn(!dense && 'space-y-2')}>
         {dataSlot && <div className={cn(dense && 'mb-2')}>{dataSlot}</div>}
         {filed ? (
           <RekoReportCard report={filed} incidentId={incidentId} onRequestComplete={onRequestComplete} dense={dense} />
@@ -196,7 +208,7 @@ export default function RekoReportSection({
   }
 
   return (
-    <div className={cn(dense ? 'space-y-1' : 'space-y-3')}>
+    <div ref={loadedRootRef} className={cn(dense ? 'space-y-1' : 'space-y-3')}>
       {dataSlot && <div className="mb-2">{dataSlot}</div>}
       {/* Head row: who reported it and when, the one sync line, and the close shortcut
           a «nicht relevant» report offers. */}

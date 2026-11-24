@@ -44,7 +44,7 @@ import { ResizeGrip } from "@/components/ui/resize-grip"
 import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
 import { RekoModusPanel } from "@/components/map/reko-modus-panel"
 import type { RekoRoute } from "@/components/map/reko-route"
-import { openRekosByPerson } from "@/lib/reko-order"
+import { openRekosByPerson, rekoEditorTap } from "@/lib/reko-order"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
@@ -56,6 +56,7 @@ import { MobileBottomNavigation } from "@/components/mobile-bottom-navigation"
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { MobileIncidentDetailSheet } from "@/components/mobile/mobile-incident-detail-sheet"
 import { incidentDetailTarget } from "@/lib/incident-detail"
+import { type DetailTarget } from "@/lib/detail-target"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { isIncidentStatus, isIncidentType, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
@@ -343,18 +344,17 @@ export default function MapPage() {
       const person = personnel.find((p) => p.id === rekoPersonId)
       const operation = operations.find((op) => op.id === incidentId)
       if (!person || !operation) return
-      if (operation.assignedReko?.id === rekoPersonId) {
-        removeReko(incidentId)
-      } else if (operation.assignedReko) {
+      const tap = rekoEditorTap(operation, rekoPersonId)
+      if (tap.kind === "release") removeReko(incidentId)
+      else if (tap.kind === "saving") toast.info(tKanban('common.rekoStillSaving', { name: person.name }))
+      else if (tap.kind === "replace") {
         setRekoOverwrite({
           operationId: incidentId,
-          currentName: operation.assignedReko.name,
+          currentName: tap.current.name,
           nextId: person.id,
           nextName: person.name,
         })
-      } else {
-        assignRekoPersonToOperation(person.id, person.name, incidentId)
-      }
+      } else assignRekoPersonToOperation(person.id, person.name, incidentId)
       return
     }
     if (incidentId === selectedIncidentId) {
@@ -459,18 +459,23 @@ export default function MapPage() {
    *
    * The incident stays selected: a double-click is two clicks first, and the second one would
    * otherwise have toggled the selection off again. Selecting flies the map to it, so on the
-   * phone the sheet opens over a map that already shows the Einsatz.
+   * phone the sheet opens over a map that already shows the Einsatz. `target` is for a pointer
+   * that names a tab (a notification): the board panel opens on it, the phone sheet scrolls to
+   * its block.
    */
   const [phoneDetailId, setPhoneDetailId] = useState<string | null>(null)
+  const [phoneDetailTarget, setPhoneDetailTarget] = useState<DetailTarget | undefined>(undefined)
   const phoneDetailOperation = useMemo(
     () => (phoneDetailId ? operations.find((op) => op.id === phoneDetailId) ?? null : null),
     [phoneDetailId, operations],
   )
-  const openIncidentDetail = useCallback((incidentId: string) => {
+  const openIncidentDetail = useCallback((incidentId: string, detailTarget?: DetailTarget) => {
     setSelectedIncidentId(incidentId)
-    const target = incidentDetailTarget(incidentId, { phone: isMobile })
-    if (target.kind === 'phone-sheet') setPhoneDetailId(target.incidentId)
-    else router.push(target.href)
+    const target = incidentDetailTarget(incidentId, { phone: isMobile, target: detailTarget })
+    if (target.kind === 'phone-sheet') {
+      setPhoneDetailId(target.incidentId)
+      setPhoneDetailTarget(detailTarget)
+    } else router.push(target.href)
   }, [router, isMobile])
   // The phone sheet's «Auf Karte anzeigen» from here: the Lagekarte is this page, so it closes
   // the sheet and flies to the marker instead of loading `/map?highlight=` over itself.
@@ -546,7 +551,7 @@ export default function MapPage() {
   // fallback is the board's side panel on the notification's tab, unchanged.
   useEffect(() => {
     if (!isMobile) return
-    registerNavigateHandler((incidentId) => openIncidentDetail(incidentId))
+    registerNavigateHandler((incidentId, tab, section) => openIncidentDetail(incidentId, tab ? { tab, section } : undefined))
     return () => registerNavigateHandler(null)
   }, [isMobile, registerNavigateHandler, openIncidentDetail])
   // Same move as the board's handler and as the card's own nudge — see the note
@@ -1276,7 +1281,9 @@ export default function MapPage() {
                                           e.stopPropagation()
                                           openIncidentDetail(incident.id)
                                         }}
-                                        className="hidden flex-shrink-0 rounded p-1 hover:bg-background/80 group-hover:block"
+                                        // Always shown on the selected row: hover-only, the row's one
+                                        // visible way in stayed hidden until the pointer found it.
+                                        className={`flex-shrink-0 rounded p-1 hover:bg-background/80 ${isSelected ? 'block' : 'hidden group-hover:block'}`}
                                         aria-label={t('page.showDetails')}
                                       >
                                         <FileText className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1335,6 +1342,7 @@ export default function MapPage() {
             operation={phoneDetailOperation}
             open={!!phoneDetailOperation}
             onOpenChange={(open) => { if (!open) setPhoneDetailId(null) }}
+            target={phoneDetailTarget}
             onShowOnMap={showPhoneDetailOnMap}
             materials={materials}
             formatLocation={formatLocation}

@@ -51,6 +51,7 @@ import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { CheckOutAssignedDialog } from '@/components/attendance/check-out-assigned-dialog'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
 import { DiveraIncomingBlock } from '@/components/kanban/divera-incoming-block'
 import { PlannedTimeClock, PlannedTimePicker, type PlanKind } from '@/components/attendance/planned-time'
@@ -483,14 +484,11 @@ export function AttendanceModal({
         </Dialog>
       )}
 
-      <ConfirmDialog
+      <CheckOutAssignedDialog
         open={!!confirmOut}
         onOpenChange={(next) => !next && setConfirmOut(null)}
-        title={confirmOut ? t('assignedTitle', { name: confirmOut.person.name }) : ''}
-        description={
-          confirmOut ? t('assignedDescription', { name: confirmOut.person.name, where: confirmOut.where }) : ''
-        }
-        confirmText={t('checkOutAnyway')}
+        name={confirmOut?.person.name ?? ''}
+        where={confirmOut?.where ?? ''}
         onConfirm={async () => {
           if (confirmOut) await checkOut(confirmOut.person)
           setConfirmOut(null)

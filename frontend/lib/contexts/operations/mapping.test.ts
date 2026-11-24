@@ -114,7 +114,7 @@ describe("toMaterialOnSite", () => {
   it("indexes the Restliste's tracked material by id, address first, title second", () => {
     const map = toMaterialOnSite({
       material_on_site: [
-        { material_id: "m-1", incident_id: "i-1", location_address: "Hauptstrasse 12", incident_title: "Keller", since: "2026-09-23T09:00:00Z" },
+        { material_id: "m-1", assignment_id: "a-1", incident_id: "i-1", location_address: "Hauptstrasse 12", incident_title: "Keller", since: "2026-09-23T09:00:00Z" },
         { material_id: "m-2", incident_id: "i-2", location_address: null, incident_title: "Baum", since: null },
         { material_id: "m-3", incident_id: "i-3", location_address: null, incident_title: null, since: null },
         { material_id: null, incident_id: "i-1", location_address: null, incident_title: null, since: null },
@@ -122,9 +122,9 @@ describe("toMaterialOnSite", () => {
     } as unknown as ApiEventRestliste)
     expect(map).toEqual(
       new Map([
-        ["m-1", { incidentId: "i-1", address: "Hauptstrasse 12", since: "2026-09-23T09:00:00Z" }],
-        ["m-2", { incidentId: "i-2", address: "Baum", since: null }],
-        ["m-3", { incidentId: "i-3", address: null, since: null }],
+        ["m-1", { incidentId: "i-1", assignmentId: "a-1", address: "Hauptstrasse 12", since: "2026-09-23T09:00:00Z" }],
+        ["m-2", { incidentId: "i-2", assignmentId: null, address: "Baum", since: null }],
+        ["m-3", { incidentId: "i-3", assignmentId: null, address: null, since: null }],
       ]),
     )
   })

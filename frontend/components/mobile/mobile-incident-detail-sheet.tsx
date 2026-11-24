@@ -7,11 +7,16 @@
  * phone looks, the desk works the board. Status is a word, the Meldung is text, the Melder is a
  * `tel:` link – no tap-to-edit, no status select, no WhatsApp export (that stays on the desk).
  * What a phone may still write is intake: «Neuer Einsatz», Übungs-Einsätze, the Appell.
+ *
+ * No tabs: a pointer with a tab (a notification, a `?detail=1&tab=` link) opens the sheet
+ * scrolled to the matching block (`target`, `phoneSheetBlock` in lib/detail-target.ts).
  */
 
+import { useCallback, useRef, useState } from "react"
+import { useScrollBlockIntoView } from "@/lib/hooks/use-scroll-block-into-view"
 import { vehicleLabel } from "@/lib/vehicle-label"
+import { phoneSheetBlock, type DetailTarget } from "@/lib/detail-target"
 import Link from "next/link"
-import { useRef } from "react"
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { formatDurationHours } from "@/lib/duration"
@@ -44,6 +49,7 @@ import { useTranslations } from "next-intl"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
+import { formatClockTime } from "@/lib/incident-time"
 import RekoReportSection from "@/components/reko/reko-report-section"
 import { PhotoViewerProvider } from "@/components/photos/photo-viewer"
 import { getIncidentRefParts } from "@/lib/incident-types"
@@ -53,6 +59,8 @@ interface MobileIncidentDetailSheetProps {
   operation: Operation | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** What the opener pointed at; the sheet scrolls to that block. None = the top. */
+  target?: DetailTarget
   materials: Material[]
   formatLocation: (address: string) => string
   /** Opened ON the Lagekarte: «Auf Karte anzeigen» closes the sheet and the map flies to the
@@ -64,6 +72,7 @@ export function MobileIncidentDetailSheet({
   operation,
   open,
   onOpenChange,
+  target,
   materials,
   formatLocation,
   onShowOnMap,
@@ -79,6 +88,34 @@ export function MobileIncidentDetailSheet({
   // Lagekarte row), read when the sheet takes the focus: a controlled sheet has no Radix trigger
   // to give it back to on close. Only that button: a field focused earlier would pop the keyboard.
   const openerRef = useRef<HTMLElement | null>(null)
+
+  // Land on the block the opener pointed at: the body scrolls so the block's top sits 16px under
+  // the header rule. `target` is a new object per request, so a repeat request scrolls again; one
+  // request scrolls once, and only when its block is drawn – the Reko-Bericht loads after the
+  // sheet opens, and scrolling to its loading line was clamped and never repeated (Sol review I).
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const rekoRef = useRef<HTMLDivElement>(null)
+  const resourcesRef = useRef<HTMLDivElement>(null)
+  // WHICH incident's Bericht is drawn: the sheet can switch incidents while it stays open, and the
+  // first one's «loaded» must not let the scroll land on the next one's loading line.
+  const [rekoReportLoadedFor, setRekoReportLoadedFor] = useState<string | null>(null)
+  const operationId = operation?.id
+  const onRekoReportLoaded = useCallback(
+    (loaded: boolean) => {
+      if (!operationId) return
+      setRekoReportLoadedFor((current) => (loaded ? operationId : current === operationId ? null : current))
+    },
+    [operationId],
+  )
+  const block = open ? phoneSheetBlock(target) : null
+  const blockReady =
+    !!operation && (block !== "reko" || !operation.hasCompletedReko || rekoReportLoadedFor === operation.id)
+  useScrollBlockIntoView(
+    bodyRef,
+    block === "reko" ? rekoRef : block === "resources" ? resourcesRef : null,
+    target,
+    { offset: 16, ready: blockReady },
+  )
 
   // Byte-identical fallback to the raw type value for unknown types
   const typeLabel = (type: string) => (isIncidentType(type) ? t(`types.${type}`) : type)
@@ -137,7 +174,7 @@ export function MobileIncidentDetailSheet({
 
         {/* 16px everywhere: header rule → status, section → section, group → group.
             No bottom padding: the body ends in the shared end fade (below). */}
-        <SheetBody className="space-y-4 px-4 pt-4">
+        <SheetBody ref={bodyRef} className="space-y-4 px-4 pt-4">
           {/* Abholung (decision 24) — the `banner` variant, the same shape the
               desktop detail uses, because this sheet is the phone's detail
               surface. Read-only (`canEdit={false}`): the phone is for looking,
@@ -222,7 +259,7 @@ export function MobileIncidentDetailSheet({
               label (`DetailGroupHeading`: type-label, 14px muted glyph, 8px to the
               chips) – «FAHRZEUGE · 1» like «KRÄFTE · 4»; the title-case 14/500
               heads read as one more item (hill climb r19). 16px between sections. */}
-          <div className="space-y-4">
+          <div ref={resourcesRef} className="space-y-4">
             {/* Vehicles */}
             <div>
               <DetailGroupHeading icon={<Truck className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</DetailGroupHeading>
@@ -336,11 +373,34 @@ export function MobileIncidentDetailSheet({
             )}
           </div>
 
-          {/* Reko Report Section */}
-          {operation.hasCompletedReko && (
+          {/* Reko: who went and since when, then the filed Bericht. The line stands before a
+              Bericht exists too – «Reko vor Ort» points here, and without it the sheet had no
+              Reko block to land on. Read-only, like the rest of the sheet. */}
+          {(operation.assignedReko || operation.rekoArrivedAt || operation.hasCompletedReko) && (
             <>
               <Separator />
-              <RekoReportSection incidentId={operation.id} />
+              <div ref={rekoRef} className="space-y-2">
+                {(operation.assignedReko || operation.rekoArrivedAt) && (
+                  <div>
+                    <DetailGroupHeading icon={<Binoculars className="h-3.5 w-3.5 shrink-0" />}>{tKanban('common.reko')}</DetailGroupHeading>
+                    <p className="text-sm text-foreground break-words">
+                      {operation.assignedReko && (
+                        <PersonName name={operation.assignedReko.name} personnelId={operation.assignedReko.id} />
+                      )}
+                      {operation.rekoArrivedAt && (
+                        <span className="text-muted-foreground">
+                          {operation.assignedReko && ' · '}
+                          {tKanban('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                {operation.hasCompletedReko && (
+                  // Keyed: another incident gets a fresh report, not the last one's data.
+                  <RekoReportSection key={operation.id} incidentId={operation.id} onLoadedChange={onRekoReportLoaded} />
+                )}
+              </div>
             </>
           )}
 

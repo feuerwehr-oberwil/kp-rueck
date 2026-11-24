@@ -14,6 +14,8 @@ import { FieldRequestCardRows } from "@/components/kanban/field-requests"
 import { FieldStatusNudge } from "@/components/kanban/field-status-nudge"
 import { CardResources } from "@/components/kanban/card-resources"
 import { CardContextMenu } from "@/components/kanban/card-context-menu"
+import { CardFlagPopoverContent, type CardFlag, type FlagEdit } from "@/components/kanban/card-flag-popover"
+import { Popover, PopoverAnchor } from "@/components/ui/popover"
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -37,6 +39,7 @@ import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { telHref } from "@/lib/phone"
+import { isContextMenuKey, openContextMenuAt } from "@/lib/keyboard-context-menu"
 import { cn } from "@/lib/utils"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
 import { formatDurationHours } from "@/lib/duration"
@@ -300,6 +303,30 @@ function DraggableOperationBase({
     ? `${t('common.nachbarhilfe')} · ${nachbarhilfeNote}`
     : t('common.nachbarhilfe')
 
+  // The note popover of «Am Warten» / «Nachbarhilfe» (owner pick 5A, 24.11.2026): opened by
+  // the menu row that sets the flag, or by a click on the chip. Editors only (`canDrag`).
+  const [flagEdit, setFlagEdit] = useState<FlagEdit | null>(null)
+  // The menu row only queues it: the menu hands focus back to the card as it closes, which
+  // would close a popover opened in the same click. `onCloseAutoFocus` opens it instead.
+  const pendingFlagEdit = useRef<FlagEdit | null>(null)
+  const markFlag = (flag: CardFlag, toggle: (() => void) | undefined) =>
+    toggle && (() => {
+      const marking = !operation[flag]
+      toggle()
+      if (marking && canDrag) pendingFlagEdit.current = { flag, mode: 'marked' }
+    })
+  const flagChipProps = (flag: CardFlag) =>
+    canDrag
+      ? {
+          onClick: (e: React.MouseEvent) => {
+            e.stopPropagation()
+            setFlagEdit({ flag, mode: 'chip' })
+          },
+          'aria-haspopup': 'dialog' as const,
+          'aria-expanded': flagEdit?.flag === flag,
+        }
+      : {}
+
   // Selection is only worth showing while a side panel is on screen to reflect
   // it. Below SIDE_PANEL_BREAKPOINT the detail opens as a modal, so the frame
   // would just sit behind the overlay.
@@ -527,6 +554,7 @@ function DraggableOperationBase({
             // here rather than by the global listener so it follows FOCUS, not
             // the pointer: stopping propagation keeps the window-level
             // hover-Enter from opening a different card than the focused one.
+            // Shift+F10 / the menu key do what a right-click does: the card menu.
             onKeyDown={(e) => {
               // Only when the CARD itself has focus. React's onKeyDown also sees
               // what bubbles up from the Reko and Rapport buttons, the «+N»
@@ -536,6 +564,12 @@ function DraggableOperationBase({
               // Letting those through also sends them to the window listener,
               // where `isActivationTarget` already skips them.
               if (e.target !== e.currentTarget) return
+              if (isContextMenuKey(e)) {
+                e.preventDefault()
+                e.stopPropagation()
+                openContextMenuAt(e.currentTarget)
+                return
+              }
               if (e.key !== 'Enter' && e.key !== ' ') return
               e.preventDefault()
               e.stopPropagation()
@@ -618,15 +652,31 @@ function DraggableOperationBase({
               with the first) and only then clamps, full text in `title`: one line
               ended «bis Kräft…» exactly where the reason starts to matter. */}
           {(operation.amWarten || operation.nachbarhilfe) && (
+            <Popover open={!!flagEdit && operation[flagEdit.flag]} onOpenChange={(open) => !open && setFlagEdit(null)}>
+            <PopoverAnchor asChild>
             <div className="flex flex-wrap items-start gap-1 text-xs">
               {operation.amWarten && (
+                // For editors a button: it opens the note popover with «Aufheben».
                 <Badge
+                  asChild={canDrag}
                   variant="secondary"
-                  className="min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1"
-                  title={amWartenLabel}
+                  className={cn(
+                    "min-w-0 max-w-full shrink border border-warning/60 bg-warning/15 text-warning-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1 text-left",
+                    canDrag && "cursor-pointer hover:bg-warning/25",
+                  )}
+                  title={canDrag ? `${amWartenLabel} – ${t('card.flagNote.chipHint')}` : amWartenLabel}
                 >
-                  <Timer className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                  <span className="min-w-0 line-clamp-2 break-words">{amWartenLabel}</span>
+                  {canDrag ? (
+                    <button type="button" {...flagChipProps('amWarten')}>
+                      <Timer className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                      <span className="min-w-0 line-clamp-2 break-words">{amWartenLabel}</span>
+                    </button>
+                  ) : (
+                    <>
+                      <Timer className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                      <span className="min-w-0 line-clamp-2 break-words">{amWartenLabel}</span>
+                    </>
+                  )}
                 </Badge>
               )}
               {/* Neutral, not amber: «Am Warten» is a card that is STUCK and
@@ -636,15 +686,31 @@ function DraggableOperationBase({
                   something from one that does not. */}
               {operation.nachbarhilfe && (
                 <Badge
+                  asChild={canDrag}
                   variant="secondary"
-                  className="min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1"
-                  title={nachbarhilfeLabel}
+                  className={cn(
+                    "min-w-0 max-w-full shrink border border-border bg-muted/60 text-muted-foreground text-xs px-1.5 py-0.5 font-normal leading-4 whitespace-normal flex items-start gap-1 text-left",
+                    canDrag && "cursor-pointer hover:bg-muted",
+                  )}
+                  title={canDrag ? `${nachbarhilfeLabel} – ${t('card.flagNote.chipHint')}` : nachbarhilfeLabel}
                 >
-                  <Building2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                  <span className="min-w-0 line-clamp-2 break-words">{nachbarhilfeLabel}</span>
+                  {canDrag ? (
+                    <button type="button" {...flagChipProps('nachbarhilfe')}>
+                      <Building2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                      <span className="min-w-0 line-clamp-2 break-words">{nachbarhilfeLabel}</span>
+                    </button>
+                  ) : (
+                    <>
+                      <Building2 className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                      <span className="min-w-0 line-clamp-2 break-words">{nachbarhilfeLabel}</span>
+                    </>
+                  )}
                 </Badge>
               )}
             </div>
+            </PopoverAnchor>
+            {flagEdit && <CardFlagPopoverContent operation={operation} edit={flagEdit} onDone={() => setFlagEdit(null)} />}
+            </Popover>
           )}
 
           {/* ONE meta row on every card: the Einsatzart on the left when the
@@ -990,13 +1056,21 @@ function DraggableOperationBase({
         onAssignResource={onAssignResource}
         onTransfer={onTransfer}
         onDistributeToAuftrag={onDistributeToAuftrag}
-        onToggleNachbarhilfe={onToggleNachbarhilfe}
-        onToggleAmWarten={onToggleAmWarten}
+        onToggleNachbarhilfe={markFlag('nachbarhilfe', onToggleNachbarhilfe)}
+        onToggleAmWarten={markFlag('amWarten', onToggleAmWarten)}
+        onCloseAutoFocus={(e) => {
+          const pending = pendingFlagEdit.current
+          if (!pending) return
+          pendingFlagEdit.current = null
+          e.preventDefault()
+          setFlagEdit(pending)
+        }}
         onRequestComplete={onRequestComplete}
         onRequestDelete={onRequestDelete}
         onMoveInColumn={onMoveInColumn}
         onRepeatRadio={onRepeatRadio}
         printerEnabled={printerEnabled}
+        canReport={canDrag}
       />
     </ContextMenu>
   )
