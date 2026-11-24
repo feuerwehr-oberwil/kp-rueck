@@ -58,6 +58,10 @@ MAX_PRINT_ATTEMPTS = 3
 # for it has long since walked away.
 REQUEUE_MAX_AGE_SECONDS = 60 * 60
 
+# What the status page says for a claim that went silent on its last attempt (hunt
+# 2026-11-24): the agent took it and never reported, so paper may or may not have come out.
+STALE_CLAIM_ERROR = "Keine Rückmeldung vom Druck-Agent – ob gedruckt wurde, ist unklar."
+
 # How long a queued job stays worth printing. Past this it is expired instead of handed to
 # the agent.
 #
@@ -88,7 +92,8 @@ async def requeue_lost_jobs(db: AsyncSession) -> int:
     """Requeue jobs that would otherwise be lost forever (audit point 13).
 
     - 'printing' older than the stale timeout → back to 'pending'
-      (the claim consumed an attempt, so retry_count increments).
+      (the claim consumed an attempt, so retry_count increments) – or, on its last
+      attempt, 'failed' with `STALE_CLAIM_ERROR`: it stayed «printing» forever before.
     - 'failed' with attempts left → back to 'pending' after a short delay
       (retry_count was already incremented on failure).
 
@@ -109,6 +114,21 @@ async def requeue_lost_jobs(db: AsyncSession) -> int:
         .values(status="pending", claimed_at=None, retry_count=PrintJob.retry_count + 1),
     )
     requeued += stale_result.rowcount or 0
+
+    # Out of attempts: retired, with a reason the Drucker page shows. Not counted as requeued.
+    retired = await execute_dml(
+        db,
+        sa_update(PrintJob)
+        .where(
+            PrintJob.status == "printing",
+            PrintJob.claimed_at < now - timedelta(seconds=STALE_PRINTING_TIMEOUT_SECONDS),
+            PrintJob.retry_count >= MAX_PRINT_ATTEMPTS,
+        )
+        .values(status="failed", completed_at=now, error_message=STALE_CLAIM_ERROR),
+    )
+    if retired.rowcount:
+        await db.flush()
+        logger.warning("Retired %d print job(s) whose last claim went silent", retired.rowcount)
 
     failed_result = await execute_dml(
         db,
