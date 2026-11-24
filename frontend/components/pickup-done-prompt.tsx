@@ -38,7 +38,7 @@ import { formatPickupWaiting } from "@/lib/pickup"
  * second one. That also means demo mode is already handled — the backend rule
  * does not run there — and the assignment half checks the demo flag itself.
  *
- * Editors only, board and map only, and never on a phone: same reasoning as `GpsReleasePrompt`.
+ * Editors only, board and map only, and never on a phone: the same reasoning the GPS popups had before they became bell to-dos (24.11.2026).
  */
 
 type Trigger = "assigned" | "returned"

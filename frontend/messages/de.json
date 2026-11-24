@@ -1519,23 +1519,12 @@
       "changeDriverMenu": "Fahrer ändern …"
     },
     "gpsArrival": {
-      "fallbackVehicle": "Fahrzeug",
-      "fallbackIncident": "Einsatz",
       "movedToActive": "{label} auf «Im Einsatz» gesetzt",
-      "statusChangeFailed": "Statusänderung fehlgeschlagen",
-      "title": "{vehicle} am Einsatzort",
-      "description": "Einsatz auf «Im Einsatz» setzen?",
-      "decline": "Nicht verschieben",
-      "confirm": "Auf «Im Einsatz» setzen"
+      "statusChangeFailed": "Statusänderung fehlgeschlagen"
     },
     "gpsRelease": {
-      "fallbackVehicle": "Fahrzeug",
-      "fallbackIncident": "Einsatz",
       "released": "{vehicle} freigegeben",
       "releaseFailed": "Freigabe fehlgeschlagen",
-      "title": "Fahrzeug zurück im Magazin – freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Den Einsatz «{label}» abschliessen? Mannschaft und Fahrzeuge werden frei, beim Material wird gefragt, was vor Ort bleibt.",
-      "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen",
       "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen",
@@ -3596,7 +3585,9 @@
       "trainingNew": "Neuer Übungs-Einsatz",
       "trainingEscalation": "Lage verschärft – {text}",
       "trainingReinforcement": "Feld fordert Verstärkung – {text}",
-      "trainingVehicleDown": "Fahrzeug {vehicle} ausgefallen – Ersatz disponieren"
+      "trainingVehicleDown": "Fahrzeug {vehicle} ausgefallen – Ersatz disponieren",
+      "gpsArrivalTodo": "{vehicle} vor Ort – auf «Im Einsatz»?",
+      "gpsReleaseTodo": "{vehicle} zurück im Magazin – freigeben?"
     },
     "release": {
       "released": "{resource} von {target} freigegeben",
@@ -3619,6 +3610,20 @@
       "saveFailed": "Nicht gespeichert",
       "plannedTitle": "{name} ist Danach vorgemerkt",
       "plannedDescription": "Für {target}. «Zuteilen» erscheint, sobald frei."
+    },
+    "todo": {
+      "heading": "Zu erledigen",
+      "bellLabel": "zu erledigen",
+      "bellAria": "{count} zu erledigen – Benachrichtigungen öffnen",
+      "overdue": "seit {duration} offen",
+      "dismiss": "Verwerfen",
+      "dismissedHeading": "Verworfen",
+      "danachTitle": "Danach frei",
+      "danachText": "{names} → {holder}",
+      "assign": "Zuteilen",
+      "gpsArrivalTitle": "GPS vor Ort",
+      "toActive": "Im Einsatz",
+      "gpsReleaseTitle": "GPS zurück"
     }
   },
   "help": {

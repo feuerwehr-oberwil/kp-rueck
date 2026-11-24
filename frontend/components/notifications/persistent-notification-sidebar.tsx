@@ -16,6 +16,10 @@ import { requestIncidentHighlight } from '@/lib/notification-highlight'
 import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
 import { SlideRail } from '@/components/ui/slide-rail'
 import { useResizableWidth } from '@/lib/hooks/use-resizable-width'
+import { useTodos } from '@/lib/hooks/use-todos'
+import { useTodoAutoOpen } from '@/lib/hooks/use-todo-auto-open'
+import { GPS_TODO_TYPES } from '@/lib/todos'
+import { TodoSection } from '@/components/notifications/todo-section'
 
 const WIDTH_VAR = '--notification-sidebar-width'
 const publishWidth = (width: number) => document.documentElement.style.setProperty(WIDTH_VAR, `${width}px`)
@@ -27,8 +31,8 @@ const publishWidth = (width: number) => document.documentElement.style.setProper
 export function PersistentNotificationSidebar() {
   const t = useTranslations('notifications.sidebar')
   const tPanels = useTranslations('panels')
-  const { notifications, isSidebarOpen, closeSidebar, dismissNotification, dismissAllNotifications, canNavigateToIncident } = useNotifications()
-  const { isAuthenticated } = useAuth()
+  const { notifications, isSidebarOpen, openSidebar, closeSidebar, dismissNotification, dismissAllNotifications, canNavigateToIncident } = useNotifications()
+  const { isAuthenticated, isEditor } = useAuth()
   const isMobile = useIsMobile()
   const pathname = usePathname()
   const router = useRouter()
@@ -39,6 +43,14 @@ export function PersistentNotificationSidebar() {
   // so a session that opened it and then logged out would otherwise show an
   // empty sidebar shell over the login screen.
   const visible = !isMobile && isSidebarOpen && isAuthenticated
+  const todos = useTodos()
+  // Owner pick C (bell round 24.11.2026): a new to-do opens the rail; it closes again when the
+  // list is empty, if it opened itself.
+  useTodoAutoOpen(
+    todos.open.map((todo) => todo.id).concat(openRequests.items.map(({ request }) => `field:${request.id}`)),
+    !isMobile && isAuthenticated && isEditor,
+    { open: openSidebar, close: closeSidebar },
+  )
   // 320 = the w-80 it always had. The live width also goes to the root var on every drag step.
   const resize = useResizableWidth({
     storageKey: 'kp-notificationSidebarWidth',
@@ -66,10 +78,10 @@ export function PersistentNotificationSidebar() {
 
   // A bell entry whose field request is still open is shown AS that request
   // (R13), in the section above — one Meldung, one row.
-  const activeNotifications = notifications.filter((n) => !n.dismissed && !openRequests.representedIds.has(n.id))
+  const activeNotifications = notifications.filter((n) => !n.dismissed && !openRequests.representedIds.has(n.id) && !GPS_TODO_TYPES.has(n.type))
   const owedCount = activeNotifications.length + openRequests.items.length
   const historicalNotifications = notifications
-    .filter((n) => n.dismissed)
+    .filter((n) => n.dismissed && !GPS_TODO_TYPES.has(n.type))
     .slice(0, 20) // Show last 20 dismissed notifications
 
   // Only the board registers a navigate handler. On every other page the rows
@@ -128,6 +140,8 @@ export function PersistentNotificationSidebar() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* «Zu erledigen» first: what waits for an answer (owner rule 24.11.2026). */}
+        <TodoSection state={todos} />
         {/* The field's open requests — they stay until handled (R13). */}
         <FieldRequestInbox
           items={openRequests.items}
@@ -170,7 +184,7 @@ export function PersistentNotificationSidebar() {
         )}
 
         {/* Empty state */}
-        {owedCount === 0 && (
+        {owedCount === 0 && todos.open.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted mb-4">
               <Bell className="h-8 w-8 opacity-40" />

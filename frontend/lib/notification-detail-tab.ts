@@ -40,6 +40,8 @@ const TAB_BY_TYPE: Record<string, OperationDetailTab> = {
   missing_location: "overview",
   vehicle_arrived: "overview",
   vehicle_returned: "overview",
+  gps_arrival: "overview",
+  gps_release: "overview",
 }
 
 /**

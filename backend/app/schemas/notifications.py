@@ -37,6 +37,11 @@ class NotificationType(str, Enum):
     REKO_ARRIVED = "reko_arrived"
     TRAINING_EMERGENCY = "training_emergency"
     VEHICLE_ARRIVED = "vehicle_arrived"
+    # «Zu erledigen» (24.11.2026): GPS questions as bell to-dos with their own buttons, not popups.
+    # params carry the ids the buttons act on (incident_id on the row; vehicle_id, assignment_id,
+    # group_id) and ``key`` – one open row per incident (arrival) or assignment (release).
+    GPS_ARRIVAL = "gps_arrival"
+    GPS_RELEASE = "gps_release"
     # Field reporting (/feld, plan 25)
     RAPPORT_SUBMITTED = "rapport_submitted"
     FIELD_ARRIVED = "field_arrived"

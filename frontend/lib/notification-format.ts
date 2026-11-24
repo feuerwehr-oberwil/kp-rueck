@@ -59,6 +59,8 @@ const SOURCE_BY_TYPE: Partial<Record<NotificationType, NotificationSource>> = {
   time_overdue: 'time',
   personnel_leaving: 'time',
   training_emergency: 'alarm',
+  gps_arrival: 'vehicle',
+  gps_release: 'vehicle',
 }
 
 function sourceOf(type: string): NotificationSource {
@@ -220,6 +222,12 @@ function build(type: string, p: Params, t: NotificationTranslator): Built | unde
       if (p.variant === 'not_archived') return { what: t(`${M}.timeNotArchived`, { duration }), where: str(p, 'place') }
       return undefined
     }
+
+    // «Zu erledigen» (24.11.2026): GPS questions, answered by the row's own buttons.
+    case 'gps_arrival':
+      return { what: t(`${M}.gpsArrivalTodo`, { vehicle: str(p, 'vehicle') }), where: str(p, 'place') }
+    case 'gps_release':
+      return { what: t(`${M}.gpsReleaseTodo`, { vehicle: str(p, 'vehicle') }), where: str(p, 'place') }
 
     case 'training_emergency': {
       const title = str(p, 'title')

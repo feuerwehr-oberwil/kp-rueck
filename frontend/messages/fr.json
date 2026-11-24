@@ -1517,23 +1517,12 @@
       "changeDriverMenu": "Changer de conducteur …"
     },
     "gpsArrival": {
-      "fallbackVehicle": "Véhicule",
-      "fallbackIncident": "Intervention",
       "movedToActive": "{label} passée en intervention",
-      "statusChangeFailed": "Échec du changement de statut",
-      "title": "{vehicle} sur le lieu d’intervention",
-      "description": "Passer l’intervention « En intervention » ?",
-      "decline": "Ne pas déplacer",
-      "confirm": "Passer en intervention"
+      "statusChangeFailed": "Échec du changement de statut"
     },
     "gpsRelease": {
-      "fallbackVehicle": "Véhicule",
-      "fallbackIncident": "Intervention",
       "released": "{vehicle} libéré",
       "releaseFailed": "Échec de la libération",
-      "title": "Véhicule de retour à la caserne – le libérer ?",
-      "description": "<strong>{vehicle}</strong> est de retour à la caserne selon le GPS. Clôturer l’intervention « {label} » ? L’effectif et les véhicules sont libérés, pour le matériel on demande ce qui reste sur place.",
-      "decline": "Ne pas libérer",
       "releaseOnly": "Libérer uniquement {vehicle}",
       "completeIncident": "Clôturer l’intervention",
       "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là",
@@ -3320,7 +3309,9 @@
       "trainingNew": "Nouvelle intervention d’exercice",
       "trainingEscalation": "Situation aggravée – {text}",
       "trainingReinforcement": "Le terrain demande du renfort – {text}",
-      "trainingVehicleDown": "Véhicule {vehicle} en panne – engager un remplacement"
+      "trainingVehicleDown": "Véhicule {vehicle} en panne – engager un remplacement",
+      "gpsArrivalTodo": "{vehicle} sur place – passer « En intervention » ?",
+      "gpsReleaseTodo": "{vehicle} de retour au dépôt – libérer ?"
     },
     "release": {
       "released": "{resource} libéré de {target}",
@@ -3343,6 +3334,20 @@
       "saveFailed": "Non enregistré",
       "plannedTitle": "{name} est planifié ensuite",
       "plannedDescription": "Pour {target}. « Attribuer » apparaît dès qu'il est libre."
+    },
+    "todo": {
+      "heading": "À traiter",
+      "bellLabel": "à traiter",
+      "bellAria": "{count} à traiter – ouvrir les notifications",
+      "overdue": "ouvert depuis {duration}",
+      "dismiss": "Écarter",
+      "dismissedHeading": "Écartés",
+      "danachTitle": "Libre pour ensuite",
+      "danachText": "{names} → {holder}",
+      "assign": "Attribuer",
+      "gpsArrivalTitle": "GPS sur place",
+      "toActive": "En intervention",
+      "gpsReleaseTitle": "GPS de retour"
     }
   },
   "print": {

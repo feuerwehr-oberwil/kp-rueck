@@ -430,11 +430,31 @@ async def restore_dropped(db: AsyncSession, entries: list[Any] | None, event_id:
 @dataclass(frozen=True)
 class PlannedView:
     """A plan as the board reads it: the row, its place in the resource's queue, and whether it
-    is ready (the resource is free and this is its first Danach)."""
+    is ready (the resource is free and this is its first Danach). ``ready_since``: when it became
+    ready – the resource's last release, or the planning if that came later; the bell's
+    «Zu erledigen» turns red 5' after it (owner pick 24.11.2026)."""
 
     row: PlannedAssignment
     position: int
     ready: bool
+    ready_since: datetime | None = None
+
+
+async def _last_release(db: AsyncSession, resource_type: str, ids: list[uuid.UUID]) -> dict[uuid.UUID, datetime]:
+    """Each resource's most recent release, over Einsatz and Auftrag rows."""
+    last: dict[uuid.UUID, datetime] = {}
+    if not ids:
+        return last
+    for model in (IncidentAssignment, IncidentGroupAssignment):
+        rows = await db.execute(
+            select(model.resource_id, func.max(model.unassigned_at))
+            .where(model.resource_type == resource_type, model.resource_id.in_(ids), model.unassigned_at.is_not(None))
+            .group_by(model.resource_id)
+        )
+        for rid, at in rows.tuples():
+            if at is not None and (rid not in last or at > last[rid]):
+                last[rid] = at
+    return last
 
 
 async def list_for_event(db: AsyncSession, event_id: uuid.UUID) -> list[PlannedView]:
@@ -457,14 +477,20 @@ async def list_for_event(db: AsyncSession, event_id: uuid.UUID) -> list[PlannedV
         .all()
     )
     busy: dict[tuple[str, uuid.UUID], bool] = {}
+    released: dict[tuple[str, uuid.UUID], datetime] = {}
     for resource_type in ("personnel", "vehicle", "material"):
         ids = sorted({r.resource_id for r in rows if r.resource_type == resource_type})
         for rid, holders in (await jetzt_holders(db, event_id, resource_type, ids)).items():
             busy[(resource_type, rid)] = bool(holders)
+        free = [rid for rid in ids if not busy[(resource_type, rid)]]
+        for rid, at in (await _last_release(db, resource_type, free)).items():
+            released[(resource_type, rid)] = at
     seen: dict[tuple[str, uuid.UUID], int] = {}
     views = []
     for row in rows:
         key = (row.resource_type, row.resource_id)
         seen[key] = seen.get(key, 0) + 1
-        views.append(PlannedView(row=row, position=seen[key], ready=seen[key] == 1 and not busy.get(key, False)))
+        ready = seen[key] == 1 and not busy.get(key, False)
+        since = max(row.planned_at, released[key]) if ready and key in released else (row.planned_at if ready else None)
+        views.append(PlannedView(row=row, position=seen[key], ready=ready, ready_since=since))
     return views
