@@ -131,17 +131,18 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
             const isConfirming = !!assignmentId && confirming?.assignmentId === assignmentId
             return (
             <li key={entry.materialId}>
-              <div className="flex items-center gap-1">
+              {/* The text takes the row's full width and «Abgeholt» sits under it (owner,
+                  24.11.2026): beside the button, with the detail open, the narrow aside
+                  wrapped name and place into slivers. */}
               <button
                 type="button"
                 onClick={() => onOpenIncident(entry.incidentId)}
                 title={t("rowTitle", { name: entry.name, address: entry.address ?? "–" })}
-                className="flex min-w-0 flex-1 flex-col gap-0.5 rounded px-1.5 py-1 text-left hover:bg-muted/60"
+                className="flex w-full min-w-0 flex-col gap-0.5 rounded px-1.5 py-1 text-left hover:bg-muted/60"
               >
-                {/* Name and place wrap (two lines each) rather than cut: beside «Abgeholt»
-                    and with the detail open the aside is narrow, and «Tauchpumpe S…» did not
-                    say which pump (sign-off 24.11.). `hyphens-auto` (with <html lang>) breaks a long
-                    word as «Tauch-pumpe», not «Tauchpu / mpe»; `break-words` stays the fallback. */}
+                {/* Name and place wrap (two lines each) rather than cut: «Tauchpumpe S…» did
+                    not say which pump (sign-off 24.11.). `hyphens-auto` (with <html lang>) breaks a
+                    long word as «Tauch-pumpe», not «Tauchpu / mpe»; `break-words` stays the fallback. */}
                 <span className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 line-clamp-2 break-words hyphens-auto text-xs font-medium text-foreground">
                     {entry.name}
@@ -162,15 +163,14 @@ export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: Mate
                 <Button
                   variant="outline"
                   size="xs"
-                  // The button's own padding, and the row's inset from the aside edge.
-                  className="mr-1.5 min-h-7 shrink-0 rounded-sm py-0"
+                  // On the text's left edge (the row's px-1.5), clear of the next entry.
+                  className="mb-1 ml-1.5 min-h-7 rounded-sm py-0"
                   aria-label={t("collectLabel", { name: entry.name })}
                   onClick={() => setConfirming({ assignmentId, at: new Date() })}
                 >
                   {t("collect")}
                 </Button>
               )}
-              </div>
               {onCollect && assignmentId && isConfirming && (
                 <div role="group" aria-label={t("confirmTitle")} className="mx-1.5 mb-1 space-y-1.5 rounded-md border border-border bg-muted/40 p-2">
                   <p className="text-xs font-medium">{t("confirmTitle")}</p>

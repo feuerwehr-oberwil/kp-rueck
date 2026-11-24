@@ -43,6 +43,16 @@ describe('MaterialOnSitePanel «Abgeholt»', () => {
     expect(onOpenIncident).toHaveBeenCalledWith('i-1')
   })
 
+  // Owner, 24.11.2026: beside the text the narrow aside wrapped name and place badly.
+  it('puts «Abgeholt» under the entry’s text, not beside it', async () => {
+    await openPanel()
+    const collect = screen.getByRole('button', { name: 'Wassersauger abgeholt …' })
+    const row = collect.closest('li')!
+    const text = screen.getByTitle('Wassersauger steht noch bei Gartenstrasse 18')
+    // Both stack straight in the list item: no shared flex row, the text first.
+    expect([...row.children]).toEqual([text, collect])
+  })
+
   it('read-only without `onCollect`', async () => {
     await openPanel({ onCollect: undefined })
     expect(screen.queryByRole('button', { name: /abgeholt …/ })).toBeNull()
