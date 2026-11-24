@@ -26,7 +26,8 @@ import { DraggablePerson } from "@/components/kanban/draggable-person"
 import { DiveraIncomingBlock } from "@/components/kanban/divera-incoming-block"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
-import { BindingsPopoverBody, SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { SidebarCounter, SidebarEmpty, SidebarLoading } from "@/components/board/sidebar-parts"
+import { PersonPopoverBody, type PersonPopoverBodyProps } from "@/components/board/person-popover"
 import { PersonnelFilterButton, PersonnelFilterSummary } from "@/components/board/personnel-filter"
 import type { BindingsPopoverState, ResourceBinding } from "@/lib/board-sidebar"
 import type { Person } from "@/lib/contexts/operations-context"
@@ -64,12 +65,16 @@ export interface PersonnelSidebarProps {
   bindingsPopover: BindingsPopoverState | null
   setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
   handlePersonClick: (person: Person) => void
+  /** A person's Einsätze and Aufträge, for the popover (`useResourceBindings`). */
+  collectPersonPlaces: (person: Person) => ResourceBinding[]
+  /** The board's release-with-undo, so an untick in the popover gets the usual toast. */
+  release: PersonPopoverBodyProps["release"]
   doubleBookedPersons: DoubleBookedPersons
   personEngagements: Map<string, PersonEngagement>
   followBinding: (binding: ResourceBinding) => void
   /** The Ereignis whose Divera «Anrückend» block shows on top (absent without Divera). */
   eventId: string | null
-  /** Editors get the one-click check-in on those rows. */
+  /** Editors get the one-click check-in on those rows, and change things in the person popover. */
   canCheckIn: boolean
   onDiveraCheckIn: (personnelId: string) => Promise<void>
   /** Opens the Dienstzeiten overview. */
@@ -116,6 +121,8 @@ export function PersonnelSidebar({
   bindingsPopover,
   setBindingsPopover,
   handlePersonClick,
+  collectPersonPlaces,
+  release,
   doubleBookedPersons,
   personEngagements,
   followBinding,
@@ -313,14 +320,16 @@ export function PersonnelSidebar({
                             />
                           </div>
                         </PopoverAnchor>
-                        <PopoverContent align="start" side="right" className="w-80 p-3">
-                          {bindingsPopover && (
-                            <BindingsPopoverBody
-                              state={bindingsPopover}
-                              onGo={followBinding}
-                              onClose={() => setBindingsPopover(null)}
-                            />
-                          )}
+                        <PopoverContent align="start" side="right" className="w-80 p-2">
+                          <PersonPopoverBody
+                            person={person}
+                            places={collectPersonPlaces(person)}
+                            onGo={followBinding}
+                            onClose={() => setBindingsPopover(null)}
+                            canEdit={canCheckIn}
+                            eventId={eventId}
+                            release={release}
+                          />
                         </PopoverContent>
                       </Popover>
                     ))}

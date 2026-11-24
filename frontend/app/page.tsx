@@ -1102,6 +1102,7 @@ export default function FireStationDashboard() {
   }, [operations])
 
   const {
+    collectPersonPlaces,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,
@@ -1486,6 +1487,8 @@ export default function FireStationDashboard() {
               bindingsPopover={bindingsPopover}
               setBindingsPopover={setBindingsPopover}
               handlePersonClick={handlePersonClick}
+              collectPersonPlaces={collectPersonPlaces}
+              release={release}
               doubleBookedPersons={doubleBookedPersons}
               personEngagements={personEngagements}
               followBinding={followBinding}

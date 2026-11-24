@@ -336,11 +336,13 @@
       "chipUntil": "part {time}",
       "chipUntilSoon": "part {time} · dans {duration}",
       "chipUntilPast": "part {time} · échu",
+      "chipFrom": "arrive {time}",
       "rowFrom": "dès {time}",
       "rowUntil": "jusqu’à {time}",
       "rowSoon": "{time} · dans {duration}",
       "rowPast": "{time} · échu",
       "addUntil": "jusqu’à",
+      "addFrom": "dès",
       "ariaUntil": "Définir l’heure de départ",
       "ariaUntilSet": "Part à {time} – modifier",
       "ariaFrom": "Définir l’heure d’arrivée",
@@ -2231,6 +2233,17 @@
       "unassignDriverDescription": "<strong>{name}</strong> ne sera alors plus conducteur de <strong>{vehicle}</strong> et redeviendra un intervenant ordinaire.",
       "unassignMagazinDescription": "<strong>{name}</strong> perd la fonction de caserne et redevient ensuite un intervenant ordinaire.",
       "unassignConfirm": "Retirer la fonction"
+    },
+    "personPopover": {
+      "crew": "Effectif",
+      "auftrag": "Mission",
+      "drives": "conduit {vehicle}",
+      "driverPick": "Choisir le véhicule",
+      "noIncident": "aucune intervention",
+      "hint": "Décocher = terminer (avec confirmation) · Interventions : décocher = libérer",
+      "presentSince": "Présent depuis {time}",
+      "checkOut": "Annoncer partant",
+      "checkedOut": "{name} annoncé partant"
     },
     "assignmentDialog": {
       "titleVehicles": "Attribuer des véhicules",

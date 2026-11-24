@@ -45,26 +45,28 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     filteredOperations,
   } = input
   const tCommon = useTranslations('kanban.common')
+  const tPopover = useTranslations('kanban.personPopover')
 
   /**
-   * Everywhere this person is held — all of it, not the first hit.
+   * The Einsätze (crew or Reko) and Aufträge this person is on — all of them, not the
+   * first hit. The person popover's place rows (`person-popover.tsx`); its functions
+   * come from `personFunctionItems`.
    *
    * `filter`, not `find`: after a double booking the second incident used to be
    * unreachable from the sidebar, because a second click resolved to the same
-   * first match. The special functions come straight out of the context (they
-   * are already on the person) instead of a per-click API fetch that only ever
-   * looked at `driver`.
+   * first match.
    */
-  const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
+  const collectPersonPlaces = useCallback((person: Pick<Person, "id">): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
     for (const op of operations) {
       if (op.crew.some((m) => m.personnelId === person.id)) {
+        const auftrag = op.groupId ? groupNames.get(op.groupId) : undefined
         bindings.push({
           key: `incident-${op.id}`,
           kind: "incident",
           targetId: op.id,
           label: getIncidentRefLabel(op, 60),
-          detail: op.groupId ? groupNames.get(op.groupId) ?? "" : "",
+          detail: [tPopover('crew'), auftrag].filter(Boolean).join(' · '),
           target: RESOURCES_TARGET,
         })
       }
@@ -81,9 +83,20 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     }
     for (const group of groups) {
       if (getGroupResources(group.id).personnel.some((p) => p.resourceId === person.id)) {
-        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: "" })
+        bindings.push({ key: `route-${group.id}`, kind: "route", targetId: group.id, label: group.name, detail: tPopover('auftrag') })
       }
     }
+    return bindings
+  }, [operations, groups, getGroupResources, groupNames, tCommon, tPopover])
+
+  /**
+   * Everywhere this person is held, functions included — what a click on the row (and ⌘K)
+   * decides with: one place to go jumps there (`soleDestination`), anything else opens the
+   * popover. The special functions come straight out of the context (they are already on
+   * the person) instead of a per-click API fetch.
+   */
+  const collectPersonBindings = useCallback((person: Person): ResourceBinding[] => {
+    const bindings = collectPersonPlaces(person)
     // Reko is an Ereignis-level function first and an incident assignment second:
     // `isReko` is set from the event's special functions, while `assignedReko`
     // needs an assignment row on a specific incident. A Reko-Person who has not
@@ -119,7 +132,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
     if (person.isTelefondienst) bindings.push({ key: "fn-telefon", kind: "function", targetId: null, label: tCommon('telefondienst'), detail: tCommon('specialFunctionNoIncident') })
     if (person.isKommandoposten) bindings.push({ key: "fn-kp", kind: "function", targetId: null, label: tCommon('kommandoposten'), detail: tCommon('specialFunctionNoIncident') })
     return bindings
-  }, [operations, groups, getGroupResources, groupNames, tCommon])
+  }, [collectPersonPlaces, operations, tCommon])
 
   const collectMaterialBindings = useCallback((material: Material): ResourceBinding[] => {
     const bindings: ResourceBinding[] = []
@@ -195,13 +208,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
       followBinding(only)
       return
     }
-    setBindingsPopover({
-      kind: "person",
-      id: person.id,
-      title: person.name,
-      subtitle: person.role ?? "",
-      bindings,
-    })
+    setBindingsPopover({ kind: "person", id: person.id })
   }
 
   /**
@@ -214,6 +221,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   }, [followBinding, setActiveFooterSheet])
 
   return {
+    collectPersonPlaces,
     collectPersonBindings,
     collectMaterialBindings,
     followBinding,

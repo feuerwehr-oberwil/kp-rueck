@@ -227,11 +227,13 @@
       "chipUntil": "geht {time}",
       "chipUntilSoon": "geht {time} · in {duration}",
       "chipUntilPast": "geht {time} · fällig",
+      "chipFrom": "kommt {time}",
       "rowFrom": "ab {time}",
       "rowUntil": "bis {time}",
       "rowSoon": "{time} · in {duration}",
       "rowPast": "{time} · fällig",
       "addUntil": "bis",
+      "addFrom": "ab",
       "ariaUntil": "Geht um setzen",
       "ariaUntilSet": "Geht um {time} – ändern",
       "ariaFrom": "Kommt um setzen",
@@ -914,6 +916,17 @@
       "unassignDriverDescription": "<strong>{name}</strong> ist danach nicht mehr Fahrer von <strong>{vehicle}</strong> und gilt wieder als normale Einsatzkraft.",
       "unassignMagazinDescription": "<strong>{name}</strong> verliert die Magazin-Funktion und gilt danach wieder als normale Einsatzkraft.",
       "unassignConfirm": "Funktion entfernen"
+    },
+    "personPopover": {
+      "crew": "Mannschaft",
+      "auftrag": "Auftrag",
+      "drives": "fährt {vehicle}",
+      "driverPick": "Fahrzeug wählen",
+      "noIncident": "kein Einsatz",
+      "hint": "Häkchen weg = beenden (fragt nach) · Einsätze: Häkchen weg = freigeben",
+      "presentSince": "Anwesend seit {time}",
+      "checkOut": "Auschecken",
+      "checkedOut": "{name} ausgecheckt"
     },
     "assignmentDialog": {
       "titleVehicles": "Fahrzeuge zuweisen",

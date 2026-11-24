@@ -32,14 +32,19 @@ export interface ResourceBinding {
   target?: DetailTarget
 }
 
-/** What the bindings popover is currently answering for. */
-export interface BindingsPopoverState {
-  kind: "person" | "material"
+/** A unit of material's popover: its bindings, as they were when it was clicked. */
+export interface MaterialBindingsState {
+  kind: "material"
   id: string
   title: string
   subtitle: string
   bindings: ResourceBinding[]
 }
+
+/** What the bindings popover is currently answering for. A person's popover reads the
+ *  board live (`components/board/person-popover.tsx`): it is a checklist that changes
+ *  while it is open. */
+export type BindingsPopoverState = { kind: "person"; id: string } | MaterialBindingsState
 
 /** Can this binding actually be followed? A station function has nowhere to go,
  *  and neither has anything that lost its target. */
