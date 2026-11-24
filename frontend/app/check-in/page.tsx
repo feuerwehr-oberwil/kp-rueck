@@ -161,7 +161,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
 
   if (!token || invalid || (retrying && loading)) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-background flex items-center justify-center p-4">
         <div className="max-w-md text-center">
           <div className="text-destructive text-xl font-semibold mb-2">
             {retrying && !invalid && token ? t('retrying') : t('accessRequired')}
@@ -173,7 +173,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-[calc(env(safe-area-inset-bottom,0px)+6rem)]">
+    <div className="min-h-dvh bg-background pb-[calc(env(safe-area-inset-bottom,0px)+6rem)]">
       {/* The shared link-page header (the same bar as /feld and /reko), the Ereignis as its
           context line; the counts stay with the list they count. */}
       <LinkPageHeader title={t('title')} subtitle={eventName || undefined} />

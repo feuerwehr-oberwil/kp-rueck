@@ -28,7 +28,9 @@ import { useIsMobile } from '@/components/ui/use-mobile'
  * their state, scroll position and size stay) and the step lies over them. A real yes/no
  * question (ConfirmDialog) may still open on top – it is S, never wider than what is under it.
  *
- * Desk only: on a phone every one of these is a bottom sheet and keeps its own behaviour.
+ * Desk only: on a phone every one of these is a bottom sheet and keeps its own behaviour. The
+ * one exception is the map picker (`phone: true`): over the phone's «Neuer Einsatz» sheet it is
+ * the same step, not a centred desk card over the sheet (phone sweep 24.11.2026).
  */
 export interface SurfaceHost {
   readonly slot: HTMLElement
@@ -109,11 +111,12 @@ export function surfaceShowsStep(content: Element): boolean {
 const SLOT_CLASS = 'absolute inset-0 z-raised flex flex-col overflow-hidden rounded-[inherit] bg-background'
 
 /** The surface a step-capable window opens into right now, or null (no surface, or a phone).
- *  `wideOnly`: only an L window counts – for a work surface that would be cramped in a sheet. */
-export function useOpenSurface({ wideOnly = false }: { wideOnly?: boolean } = {}): SurfaceHost | null {
+ *  `wideOnly`: only an L window counts – for a work surface that would be cramped in a sheet.
+ *  `phone`: a phone counts too – for a window that is a step in a phone sheet as well. */
+export function useOpenSurface({ wideOnly = false, phone = false }: { wideOnly?: boolean; phone?: boolean } = {}): SurfaceHost | null {
   const isMobile = useIsMobile()
   const host = useSyncExternalStore(subscribe, topHost, () => null)
-  if (isMobile || (wideOnly && !host?.wide)) return null
+  if ((isMobile && !phone) || (wideOnly && !host?.wide)) return null
   return host
 }
 
@@ -229,7 +232,8 @@ export function SurfaceStep({
           <h2 className="min-w-0 truncate text-lg leading-none font-semibold">{title}</h2>
         </div>
         {description && (
-          <p className="mt-1.5 truncate text-sm text-muted-foreground" title={fullDescription}>{description}</p>
+          // A phone has no hover to read a cut line by: there it wraps.
+          <p className="mt-1.5 truncate text-sm text-muted-foreground max-md:whitespace-normal" title={fullDescription}>{description}</p>
         )}
       </header>
       {children}

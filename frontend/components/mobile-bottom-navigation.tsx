@@ -18,15 +18,22 @@
  * «Mehr» is the same menu on every page (owner, 16.11.2026): the Schnellzugriff sheets are the
  * nav's own (`PhoneQuickSheets`), not handed in by the board – the Lagekarte used to offer only
  * Kennzahlen there.
+ *
+ * Phone sweep 24.11.2026: a tab answers on the tap (#2) – its tint moves and the top loading bar
+ * starts before the next page has loaded; every page lights the tab it belongs to (#24,
+ * `TAB_OF_PAGE`); «Mehr» keeps its head while its list scrolls (#9) and arrives as one piece with
+ * the sheet, no entrance of its own (#25); a held finger on the bar selects nothing and opens no
+ * link preview (#26, `select-none` + no touch callout).
  */
 
 import { BookOpenText, ChartColumn, Columns3, Map as MapIcon, Calendar, MoreHorizontal, HelpCircle, Settings, Inbox, QrCode, Sparkles, LogOut, Users, Truck, Printer, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { useRef, useState } from 'react'
+import { topLoading } from '@/components/ui/top-loading-bar'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetBody, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -42,8 +49,22 @@ import { PhoneQuickSheets, type PhoneQuickSheet } from '@/components/mobile/phon
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { TrainingBadge } from '@/components/training-mode-chrome'
 
+/** The pages that show the bottom nav, and the tab each one lights: the two real tabs, and
+ *  «Mehr» for every page reached from it. A new page has to say where it belongs. */
+const TAB_OF_PAGE = {
+  kanban: 'kanban',
+  map: 'map',
+  events: 'more',
+  training: 'more',
+  settings: 'more',
+  help: 'more',
+} as const satisfies Record<string, 'kanban' | 'map' | 'more'>
+
+export type NavPage = keyof typeof TAB_OF_PAGE
+type NavTab = (typeof TAB_OF_PAGE)[NavPage]
+
 interface MobileBottomNavigationProps {
-  currentPage: 'kanban' | 'map' | 'events' | 'settings' | 'help' | string
+  currentPage: NavPage
   hasSelectedEvent?: boolean
 }
 
@@ -57,6 +78,10 @@ export function MobileBottomNavigation({
   const { requestLogout, logoutDialog } = useLogout()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // The tab just tapped, while its page is still on the way: it lights at once. Tied to the
+  // page it was tapped on, so once the route has moved on (or back) it no longer applies.
+  const [pending, setPending] = useState<{ tab: NavTab; from: NavPage } | null>(null)
+  const litTab: NavTab = pending?.from === currentPage ? pending.tab : TAB_OF_PAGE[currentPage]
   // The Schnellzugriff sheet open over the page (`PhoneQuickSheets`, phone only).
   const [quickSheet, setQuickSheet] = useState<PhoneQuickSheet | null>(null)
   const isMobile = useIsMobile()
@@ -72,7 +97,7 @@ export function MobileBottomNavigation({
     .sort((a, b) => b.last_activity_at.getTime() - a.last_activity_at.getTime())
     .slice(0, 5)
 
-  const tabs = [
+  const tabs: { id: NavTab; label: string; icon: LucideIcon; href: string; disabled: boolean }[] = [
     {
       id: 'kanban',
       label: t('incidents'),
@@ -118,6 +143,17 @@ export function MobileBottomNavigation({
   // One tab's frame: a 56px pill (8px + 20px icon + 4px + 16px label + 8px), so the current
   // tab's tint has air around its content; the bar adds 4px above and below it.
   const tabClass = "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] py-2 rounded-lg transition-colors touch-manipulation"
+  const litClass = (tab: NavTab) =>
+    litTab === tab ? "bg-foreground/[0.09] text-foreground" : "text-muted-foreground hover:text-foreground"
+
+  /** A link out of «Mehr» (its `onNavigate`, so not a modified click into a new tab): the
+   *  loading bar starts on the tap, not once the next page renders. It also supersedes a tab
+   *  tapped a moment ago – back to the page it is on, that tab's tint and load are off. */
+  const leave = (href: string) => () => {
+    setPending(null)
+    if (href === window.location.pathname) topLoading.cancelRoute()
+    else topLoading.startRoute()
+  }
 
   return (
     // The nav shares the overlay rung rather than sitting under it (which is where a plain
@@ -126,7 +162,7 @@ export function MobileBottomNavigation({
     // the z-order block in app/globals.css.
     <nav
       ref={navRef}
-      className="fixed bottom-0 left-0 right-0 z-overlay border-t border-border bg-card/95 backdrop-blur-sm md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-overlay border-t border-border bg-card/95 backdrop-blur-sm md:hidden select-none [-webkit-touch-callout:none]"
       style={{
         paddingBottom: 'env(safe-area-inset-bottom, 0px)'
       }}
@@ -134,20 +170,26 @@ export function MobileBottomNavigation({
       <div className="flex items-center justify-around min-h-[60px] px-2 py-1">
         {tabs.map((tab) => {
           const Icon = tab.icon
-          const isActive = currentPage === tab.id
+          const isActive = litTab === tab.id
 
           return (
             <Link
               key={tab.id}
               href={tab.href}
-              className={cn(
-                tabClass,
-                isActive && "bg-foreground/[0.09] text-foreground",
-                !isActive && "text-muted-foreground hover:text-foreground",
-                tab.disabled && "opacity-40 pointer-events-none",
-              )}
+              // Next calls it for an in-app navigation only – not a modified click into a new tab
+              onNavigate={() => {
+                if (TAB_OF_PAGE[currentPage] === tab.id) {
+                  // back to the page it is on before the other one arrived: that one is off
+                  setPending(null)
+                  topLoading.cancelRoute()
+                  return
+                }
+                setPending({ tab: tab.id, from: currentPage })
+                topLoading.startRoute()
+              }}
+              className={cn(tabClass, litClass(tab.id), tab.disabled && "opacity-40 pointer-events-none")}
               aria-label={tab.label}
-              aria-current={isActive ? 'page' : undefined}
+              aria-current={TAB_OF_PAGE[currentPage] === tab.id ? 'page' : undefined}
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
               <span className={cn("text-xs font-medium", isActive && "font-semibold")}>{tab.label}</span>
@@ -159,15 +201,13 @@ export function MobileBottomNavigation({
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <button
-              className={cn(
-                tabClass,
-                (currentPage === 'settings' || currentPage === 'help') && "bg-foreground/[0.09] text-foreground",
-                (currentPage !== 'settings' && currentPage !== 'help') && "text-muted-foreground hover:text-foreground",
-              )}
+              className={cn(tabClass, litClass('more'))}
               aria-label={t('moreOptions')}
+              // a page behind «Mehr» is where the operator is – said to a screen reader too
+              aria-current={TAB_OF_PAGE[currentPage] === 'more' ? 'page' : undefined}
             >
               <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs font-medium">{t('more')}</span>
+              <span className={cn("text-xs font-medium", litTab === 'more' && "font-semibold")}>{t('more')}</span>
             </button>
           </SheetTrigger>
           <SheetContent
@@ -177,17 +217,19 @@ export function MobileBottomNavigation({
             // `animation-name` non-`none` on the *closed* sheet — which is exactly
             // what makes Radix's Presence hold the dismissed panel mounted (and
             // hit-testable) for another ~150ms. Measured; the entrance is unchanged.
-            // It covers the nav, so its foot only pays the safe area (`pb-sheet-safe`).
-            className="modal-h-tall overflow-y-auto px-6 pb-sheet-safe"
+            // The head stays, the body scrolls under it (phone sweep 24.11.2026 #9: the whole
+            // sheet used to scroll, title, grip and ✕ with it). It covers the nav, so the
+            // body's foot only pays the safe area (`pb-sheet-safe`).
+            className="modal-h-tall gap-0 p-0"
           >
-            <SheetHeader className="mb-4 -mx-6 px-6 pb-3 border-b">
+            <SheetHeader>
               <SheetTitle>{t('moreFunctions')}</SheetTitle>
             </SheetHeader>
 
-            <div className="space-y-4 pb-4">
+            <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
               {/* Ereignis Section — current event + quick switch (replaces the
                   top-bar event switcher, which is hidden on mobile). */}
-              <div className="animate-category-fade">
+              <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('event')}
                 </h3>
@@ -204,7 +246,7 @@ export function MobileBottomNavigation({
                     <Button
                       key={event.id}
                       variant="ghost"
-                      className="h-auto w-full justify-start gap-3 whitespace-normal py-2.5 text-left touch-manipulation hover-delight"
+                      className="h-auto w-full justify-start gap-3 whitespace-normal py-2.5 text-left touch-manipulation"
                       onClick={() => {
                         setSelectedEvent(event)
                         setSheetOpen(false)
@@ -218,9 +260,9 @@ export function MobileBottomNavigation({
                   <Button
                     asChild
                     variant={currentPage === 'events' ? 'secondary' : 'ghost'}
-                    className="w-full justify-start gap-3 touch-manipulation hover-delight"
+                    className="w-full justify-start gap-3 touch-manipulation"
                   >
-                    <Link href="/events" onClick={() => setSheetOpen(false)}>
+                    <Link href="/events" onClick={() => setSheetOpen(false)} onNavigate={leave("/events")}>
                       <Calendar className="size-4" />
                       <span>{t('allEvents')}</span>
                     </Link>
@@ -237,22 +279,19 @@ export function MobileBottomNavigation({
                   role is strictly read-only (/training refuses it). */}
               {hasQuickActions && (
               <>
-              <div className="animate-category-fade">
+              <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('quickActions')}
                 </h3>
                 <div className="space-y-1">
                   {/* Close «Mehr» first, then open the sheet: one layer at a time. */}
-                  {quickActions.map((action, index) => {
+                  {quickActions.map((action) => {
                     const Icon = action.icon
                     return (
                       <Button
                         key={action.id}
                         variant="ghost"
-                        className={cn(
-                          "w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in",
-                          `stagger-delay-${Math.min(index + 1, 5)}`,
-                        )}
+                        className="w-full justify-start gap-3 touch-manipulation"
                         onClick={() => {
                           setSheetOpen(false)
                           setTimeout(action.open, 350)
@@ -269,9 +308,9 @@ export function MobileBottomNavigation({
                     <Button
                       asChild
                       variant="ghost"
-                      className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                      className="w-full justify-start gap-3 touch-manipulation"
                     >
-                      <Link href="/training" onClick={() => setSheetOpen(false)}>
+                      <Link href="/training" onClick={() => setSheetOpen(false)} onNavigate={leave("/training")}>
                         <Sparkles className="size-4 text-muted-foreground" />
                         <span>{t('trainingControl')}</span>
                       </Link>
@@ -285,12 +324,12 @@ export function MobileBottomNavigation({
               )}
 
               {/* Verwaltung Section */}
-              <div className="animate-category-fade">
+              <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('management')}
                 </h3>
                 <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Verwaltung').map((item, index) => {
+                  {secondaryItems.filter(item => item.category === 'Verwaltung').map((item) => {
                     const Icon = item.icon
                     const isActive = currentPage === item.id
                     return (
@@ -298,12 +337,9 @@ export function MobileBottomNavigation({
                         key={item.id}
                         asChild
                         variant={isActive ? "secondary" : "ghost"}
-                        className={cn(
-                          "w-full justify-start gap-3 touch-manipulation hover-delight",
-                          `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
-                        )}
+                        className="w-full justify-start gap-3 touch-manipulation"
                       >
-                        <Link href={item.href} onClick={() => setSheetOpen(false)}>
+                        <Link href={item.href} onClick={() => setSheetOpen(false)} onNavigate={leave(item.href)}>
                           <Icon className="size-4" />
                           <span>{item.label}</span>
                         </Link>
@@ -314,7 +350,7 @@ export function MobileBottomNavigation({
                       «Mehr» first, then open it (the same hand-over as «Links & QR»). */}
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 touch-manipulation hover-delight animate-stagger-fade-in stagger-delay-2"
+                    className="w-full justify-start gap-3 touch-manipulation"
                     onClick={() => {
                       setSheetOpen(false)
                       setTimeout(openAlarmInbox, 350)
@@ -330,12 +366,12 @@ export function MobileBottomNavigation({
               <Separator />
 
               {/* Support Section */}
-              <div className="animate-category-fade">
+              <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('support')}
                 </h3>
                 <div className="space-y-2">
-                  {secondaryItems.filter(item => item.category === 'Support').map((item, index) => {
+                  {secondaryItems.filter(item => item.category === 'Support').map((item) => {
                     const Icon = item.icon
                     const isActive = currentPage === item.id
                     return (
@@ -343,12 +379,9 @@ export function MobileBottomNavigation({
                         key={item.id}
                         asChild
                         variant={isActive ? "secondary" : "ghost"}
-                        className={cn(
-                          "w-full justify-start gap-3 touch-manipulation hover-delight",
-                          `animate-stagger-fade-in stagger-delay-${Math.min(index + 1, 5)}`
-                        )}
+                        className="w-full justify-start gap-3 touch-manipulation"
                       >
-                        <Link href={item.href} onClick={() => setSheetOpen(false)}>
+                        <Link href={item.href} onClick={() => setSheetOpen(false)} onNavigate={leave(item.href)}>
                           <Icon className="size-4" />
                           <span>{item.label}</span>
                         </Link>
@@ -360,7 +393,7 @@ export function MobileBottomNavigation({
 
               {/* Account Section */}
               <Separator />
-              <div className="animate-category-fade">
+              <div>
                 <h3 className="text-xs font-medium text-muted-foreground mb-2">
                   {t('account')}
                 </h3>
@@ -369,7 +402,7 @@ export function MobileBottomNavigation({
                   <AccountBlock className="px-3 py-1" />
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 touch-manipulation hover-delight text-destructive hover:text-destructive hover:bg-destructive/10"
+                    className="w-full justify-start gap-3 touch-manipulation text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={() => {
                       setSheetOpen(false)
                       requestLogout()
@@ -381,7 +414,7 @@ export function MobileBottomNavigation({
                   <VersionLabel className="px-3" />
                 </div>
               </div>
-            </div>
+            </SheetBody>
           </SheetContent>
         </Sheet>
         {logoutDialog}

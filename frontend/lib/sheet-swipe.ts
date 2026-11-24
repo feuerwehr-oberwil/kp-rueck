@@ -1,13 +1,20 @@
 /**
  * Swipe a phone bottom sheet down to close it — the decisions, kept pure so they can be tested
- * without a touch screen. The DOM side (touch listeners, transform, snap back) is
- * `useSheetSwipe` in components/ui/sheet.tsx.
+ * without a touch screen. The DOM side (touch listeners, transform, snap back, the swallowed
+ * click) is `attachSwipe` in components/ui/sheet.tsx.
  *
- * Rules (ported in behaviour from KP Front's swipeDismiss, not its code):
- * 1. Only a press on the grip or the sheet's header, or anywhere while the content under the
- *    finger is scrolled to its very top, may become a drag. Scrolled content wins.
- * 2. A control is a control: a press that starts on a button / field / link never drags, so the
- *    ✕ still closes on the first tap and a text field still takes its caret.
+ * Rules (ported in behaviour from KP Front's overlays/swipeDismiss, not its code):
+ * 1. The grip and the sheet's header always drag. Anywhere else a press may become a drag only
+ *    while EVERY scroller between the finger and the sheet (the sheet included) is at its very
+ *    top: a list at its top inside a scrolled-down body scrolls the body back up. Scrolled
+ *    content wins.
+ * 2. A field is a field, a row is a handle (phone sweep 24.11.2026 #10, KP Front sweep
+ *    28.10.2026 #1). A press on a row, a button or a link starts the pull like any other point
+ *    of the body; a tap stays a tap (rule 3), and the click a real pull ends in is swallowed.
+ *    What never starts it (`NO_DRAG_SELECTOR`): a field (a Select's combobox too), a slider, a
+ *    trigger that opens its menu on the PRESS (Radix DropdownMenu – a pull would open it before
+ *    any click could be swallowed), a canvas, a map, a sideways scroller with room (a chip row's
+ *    swipe) and `data-swipe-ignore`.
  * 3. Nothing is claimed until the finger has travelled `ENGAGE_PX` mostly downwards; a tap, a
  *    still press, an upward or a sideways swipe stay with the content.
  * 4. Let go past `DISMISS_PX`, or flicked faster than `FLICK_VELOCITY` after `FLICK_PX`, and the
@@ -26,30 +33,38 @@ export const FLICK_VELOCITY = 0.5
 /** The snap back when the pull was not enough. Short: never make anyone wait. */
 export const SNAP_MS = 180
 
-/** Never starts a drag (rule 2). `data-swipe-ignore` is the opt-out for a bespoke gesture surface. */
+/** Never starts a drag (rule 2): what reads the finger itself, and what acts on the press. A
+ *  button or a link is NOT here – a row is a handle. `data-swipe-ignore` is the opt-out for a
+ *  bespoke gesture surface. */
 export const NO_DRAG_SELECTOR = [
-  'button', 'a[href]', 'input', 'select', 'textarea', 'label', '[role="button"]', '[role="switch"]',
-  '[role="combobox"]', '[role="slider"]', '[contenteditable="true"]', 'canvas', '.maplibregl-map',
-  '[data-swipe-ignore]',
+  'input', 'select', 'textarea', '[contenteditable="true"]', '[role="combobox"]', '[role="slider"]',
+  '[aria-haspopup="menu"]', 'canvas', '.maplibregl-map', '[data-swipe-ignore]',
 ].join(', ')
 
 /** The handle: grip and header always drag (rule 1). */
 export const HANDLE_SELECTOR = '[data-slot="sheet-grip"], [data-slot="sheet-header"]'
 
 export interface SwipeStart {
-  /** The press landed on a control (rule 2). */
-  onControl: boolean
+  /** The press landed on a field, a slider, a map … (rule 2). */
+  onField: boolean
   /** The press landed on the grip or header. */
   onHandle: boolean
-  /** scrollTop of the scroller under the finger; null when nothing under it scrolls. */
-  scrollTop: number | null
+  /** The press landed inside a sideways scroller that has room to scroll (rule 2). */
+  inSidewaysScroller: boolean
+  /** scrollTop of every vertical scroller from the finger up to the sheet; empty when none. */
+  scrollTops: readonly number[]
 }
 
 /** May this press become a drag at all? */
-export function canStartSwipe({ onControl, onHandle, scrollTop }: SwipeStart): boolean {
-  if (onControl) return false
+export function canStartSwipe({ onField, onHandle, inSidewaysScroller, scrollTops }: SwipeStart): boolean {
+  if (onField) return false
   if (onHandle) return true
-  return scrollTop === null || scrollTop <= 0
+  return !inSidewaysScroller && !anyScrolled(scrollTops)
+}
+
+/** Has any scroller under the finger moved off its top (rule 1)? */
+export function anyScrolled(scrollTops: readonly number[]): boolean {
+  return scrollTops.some((top) => top > 0)
 }
 
 export type SwipeIntent = 'pending' | 'engage' | 'reject'

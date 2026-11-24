@@ -410,7 +410,7 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   return (
     <>
       <SheetHeader className="gap-0.5 px-4 pt-4 pb-3 md:px-6">
-        <SheetTitle className="text-lg font-bold">{t('title')}</SheetTitle>
+        <SheetTitle>{t('title')}</SheetTitle>
         <SheetDescription>{t('summary', { count: pool.total })}</SheetDescription>
       </SheetHeader>
       <div className="flex items-center gap-2 border-b border-border px-4 pb-3 md:px-6">

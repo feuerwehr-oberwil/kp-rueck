@@ -24,6 +24,9 @@ if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // A level that unmounted walks its history entry back (lib/hooks/use-history-level.ts); let
+  // that land here, not as a back gesture in the next test.
+  await new Promise((resolve) => setTimeout(resolve, 0));
 });
