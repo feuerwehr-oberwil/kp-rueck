@@ -131,6 +131,14 @@ interface FeldRapportFormProps {
   activeAssignmentIds?: readonly string[]
 }
 
+/** The material answers that decide the release set, order-free – to tell «saved» from «edited». */
+function materialAnswers(rows: readonly ApiRapportMaterialRow[]): string {
+  return rows
+    .map(row => `${row.assignment_id}:${row.used}:${row.left_on_site}`)
+    .sort()
+    .join('|')
+}
+
 const AUTOSAVE_MS = 30000
 /**
  * How long "X bearbeitet diesen Rapport gerade" stays true after X's last
@@ -301,6 +309,8 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // way of knowing the change was going nowhere. The edit itself is now the
   // signal, and the only button left is the one that sends it.
   const [dirty, setDirty] = useState(false)
+  // A write is on its way (render-visible twin of `isSavingRef`): «Geräte freigeben» waits.
+  const [saving, setSaving] = useState(false)
   // Concurrency guard for the submit button. Separate from `isSubmittingRef`,
   // which stays true for the rest of the mount once a report is filed (so no
   // late draft-save can un-submit it) and therefore cannot say "a request is in
@@ -434,6 +444,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     if (serialised === savedRef.current) return
     if (isKp && !hasContent(data)) return
     isSavingRef.current = true
+    setSaving(true)
     try {
       const saved = await transport.save(toUpdate(data, !isKp))
       savedRef.current = serialised
@@ -445,6 +456,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       console.error('Rapport auto-save failed:', error)
     } finally {
       isSavingRef.current = false
+      setSaving(false)
     }
   }, [isLoading, disabled, isKp, transport, onSaved])
 
@@ -649,10 +661,14 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const materialOnSite =
     formData.materials.filter(row => unitStillOnSite(row, activeAssignments)).length +
     formData.extra_materials.filter(entry => entry.left_on_site).length
-  // The server's release set minus what the form keeps on site RIGHT NOW: a «vor Ort» tick
-  // the autosave has not delivered yet must never be released (Sol review, 24.11.2026).
-  const keptOnSite = new Set(formData.materials.filter(row => row.left_on_site).map(row => row.assignment_id))
-  const releasable = (materialRelease?.units ?? []).filter(unit => !keptOnSite.has(unit.assignment_id))
+  // «Geräte freigeben» acts on the server's set, so it is offered only while that set answers
+  // for exactly what the form shows: no material answer unsaved, no save on its way, the set
+  // loaded for the latest save (Sol review, 24.11.2026). All three read during render.
+  const releasable = materialRelease?.units ?? []
+  const releaseBlocked =
+    saving ||
+    Boolean(materialRelease?.loading) ||
+    materialAnswers(formData.materials) !== materialAnswers(rapport.materials)
   const peopleCount = derivePersonnelCount(formData)
   const vehicleCount = formData.vehicles.filter(row => row.present).length
   const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
@@ -844,9 +860,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             materialRelease && (
               <MaterialReleaseButton
                 units={releasable}
-                // Only against a set that answers for what is saved: no unsaved edit, no
-                // refetch outstanding (Sol review round 2).
-                disabled={dirty || materialRelease.loading}
+                disabled={releaseBlocked}
                 releasing={materialRelease.releasing}
                 onRelease={() => void materialRelease.release(releasable.map(unit => unit.assignment_id))}
               />

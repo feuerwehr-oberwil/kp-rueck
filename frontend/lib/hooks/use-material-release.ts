@@ -12,12 +12,10 @@
  * here that the FILED rapport did not mark «vor Ort verblieben», consumables never.
  * Submitted rapports only, deliberately (§18.23): the click RELEASES, and doing that
  * against a checklist somebody is still filling in is how a pump gets freed while it runs
- * in a cellar. `release` takes the assignment ids to free from the caller, which drops
- * whatever the form marks «vor Ort» right now – so a tick the autosave has not reached
- * the server yet can never be released. `loading` stays true until the set answers for
- * the latest `refreshKey` (i.e. the latest filed save); the caller keeps the button
- * disabled until then and while its own edits are unsaved, so a set from before an
- * edit is never clicked (Sol review round 2).
+ * in a cellar. `loading` stays true until the set answers for the latest `refreshKey`
+ * (the latest filed save); the form keeps the button disabled until then, while a save is
+ * on its way and while a material answer is unsaved, so the set it offers always answers
+ * for what the form shows.
  *
  * Used by `SchadenplatzRapportSection` (editor + filed rapport only); it bumps
  * `refreshKey` whenever a save files the rapport.
@@ -48,14 +46,17 @@ export function useMaterialRelease(
   const t = useTranslations('feld.materialReturn')
   const { refreshOperations } = useOperations()
   const [units, setUnits] = useState<ApiMaterialReturnUnit[]>([])
-  // The refreshKey the current `units` answer for; only the latest request may set it.
+  // The refreshKey the current `units` answer for. Only the newest REQUEST may set it – a
+  // sequence number, since a save and a release can ask twice for one key.
   const [loadedFor, setLoadedFor] = useState<number | null>(null)
-  const latest = useRef(0)
+  const requestSeq = useRef(0)
+  const latestKey = useRef(0)
   const [releasing, setReleasing] = useState(false)
 
   const load = useCallback(
     async (key: number) => {
-      latest.current = key
+      const seq = ++requestSeq.current
+      latestKey.current = key
       let next: ApiMaterialReturnUnit[] = []
       try {
         next = (await apiClient.getRapportMaterialReturn(incidentId)).returned
@@ -63,7 +64,7 @@ export function useMaterialRelease(
         console.error('Failed to load material return list:', error)
       }
       // An older request answering late must not overwrite a newer one.
-      if (latest.current !== key) return
+      if (seq !== requestSeq.current) return
       setUnits(next)
       setLoadedFor(key)
     },
@@ -90,7 +91,7 @@ export function useMaterialRelease(
         console.error('Failed to release returned material:', error)
         toast.error(t('releaseFailed'))
       } finally {
-        await load(latest.current)
+        await load(latestKey.current)
         setReleasing(false)
       }
     },

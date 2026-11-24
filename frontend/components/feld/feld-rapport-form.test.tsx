@@ -551,14 +551,15 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
   }
   const releaseUnit = { assignment_id: 'a-pump', material_id: 'm-pump', name: 'Tauchpumpe S-Gr.', location: 'Magazin', used: true, answered: true }
 
-  it('never releases a unit the operator just marked «vor Ort», saved or not (Sol review)', async () => {
+  it('offers «Geräte freigeben» only while the set answers for what the form shows (Sol review)', async () => {
     const user = userEvent.setup()
     const release = vi.fn()
+    const save = vi.fn(() => new Promise<never>(() => {}))
     const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump] }))
     renderWithIntl(
       <FeldRapportForm
         incidentId="inc-1"
-        transport={{ load, save: vi.fn(() => new Promise<never>(() => {})) }}
+        transport={{ load, save }}
         mount="kp"
         activeAssignmentIds={['a-pump']}
         materialRelease={{ units: [releaseUnit], loading: false, releasing: false, release }}
@@ -566,13 +567,24 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
     )
 
     await user.click(await screen.findByRole('button', { name: /^Material/ }))
-    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: /1 Gerät freigeben/ })
+    expect(button).toBeEnabled()
 
-    // Mark it «vor Ort»; the save never answers, so the server set still holds the pump.
-    await user.click(screen.getByRole('button', { name: /Tauchpumpe S-Gr\.$/ }))
-    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
+    // Marked «vor Ort», not saved yet: the set no longer answers for the form.
+    const toggle = async () => {
+      const trigger = document.querySelector<HTMLElement>('[data-material-chip="unit:a-pump"]')
+      if (!trigger) throw new Error('chip trigger missing')
+      await user.click(trigger)
+      await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
+    }
+    await toggle()
+    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeDisabled()
 
-    expect(screen.queryByRole('button', { name: /Gerät freigeben/ })).not.toBeInTheDocument()
+    // The save with the tick is on its way (it never answers here); taking the tick back makes
+    // the form match the server's last answer again – and the button still waits.
+    await vi.waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 })
+    await toggle()
+    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeDisabled()
     expect(release).not.toHaveBeenCalled()
   })
 

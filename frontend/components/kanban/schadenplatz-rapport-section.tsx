@@ -67,16 +67,9 @@ export function SchadenplatzRapportSection({
   // The board's flag counts too: a rapport filed on /feld while this detail is open
   // arrives as `hasRapport` flipping, not as a save here.
   const filed = savedFiled || hasRapport
-  // …and the form loaded before that filing shows none of it (Sol review round 2). Reload it
-  // – a new mount restores unsaved KP text from its local draft – but only for a filing from
-  // OUTSIDE: our own first save flips the flag too, and must not yank the caret.
-  // Adjusted during render (no effect): React's pattern for state derived from a prop change.
-  const [seenHasRapport, setSeenHasRapport] = useState(hasRapport)
-  const [formGeneration, setFormGeneration] = useState(0)
-  if (hasRapport !== seenHasRapport) {
-    setSeenHasRapport(hasRapport)
-    if (hasRapport && !savedFiled) setFormGeneration(generation => generation + 1)
-  }
+  // Known limit, as before this block existed: the open form itself does not reload when the
+  // crew files on /feld – a reload mid-typing would cost the operator's text or overwrite the
+  // crew's answers. Reopening the detail shows the filed rapport.
 
   const transport: RapportTransport = useMemo(
     () => ({
@@ -141,7 +134,6 @@ export function SchadenplatzRapportSection({
         // form's own blocks are boxes too — three borders around one form.
         <div className={cn(boxed && "rounded-lg border border-border p-4")}>
           <FeldRapportForm
-            key={formGeneration}
             incidentId={incidentId}
             transport={transport}
             mount="kp"
