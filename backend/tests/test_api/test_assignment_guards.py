@@ -300,15 +300,21 @@ class TestEnsureAssignable:
         assert response.status_code == (409 if refused else 200)
 
 
-async def test_transfer_onto_a_closed_einsatz_is_409(
+@pytest.mark.parametrize("closed", ["source", "target"])
+async def test_transfer_from_or_onto_a_closed_einsatz_is_409(
+    closed: str,
     editor_client: AsyncClient,
     db_session: AsyncSession,
     test_event: Event,
     test_editor: User,
     test_personnel: Personnel,
 ):
-    source = await _incident(db_session, test_event, test_editor)
-    target = await _incident(db_session, test_event, test_editor, status="complete")
+    source = await _incident(
+        db_session, test_event, test_editor, status="complete" if closed == "source" else "incoming"
+    )
+    target = await _incident(
+        db_session, test_event, test_editor, status="complete" if closed == "target" else "incoming"
+    )
     db_session.add(
         IncidentAssignment(
             incident_id=source.id, resource_type="personnel", resource_id=test_personnel.id, assigned_by=test_editor.id
@@ -749,3 +755,74 @@ class TestTransferToAuftrag:
 
         assert response.status_code == 409
         assert (await db_session.get(Incident, stop.id)).group_id == other.id
+
+    @pytest.mark.parametrize("closed", ["source", "auftrag"])
+    async def test_refused_from_a_closed_einsatz_and_onto_an_all_closed_auftrag(
+        self,
+        closed: str,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        """Review B: a closed Einsatz moves nothing; an open one does not reopen a closed Auftrag."""
+        source_id = await self._setup(db_session, test_event, test_editor, auftrag, test_personnel, test_vehicle)
+        if closed == "source":
+            (await db_session.get(Incident, source_id)).status = "complete"
+        else:
+            first = await db_session.scalar(select(Incident).where(Incident.group_id == auftrag.id))
+            first.status = "complete"
+        await db_session.commit()
+
+        response = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(source_id)}
+        )
+
+        assert response.status_code == 409
+        source = await db_session.get(Incident, source_id)
+        await db_session.refresh(source)
+        assert source.group_id is None
+        assert await self._on_incident(db_session, source_id) == ["personnel", "vehicle"]
+
+    async def test_undo_brings_back_a_hand_picked_leader(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        source_id = await self._setup(db_session, test_event, test_editor, auftrag, test_personnel, test_vehicle)
+        source = await db_session.get(Incident, source_id)
+        source.leader_manual, source.leader_personnel_id = True, test_personnel.id
+        person_row = await db_session.scalar(
+            select(IncidentAssignment).where(
+                IncidentAssignment.incident_id == source_id, IncidentAssignment.resource_type == "personnel"
+            )
+        )
+        person_row.is_leader = True
+        await db_session.commit()
+        body = (
+            await editor_client.post(
+                f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(source_id)}
+            )
+        ).json()
+
+        undo = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer/undo", json={"incident_id": str(source_id)} | body
+        )
+
+        assert undo.status_code == 204
+        leader = await db_session.scalar(
+            select(IncidentAssignment.resource_id).where(
+                IncidentAssignment.incident_id == source_id,
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.is_leader.is_(True),
+            )
+        )
+        assert leader == test_personnel.id

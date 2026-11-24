@@ -47,7 +47,7 @@ import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { takesAssignments } from "@/lib/assignable"
+import { auftragTakesAssignments, takesAssignments } from "@/lib/assignable"
 import { useCompletionRequests } from "@/lib/hooks/use-completion-request"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import type { Incident } from "@/lib/types/incidents"
@@ -162,10 +162,16 @@ export function useIncidentDialogs() {
     statusWorkflow.resumeGateAfterAssignment()
   }, [statusWorkflow])
 
-  /** «Ressourcen übertragen»: load the event's incidents as targets, then open. */
+  /** «Ressourcen übertragen»: load the event's incidents as targets, then open.
+   *  A closed Einsatz is no source (the server refuses it): said, not opened. */
   const openTransfer = useCallback(async (operationId: string) => {
-    if (!operations.some((o) => o.id === operationId) || !selectedEvent) {
+    const operation = operations.find((o) => o.id === operationId)
+    if (!operation || !selectedEvent) {
       toast.error(t("common.error"), { description: t("common.noEventSelected") })
+      return
+    }
+    if (!takesAssignments(operation)) {
+      toast.info(t("common.closedTransfersNothing", { name: getIncidentLocationLabel(operation) }))
       return
     }
     try {
@@ -243,8 +249,9 @@ export function useIncidentDialogs() {
     }
   }, [refreshOperations, refreshGroups, groups, t, transfer, operations, formatLocation])
 
-  // «Einsatz abschliessen» from the GPS release prompt (root layout): the usual close flow.
-  useCompletionRequests(isEditor ? statusWorkflow.requestCompletion : null)
+  // «Einsatz abschliessen» from the GPS release prompt (root layout): the usual close flow,
+  // also for an Einsatz of the Ereignis the prompt just switched to.
+  useCompletionRequests(isEditor ? statusWorkflow.requestCompletion : null, { eventId: selectedEvent?.id, operations })
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –
    *  spread onto it. Editor-only, like everything the layer opens. */
@@ -601,7 +608,10 @@ export function IncidentDialogs({
           sourceIncident={transferSource}
           sourceName={formatLocation(transferSource.location ?? "") || getIncidentTypeLabel(transferSource.incidentType)}
           availableIncidents={view.transfer?.targets ?? []}
-          availableAuftraege={groups}
+          // An Auftrag whose stops are all closed takes nothing new (lib/assignable.ts).
+          availableAuftraege={groups.filter((group) =>
+            auftragTakesAssignments(group.stopIds.map((id) => operations.find((o) => o.id === id))),
+          )}
           onTransfer={view.runTransfer}
           isTransferring={view.isTransferring}
           resourceSummary={{

@@ -40,7 +40,7 @@ const RADIO_REPEATABLE: ReadonlySet<Operation["status"]> = new Set(["enroute", "
  * The right-click menu of an Einsatz card. Rendered by `DraggableOperation` as
  * the content of its `<ContextMenu>`, next to the trigger that wraps the card.
  * A row shows only when its handler is passed – the board passes the editing
- * ones to editors only. «Zuweisen» hides on a closed Einsatz, «Übertragen» on a stop. The thermal-print action is `usePrintAssignmentSlip`.
+ * ones to editors only. «Zuweisen» and «Übertragen» hide on a closed Einsatz, «Übertragen» on a stop. The thermal-print action is `usePrintAssignmentSlip`.
  *
  * Re-renders with the card (not memoised), so it never shows a stale label.
  */
@@ -64,12 +64,13 @@ export function CardContextMenu({
   const tReorder = useTranslations('common.reorder')
   const { print, printing: isPrinting } = usePrintAssignmentSlip()
   const handlePrint = () => void print(operation.id)
-  // A closed Einsatz takes no new assignment (lib/assignable.ts), and a stop is not
-  // transferred – its resources belong to its Auftrag («Aus Auftrag lösen» stays).
+  // A closed Einsatz takes no new assignment (lib/assignable.ts) and is no transfer source
+  // (the server refuses it); a stop is not transferred – its resources belong to its
+  // Auftrag («Aus Auftrag lösen» stays).
   const open = takesAssignments(operation)
   const onAssignReko = open ? onAssignRekoProp : undefined
   const onAssignResource = open ? onAssignResourceProp : undefined
-  const onTransfer = auftragId || operation.groupId ? undefined : onTransferProp
+  const onTransfer = open && !auftragId && !operation.groupId ? onTransferProp : undefined
 
   return (
     <ContextMenuContent

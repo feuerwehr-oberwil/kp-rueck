@@ -18,7 +18,14 @@ from ..models import Event, Incident, IncidentAssignment, IncidentGroup, Inciden
 from ..services.audit import log_action
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
-from .assignments import ResourceNotAssignableError, TransferChangedError, ensure_assignable, sync_auto_leader
+from .assignments import (
+    CLOSED_SOURCE_REFUSED,
+    ResourceNotAssignableError,
+    TransferChangedError,
+    TransferRefusedError,
+    ensure_assignable,
+    sync_auto_leader,
+)
 from .locking import lock_groups, lock_incidents_with_groups, lock_resources
 from .manual_order import plan_manual_order
 
@@ -486,10 +493,6 @@ async def remove_stop_from_group(
     return True
 
 
-class TransferRefusedError(ValueError):
-    """«Übertragen» onto an Auftrag cannot start from this Einsatz (→ 409). ``str()`` is German."""
-
-
 async def transfer_to_auftrag(
     db: AsyncSession,
     group_id: uuid.UUID,
@@ -506,9 +509,11 @@ async def transfer_to_auftrag(
     belong to its Auftrag. A resource the Auftrag already holds gets no second row; its
     Einsatz row is released all the same. A Reko auftrag stays on the Einsatz.
 
-    The Auftrag's new rows are NEW assignments, so ``ensure_assignable`` applies (with the
-    Einsatz counted as a stop) and refuses the whole transfer. The same applies to an Auftrag
-    whose stops are all closed, when this Einsatz is closed too.
+    A closed Einsatz is no source (its material left on site stays put, and «Rückgängig»
+    could not put it back), and an Auftrag whose stops are all closed is no target – checked
+    on its stops before this one joins (``group_assignments.auftrag_is_closed``). The
+    Auftrag's new rows are NEW assignments, so ``ensure_assignable`` applies too and
+    refuses the whole transfer.
 
     Lock order (``crud/locking.py``): the Auftrag, the Einsatz, then its resources.
 
@@ -517,7 +522,8 @@ async def transfer_to_auftrag(
 
     Raises:
         LookupError: the Auftrag or the Einsatz is gone.
-        TransferRefusedError: the Einsatz is already a stop, or of another Ereignis.
+        TransferRefusedError: the Einsatz is closed, already a stop or of another Ereignis,
+            or every stop of the Auftrag is closed.
         ResourceNotAssignableError: the policy refused a resource; nothing was written.
     """
     locked = await lock_incidents_with_groups(db, [incident_id], extra_group_ids=[group_id])
@@ -531,6 +537,11 @@ async def transfer_to_auftrag(
         raise TransferRefusedError("Der Einsatz ist bereits Stopp eines Auftrags.")
     if incident.event_id != group.event_id:
         raise TransferRefusedError("Einsatz gehört zu einem anderen Ereignis")
+    if incident.status == "complete":
+        raise TransferRefusedError(CLOSED_SOURCE_REFUSED)
+    # Under the Auftrag lock, and before this open Einsatz joins and makes it look open.
+    if await group_assignments_crud.auftrag_is_closed(db, group_id):
+        raise TransferRefusedError("Alle Stopps des Auftrags sind abgeschlossen – Übertragen nicht möglich.")
     event = await db.get(Event, group.event_id)
     if event is None:
         raise LookupError(f"event {group.event_id} does not exist")
@@ -549,14 +560,13 @@ async def transfer_to_auftrag(
     resources = await lock_resources(db, [(row.resource_type, row.resource_id) for row in moving])
 
     await add_stops_to_group(db, group_id, [incident_id], current_user, request)
-    auftrag_closed = await group_assignments_crud.auftrag_is_closed(db, group_id)
     created = await group_assignments_crud.mirror_to_auftrag(db, group_id, incident_id)
     for row in created:
         resource = resources.get((row.resource_type, row.resource_id))
         if resource is None:
             continue  # a deleted resource moves as it is, like the incident transfer
         try:
-            ensure_assignable(resource, event=event, auftrag_closed=auftrag_closed)
+            ensure_assignable(resource, event=event)
         except ResourceNotAssignableError as refused:
             raise ResourceNotAssignableError(f"Übertragen nicht möglich – {refused}") from refused
         row.assigned_by = current_user.id
@@ -602,7 +612,7 @@ async def undo_transfer_to_auftrag(
     unless the Einsatz is still a stop of this Auftrag, every row the transfer made is
     still active there, and none of the released resources is back on the Einsatz.
     The Einsatz gets new rows, so ``ensure_assignable`` applies (a closed Einsatz is a
-    409). Same lock order as the transfer.
+    409). A hand-picked Einsatzleiter leads again. Same lock order as the transfer.
 
     Raises:
         TransferChangedError: something changed since the transfer; nothing was written.
@@ -661,6 +671,10 @@ async def undo_transfer_to_auftrag(
     for row in on_auftrag:
         row.unassigned_at = now
         row.is_leader = False
+    # A hand-picked Einsatzleiter comes back with the crew. The released row lost its flag,
+    # but the pick is on record: `leader_manual` pins `leader_personnel_id`, and nothing
+    # re-picks it while the Einsatz is a stop (`sync_auto_leader` skips a manual leader).
+    manual_leader = incident.leader_personnel_id if incident.leader_manual else None
     for stop_row in released:
         db.add(
             IncidentAssignment(
@@ -669,6 +683,7 @@ async def undo_transfer_to_auftrag(
                 resource_id=stop_row.resource_id,
                 purpose=stop_row.purpose,
                 driver_stay=stop_row.driver_stay,
+                is_leader=stop_row.resource_type == "personnel" and stop_row.resource_id == manual_leader,
                 assigned_by=current_user.id,
             )
         )

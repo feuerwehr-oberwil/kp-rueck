@@ -275,8 +275,9 @@ export function OperationDetailContent({
   // `ownResourceSections` below.
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
-  // A closed Einsatz takes nothing new (lib/assignable.ts): no «Zuweisen», no drop target.
+  // A closed Einsatz takes nothing new (lib/assignable.ts): no «Zuweisen», no Reko, no drop target.
   const acceptsAssignments = takesAssignments(operation)
+  const canAssignReko = canEdit && acceptsAssignments
 
   // Promote a crew member to Einsatzleiter — shared with the card's chip menu.
   const promoteToLeader = usePromoteToLeader()
@@ -1514,13 +1515,13 @@ export function OperationDetailContent({
               // assignment and not onto the Übersicht they came from.
               onClick={() => {
                 selectTab('reko')
-                if (canEdit && !assignedRekoPersonnel) setRekoDialogOpen(true)
+                if (canAssignReko && !assignedRekoPersonnel) setRekoDialogOpen(true)
               }}
               // The same hover tint and the same rhythm as the empty
               // `ResourceRow`s below it: one target, one highlight.
               className="-mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors duration-150 hover:bg-muted/40"
-              title={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
-              aria-label={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : undefined}
+              title={canAssignReko && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
+              aria-label={canAssignReko && !assignedRekoPersonnel ? t('card.assignReko') : undefined}
             >
               {/* The SAME gutter as the three `ResourceRow`s below, so the
                   four values of the group start on one edge. It used to be an
@@ -1676,7 +1677,7 @@ export function OperationDetailContent({
                 <div>
                   <DetailField
                     label={t('common.reko')}
-                    action={canEdit ? (
+                    action={canAssignReko ? (
                       <button
                         type="button"
                         className={ROW_ACTION}
@@ -1913,8 +1914,9 @@ export function OperationDetailContent({
             onClick={handleCopyWhatsApp}
           />
 
-          {/* Not on a stop: its resources belong to the Auftrag («Aus Auftrag lösen» stays). */}
-          {canEdit && onTransferResources && !operation.groupId && (
+          {/* Not on a stop: its resources belong to the Auftrag («Aus Auftrag lösen» stays).
+              Not on a closed Einsatz: it is no transfer source. */}
+          {canEdit && onTransferResources && !operation.groupId && acceptsAssignments && (
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
@@ -1960,7 +1962,7 @@ export function OperationDetailContent({
 
       {/* Assign Reko Dialog */}
       <AssignRekoDialog
-        open={rekoDialogOpen}
+        open={rekoDialogOpen && acceptsAssignments}
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
         incidentTitle={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}

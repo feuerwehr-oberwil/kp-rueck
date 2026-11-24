@@ -715,6 +715,15 @@ class TransferChangedError(ValueError):
     """An undo named assignments that are no longer all active on the incident."""
 
 
+class TransferRefusedError(ValueError):
+    """«Übertragen» cannot start from this Einsatz or onto this target (→ 409). ``str()`` is German."""
+
+
+# Lead's call on review B (24.11.2026): a closed Einsatz is no transfer source. Its material
+# left on site would move, and «Rückgängig» could not put it back onto the closed Einsatz.
+CLOSED_SOURCE_REFUSED = "Der Einsatz ist abgeschlossen – seine Ressourcen werden nicht übertragen."
+
+
 async def transfer_assignments(
     db: AsyncSession,
     source_incident_id: uuid.UUID,
@@ -747,7 +756,8 @@ async def transfer_assignments(
 
     The rows are NEW assignments on the target, so ``ensure_assignable`` applies to
     each resource (a closed or archived target, a vehicle now «nicht einsatzbereit»)
-    and refuses the whole transfer. Lock order (``crud/locking.py``): both Einsätze
+    and refuses the whole transfer. A closed source is refused too (``CLOSED_SOURCE_REFUSED``).
+    Lock order (``crud/locking.py``): both Einsätze
     with their Aufträge, then all resource rows (``lock_resources``).
 
     ``only_assignment_ids`` is the undo of a transfer: exactly those rows move, and only
@@ -757,12 +767,15 @@ async def transfer_assignments(
     Raises:
         ValueError: If source has no assignments or if conflicts exist
         TransferChangedError: (a ``ValueError``) the undo's rows are no longer all there
+        TransferRefusedError: (a ``ValueError``) the source is closed
         ResourceNotAssignableError: (a ``ValueError``) the policy refused a resource
     """
     locked = await lock_incidents_with_groups(db, [source_incident_id, target_incident_id])
     source_incident = locked.get(source_incident_id)
     if source_incident is None:
         raise ValueError("Quell-Einsatz nicht gefunden")
+    if source_incident.status == "complete":
+        raise TransferRefusedError(CLOSED_SOURCE_REFUSED)
 
     target_incident = locked.get(target_incident_id)
     if target_incident is None or target_incident.deleted_at is not None or target_incident.merged_into_id is not None:

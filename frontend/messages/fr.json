@@ -1490,7 +1490,8 @@
       "description": "<strong>{vehicle}</strong> est de retour à la caserne selon le GPS. Clôturer l’intervention « {label} » ? L’effectif et les véhicules sont libérés, pour le matériel on demande ce qui reste sur place.",
       "decline": "Ne pas libérer",
       "releaseOnly": "Libérer uniquement {vehicle}",
-      "completeIncident": "Clôturer l’intervention"
+      "completeIncident": "Clôturer l’intervention",
+      "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là"
     },
     "quickAdd": {
       "networkErrorTitle": "Erreur de réseau",
@@ -1813,6 +1814,7 @@
       "vehicleAssignedToast": "{vehicle} attribué à {name}",
       "vehicleRemovedToast": "{vehicle} libéré de {name}",
       "closedTakesNoAssignment": "{name} est terminée – plus rien à attribuer",
+      "closedTransfersNothing": "{name} est terminée – rien à transférer",
       "priorityChangedToast": "{name} : priorité {priority}",
       "zuFussOnToast": "{name} : engagement à pied",
       "zuFussOffToast": "{name} : plus à pied",

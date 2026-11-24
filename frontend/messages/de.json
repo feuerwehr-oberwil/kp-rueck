@@ -515,6 +515,7 @@
       "vehicleAssignedToast": "{vehicle} zu {name} zugewiesen",
       "vehicleRemovedToast": "{vehicle} von {name} freigegeben",
       "closedTakesNoAssignment": "{name} ist abgeschlossen – nichts mehr zuweisen",
+      "closedTransfersNothing": "{name} ist abgeschlossen – nichts zu übertragen",
       "priorityChangedToast": "{name}: Priorität {priority}",
       "zuFussOnToast": "{name}: zu Fuss unterwegs",
       "zuFussOffToast": "{name}: nicht mehr zu Fuss",
@@ -1426,7 +1427,8 @@
       "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Den Einsatz «{label}» abschliessen? Mannschaft und Fahrzeuge werden frei, beim Material wird gefragt, was vor Ort bleibt.",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
-      "completeIncident": "Einsatz abschliessen"
+      "completeIncident": "Einsatz abschliessen",
+      "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen"
     },
     "quickAdd": {
       "networkErrorTitle": "Netzwerkfehler",

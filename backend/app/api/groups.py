@@ -238,13 +238,14 @@ async def transfer_to_auftrag(
     """«Übertragen» an Einsatz onto this Auftrag (editor only): it becomes the last stop,
     its crew, vehicles and material move to the Auftrag (``crud.transfer_to_auftrag``).
 
-    409 when the Einsatz already is a stop, or a resource may not be assigned.
+    409 when the Einsatz is closed or already a stop, every stop of the Auftrag is closed,
+    or a resource may not be assigned.
     """
     try:
         result = await crud.transfer_to_auftrag(db, group_id, body.incident_id, current_user, request)
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
-    except (crud.TransferRefusedError, assignments_crud.ResourceNotAssignableError) as e:
+    except (assignments_crud.TransferRefusedError, assignments_crud.ResourceNotAssignableError) as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
     await _broadcast_membership(background_tasks, db, group_id)
     return schemas.TransferToAuftragResponse.model_validate(result)

@@ -7,6 +7,7 @@ import { wsClient } from "@/lib/websocket-client"
 import { apiClient } from "@/lib/api-client"
 import { requestCompletion } from "@/lib/hooks/use-completion-request"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { apiEventToEvent, useEvent } from "@/lib/contexts/event-context"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { toast } from "sonner"
@@ -15,6 +16,8 @@ import { useTranslations } from "next-intl"
 interface ReleasePrompt {
   assignmentId: string
   incidentId: string
+  /** The Einsatz's Ereignis; unknown when the lookup failed. */
+  eventId?: string
   vehicleName: string
   incidentLabel: string
 }
@@ -38,12 +41,15 @@ interface ReleasePrompt {
  * The main answer (ink, Enter) is «Einsatz abschliessen», always: a vehicle back home means
  * the crew and the material are back too (owner feedback 23.11.2026 #13). It runs the board's
  * usual close flow (`requestCompletion` → `useIncidentDialogs`), so the question which
- * material stays on site comes as after a drag onto «Abgeschlossen». «Nur {vehicle}
- * freigeben» is the line above «Nicht freigeben».
+ * material stays on site comes as after a drag onto «Abgeschlossen». With another Ereignis
+ * open, it first switches to the Einsatz's own, whose board then runs that flow. It closes
+ * only once a board took the request – never a silent dismiss. «Nur {vehicle} freigeben» is
+ * the line above «Nicht freigeben».
  */
 export function GpsReleasePrompt() {
   const t = useTranslations('incidents.gpsRelease')
   const { isEditor } = useAuth()
+  const { selectedEvent, setSelectedEvent } = useEvent()
   const isPhone = useIsMobile()
   const pathname = usePathname()
   const [prompt, setPrompt] = useState<ReleasePrompt | null>(null)
@@ -63,9 +69,11 @@ export function GpsReleasePrompt() {
       if (!payload?.assignment_id || !payload?.incident_id) return
       // If the incident is already closed out, the operator has handled it —
       // no modal, the bell notification is enough.
+      let eventId: string | undefined
       try {
         const incident = await apiClient.getIncident(payload.incident_id)
         if (incident.status === "complete") return
+        eventId = incident.event_id
       } catch {
         // Can't verify — show the prompt; the unassign endpoint is the backstop.
       }
@@ -74,6 +82,7 @@ export function GpsReleasePrompt() {
       setPrompt({
         assignmentId: payload.assignment_id,
         incidentId: payload.incident_id,
+        eventId,
         vehicleName: payload.vehicle_name || t('fallbackVehicle'),
         incidentLabel: payload.incident_label || t('fallbackIncident'),
       })
@@ -110,8 +119,18 @@ export function GpsReleasePrompt() {
 
   // The board's close flow: personnel and vehicles are released server-side, and it asks
   // which material stays on site. Its own dialog takes over from here.
-  const handleComplete = () => {
-    requestCompletion(prompt.incidentId)
+  const handleComplete = async () => {
+    const { incidentId, eventId } = prompt
+    try {
+      if (eventId && eventId !== selectedEvent?.id) setSelectedEvent(apiEventToEvent(await apiClient.getEvent(eventId)))
+    } catch {
+      toast.error(t('completeFailed'))
+      return
+    }
+    if (!requestCompletion({ incidentId, eventId })) {
+      toast.error(t('completeFailed'))
+      return
+    }
     setPrompt(null)
   }
 

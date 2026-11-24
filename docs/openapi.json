@@ -6462,7 +6462,7 @@
           "incident-groups"
         ],
         "summary": "Transfer To Auftrag",
-        "description": "«Übertragen» an Einsatz onto this Auftrag (editor only): it becomes the last stop,\nits crew, vehicles and material move to the Auftrag (``crud.transfer_to_auftrag``).\n\n409 when the Einsatz already is a stop, or a resource may not be assigned.",
+        "description": "«Übertragen» an Einsatz onto this Auftrag (editor only): it becomes the last stop,\nits crew, vehicles and material move to the Auftrag (``crud.transfer_to_auftrag``).\n\n409 when the Einsatz is closed or already a stop, every stop of the Auftrag is closed,\nor a resource may not be assigned.",
         "operationId": "transfer_to_auftrag_api_incident_groups__group_id__transfer_post",
         "parameters": [
           {
