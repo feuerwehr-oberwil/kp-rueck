@@ -3,9 +3,11 @@ import type { Page } from '@playwright/test';
 import { API_BASE, MOBILE_VIEWPORT, cookieHeaderFor, setupBoard } from '../../helpers/api.helper';
 
 /**
- * The phone's bottom bar: two tabs (Einsätze, Karte) and «Mehr», whose sheet reaches the
- * rest. What it must do is get the operator to every page, and keep the tabs that need an
- * Ereignis shut while none is chosen.
+ * The phone frame (owner picks 1A + 2A, 24.11.2026): the Ereignis pill on top – its menu
+ * reaches «Alle Ereignisse», Einstellungen, Hilfe and the account – and the bottom bar's five
+ * tiles: Einsätze and Lagekarte (pages), Personal and Meldungen (sheets), «Mehr» (the tools).
+ * What it must do is get the operator to every page, and keep the tabs that need an Ereignis
+ * shut while none is chosen.
  *
  * How it looks (active tint, muted inactive tabs, backdrop blur, safe-area padding, 44px
  * targets) used to be asserted here class by class; the phone visual screen and the
@@ -16,6 +18,9 @@ import { API_BASE, MOBILE_VIEWPORT, cookieHeaderFor, setupBoard } from '../../he
 /** The bar is the navigation landmark that holds «Mehr» (its classes differ per page). */
 const bottomNav = (page: Page) =>
   page.getByRole('navigation').filter({ has: page.getByRole('button', { name: 'Mehr Optionen' }) });
+
+/** The Ereignis pill: its accessible name is «Ereignis <name> – Menü». */
+const eventPill = (page: Page) => page.getByRole('button', { name: /^Ereignis .* – Menü$/ });
 
 /** `next dev` compiles a route on its first visit; on a busy runner that alone takes seconds. */
 const ROUTE_COMPILE_MS = 15_000;
@@ -45,14 +50,32 @@ test.describe('Mobile bottom navigation', () => {
     ['Alle Ereignisse', '/events'],
     ['Einstellungen', '/settings'],
   ] as const) {
-    test(`«Mehr» reaches ${entry}`, async ({ authenticatedPage: page }) => {
-      await setupBoard(page, 'Mobile Mehr', { count: 0 });
-      await bottomNav(page).getByRole('button', { name: 'Mehr Optionen' }).click();
-      // A page entry is the row itself as a link (Button asChild), not a button inside a link.
-      await page.getByRole('dialog').getByRole('link', { name: entry }).click();
+    test(`the Ereignis pill reaches ${entry}`, async ({ authenticatedPage: page }) => {
+      await setupBoard(page, 'Mobile Pill', { count: 0 });
+      await eventPill(page).click();
+      // A page entry is the row itself as a link, not a button inside a link.
+      await page.getByRole('menu').getByRole('menuitem', { name: entry }).click();
       await expect(page).toHaveURL(path, { timeout: ROUTE_COMPILE_MS });
+      // the pill heads that page too
+      await expect(eventPill(page)).toBeVisible();
     });
   }
+
+  test('the Personal and Meldungen tiles open their sheets over the page', async ({ authenticatedPage: page }) => {
+    await setupBoard(page, 'Mobile Tiles', { count: 0 });
+    const nav = bottomNav(page);
+
+    await nav.getByRole('button', { name: 'Personal' }).click();
+    await expect(page.getByRole('dialog', { name: 'Personal' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await nav.getByRole('button', { name: /^Meldungen/ }).click();
+    const meldungen = page.getByRole('dialog', { name: 'Meldungen' });
+    await expect(meldungen).toBeVisible();
+    await expect(meldungen.getByRole('button', { name: /Alarmeingang/ })).toBeVisible();
+    await expect(page).toHaveURL('/');
+  });
 
   // The same menu on the board and on the Lagekarte (owner, 16.11.2026): the sheets are the
   // nav's own, so the map opens them over itself instead of offering only Kennzahlen.
@@ -68,7 +91,6 @@ test.describe('Mobile bottom navigation', () => {
       const sheet = page.getByRole('dialog');
       await expect(sheet.getByRole('heading', { name: 'Schnellzugriff' })).toBeVisible();
       await expect(sheet.getByRole('button', { name: 'Links & QR' })).toBeVisible();
-      await expect(sheet.getByRole('button', { name: 'Personal' })).toBeVisible();
       await sheet.getByRole('button', { name: 'Fahrzeuge' }).click();
 
       await expect(page.getByRole('dialog', { name: 'Fahrzeugstatus' })).toBeVisible();

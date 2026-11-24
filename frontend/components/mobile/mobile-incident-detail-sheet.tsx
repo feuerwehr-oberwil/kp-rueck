@@ -103,17 +103,15 @@ export function MobileIncidentDetailSheet({
           event.preventDefault()
           opener.focus({ preventScroll: true })
         }}
-        // The frame every phone sheet has (new-emergency-modal.tsx): header, a body that
-        // scrolls, a foot that stays. It covers the nav, so the foot pays only the safe
-        // area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte
-        // anzeigen» wherever the content ended – on a busy Einsatz on the screen's bottom
-        // edge (hill climb r7).
-        // The ✕ (44px on a phone) centred on the title's 28px first line, 16 + 14 = 30px down –
-        // at the sheet's `top-4` it hung 9px below the title (hill climb r22), the same fix as
-        // the «Neuer Einsatz» sheet's.
-        className="modal-h-tall gap-0 [&>[data-slot=sheet-close]]:top-[30px] [&>[data-slot=sheet-close]]:-translate-y-1/2"
+        // The frame every phone sheet has (docs/FRONTEND.md «Phone layout», phone sweep 24.11.2026):
+        // the shared head – 24px in, no hairline, the ✕ plate on the title's line – a body that
+        // scrolls at the same inset, a foot that stays. It covers the nav, so the foot pays only
+        // the safe area (`pb-sheet-safe`). One sheet-long scroller used to leave «Auf Karte
+        // anzeigen» wherever the content ended – on a busy Einsatz on the screen's bottom edge
+        // (hill climb r7).
+        className="modal-h-tall gap-0 p-0"
       >
-        <SheetHeader className="border-b px-4 pb-4">
+        <SheetHeader>
           <div className="flex items-start gap-2">
             {/* Priority: the shared mark alone, as on the desk card and the desk
                 detail – a dot in front of it said the same thing twice (hill climb
@@ -121,7 +119,7 @@ export function MobileIncidentDetailSheet({
                 on the title's 28px first line. */}
             <PriorityGlyph priority={priority} size="wall" className="mt-[5px] size-[18px]" />
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-xl text-left">
+              <SheetTitle className="text-left">
                 {/* The number before the address, as on the phone card and the desk detail. */}
                 <IncidentNumber number={operation.number} className="mr-2 text-xs" />
                 {formatLocation(operation.location)
@@ -132,9 +130,9 @@ export function MobileIncidentDetailSheet({
           </div>
         </SheetHeader>
 
-        {/* 16px everywhere: header rule → status, section → section, group → group.
+        {/* 16px everywhere: title → status (the head's 12 + 4), section → section, group → group.
             No bottom padding: the body ends in the shared end fade (below). */}
-        <SheetBody className="space-y-4 px-4 pt-4">
+        <SheetBody className="space-y-4 px-6 pt-1">
           {/* Abholung (decision 24) — the `banner` variant, the same shape the
               desktop detail uses, because this sheet is the phone's detail
               surface. Read-only (`canEdit={false}`): the phone is for looking,
@@ -350,7 +348,7 @@ export function MobileIncidentDetailSheet({
 
         {/* The one way on from here, in the foot that stays: never on the screen's edge,
             never scrolled away. The same foot frame as «Neuer Einsatz». */}
-        <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
+        <SheetFooter className="mt-0 border-t px-6 pt-3 pb-sheet-safe">
           {onShowOnMap ? (
             <Button variant="outline" size="lg" className="w-full gap-2" onClick={() => onShowOnMap(operation.id)}>
               <MapIcon className="h-4 w-4" />

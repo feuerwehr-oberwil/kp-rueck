@@ -82,6 +82,9 @@ export interface NotificationCardProps {
    * pointer must not clear the alert for every other board.
    */
   dismissOnClick?: boolean
+  /** No status move on the card – the phone's Meldungen sheet: the phone board is read-only
+   *  (owner, 14.11.2026). Closing the notification stays. */
+  readOnly?: boolean
 }
 
 export function NotificationCard({
@@ -90,6 +93,7 @@ export function NotificationCard({
   onClickIncident,
   variant = 'default',
   dismissOnClick = true,
+  readOnly = false,
 }: NotificationCardProps) {
   const t = useTranslations('notifications.card')
   const tSidebar = useTranslations('notifications.sidebar')
@@ -124,7 +128,7 @@ export function NotificationCard({
     ? operations.find((op) => op.id === notification.incident_id)
     : undefined
   const nudge = operation ? fieldNudgeForNotification(notification.type, operation) : null
-  const showAction = !!nudge && !!fieldAction && isEditor && !notification.dismissed
+  const showAction = !!nudge && !!fieldAction && isEditor && !readOnly && !notification.dismissed
 
   return (
     <div

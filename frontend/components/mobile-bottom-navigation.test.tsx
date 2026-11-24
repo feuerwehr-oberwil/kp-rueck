@@ -1,7 +1,9 @@
 /**
  * The «Mehr» sheet's «Schnellzugriff»: the same entries on every page (owner, 16.11.2026 – on the
  * Lagekarte it used to offer only Kennzahlen, because the sheets were the board's), editing ones
- * for editors only, and the section only when it has an entry (owner, 03.10.2026).
+ * for editors only, and the section only when it has an entry (owner, 03.10.2026). The five tiles
+ * of the phone frame (owner picks 1A + 2A, 24.11.2026): Personal and Meldungen open sheets, the
+ * Ereignis and the account left «Mehr» for the pill.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen } from '@testing-library/react'
@@ -36,8 +38,13 @@ vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => true }))
 vi.mock('@/components/mobile/phone-quick-sheets', () => ({
   PhoneQuickSheets: ({ open }: { open: string | null }) => <output data-testid="quick-sheet">{open ?? ''}</output>,
 }))
+const meldungen = vi.hoisted(() => ({ count: 0 }))
+vi.mock('@/components/notifications/phone-notification-sheet', () => ({
+  PhoneNotificationSheet: ({ open }: { open: boolean }) => (open ? <output data-testid="meldungen-sheet" /> : null),
+  useMeldungenCount: () => meldungen.count,
+}))
 
-const EDITOR_ENTRIES = ['Links & QR', 'Verlauf', 'Kennzahlen', 'Personal', 'Fahrzeuge', 'Drucken']
+const EDITOR_ENTRIES = ['Links & QR', 'Verlauf', 'Kennzahlen', 'Fahrzeuge', 'Drucken']
 
 async function openSheet() {
   await userEvent.click(screen.getByRole('button', { name: 'Mehr Optionen' }))
@@ -69,7 +76,14 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
     expect(screen.getByRole('button', { name: 'Verlauf' })).toBeDefined()
     expect(screen.getByRole('button', { name: 'Kennzahlen' })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Links & QR' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Personal' })).toBeNull()
+  })
+
+  // Owner pick 2A: the Ereignis and the account are the pill's (PhoneEventPill), «Mehr» the tools'.
+  it('holds no Ereignis switch and no account', async () => {
+    renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    await openSheet()
+    expect(screen.queryByText('Alle Ereignisse')).toBeNull()
+    expect(screen.queryByText('Abmelden')).toBeNull()
   })
 
   it('is absent without an Ereignis – every entry is about the open one', async () => {
@@ -89,11 +103,46 @@ describe('MobileBottomNavigation «Schnellzugriff»', () => {
 })
 
 describe('MobileBottomNavigation tabs', () => {
-  // Phone sweep 24.11.2026 #24: «Alle Ereignisse» and «Übungs-Steuerung» lit no tab at all.
-  it.each(['events', 'training', 'settings', 'help'] as const)('lights «Mehr» on %s', (page) => {
+  beforeEach(() => {
+    event.current = { training_flag: false }
+    meldungen.count = 0
+  })
+
+  // Phone sweep 24.11.2026 #24: «Übungs-Steuerung» lit no tab at all.
+  it.each(['training', 'settings', 'help'] as const)('lights «Mehr» on %s', (page) => {
     renderWithIntl(<MobileBottomNavigation currentPage={page} />)
     expect(screen.getByRole('button', { name: 'Mehr Optionen' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Einsätze' })).not.toHaveAttribute('aria-current')
+  })
+
+  // «Alle Ereignisse» is the pill's page now (it marks it in its menu): no tile claims it.
+  it('lights no tile on «Alle Ereignisse»', () => {
+    renderWithIntl(<MobileBottomNavigation currentPage="events" />)
+    expect(document.querySelectorAll('[aria-current]')).toHaveLength(0)
+    for (const tile of [...screen.getAllByRole('link'), ...screen.getAllByRole('button')]) {
+      expect(tile).not.toHaveClass('bg-foreground/[0.09]')
+    }
+  })
+
+  it('opens the Personal sheet over the page from its tile, and only with an Ereignis', async () => {
+    renderWithIntl(<MobileBottomNavigation currentPage="map" />)
+    await userEvent.click(screen.getByRole('button', { name: 'Personal' }))
+    expect(screen.getByTestId('quick-sheet')).toHaveTextContent('personnel')
+  })
+
+  it('keeps Personal shut without an Ereignis', () => {
+    event.current = null
+    renderWithIntl(<MobileBottomNavigation currentPage="events" />)
+    expect(screen.getByRole('button', { name: 'Personal' })).toBeDisabled()
+  })
+
+  it('counts what is open on the Meldungen tile and opens the list', async () => {
+    meldungen.count = 12
+    renderWithIntl(<MobileBottomNavigation currentPage="kanban" />)
+    const tile = screen.getByRole('button', { name: 'Meldungen – 12 offen' })
+    expect(screen.getByTestId('meldungen-badge')).toHaveTextContent('9+')
+    await userEvent.click(tile)
+    expect(screen.getByTestId('meldungen-sheet')).toBeDefined()
   })
 
   // Phone sweep 24.11.2026 #2: the tint and the loading bar waited for the next page.

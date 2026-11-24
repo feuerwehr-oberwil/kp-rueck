@@ -16,6 +16,7 @@
  * its sidebar entry.
  */
 
+import { PhoneEventHead } from '@/components/mobile/phone-event-pill'
 import { formatTime } from '@/lib/format-time'
 import { SearchEmptyState } from "@/components/ui/empty-state"
 import { useMemo, useState, useEffect } from 'react';
@@ -852,6 +853,7 @@ export default function SettingsPage() {
     <ProtectedRoute>
       <div className="flex h-full flex-col bg-background">
         {/* Header */}
+        <PhoneEventHead />
         <header className="flex items-center justify-between border-b px-4 md:px-6 py-2 min-h-14">
           <div className="flex items-center gap-3">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">{t('page.title')}</h1>

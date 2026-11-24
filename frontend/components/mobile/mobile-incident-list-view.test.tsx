@@ -11,6 +11,11 @@ import type { Operation } from '@/lib/contexts/operations-context'
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
 vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [] }) }))
+vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ refreshOperations: vi.fn() }) }))
+// The pill is its own component (phone-event-pill.test.tsx); here only where it stands.
+vi.mock('@/components/mobile/phone-event-pill', () => ({
+  PhoneEventPill: () => <button type="button">Ereignis-Pill</button>,
+}))
 vi.mock('@/components/mobile/mobile-incident-card', () => ({
   MobileIncidentCard: ({ operation }: { operation: Operation }) => <div data-testid="card">{operation.location}</div>,
 }))
@@ -131,13 +136,16 @@ describe('MobileIncidentListView — «Neuer Einsatz» in the footer', () => {
     expect(screen.getAllByRole('button', { name: /Neuer Einsatz/ })).toHaveLength(1)
   })
 
-  it('in an Übung the training CTA keeps the top, «Neuer Einsatz» the footer', () => {
-    renderBare({ isEditor: true, isTraining: true, onNewIncident: () => {} })
-    const training = screen.getByRole('button', { name: /Übungs-Einsatz erstellen/ })
-    const neu = screen.getByRole('button', { name: 'Neuer Einsatz' })
+  // Owner pick 5B (phone sweep 24.11.2026): one split button in the footer, the head keeps the list.
+  it('in an Übung «Neuer Einsatz» is one half of the footer, the Übung menu the other', async () => {
+    const onNewIncident = vi.fn()
+    renderBare({ isEditor: true, isTraining: true, onNewIncident })
     const search = screen.getByPlaceholderText('Einsatz suchen …')
-    expect(training.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(search.compareDocumentPosition(neu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const menu = screen.getByRole('button', { name: 'Übungs-Einsatz auslösen' })
+    expect(search.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ereignis-Pill' }).compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Neuer Einsatz' }))
+    expect(onNewIncident).toHaveBeenCalledOnce()
   })
 })
 

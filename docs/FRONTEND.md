@@ -29,6 +29,15 @@ change. Read the section you touch. The visual rules and their reasons are
 - **UI Components**: shadcn/ui components in `components/ui/`
 
 ## Phone layout
+- **The phone frame (owner picks 1A + 2A, 24.11.2026)**: every page with the bottom nav starts
+  with the Ereignis pill «<Ereignis> ⌄» (`components/mobile/phone-event-pill.tsx`). The pill IS
+  the menu: the open Ereignis, the switch, «Alle Ereignisse», Einstellungen, Hilfe, the account
+  and «Abmelden». The board puts `PhoneEventPill` in its own head; every other page puts
+  `PhoneEventHead` above its header. The bottom nav has five tiles: Einsätze · Lagekarte (pages)
+  · Personal · Meldungen (sheets over the page) · Mehr (the tools). Meldungen is the phone's
+  bell: its count is the bell's open entries plus the new Alarmeingang alarms, and its sheet
+  lists both, read-only for the board. A new nav page names its tab in `TAB_OF_PAGE` and gets
+  the head.
 - **Phone geometry (one source)**: `--kb-inset`, `--vv-top`, `--vv-height`, `--nav-reserve`,
   `--sheet-top` and `html[data-kb]` are measured and published on `<html>` (contract + the iOS
   model in `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard:
@@ -49,6 +58,9 @@ change. Read the section you touch. The visual rules and their reasons are
     className (24px in, no hairline, the title at its own size), then a `SheetBody` (`px-6`) that
     scrolls. The head never scrolls away; the ✕ is the 36px muted plate (globals.css). A footer
     sheet keeps its `px-6 py-4` frame with a `p-0` header – the same lines.
+    A head that must shrink while typing keeps the frame and pulls its body up instead
+    (`[:root[data-kb]_&]:-mt-2` on the `SheetBody`, «Neuer Einsatz»): a className on the
+    `SheetHeader` drops the frame.
   - Fields that are not the operator's own data (Meldung, Einsatzort, Melder, Telefon) carry
     `autoComplete="off"`, or iOS offers «AutoFill Contact».
 - **Phone forms: labels ABOVE their field**, never beside it. `DetailField`, `DetailToggle`,
@@ -57,7 +69,9 @@ change. Read the section you touch. The visual rules and their reasons are
   from them. Never hand-roll a `w-[120px]` label gutter or a label|control flex row. Desktop
   keeps the side-by-side rows.
 - **Phone list screens have ONE action, in a footer** in flow directly above the bottom nav – not
-  a button above the list, not floating over cards. The list root pads by `--nav-reserve`. The
+  a button above the list, not floating over cards. In an Übung the board's footer is a split button
+  «Neuer Einsatz | ▴»; the ▴ triggers Normal, Kritisch or Telefon at once and links to the
+  Übungs-Steuerung (owner pick 5B). The list root pads by `--nav-reserve`. The
   scroller reserves only what the keyboard covers beyond nav + the footer's measured `--list-foot`.
 - **Phone filters = the search field + ONE square funnel** – no chip rows on the phone. The
   funnel is a `DropdownMenu` of checkable rows with counts, with «Alle zeigen» first while
