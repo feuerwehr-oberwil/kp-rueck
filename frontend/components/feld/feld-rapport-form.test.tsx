@@ -554,19 +554,24 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
   it('frees only what the checklist on screen also calls back (Sol review)', async () => {
     const user = userEvent.setup()
     const release = vi.fn()
-    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump] }))
+    const kabel = { ...pump, assignment_id: 'a-kabel', material_id: 'm-kabel', name: 'Kabelrolle', used: false }
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump, kabel] }))
     renderWithIntl(
       <FeldRapportForm
         incidentId="inc-1"
         transport={{ load, save: vi.fn(() => new Promise<never>(() => {})) }}
         mount="kp"
-        activeAssignmentIds={['a-pump']}
-        materialRelease={{ units: [releaseUnit], releasing: false, release }}
+        activeAssignmentIds={['a-pump', 'a-kabel']}
+        materialRelease={{
+          units: [releaseUnit, { ...releaseUnit, assignment_id: 'a-kabel', material_id: 'm-kabel', name: 'Kabelrolle', used: false }],
+          releasing: false,
+          release,
+        }}
       />,
     )
 
     await user.click(await screen.findByRole('button', { name: /^Material/ }))
-    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /2 Geräte freigeben/ })).toBeInTheDocument()
 
     // Marked «vor Ort» on screen; the save never answers, so the server set still holds the pump.
     const trigger = document.querySelector<HTMLElement>('[data-material-chip="unit:a-pump"]')
@@ -574,8 +579,8 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
     await user.click(trigger)
     await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
 
-    expect(screen.queryByRole('button', { name: /Gerät freigeben/ })).not.toBeInTheDocument()
-    expect(release).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: /1 Gerät freigeben/ }))
+    expect(release).toHaveBeenCalledExactlyOnceWith(['a-kabel'])
   })
 
   it('offers nothing the server calls back while the open checklist still shows it on site', async () => {
@@ -619,7 +624,7 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
     expect(screen.getByText('2 Positionen · 1 vor Ort')).toBeInTheDocument()
   })
 
-  it('reads a pump assigned here again after its collection as back, not on site', async () => {
+  it('reads the old row of a pump collected and assigned here again as «abgeholt»', async () => {
     // Same material, new assignment: the old row's «vor Ort» is history.
     const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [{ ...pump, left_on_site: true }] }))
     renderWithIntl(

@@ -13,7 +13,8 @@
  * Submitted rapports only, deliberately (§18.23): the click RELEASES, and doing that
  * against a checklist somebody is still filling in is how a pump gets freed while it runs
  * in a cellar. The form offers only the part of this set its own checklist also calls back,
- * so neither a stale set nor an unsaved answer can free a unit kept on site.
+ * so an unsaved «vor Ort» never reaches the click. Known gap, as with the list before: a
+ * /feld filing that lands after the last load is not seen until the next filed save.
  *
  * Used by `SchadenplatzRapportSection` (editor + filed rapport only); it bumps
  * `refreshKey` whenever a save files the rapport.

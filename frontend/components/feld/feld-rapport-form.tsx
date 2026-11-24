@@ -649,16 +649,21 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const materialOnSite =
     formData.materials.filter(row => unitStillOnSite(row, activeAssignments)).length +
     formData.extra_materials.filter(entry => entry.left_on_site).length
-  // «Geräte freigeben» frees only what BOTH truths call back: the server's filed rapport (the
-  // set) and the checklist on screen (back, still assigned). A unit either side keeps «vor
-  // Ort» – an unsaved tick here, a newer filing from /feld there – is never in it, so the
-  // button cannot contradict the block it sits in (Sol review rounds 1–4, 24.11.2026).
-  const visiblyBack = new Set(
+  // «Geräte freigeben» frees only what BOTH call back: the release set from the last filed
+  // save and the checklist on screen (not «vor Ort», assignment still open). An unsaved tick
+  // here, or a filing from /feld the set has already seen, keeps a unit out – so the button
+  // never contradicts the block it sits in. A filing the set has NOT seen yet is not caught
+  // here; that needs a check at release time on the server (Sol review rounds 1–5, 24.11.2026).
+  // The caption reads «nicht gebraucht» off the visible row, not off the older set.
+  const visiblyBack = new Map(
     formData.materials
       .filter(row => !row.left_on_site && (!activeAssignments || activeAssignments.has(row.assignment_id)))
-      .map(row => row.assignment_id),
+      .map(row => [row.assignment_id, row] as const),
   )
-  const releasable = (materialRelease?.units ?? []).filter(unit => visiblyBack.has(unit.assignment_id))
+  const releasable = (materialRelease?.units ?? []).flatMap(unit => {
+    const row = visiblyBack.get(unit.assignment_id)
+    return row ? [{ ...unit, used: row.used }] : []
+  })
   const peopleCount = derivePersonnelCount(formData)
   const vehicleCount = formData.vehicles.filter(row => row.present).length
   const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
