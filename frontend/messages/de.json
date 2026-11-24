@@ -1643,7 +1643,14 @@
       "routePlanning": "Auftrags-Editor",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
-      "modes": "Modus"
+      "modes": "Modus",
+      "searchPlaceholderPhone": "Einsatz suchen …",
+      "searchHits": "Suchtreffer",
+      "noSearchHits": "Keine Treffer",
+      "showGroups": "Zeigen",
+      "pickupCount": "{count, plural, one {# Abholung} other {# Abholungen}}",
+      "nextPickup": "nächste zeigen: {incident}",
+      "allDetails": "Alle Details"
     },
     "planning": {
       "title": "Auftrags-Editor",

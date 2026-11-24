@@ -51,7 +51,7 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
 
 - Unit tests: Vitest + React Testing Library + jsdom (config: `vitest.config.ts`, setup: `vitest.setup.ts`). Files: `**/*.{test,spec}.{ts,tsx}` outside `tests/`, plus `scripts/**/*.test.mjs`.
 - E2E: Playwright with TypeScript, Page Object Model + Custom Fixtures, Factory pattern + API helpers, in `frontend/tests/`.
-- Visual regression: `just visual` – nine frozen screens (`frontend/tests/visual/*.visual.ts`,
+- Visual regression: `just visual` – frozen screens (`frontend/tests/visual/*.visual.ts`,
   own config `playwright.visual.config.ts`). A production build renders them against
   `app.seed_visual` (the demo storm evening at one fixed instant; the browser clock frozen at the
   same instant, basemap tiles stubbed flat). The run compares them with the PNGs in

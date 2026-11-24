@@ -41,6 +41,18 @@ change. Read the section you touch. The visual rules and their reasons are
   bell: its count is the bell's open entries plus the new Alarmeingang alarms, and its sheet
   lists both, read-only for the board. A new nav page names its tab in `TAB_OF_PAGE`, and gets
   the head if it is about the open Ereignis.
+- **The phone Lagekarte is the map, full screen (owner pick 3A, 24.11.2026)**: from under the
+  pill to the bottom nav, edge to edge – no second Einsätze list (that is the Einsätze tab).
+  MapView's `floating` prop carries it: the search row (field + «Ansicht») floats on top, with
+  the hits under it; the count chip («18 Einsätze · 1 Abholung», a tap goes to the next
+  Abholung) under it on the left. The map's own controls are ONE floating family – 44px, one
+  corner (`rounded-md`), the card surface: zoom + fit-all on the right under the search row,
+  Legende above the ⓘ bottom-right. «Ansicht» also holds the status groups there (the desk's
+  are the rail's headings). A marker tap selects and opens the peek
+  (`components/mobile/map-incident-peek.tsx`, MapView's `floating.foot`): number, address,
+  status, age, EL, vehicles, the Abholung as a label; «Alle Details» opens the phone detail
+  sheet. A second tap on the marker, ✕ or a tap on empty map closes it. Every flight keeps the
+  pin above the peek (`chromeFitPadding`'s `foot`). The desktop /map is not touched by any of it.
 - **Phone geometry (one source)**: `--kb-inset`, `--vv-top`, `--vv-height`, `--nav-reserve`,
   `--sheet-top` and `html[data-kb]` are measured and published on `<html>` (contract + the iOS
   model in `lib/viewport-insets.ts`). Never hard-code the bottom nav or the keyboard:
