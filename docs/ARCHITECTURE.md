@@ -522,8 +522,8 @@ At each transition:
   the KP edit together (owner pick 23.11.2026). The board's Reko form saves as it goes and
   has no submit: the save that answers «Einsatz relevant?» files it, exactly like the crew's
   submit (`api/reko._board_save_files_now` → `crud/reko.process_reko_submission`: `reko` →
-  `reko_done`, priority bump, the bell). Only that first filing rings; every saved change is
-  a Chronik row (`services/reko_history.py`)
+  `reko_done`, priority bump, the bell). Only that first filing rings, and it is one Chronik
+  fact; every change saved after it is a Chronik row (`services/reko_history.py`)
 
 ### Duplicates and merge
 

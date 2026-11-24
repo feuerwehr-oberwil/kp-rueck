@@ -676,7 +676,7 @@ async def _photo_report(
 
 
 async def _record_photo_change(
-    db: AsyncSession, report: RekoReport, before: dict[str, Any], author: RekoAuthor
+    db: AsyncSession, report: RekoReport, before: reko_history.RekoSnapshot, author: RekoAuthor
 ) -> None:
     """The photo list moved: its Chronik row, and the KP's amendment stamp."""
     if author.user_id is not None:

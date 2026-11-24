@@ -1,13 +1,16 @@
 """Who changed what on the Reko report, for the incident's Chronik (owner pick 23.11.2026, #6).
 
-An incident has ONE live Reko report that the field and the KP edit together. Every
-writer of its fields brackets the write the same way::
+An incident has ONE live Reko report that the field and the KP edit together. Its filing is
+ONE Chronik fact («Reko-Bericht eingegangen», the journal); the change rows are only for the
+edits AFTER it – a draft's edits and the draft → filed write record nothing (sign-off
+24.11.2026). Every writer of its fields brackets the write the same way::
 
     before = reko_history.snapshot(report)
     ...  # change the report
     await reko_history.record_changes(db, report, before, author)
 
-`record_changes` writes one `RekoReportChange` per field that moved, and folds an
+`record_changes` writes one `RekoReportChange` per field that moved (when the report was
+already filed at `snapshot`), and folds an
 autosave burst into the row it started: the same author on the same field within
 `COALESCE_WINDOW` moves that row on instead of adding one, so typing a sentence is one
 Chronik line, not forty. A field typed back to where it was drops its row. A link that
@@ -94,9 +97,21 @@ TRACKED_FIELDS: dict[str, Callable[[models.RekoReport], Any]] = {
 }
 
 
-def snapshot(report: models.RekoReport) -> dict[str, Any]:
-    """The tracked fields of `report` now – taken before a write, compared after it."""
+@dataclass(frozen=True)
+class RekoSnapshot:
+    """The report before a write: whether it was filed, and its tracked fields."""
+
+    filed: bool
+    values: dict[str, Any]
+
+
+def _values(report: models.RekoReport) -> dict[str, Any]:
     return {field: read(report) for field, read in TRACKED_FIELDS.items()}
+
+
+def snapshot(report: models.RekoReport) -> RekoSnapshot:
+    """`report` now – taken before a write, compared after it."""
+    return RekoSnapshot(filed=not report.is_draft, values=_values(report))
 
 
 def _same_author(change: models.RekoReportChange, author: RekoAuthor) -> bool:
@@ -110,22 +125,22 @@ def _same_author(change: models.RekoReportChange, author: RekoAuthor) -> bool:
 async def record_changes(
     db: AsyncSession,
     report: models.RekoReport,
-    before: dict[str, Any],
+    before: RekoSnapshot,
     author: RekoAuthor,
     *,
     now: datetime | None = None,
 ) -> None:
     """One Chronik row per field that differs from `before`, coalesced (module docstring).
+    Nothing while `before` is a draft: the filing is the one fact for everything up to it.
 
     The caller holds the report's row (or its incident's) lock, so two writes of one report
     never coalesce into the same row at once.
     """
-    if report.id is None:
-        await db.flush()
+    if not before.filed:
+        return
     at = now or datetime.now(UTC)
-    after = snapshot(report)
-    for field, new in after.items():
-        old = before.get(field)
+    for field, new in _values(report).items():
+        old = before.values.get(field)
         if new == old:
             continue
         latest = await db.scalar(

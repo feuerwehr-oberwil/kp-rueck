@@ -1547,14 +1547,12 @@ async def test_every_link_of_the_incident_edits_its_one_report(
     assert report.summary_text == "Follow-up crew"
     assert report.photos_json == []
     assert photo_storage.get_photo_path(test_incident.id, filename) is None
-    # Filed by the first crew; the second one's edits are in the Chronik, not the byline.
+    # Filed by the first crew – the filing is no change row; the second one's edits after it
+    # are in the Chronik, not the byline.
     assert report.submitted_by_personnel_id == (test_personnel.id if bound else None)
     rows = (await db_session.execute(select(RekoReportChange).where(RekoReportChange.report_id == report.id))).scalars()
-    authors = {(row.field, row.personnel_id) for row in rows}
-    first_id = test_personnel.id if bound else None
     second_id = other_person.id if bound else None
-    assert ("summary_text", first_id) in authors
-    assert ("summary_text", second_id) in authors or not bound
+    assert {(row.field, row.personnel_id) for row in rows} == {("summary_text", second_id), ("photos", second_id)}
     assert (await client.delete(f"{photo_url}/{filename}", headers=second_headers)).status_code == 404
 
 

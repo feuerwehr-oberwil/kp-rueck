@@ -1230,7 +1230,8 @@ class RekoReport(Base):
     """THE Reko report of an incident – one live row per Einsatz (owner pick 23.11.2026, #6).
 
     The field (any valid form link of the incident) and the KP edit the same row; every
-    saved change of a field is a `RekoReportChange` row, shown in the incident's Chronik.
+    change of a field saved after the filing is a `RekoReportChange` row, shown in the
+    incident's Chronik (the filing itself is the journal's one «Reko-Bericht eingegangen»).
     The first draft → filed step is the one «Reko-Meldung» (bell, Reko → Reko abgeschlossen).
     ``incident_id`` is unique: a merge keeps the loser's report on the loser when the
     surviving card has one (`services/merge_work.py`).
@@ -1310,7 +1311,7 @@ class RekoReport(Base):
 
 
 class RekoReportChange(Base):
-    """One saved change of one Reko field – a row of the incident's Chronik (#6, 23.11.2026).
+    """One change of one Reko field after the filing – a row of the incident's Chronik (#6).
 
     Written by `services/reko_history.record_changes` only. An autosave burst of one author
     on one field is ONE row: within `reko_history.COALESCE_WINDOW` the newest row is moved

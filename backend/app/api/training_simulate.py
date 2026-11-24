@@ -52,7 +52,7 @@ from ..schemas import (
     SimulateRapportResponse,
     SimulateVehicleBreakdownResponse,
 )
-from ..services import incident_display, notification_params, reko_history
+from ..services import incident_display, notification_params
 from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received
 from ..services.rapport_rows import STATUS_LABELS
@@ -377,9 +377,9 @@ async def simulate_reko(
             depth_cm=photo_depth_cm,
         )
     if photo_filenames:
-        before = reko_history.snapshot(updated)
+        # Part of the simulated filing, not an edit after it: no Chronik row of its own.
         updated.photos_json = (updated.photos_json or []) + photo_filenames
-        await reko_history.record_changes(db, updated, before, author)
+        await db.flush()
         await db.refresh(updated)
 
     # Refresh incident to get current state
