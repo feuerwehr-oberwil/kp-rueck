@@ -47,7 +47,8 @@ export function useHistoryLevel(open: boolean, onBack: () => void): () => void {
     }
     /** Put the level on its own entry. */
     const stand = () => {
-      if (id !== null) return
+      // Not every key activates (Escape does not): wait for one that did.
+      if (id !== null || navigator.userActivation?.hasBeenActive === false) return
       if (remount && top !== null) {
         // StrictMode's dev remount: the clean-up just ran, its walk-back has not – stay on the entry.
         id = top

@@ -699,14 +699,14 @@ function FeldSurface() {
    * detail is forgotten for the same reason – the way back is the list.
    */
   const openAssignment = useCallback(async (assignment: ApiFeldAssignment) => {
-    // One open at a time: a second tap would mint a second link, and a slow one would still
-    // navigate after the crew had opened another row.
-    if (rekoOpening && !rekoOpening.failed) return
+    // The newest tap wins: a slow Reko link that comes back after another row was opened (or the
+    // same one tapped again) goes nowhere.
+    const attempt = ++rekoAttempt.current
+    setRekoOpening(null)
     if (assignment.source === 'reko' && !rekoWindowClosed(assignment) && token && selectedPerson && linkToken) {
       // The row says it is opening, and on a failure says so with a retry (crosscheck A3): the
       // tap used to do nothing visible until the link came back, and nothing at all if it did not.
       setRekoOpening({ incidentId: assignment.incident_id, failed: false })
-      const attempt = ++rekoAttempt.current
       try {
         const { link } = await apiClient.mintFeldRekoLink(
           assignment.incident_id,
@@ -726,7 +726,7 @@ function FeldSurface() {
     setSelectedIncidentId(assignment.incident_id)
     setViewMode('detail')
     writeCookie(INCIDENT_COOKIE, assignment.incident_id, FELD_COOKIE_SCOPE)
-  }, [token, selectedPerson, linkToken, router, rekoOpening])
+  }, [token, selectedPerson, linkToken, router])
 
   /** Leaving via «Zurück» is the crew saying they are done with this one, so it
    *  is also what forgets it — otherwise the back button would be undone by the

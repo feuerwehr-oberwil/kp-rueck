@@ -914,7 +914,9 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
           under the button, a whole form away from the field that fixes it. */}
       {submitting && <LoadingStatus className="text-sm">{t('submitting')}</LoadingStatus>}
       {errorBox}
-      <Button type="submit" size="lg" className="w-full text-base">
+      {/* Waits while a send is out: the back gesture can land here mid-send, and a second
+          review of edited text would not be what the receipt then shows. */}
+      <Button type="submit" size="lg" className="w-full text-base" disabled={submitting}>
         {t('review.next')}
         <ChevronRight className="size-4" />
       </Button>

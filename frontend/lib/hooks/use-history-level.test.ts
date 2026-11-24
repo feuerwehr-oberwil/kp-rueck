@@ -27,8 +27,8 @@ describe('useHistoryLevel', () => {
     expect(hasLevel()).toBe(true)
 
     result.current()
-    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1))
-    expect(hasLevel()).toBe(false)
+    expect(onBack).toHaveBeenCalledTimes(1) // at once – the history follows
+    await waitFor(() => expect(hasLevel()).toBe(false))
   })
 
   it('a level closed another way walks back over its entry, without calling onBack', async () => {
@@ -50,14 +50,20 @@ describe('useHistoryLevel', () => {
     expect(hasLevel()).toBe(true)
   })
 
-  it('on a page nobody has touched yet, waits for the first touch – Chromium would skip the entry', () => {
-    vi.stubGlobal('navigator', { ...navigator, userActivation: { hasBeenActive: false, isActive: false } })
+  it('on a page nobody has touched yet, waits for the first activating touch – Chromium would skip the entry', () => {
+    const userActivation = { hasBeenActive: false, isActive: false }
+    vi.stubGlobal('navigator', { ...navigator, userActivation })
     try {
       window.history.pushState({}, '') // a plain page under it, not a level left over
       const before = window.history.length
       renderHook(() => useHistoryLevel(true, vi.fn()))
       expect(window.history.length).toBe(before)
 
+      // Escape is a key that does not activate the page: still nothing.
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      expect(window.history.length).toBe(before)
+
+      userActivation.hasBeenActive = true // what the browser sets before the touch's listeners run
       window.dispatchEvent(new Event('pointerup'))
       window.dispatchEvent(new Event('keydown'))
       expect(window.history.length).toBe(before + 1)
