@@ -33,7 +33,7 @@ from ..crud import assignments as assignments_crud
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
-from ..crud.locking import lock_incident_with_group, lock_incidents_with_groups, lock_resource
+from ..crud.locking import lock_incident_crew, lock_incident_with_group, lock_incidents_with_groups, lock_resource
 from ..crud.manual_order import OrderChangedError
 from ..database import get_db
 from ..logging_config import get_logger
@@ -1034,8 +1034,9 @@ async def assign_reko_personnel(
     a closed Einsatz); a missing Einsatz or person is a 404.
     """
     try:
+        # With the crew: replacing a Reko on a crew row releases it, which can promote one of them.
         locked_incident = await assignments_crud.lock_for_new_assignment(
-            db, incident_id, "personnel", assignment.personnel_id
+            db, incident_id, "personnel", assignment.personnel_id, with_crew=True
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
@@ -1055,7 +1056,9 @@ async def assign_reko_personnel(
 
     # If a different Reko person is assigned, unassign them first
     if currently_assigned_id is not None:
-        await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, currently_assigned_id)
+        await reko_assign_crud.unassign_reko_personnel_from_incident(
+            db, incident_id, currently_assigned_id, current_user=current_user, request=request
+        )
         logger.info(
             "Unassigned previous Reko personnel %s from incident %s for replacement",
             currently_assigned_id,
@@ -1128,15 +1131,22 @@ async def unassign_reko_personnel(
     incident_id: uuid.UUID,
     personnel_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    request: Request,
     current_user: CurrentEditor,  # Editor only
+    assignment_id: uuid.UUID | None = Query(
+        default=None, description="Release exactly this row (404 when it is no longer active)"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
     Unassign Reko personnel from an incident.
 
-    Editor only - removes the personnel assignment for the Reko person.
+    Editor only - removes the personnel assignment for the Reko person. The board names the
+    row it shows (`assignment_id`), so a tick never releases another row than its own.
     """
-    success = await reko_assign_crud.unassign_reko_personnel_from_incident(db, incident_id, personnel_id)
+    success = await reko_assign_crud.unassign_reko_personnel_from_incident(
+        db, incident_id, personnel_id, assignment_id, current_user=current_user, request=request
+    )
 
     if not success:
         raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
@@ -1176,13 +1186,16 @@ async def transfer_reko_assignments(
 
     The new person gets NEW assignments, so ``ensure_assignable`` applies: an
     archived Ereignis refuses the whole handover (409), an unknown person is a 404.
-    Lock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person.
+    Lock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person with the
+    Einsätze's crew, sorted.
     """
     # Get all reko assignments for the source person in this event
     assignments = await reko_assign_crud.get_reko_assignments_for_personnel(db, event_id, from_personnel_id)
 
     locked = await lock_incidents_with_groups(db, [a["incident_id"] for a in assignments])
-    to_person = await lock_resource(db, "personnel", to_personnel_id)
+    # The new person with every crew member a release below may promote, sorted (crud/locking.py).
+    await lock_incident_crew(db, locked, [to_personnel_id])
+    to_person = await lock_resource(db, "personnel", to_personnel_id)  # held already: a fresh read
     event = await db.get(Event, event_id)
     if to_person is None or event is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
@@ -1200,7 +1213,7 @@ async def transfer_reko_assignments(
                 raise HTTPException(status_code=409, detail=str(e)) from e
             # Unassign old person
             await reko_assign_crud.unassign_reko_personnel_from_incident(
-                db, assignment["incident_id"], from_personnel_id
+                db, assignment["incident_id"], from_personnel_id, current_user=current_user, request=request
             )
             # Assign new person — still a Reko auftrag, so it keeps the purpose
             # (a handover that quietly turned into a crew row would land the new

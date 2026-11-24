@@ -13,6 +13,8 @@
  * elements as before.
  */
 
+import { FELD_TARGET } from "@/lib/detail-target"
+import { type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useMemo, useRef, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { ChevronRight, PanelRight } from "lucide-react"
@@ -23,6 +25,7 @@ import { SearchInput } from "@/components/ui/search-input"
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { MaterialGroupBlock } from "@/components/kanban/material-group-block"
 import { MaterialOnSitePanel, type selectMaterialOnSite } from "@/components/kanban/material-on-site-panel"
+import { useCollectMaterial } from "@/lib/hooks/use-collect-material"
 import { ResourcesNotLoaded } from "@/components/board-load-error"
 import {
   AggregatedMaterialRow,
@@ -56,7 +59,7 @@ export interface MaterialSidebarProps {
   materialView: MaterialViewPrefs
   setMaterialView: Dispatch<SetStateAction<MaterialViewPrefs>>
   materialOnSiteEntries: ReturnType<typeof selectMaterialOnSite>
-  openIncidentDetail: (operationId: string) => void
+  openIncidentDetail: (operationId: string, tab?: OperationDetailTab) => void
   isLoaded: boolean
   /** Loaded and failed with nothing ever shown — see `boardNeverLoaded` in the operations context. */
   boardNeverLoaded: boolean
@@ -208,6 +211,7 @@ export function MaterialSidebar({
     )
   }
 
+  const collectMaterial = useCollectMaterial()
   return (
       // Sized and layered by its SlideRail (app/page.tsx), as the Personen-Leiste. The detail's
       // reopen control takes 28px of the search row (below); the rail grows by them
@@ -270,7 +274,12 @@ export function MaterialSidebar({
             the search nor the filters (Frei hides everything that is
             assigned, i.e. exactly this material) can filter the answer to
             "what is still out there" away. Renders nothing at zero. */}
-        <MaterialOnSitePanel entries={materialOnSiteEntries} onOpenIncident={openIncidentDetail} />
+        {/* A row opens Feld: «Vor Ort verblieben» in the submitted Rapport lists the unit. */}
+        <MaterialOnSitePanel
+          entries={materialOnSiteEntries}
+          onOpenIncident={(id) => openIncidentDetail(id, FELD_TARGET.tab)}
+          onCollect={isEditor ? (target) => void collectMaterial(target) : undefined}
+        />
         {/* Scrollable content – ends in the `ScrollEndFade`, as the Personen-Leiste. */}
         <div className="flex-1 overflow-y-auto overscroll-y-contain pl-4 pr-2 pt-1">
           {!isLoaded ? (

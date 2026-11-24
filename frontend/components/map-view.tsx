@@ -41,7 +41,8 @@ import { PinCountBadge, pinBadgeCircle } from "./map/pin-count-badge"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { VehicleTrails } from "./map/vehicle-trails"
-import { ChevronDown, Maximize, AlertTriangle, Truck, Users, Warehouse, X } from "lucide-react"
+import { ChevronDown, ChevronRight, Maximize, AlertTriangle, Truck, Users, Warehouse, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { usePathname } from "next/navigation"
 import {
   GPS_STALE_SETTING,
@@ -2105,6 +2106,26 @@ export default function MapView({
                         </span>
                       )}
                     </>
+                  )}
+                  {/* The pinned card's visible way in: double-click and Enter are not written
+                      anywhere on it. Same word as the list rail's icon. Inside the bubble, so it
+                      sits under whatever the card shows (crew, notes) and the selected-label
+                      measure (`usePanToSelected`) includes it. Its click is its own, not a
+                      second select. */}
+                  {pinned && openDetail && (
+                    <div className="mt-1.5">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          openDetail()
+                        }}
+                      >
+                        {t("page.showDetails")}
+                        <ChevronRight />
+                      </Button>
+                    </div>
                   )}
                 </IncidentLabel>
               )}

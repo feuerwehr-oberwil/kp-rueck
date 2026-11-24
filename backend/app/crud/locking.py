@@ -22,7 +22,8 @@ reorder locked the Auftrag and then its stops – a forced overlap deadlocked
 (audit 2026-10, F08). Who follows it: completion and reopen
 (``incidents.update_incident_status`` / ``update_incident``), stop attach,
 detach and reorder and Auftrag delete (``groups``), release
-(``assignments.unassign_resource``, ``group_assignments.unassign_group_resource``),
+(``assignments.unassign_resource``, ``group_assignments.unassign_group_resource``; a Reko
+replacement and handover lock the incoming person with the crew, ``lock_incident_crew``),
 assignment (``assign_resource``, ``assign_group_resource``, ``transfer_assignments``,
 ``auftrag_templates.instantiate_auto_templates``, and ``feld/melden.create_field_report``,
 which locks the reporter's Auftrag before its insert key-shares the reporter) and the
@@ -31,7 +32,9 @@ incidents its ``ON DELETE SET NULL`` will write), and the board's Reko draft (it
 first save ``reko.get_or_create_kp_reko_report`` and its PATCH take the card before
 the report). A Reko person's order (``reko_assignment.reorder_reko_assignments``) takes
 only step 3, the person's row – the lock every writer of their Reko rows already holds –
-and writes the leaf rows under it. A merge locks only incidents, in id order
+and writes the leaf rows under it. Assigning a special function
+(``special_functions.create_special_function``) takes only step 3 too, so two assigns of
+the same function cannot both insert. A merge locks only incidents, in id order
 (``services/duplicates.lock_pair``).
 """
 
@@ -42,7 +45,7 @@ from typing import Literal, overload
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Incident, IncidentGroup, Material, Personnel, Vehicle
+from ..models import Incident, IncidentAssignment, IncidentGroup, Material, Personnel, Vehicle
 
 AssignableResource = Personnel | Vehicle | Material
 
@@ -157,6 +160,28 @@ async def lock_resources(
         if resource is not None:
             locked[(resource_type, resource_id)] = resource
     return locked
+
+
+async def lock_incident_crew(
+    db: AsyncSession, incident_ids: Iterable[uuid.UUID], extra_personnel_ids: Iterable[uuid.UUID] = ()
+) -> dict[tuple[str, uuid.UUID], AssignableResource]:
+    """Step 3 for a writer that holds a person and releases a crew row: lock the person
+    (``extra_personnel_ids``) and everyone active on the incidents, sorted, in one go.
+
+    Releasing a crew row can hand the Einsatzleiter role on, and stamping the new leader
+    key-shares their person row (``incidents.leader_personnel_id``). A Reko replacement or
+    handover that held the incoming person first and only then reached the successor took
+    two person rows out of order – against an incident delete that locks both sorted, a
+    deadlock. Call it while holding the incidents (step 2), so their crew stays put.
+    """
+    crew = await db.scalars(
+        select(IncidentAssignment.resource_id).where(
+            IncidentAssignment.incident_id.in_(list(incident_ids)),
+            IncidentAssignment.resource_type == "personnel",
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    return await lock_resources(db, [("personnel", person_id) for person_id in {*crew, *extra_personnel_ids}])
 
 
 # Every incidents column that points at a person (all ON DELETE SET NULL): deleting

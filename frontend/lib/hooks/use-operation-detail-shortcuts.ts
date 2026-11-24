@@ -129,6 +129,13 @@ export function isDetailTab(value: unknown): value is OperationDetailTab {
   return typeof value === "string" && (OPERATION_DETAIL_TABS as readonly string[]).includes(value)
 }
 
+const OPERATION_DETAIL_SECTIONS: readonly OperationDetailSection[] = ["resources", "newReport", "kurzbericht"]
+
+/** Guards the deep link's `?section=` (`boardDetailHref`). */
+export function isDetailSection(value: unknown): value is OperationDetailSection {
+  return typeof value === "string" && (OPERATION_DETAIL_SECTIONS as readonly string[]).includes(value)
+}
+
 /**
  * Which tab each incident was last left on.
  *

@@ -55,14 +55,14 @@ describe('undoToast', () => {
 })
 
 describe('undoToast with a key', () => {
-  // «Fahrer bleibt vor Ort», then «kehrt zurück»: one toast, and ⌘Z goes back one step.
+  // «Fahrzeug bleibt vor Ort», then «kehrt zurück»: one toast, and ⌘Z goes back one step.
   it('replaces the standing toast with that key, and only the newest undo stays', () => {
     const first = vi.fn()
     const second = vi.fn()
     const other = vi.fn()
     undoToast('Andere', { onUndo: other })
-    const replaced = undoToast('Mowa: Fahrer bleibt vor Ort', { key: 'driver-stay:op-1:v-mowa', onUndo: first })
-    undoToast('Mowa: Fahrer kehrt zurück', { key: 'driver-stay:op-1:v-mowa', onUndo: second })
+    const replaced = undoToast('Mowa: Fahrzeug bleibt vor Ort', { key: 'driver-stay:op-1:v-mowa', onUndo: first })
+    undoToast('Mowa: Fahrzeug kehrt zurück', { key: 'driver-stay:op-1:v-mowa', onUndo: second })
     expect(dismissed).toEqual([replaced])
 
     expect(undoNewest()).toBe(true)

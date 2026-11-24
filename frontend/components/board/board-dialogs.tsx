@@ -37,6 +37,7 @@ import type { useEvent } from "@/lib/contexts/event-context"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Material, Operation, OperationStatus, Person, useOperations } from "@/lib/contexts/operations-context"
+import { personNowLink, type PersonNowLink } from "@/lib/detail-target"
 import type { usePersonnel } from "@/lib/contexts/personnel-context"
 import type { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
@@ -88,7 +89,7 @@ export interface BoardDialogsProps {
   handleConfirmAddStops: (incidentIds: string[]) => void
   handleOpenIncidentFromNotification: (incidentId: string) => void
   journalCompose: JournalComposeRequest | null
-  handleOpenRapport: (operationId: string) => void
+  handleOpenRapport: (operationId: string, filed: boolean) => void
   handleOperationDelete: OperationHandlers["handleOperationDelete"]
   handleOperationUpdate: OperationHandlers["handleOperationUpdate"]
   handlePrintBoard: (options?: ThermoPrintOptions) => Promise<void>
@@ -107,6 +108,8 @@ export interface BoardDialogsProps {
   personnel: Person[]
   /** The Dienstzeiten overview (footer sheet `'crew'`). */
   crewDutySheetOpen: boolean
+  /** Dienstzeiten «Jetzt»: follow where this person is now. */
+  followPersonNow: (link: PersonNowLink) => void
   fatigueHours: number
   personEngagements: Map<string, PersonEngagement>
   printSheetOpen: boolean
@@ -176,6 +179,7 @@ export function BoardDialogs({
   operations,
   personnel,
   crewDutySheetOpen,
+  followPersonNow,
   fatigueHours,
   personEngagements,
   printSheetOpen,
@@ -273,6 +277,7 @@ export function BoardDialogs({
         open={vehicleStatusSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'vehicles' && setActiveFooterSheet(null)}
         eventId={selectedEvent?.id || null}
+        canEdit={isEditor}
       />
 
       {/* Aufträge (multi-stop route) Sheet */}
@@ -300,6 +305,12 @@ export function BoardDialogs({
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={fatigueHours}
+        // The place the line names opens (an incident, an Auftrag, or the Reko incident behind
+        // «Reko»), never a station function like «Magazin».
+        openNowFor={(person) => {
+          const link = personNowLink(person, personEngagements.get(person.id), operations)
+          return link ? () => followPersonNow(link) : undefined
+        }}
       />
 
       {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}
@@ -320,9 +331,9 @@ export function BoardDialogs({
         isEditor={isEditor}
         refreshBoard={refreshOperations}
         composeRequest={journalCompose}
-        onOpenIncident={(id) => {
+        onOpenIncident={(id, target) => {
           setActiveFooterSheet(null)
-          openIncidentDetail(id)
+          openIncidentDetail(id, target?.tab, target?.section)
         }}
       />
 

@@ -34,6 +34,44 @@ async def test_station_defined_function_can_be_assigned_and_removed(
     assert (await editor_client.get(path)).json() == []
 
 
+@pytest.mark.asyncio
+async def test_assigning_a_held_station_function_again_keeps_one_row(
+    db_session, editor_client, test_event, test_personnel
+):
+    """A stale unticked Kommandoposten ticked twice: one row, and its removal still works."""
+    path = f"/api/events/{test_event.id}/special-functions/"
+    payload = {"personnel_id": str(test_personnel.id), "function_type": "kommandoposten"}
+    first = await editor_client.post(path, json=payload)
+    second = await editor_client.post(path, json=payload)
+
+    assert first.status_code == second.status_code == 201
+    assert second.json()["id"] == first.json()["id"]
+    assert len((await editor_client.get(path)).json()) == 1
+
+    removed = await editor_client.request("DELETE", path, json=payload)
+    assert removed.status_code == 204
+    assert (await editor_client.get(path)).json() == []
+
+
+@pytest.mark.asyncio
+async def test_removal_takes_every_copy_written_before_idempotency(
+    db_session, editor_client, test_event, test_personnel
+):
+    """Doubled rows from before (NULL vehicle_id slips past the unique constraint) go together."""
+    for _ in range(2):
+        db_session.add(
+            EventSpecialFunction(event_id=test_event.id, personnel_id=test_personnel.id, function_type="magazin")
+        )
+    await db_session.commit()
+    path = f"/api/events/{test_event.id}/special-functions/"
+    payload = {"personnel_id": str(test_personnel.id), "function_type": "magazin"}
+
+    removed = await editor_client.request("DELETE", path, json=payload)
+
+    assert removed.status_code == 204
+    assert (await editor_client.get(path)).json() == []
+
+
 @pytest_asyncio.fixture
 async def test_event(db_session: AsyncSession) -> Event:
     """Create a test event."""

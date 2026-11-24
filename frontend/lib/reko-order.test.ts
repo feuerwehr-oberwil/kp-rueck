@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Operation } from "@/lib/contexts/operations-context"
-import { mergeOpenOrder, openRekosByPerson, rekosOf } from "./reko-order"
+import { mergeOpenOrder, openRekosByPerson, rekoEditorTap, rekosOf } from "./reko-order"
 
 const op = (id: string, person: string | null, rekoPosition: number | null, extra: Partial<Operation> = {}): Operation =>
   ({
@@ -16,6 +16,15 @@ describe("rekosOf", () => {
   it("lists a person's Rekos in their order, unnumbered ones last as they came", () => {
     const ops = [op("late", "p1", null), op("b", "p1", 1), op("other", "p2", 0), op("a", "p1", 0), op("later", "p1", null)]
     expect(rekosOf(ops, "p1").map((o) => o.id)).toEqual(["a", "b", "late", "later"])
+  })
+})
+
+describe("rekoEditorTap", () => {
+  it("releases the selected person's Reko only once its row id is known", () => {
+    expect(rekoEditorTap(op("a", "p1", 0), "p1")).toEqual({ kind: "saving" })
+    expect(rekoEditorTap(op("a", "p1", 0, { assignedReko: { id: "p1", name: "p1", assignmentId: "r-1" } }), "p1")).toEqual({ kind: "release" })
+    expect(rekoEditorTap(op("a", "p2", 0), "p1")).toEqual({ kind: "replace", current: { id: "p2", name: "p2" } })
+    expect(rekoEditorTap(op("a", null, null), "p1")).toEqual({ kind: "assign" })
   })
 })
 

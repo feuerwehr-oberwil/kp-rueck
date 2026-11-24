@@ -336,11 +336,13 @@
       "chipUntil": "part {time}",
       "chipUntilSoon": "part {time} · dans {duration}",
       "chipUntilPast": "part {time} · échu",
+      "chipFrom": "arrive {time}",
       "rowFrom": "dès {time}",
       "rowUntil": "jusqu’à {time}",
       "rowSoon": "{time} · dans {duration}",
       "rowPast": "{time} · échu",
       "addUntil": "jusqu’à",
+      "addFrom": "dès",
       "ariaUntil": "Définir l’heure de départ",
       "ariaUntilSet": "Part à {time} – modifier",
       "ariaFrom": "Définir l’heure d’arrivée",
@@ -1432,6 +1434,9 @@
       "othersSection": "Autres",
       "noAvailablePersons": "Aucune personne disponible",
       "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas présentes",
+      "loading": "Chargement des conducteurs …",
+      "loadFailed": "Impossible de charger les conducteurs.",
+      "retry": "Réessayer",
       "conflictTitle": "{name} est déjà engagé",
       "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictConfirm": "Libérer de l’intervention et attribuer",
@@ -1496,7 +1501,10 @@
       "readyForOperation": "Prêt à intervenir",
       "changeDriver": "Changer de conducteur",
       "assignDriver": "Attribuer un conducteur",
-      "auftragLabel": "Mission « {name} »"
+      "auftragLabel": "Mission « {name} »",
+      "rowMenu": "Actions pour {vehicle}",
+      "openIncident": "Ouvrir l’intervention",
+      "changeDriverMenu": "Changer de conducteur …"
     },
     "gpsArrival": {
       "fallbackVehicle": "Véhicule",
@@ -1696,7 +1704,9 @@
       "openDetails": "Ouvrir les détails",
       "removeFromIncident": "Libérer de l’intervention",
       "removeFromAuftrag": "Libérer de la mission",
-      "remove": "Libérer"
+      "remove": "Libérer",
+      "changeDriver": "Changer de conducteur …",
+      "driverStays": "Le véhicule reste sur place"
     },
     "participants": {
       "title": "Ont participé jusqu’ici",
@@ -1784,6 +1794,7 @@
       "transferFailedDescription": "Les ressources n’ont pas pu être transférées.",
       "noEventSelected": "Aucun événement sélectionné.",
       "removeNamed": "Libérer {name}",
+      "rekoStillSaving": "{name} est encore en cours d’enregistrement comme reconnaissance – réessayez dans un instant",
       "available": "Disponible",
       "inUse": "En intervention",
       "counterLoading": "–/– disponibles",
@@ -1794,8 +1805,8 @@
       "priorityMedium": "Moyenne",
       "priorityHigh": "Haute",
       "funkrufname": "Indicatif radio : {callsign}",
-      "driverStayTooltip": "Le conducteur reste sur place – cliquer pour le faire rentrer",
-      "driverReturnTooltip": "Le conducteur rentre – cliquer pour le laisser sur place",
+      "driverStayTooltip": "Le véhicule reste sur place – cliquer pour le faire rentrer",
+      "driverReturnTooltip": "Le véhicule rentre – cliquer pour le laisser sur place",
       "driverStays": "sur place",
       "driverReturns": "rentre",
       "driverStaysFull": "reste sur place",
@@ -1850,8 +1861,8 @@
       "priorityChangedToast": "{name} : priorité {priority}",
       "zuFussOnToast": "{name} : engagement à pied",
       "zuFussOffToast": "{name} : plus à pied",
-      "driverStaysToast": "{vehicle} : le conducteur reste sur place",
-      "driverReturnsToast": "{vehicle} : le conducteur rentre",
+      "driverStaysToast": "{vehicle} : le véhicule reste sur place",
+      "driverReturnsToast": "{vehicle} : le véhicule rentre",
       "driverStayToastHint": "Repris dans le message radio et sur le bon d'engagement",
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "deleteIncidentReleases": "libérés : {what}",
@@ -1860,6 +1871,7 @@
       "aggregateCountTitle": "{free} sur {total} libres",
       "aggregateUnitCount": "{count} pièces",
       "notReadySince": "depuis le {date}",
+      "backInService": "De nouveau prêt à l'engagement",
       "driver": "Conducteur",
       "specialFunctionNoIncident": "Fonction spéciale · aucune intervention",
       "bindingsCount": "{count, plural, one {# attribution} other {# attributions}}",
@@ -1983,7 +1995,16 @@
         "toggleTitle": "{count, plural, one {# pièce de matériel se trouve encore sur une place sinistrée} other {# pièces de matériel se trouvent encore sur une place sinistrée}} – les plus anciennes d’abord",
         "rowTitle": "{name} se trouve encore à {address}",
         "since": "depuis {duration}",
-        "unknownAddress": "Sans adresse"
+        "unknownAddress": "Sans adresse",
+        "collect": "Récupéré",
+        "collectLabel": "{name} récupéré …",
+        "confirmTitle": "Récupéré et de retour au dépôt ?",
+        "confirmHint": "Inscrit « récupéré {time} » au journal, puis libère – avec annulation.",
+        "cancel": "Annuler",
+        "confirm": "Récupéré – libérer",
+        "collectedToast": "{name} récupéré – libéré",
+        "collectFailed": "Impossible de libérer {name}",
+        "undoFailed": "Impossible d’annuler « récupéré » pour {name}"
       },
       "linksAndQr": "Liens & QR",
       "distributeConfirmTitle": "Ajouter à la mission « {auftrag} » ?",
@@ -2119,7 +2140,17 @@
       "deleteIncident": "Supprimer l'intervention",
       "realAlarmBadge": "Alarme réelle",
       "realAlarmTooltip": "Alarme réelle dans un exercice – l’alarme sortante est seulement simulée, les seuils de retard sont 50 % plus longs.",
-      "numberTitle": "Intervention {number}"
+      "numberTitle": "Intervention {number}",
+      "flagNote": {
+        "amWartenTitle": "En attente – motif",
+        "nachbarhilfeTitle": "Entraide – remarque",
+        "hint": "Entrée enregistre · vide possible",
+        "withoutReason": "Sans motif",
+        "withoutNote": "Sans remarque",
+        "clear": "Retirer",
+        "save": "Enregistrer",
+        "chipHint": "Clic : modifier ou retirer"
+      }
     },
     "column": {
       "ariaLabelWithCount": "colonne {title} ({count, plural, one {# intervention} other {# interventions}})",
@@ -2252,6 +2283,18 @@
       "unassignDriverDescription": "<strong>{name}</strong> ne sera alors plus conducteur de <strong>{vehicle}</strong> et redeviendra un intervenant ordinaire.",
       "unassignMagazinDescription": "<strong>{name}</strong> perd la fonction de caserne et redevient ensuite un intervenant ordinaire.",
       "unassignConfirm": "Retirer la fonction"
+    },
+    "personPopover": {
+      "crew": "Effectif",
+      "auftrag": "Mission",
+      "drives": "conduit {vehicle}",
+      "driverPick": "Choisir le véhicule",
+      "noIncident": "aucune intervention",
+      "hint": "Décocher = terminer (avec confirmation) · Interventions : décocher = libérer",
+      "presentSince": "Présent depuis {time}",
+      "checkOut": "Annoncer partant",
+      "checkedOut": "{name} annoncé partant",
+      "undoGone": "Annulation impossible – la présence de {name} a changé entre-temps"
     },
     "assignmentDialog": {
       "titleVehicles": "Attribuer des véhicules",
@@ -2473,6 +2516,7 @@
       "assignedTo": "attribuée : {where}",
       "assignedTitle": "{name} est encore attribué",
       "assignedDescription": "{name} est encore attribué à {where} – l’annoncer partant quand même ? L’attribution est conservée.",
+      "assignedDescriptionUnknown": "{name} est encore attribué – l’annoncer partant quand même ? L’attribution est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",
       "checkOutAll": "Annoncer tous partants",
       "checkOutAllTitle": "Annoncer tous partants ?",
@@ -4795,7 +4839,9 @@
         "vehicle_on_site": "Véhicule sur le lieu d’intervention",
         "vehicle_returned": "Véhicule de retour à la caserne",
         "vehicle_down": "Véhicule en panne",
-        "situation_escalated": "La situation s’aggrave"
+        "situation_escalated": "La situation s’aggrave",
+        "material_collected": "Récupéré",
+        "material_collected_cleared": "« Récupéré » annulé"
       },
       "itemsMoved": "Repris de {other}",
       "itemsReturned": "Revenu de {other}"

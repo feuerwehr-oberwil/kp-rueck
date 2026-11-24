@@ -1,6 +1,7 @@
 """Resource-assignment + transfer schemas."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -41,6 +42,19 @@ class AssignmentResponse(BaseModel):
     is_leader: bool = False
     # A Reko row's place in its person's order (Reko-Modus); null on every other row.
     reko_position: int | None = None
+    # Why a person is on this Einsatz (plan 26 §27): a work crew or a Reko. The board shows a
+    # Reko-function person's rows as Reko; this says which ones really are.
+    purpose: Literal["crew", "reko"] = "crew"
+
+
+class MaterialCollectedResponse(BaseModel):
+    """«Abgeholt – freigeben» answered: when the assignment was released.
+
+    The undo's token – ``DELETE …/material-collected/{id}?released_at=…`` reverses only the
+    release that carries exactly this time, never a regular release or a later one.
+    """
+
+    released_at: datetime
 
 
 # Transfer

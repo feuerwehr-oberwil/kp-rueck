@@ -13,17 +13,25 @@
  * than the native one»).
  */
 
+import type { DetailTarget } from '@/lib/detail-target'
+
 export type IncidentDetailTarget =
   | { kind: 'phone-sheet'; incidentId: string }
   | { kind: 'board'; href: string }
 
-/** The board's «highlight + open» link. */
-export function boardDetailHref(incidentId: string, tab?: string): string {
-  return `/?highlight=${encodeURIComponent(incidentId)}&detail=1${tab ? `&tab=${encodeURIComponent(tab)}` : ''}`
+/** The board's «highlight + open» link, optionally on a tab and a block in it (`?tab=&section=`). */
+export function boardDetailHref(incidentId: string, target?: DetailTarget): string {
+  const params = new URLSearchParams({ highlight: incidentId, detail: '1' })
+  if (target) params.set('tab', target.tab)
+  if (target?.section) params.set('section', target.section)
+  return `/?${params.toString().replace(/\+/g, '%20')}`
 }
 
-export function incidentDetailTarget(incidentId: string, { phone }: { phone: boolean }): IncidentDetailTarget {
-  return phone ? { kind: 'phone-sheet', incidentId } : { kind: 'board', href: boardDetailHref(incidentId) }
+export function incidentDetailTarget(
+  incidentId: string,
+  { phone, target }: { phone: boolean; target?: DetailTarget },
+): IncidentDetailTarget {
+  return phone ? { kind: 'phone-sheet', incidentId } : { kind: 'board', href: boardDetailHref(incidentId, target) }
 }
 
 /** `useIsMobile`'s switch (components/ui/use-mobile.ts), read NOW. The hook is `false` on the

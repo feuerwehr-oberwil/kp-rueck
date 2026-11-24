@@ -5,9 +5,10 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { onIncidentHighlight, type IncidentHighlightOptions } from '@/lib/notification-highlight'
 
 /**
- * The oldest waiting «Hoch» in Kennzahlen opens that Einsatz. On the phone that has to be its
- * Einsatz sheet: a bare highlight request opens nothing on a narrow screen (`allowModal`), which
- * left the row a dead button there. The desk keeps the side panel it always got.
+ * The oldest waiting «Hoch» in Kennzahlen opens that Einsatz on Übersicht. A bare highlight
+ * request opens nothing on a narrow screen (`allowModal`): on the phone that left the row a dead
+ * button, and a 1280px desk only got a ring on the card (TAB.11). So it always allows the modal;
+ * the board still picks the side panel on a wide desk.
  */
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }))
@@ -38,7 +39,7 @@ async function openOldestHoch(viewportWidth: number) {
 
 describe('Kennzahlen › the oldest «Hoch» opens its Einsatz', () => {
   it('on the phone: as its Einsatz sheet, and the dialog makes way', async () => {
-    expect(await openOldestHoch(393)).toEqual([['incident-7', { tab: undefined, allowModal: true }]])
+    expect(await openOldestHoch(393)).toEqual([['incident-7', { tab: 'overview', allowModal: true }]])
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -61,7 +62,7 @@ describe('Kennzahlen › the oldest «Hoch» opens its Einsatz', () => {
     expect(await screen.findByRole('dialog')).toHaveAttribute('data-slot', 'dialog-content')
   })
 
-  it('on the desk: the highlight it always was (side panel, never a modal)', async () => {
-    expect(await openOldestHoch(1440)).toEqual([['incident-7', { tab: undefined, allowModal: false }]])
+  it('on a narrow desk: the detail opens too (the modal), not only a ring', async () => {
+    expect(await openOldestHoch(1280)).toEqual([['incident-7', { tab: 'overview', allowModal: true }]])
   })
 })

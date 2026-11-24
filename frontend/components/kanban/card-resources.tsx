@@ -17,6 +17,7 @@ import { formatClockTime } from "@/lib/incident-time"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { cn } from "@/lib/utils"
 import { usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
+import { useVehicleChipMenu } from "@/components/kanban/vehicle-chip-menu"
 
 /**
  * How many chips a resource row draws before it hands the rest to «+N weitere».
@@ -51,7 +52,8 @@ interface CardResourcesProps {
   vehicleDrivers?: VehicleDrivers
   /** Personnel ids assigned to >1 incident — drawn with conflict styling. */
   doubleBookedCrewIds?: Set<string>
-  /** Editor gate: offers «Als Einsatzleiter markieren» in the crew chip menu. */
+  /** Editor gate: offers «Als Einsatzleiter markieren» in the crew chip menu, and the
+   *  vehicle chip's right-click menu («Fahrer ändern …», «Fahrzeug bleibt vor Ort»). */
   canEdit: boolean
   onRemoveReko?: () => void
   onRemoveCrew: (personnelId: string) => void
@@ -96,8 +98,9 @@ export function CardResources({
 }: CardResourcesProps) {
   const t = useTranslations('kanban')
   const { materialGroups } = useMaterials()
-  const { materialOnSite } = useOperations()
+  const { materialOnSite, requestVehicleDriver } = useOperations()
   const promoteToLeader = usePromoteToLeader()
+  const vehicleChipMenu = useVehicleChipMenu()
   const naming = usePersonNaming()
   // How much of the crew row the counter is standing in for. Derived, not
   // props — `crew`/`materials` are already in the card's memo comparator.
@@ -124,7 +127,8 @@ export function CardResources({
             <RemovableChip
               variant="secondary"
               className="min-w-0 max-w-full shrink text-xs px-1.5 py-0.5 font-normal flex items-center gap-1 hover:bg-destructive/10 cursor-default"
-              onRemove={() => onRemoveReko?.()}
+              // No ✕ before the row's id is known (an assign still in flight, `removeReko`).
+              onRemove={operation.assignedReko.assignmentId ? () => onRemoveReko?.() : undefined}
               removeTitle={t('common.removeNamed', { name: operation.assignedReko.name })}
               removeButtonClassName="shrink-0 hover:text-destructive cursor-pointer"
               removeIconClassName="h-2.5 w-2.5"
@@ -249,7 +253,7 @@ export function CardResources({
                 <span className="truncate">{t('common.zuFuss')}</span>
               </RemovableChip>
             )}
-            {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
+            {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay, assignmentId }) => {
               // Who is driving it, on the card itself — the same
               // «Name · Funkrufname (Fahrer)» line the detail shows. Who
               // sits behind the wheel is a radio question, and answering
@@ -271,8 +275,21 @@ export function CardResources({
                   driver && naming.inline(driver),
                   driverStay ? t('common.driverStaysFull') : t('common.driverReturnsFull'),
                 ].filter(Boolean).join(' · ')}
-                menuActions={[{ label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') }]}
+                menuActions={[
+                  { label: t('chipMenu.openDetails'), icon: <Info />, onSelect: () => openDetail('overview', 'resources') },
+                  ...(canEdit
+                    ? vehicleChipMenu({
+                        driver,
+                        onPickDriver: () => requestVehicleDriver({ vehicleId, vehicleName }),
+                        // The pill's own call; no assignment id yet = nothing to write.
+                        driverStay: onToggleDriverStay && assignmentId ? !!driverStay : undefined,
+                        onToggleStay: () => onToggleDriverStay?.(vehicleId),
+                      })
+                    : []),
+                ]}
                 removeLabel={t('detail.removeVehicle')}
+                // Right-click on the chip (owner pick 2B): a click still opens the detail.
+                mouseMenu={canEdit ? 'contextmenu' : undefined}
               >
                 {/* Two halves that wrap as wholes (4px apart): WHICH
                     vehicle — «Name · Funkrufname», the identity a radio

@@ -102,16 +102,16 @@ export function MaterialReturnList({ incidentId, canEdit = true, refreshKey = 0 
 
   // Unboxed («Nur Abstand»): its only production mount is the incident
   // detail's Rapport column, where the heading + whitespace do what the card
-  // border used to.
+  // border used to. The heading belongs to the units to release: with none,
+  // it stood over the on-site blocks with nothing under it (sign-off 24.11.).
   return (
     <div className="space-y-3">
-      <div>
-        <h4 className="text-sm font-semibold">{t('title')}</h4>
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
-      </div>
-
       {returned.length > 0 && (
         <div className="space-y-2">
+          <div>
+            <h4 className="text-sm font-semibold">{t('title')}</h4>
+            <p className="text-xs text-muted-foreground">{t('description')}</p>
+          </div>
           <ul className="space-y-1">
             {returned.map(unit => (
               <li key={unit.assignment_id} className="flex items-center gap-2 text-sm">

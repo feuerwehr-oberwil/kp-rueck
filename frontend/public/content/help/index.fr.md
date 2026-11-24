@@ -650,7 +650,7 @@ Seules les ressources disponibles (point vert) peuvent être attribuées. Un **a
 
 **Sur un écran tactile**, un toucher sur une puce de personne ou de véhicule ouvre un petit menu : « Ouvrir les détails », là où cela s’applique « Marquer comme chef d’intervention », et, à l’écart, le « Libérer de l’intervention » rouge. À la souris, rien ne change.
 
-### Rôles spéciaux (clic droit sur une personne)
+### Rôles spéciaux (clic ou clic droit sur une personne)
 
 | Rôle | Signification |
 |-------|-----------|
@@ -659,6 +659,8 @@ Seules les ressources disponibles (point vert) peuvent être attribuées. Un **a
 | **Caserne** | Fourrier à la caserne. Coordonne la remise en état et le nettoyage du matériel. |
 
 Un nouveau clic droit retire l’attribution.
+
+**Un clic sur une personne dans la liste du personnel** ouvre une liste à cocher : en haut, coché, ce que la personne occupe (interventions, missions, fonctions), en dessous le reste. Cocher = attribuer, décocher = terminer (avec confirmation) ou libérer de l’intervention (avec « Annuler »). Un clic sur une intervention l’ouvre, « Conducteur › » choisit le véhicule. En bas : « Présent depuis … », **« Annoncer partant »** (qui est encore attribué reçoit la question de l’appel) et les heures prévues « dès » / « jusqu’à ». Qui n’est que sur une intervention saute directement à la carte, comme avant ; il reste alors le clic droit.
 
 **Conducteur : rentre-t-il ou reste-t-il sur place ?** Pour chaque véhicule attribué, un clic sur le badge du conducteur permet de basculer entre **rentre** et **reste sur place** après la livraison. Le réglage par défaut est « rentre » – dans ces interventions, nos véhicules ne doivent que faire la navette (livrer personnel et matériel puis redevenir disponibles) plutôt que de rester immobilisés sur le lieu d’intervention.
 

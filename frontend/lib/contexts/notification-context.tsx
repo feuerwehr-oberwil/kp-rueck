@@ -4,7 +4,8 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, us
 import { useRouter } from 'next/navigation'
 import type { Notification, NotificationSettings } from '@/lib/types/notification'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/types/notification'
-import type { OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
+import type { OperationDetailSection, OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
+import { boardDetailHref } from '@/lib/incident-detail'
 import type { FieldNudgeKind } from '@/components/kanban/field-status-nudge'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
@@ -16,6 +17,9 @@ import { usePolling } from '@/lib/hooks/use-polling'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 import { dismissOutageToast, showOutageToast } from '@/lib/api/http'
+
+/** Open one Einsatz: on `tab` (and a block in it) when the caller knows which part it meant. */
+type NavigateHandler = (incidentId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
 
 interface NotificationContextValue {
   notifications: Notification[]
@@ -46,8 +50,9 @@ interface NotificationContextValue {
   closeSidebar: () => void
   // Navigate to incident from notification. `tab` is which panel of the detail
   // the notification is ABOUT — the bell points at one specific thing, so it
-  // opens on it rather than on Übersicht (§18.27).
-  navigateToIncident: (incidentId: string, tab?: OperationDetailTab) => void
+  // opens on it rather than on Übersicht (§18.27). `section` is a block in that
+  // tab, for a caller that knows more (Dienstzeiten «Jetzt» → Ressourcen).
+  navigateToIncident: NavigateHandler
   /**
    * Whether anybody is currently listening for `navigateToIncident` — only the
    * board registers a handler, so on `/map` or in Einstellungen the call is a
@@ -57,7 +62,7 @@ interface NotificationContextValue {
    */
   canNavigateToIncident: boolean
   registerNavigateHandler: (
-    handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null,
+    handler: NavigateHandler | null,
   ) => void
   /**
    * Answer a field report — «angekommen», «Einsatz beendet» — straight from the
@@ -236,7 +241,7 @@ export function NotificationProvider({
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), [])
 
   // Navigate to incident from notification click
-  const navigateHandlerRef = useRef<((incidentId: string, tab?: OperationDetailTab) => void) | null>(null)
+  const navigateHandlerRef = useRef<NavigateHandler | null>(null)
 
   // A ref for calling, a state for rendering. The ref keeps the call path free
   // of re-renders; the boolean has to be state because the consumers need to
@@ -248,21 +253,21 @@ export function NotificationProvider({
   const canNavigateToIncident = true
 
   const registerNavigateHandler = useCallback(
-    (handler: ((incidentId: string, tab?: OperationDetailTab) => void) | null) => {
+    (handler: NavigateHandler | null) => {
       navigateHandlerRef.current = handler
     },
     [],
   )
 
   const router = useRouter()
-  const navigateToIncident = useCallback((incidentId: string, tab?: OperationDetailTab) => {
+  const navigateToIncident = useCallback<NavigateHandler>((incidentId, tab, section) => {
     if (navigateHandlerRef.current) {
-      navigateHandlerRef.current(incidentId, tab)
+      navigateHandlerRef.current(incidentId, tab, section)
       return
     }
     // Not on the board (map, settings, …): the incident lives there, so go
     // there — the board already understands highlight + detail + tab from the URL.
-    router.push(`/?highlight=${encodeURIComponent(incidentId)}&detail=1${tab ? `&tab=${tab}` : ''}`)
+    router.push(boardDetailHref(incidentId, tab ? { tab, section } : undefined))
   }, [router])
 
   // State, not a ref like the navigate handler above: the notification card has

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import (
     EventAttendance,
+    EventSpecialFunction,
     Personnel,
     User,
 )
@@ -17,10 +18,21 @@ from ..services.audit import log_action
 from .active_resources import active_resource_ids
 
 
+class CheckOutChangedError(Exception):
+    """A resume found another departure than the one it takes back (→ 409)."""
+
+
+class PersonStillBoundError(Exception):
+    """A check-out that asked for a free person found them bound (→ 409)."""
+
+
 def _response(
-    person: Personnel, attendance: EventAttendance | None, *, is_assigned: bool
+    person: Personnel, attendance: EventAttendance | None, *, is_assigned: bool, changed: bool = True
 ) -> schemas.PersonnelCheckInResponse:
-    """One person's attendance at one Ereignis, as every route here answers it."""
+    """One person's attendance at one Ereignis, as every route here answers it.
+
+    ``changed=False``: the request found the state it asked for already there and wrote nothing.
+    """
     return schemas.PersonnelCheckInResponse(
         id=person.id,
         name=person.name,
@@ -34,6 +46,7 @@ def _response(
         planned_from=attendance.planned_from if attendance else None,
         planned_until=attendance.planned_until if attendance else None,
         is_assigned=is_assigned,
+        changed=changed,
     )
 
 
@@ -42,6 +55,14 @@ async def _is_personnel_assigned(db: AsyncSession, event_id: uuid.UUID, personne
     return bool(
         await db.scalar(select(select(deployed.c.resource_id).where(deployed.c.resource_id == personnel_id).exists()))
     )
+
+
+async def _holds_function(db: AsyncSession, event_id: uuid.UUID, personnel_id: uuid.UUID) -> bool:
+    """Any special function (Fahrer, Reko, Magazin, …) in this Ereignis."""
+    held = select(EventSpecialFunction.id).where(
+        EventSpecialFunction.event_id == event_id, EventSpecialFunction.personnel_id == personnel_id
+    )
+    return bool(await db.scalar(select(held.exists())))
 
 
 async def get_available_personnel(
@@ -104,6 +125,7 @@ async def check_in_personnel(
     personnel_id: uuid.UUID,
     current_user: User | None = None,
     request: Request | None = None,
+    resume: datetime | None = None,
 ) -> schemas.PersonnelCheckInResponse | None:
     """
     Check in a person for a specific event (mark as present on-site).
@@ -114,6 +136,10 @@ async def check_in_personnel(
         personnel_id: ID of personnel to check in
         current_user: Optional user performing the action (for audit log)
         request: Optional request object (for audit log)
+        resume: The board's «Rückgängig» after its own «Auschecken»: the ``checked_out_at``
+                that check-out answered. Takes back exactly that departure instead of
+                starting a new stint, so «anwesend seit» (time on duty) and the plan
+                survive.
 
     Returns:
         Updated personnel with event-specific check-in status, or None if not found (a
@@ -121,9 +147,12 @@ async def check_in_personnel(
 
     Raises:
         ValueError: If personnel is unavailable
+        CheckOutChangedError: ``resume`` given, but the row is no longer that departure
+            (somebody checked the person in, out again, or cleared them meanwhile).
     """
-    # Get personnel record
-    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
+    # The person's row lock (crud/locking.py step 3) orders this against a concurrent
+    # check-out, so a resume compares against the departure that is really there.
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
 
     # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
@@ -146,10 +175,38 @@ async def check_in_personnel(
 
     now = datetime.now(UTC)
 
+    if resume is not None:
+        # An undo is a new write that must still be valid now: only the departure it
+        # names, still standing, is taken back. Anything else is somebody else's change.
+        if (
+            attendance is None
+            or attendance.checked_in
+            or attendance.checked_in_at is None
+            or attendance.checked_out_at != resume
+        ):
+            raise CheckOutChangedError(personnel_id)
+        attendance.checked_in = True
+        attendance.checked_out_at = None
+        attendance.checked_out_by_user_id = None
+        attendance.updated_at = now
+        if current_user and request:
+            await log_action(
+                db=db,
+                action_type="check_out_undone",
+                resource_type="personnel",
+                resource_id=person.id,
+                user=current_user,
+                changes={"name": person.name, "event_id": str(event_id), "checked_in": True},
+                request=request,
+            )
+        await db.flush()
+        await db.refresh(attendance)
+        return _response(person, attendance, is_assigned=is_assigned)
+
     if attendance:
         # Already checked in for this event
         if attendance.checked_in:
-            return _response(person, attendance, is_assigned=is_assigned)
+            return _response(person, attendance, is_assigned=is_assigned, changed=False)
         # Coming BACK after a departure starts a new stint: the old «kommt um» / «geht um»
         # were about the one that ended, and a spent «geht um» would ring the bell again.
         # A first arrival keeps both – «geht um» is often said before somebody is in.
@@ -197,6 +254,7 @@ async def check_out_personnel(
     current_user: User | None = None,
     request: Request | None = None,
     allow_assigned: bool = False,
+    refuse_bound: bool = False,
 ) -> schemas.PersonnelCheckInResponse | None:
     """
     Check out a person from a specific event (mark as left site).
@@ -213,12 +271,20 @@ async def check_out_personnel(
                       proceeds, because it is the surface that *can* release it and a
                       hard block would force a surface change to send somebody home.
                       Either way the assignment is left intact — never released silently.
+        refuse_bound: The person popover's «Auschecken» for somebody it shows as free: refuse
+                      when an assignment OR a function binds them after all (a board that
+                      had not caught up yet), so the popover can ask its question first.
 
     Returns:
         Updated personnel with event-specific check-in status, or None if not found (a
         guest of another Ereignis counts as not found)
+
+    Raises:
+        ValueError: assigned, and neither ``allow_assigned`` nor ``refuse_bound``.
+        PersonStillBoundError: ``refuse_bound`` and the person is bound.
     """
-    # Get personnel record
+    # The person's row lock (crud/locking.py step 3): a new assignment and a new function
+    # take it too, so what is read below cannot change before this check-out lands.
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
 
@@ -227,6 +293,9 @@ async def check_out_personnel(
         return None
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
+
+    if refuse_bound and (is_assigned or await _holds_function(db, event_id, personnel_id)):
+        raise PersonStillBoundError(personnel_id)
 
     # Prevent checkout if assigned to an incident
     if is_assigned and not allow_assigned:
@@ -243,9 +312,10 @@ async def check_out_personnel(
     now = datetime.now(UTC)
 
     if attendance:
-        # Already checked out for this event
+        # Already checked out for this event – by somebody else, maybe: ``changed=False``, so a
+        # stale popover offers no undo of a departure it did not write.
         if not attendance.checked_in and attendance.checked_out_at is not None:
-            return _response(person, attendance, is_assigned=is_assigned)
+            return _response(person, attendance, is_assigned=is_assigned, changed=False)
         # Update existing record
         attendance.checked_in = False
         attendance.checked_out_at = now
@@ -305,10 +375,14 @@ async def clear_personnel_attendance(
     reason to warn before sending somebody home, not a reason to refuse undoing a
     typo. The caller (the board) already warns on the way *out*.
 
+    Takes the person's row lock like check-in and check-out, so a check-out undo
+    (``check_in_personnel(resume=…)``) that read the row cannot have it deleted under
+    it – it waits, then sees the row gone (409).
+
     None if not found – a guest of another Ereignis counts as not found, as in
     check-in and check-out.
     """
-    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id))
+    result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
     # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
     if not person or person.guest_event_id not in (None, event_id):

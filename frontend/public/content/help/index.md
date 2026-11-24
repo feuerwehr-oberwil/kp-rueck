@@ -642,7 +642,7 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden. Ein **leer
 
 **Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz freigeben». Mit der Maus ändert sich nichts.
 
-### Spezialrollen (Rechtsklick auf Person)
+### Spezialrollen (Klick oder Rechtsklick auf Person)
 
 | Rolle | Bedeutung |
 |-------|-----------|
@@ -651,6 +651,8 @@ Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden. Ein **leer
 | **Magazin** | Feldweibel im Magazin. Koordiniert Retablierung und Reinigung der Ausrüstung. |
 
 Erneuter Rechtsklick entfernt die Zuweisung.
+
+**Klick auf eine Person in der Personen-Leiste** öffnet eine Checkliste: oben angehakt, was die Person hält (Einsätze, Aufträge, Funktionen), darunter der Rest. Häkchen setzen = zuweisen, Häkchen weg = beenden (fragt nach) bzw. vom Einsatz freigeben (mit «Rückgängig»). Ein Klick auf einen Einsatz öffnet ihn, «Fahrer ›» wählt das Fahrzeug. Unten stehen «Anwesend seit …», **«Auschecken»** (wer noch zugewiesen ist, bekommt die Rückfrage aus dem Appell) und die geplanten Zeiten «ab» / «bis». Wer nur auf einem Einsatz ist, springt wie bisher direkt zur Karte; dann bleibt der Rechtsklick.
 
 **Fahrer: kommt zurück oder bleibt vor Ort?** Bei jedem zugewiesenen Fahrzeug lässt sich per Klick auf das Fahrer-Badge umschalten, ob der Fahrer nach der Anlieferung **zurückkommt** oder **vor Ort bleibt**. Standard ist **«kommt zurück»** – bei diesen Einsätzen sollen unsere Fahrzeuge nur pendeln (Personal und Material anliefern und danach wieder verfügbar sein), statt am Einsatzort gebunden zu bleiben.
 

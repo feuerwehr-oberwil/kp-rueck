@@ -21,7 +21,8 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventFiguresPanel } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
 import { requestIncidentHighlight } from "@/lib/notification-highlight"
-import { isPhoneViewport } from "@/lib/incident-detail"
+import { boardDetailHref } from "@/lib/incident-detail"
+import { OVERVIEW_TARGET } from "@/lib/detail-target"
 
 const TOGGLE_FIGURES_EVENT = "kp:toggle-figures"
 
@@ -44,14 +45,16 @@ export function FiguresDialog() {
     return () => window.removeEventListener(TOGGLE_FIGURES_EVENT, toggle)
   }, [])
 
-  // The oldest waiting «hoch» Meldung opens on the board: in place when the board
-  // is the page, through its deep link from anywhere else. On the phone in place
-  // means its Einsatz sheet – a highlight alone opens nothing on a narrow screen
-  // (`allowModal`, lib/notification-highlight.ts); the desk keeps its side panel.
+  // The oldest waiting «hoch» Meldung opens on the board, on Übersicht (it is a
+  // dispatch question): in place when the board is the page, through its deep link
+  // from anywhere else. In place it may take the modal (`allowModal`,
+  // lib/notification-highlight.ts) – the dialog has just closed, so it covers no
+  // list: the phone gets its Einsatz sheet, a desk under 1536px the modal, a wider
+  // desk the side panel. Without it a 1280px desk only ringed the card.
   const openIncident = (incidentId: string) => {
     setOpen(false)
-    if (pathname === "/") requestIncidentHighlight(incidentId, { allowModal: isPhoneViewport() })
-    else router.push(`/?highlight=${encodeURIComponent(incidentId)}&detail=1`)
+    if (pathname === "/") requestIncidentHighlight(incidentId, { ...OVERVIEW_TARGET, allowModal: true })
+    else router.push(boardDetailHref(incidentId, OVERVIEW_TARGET))
   }
 
   const title = t(selectedEvent?.training_flag ? "titleTraining" : "title")
