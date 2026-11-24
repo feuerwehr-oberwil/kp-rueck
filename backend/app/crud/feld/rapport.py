@@ -566,6 +566,18 @@ async def _build_cost_snapshot(db: AsyncSession, incident_id: uuid.UUID) -> list
     return snapshot
 
 
+async def _lock_live_incident(db: AsyncSession, incident_id: uuid.UUID) -> None:
+    """Row-lock the Einsatz (its Auftrag first – `crud/locking.py` order) for a Rapport write.
+
+    Every Rapport writer takes it before touching the report row, so two of them queue
+    instead of overwriting each other or deadlocking (photo upload vs. submission). A card
+    deleted or merged away while the request waited is refused like a missing one.
+    """
+    locked = await lock_incident_with_group(db, incident_id)
+    if locked is None or locked.deleted_at is not None:
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, "Einsatz nicht gefunden")
+
+
 async def save_rapport(
     db: AsyncSession,
     incident: Incident,
@@ -585,6 +597,7 @@ async def save_rapport(
     ``rapport_submitted``. **A later board edit cannot change a filed rapport**
     (decision 6), which is the entire reason the snapshot exists.
     """
+    await _lock_live_incident(db, incident.id)
     report = await _get_or_create_report(db, incident.id, actor)
     provided = payload.model_fields_set
     was_draft = report.is_draft
@@ -845,7 +858,7 @@ async def add_photo(
     the list and wrote it back with their own file, and the later commit dropped the other
     photo (hunt 2026-11-24). The file goes again if the write rolls back.
     """
-    await lock_incident_with_group(db, incident.id)
+    await _lock_live_incident(db, incident.id)
     report = await _get_or_create_report(db, incident.id, actor)
     await db.refresh(report)
     filename = await photo_storage.save_photo(
@@ -891,7 +904,7 @@ async def remove_photo(
     itself goes only once the change is committed: removed first, a refused commit kept
     the reference to a photo that no longer existed (hunt 2026-11-24).
     """
-    await lock_incident_with_group(db, incident.id)
+    await _lock_live_incident(db, incident.id)
     result = await db.execute(
         select(SchadenplatzReport)
         .where(SchadenplatzReport.incident_id == incident.id)

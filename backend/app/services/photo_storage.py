@@ -365,8 +365,8 @@ class PhotoStorageService:
 
         COPY, never move: the database half of a merge can still roll back, and a
         photo that exists twice costs a few hundred KB while one that exists
-        nowhere costs the record. A complete file already there (same size as the
-        source) is left alone; a missing source is skipped (and logged) — the row
+        nowhere costs the record. A file already there is left alone unless it is
+        shorter than the source; a missing source is skipped (and logged) — the row
         keeps its filename either way. Returns how many files were copied. A file
         that could not be written raises ``PhotoCopyError`` — the merge then rolls
         back rather than leaving a report whose photos exist only on the hidden card
@@ -387,7 +387,9 @@ class PhotoStorageService:
                     continue
                 self._get_incident_dir(to_incident_id)
                 target = self._inside_photos_dir(str(to_incident_id), name)
-                if target.is_file() and target.stat().st_size == source.stat().st_size:
+                # Only a SHORTER target is redone (a copy cut off mid-way); a complete one is
+                # kept – also when the source is the short one (undoing an old merge).
+                if target.is_file() and target.stat().st_size >= source.stat().st_size:
                     continue
                 partial = target.with_name(target.name + ".part")
                 try:

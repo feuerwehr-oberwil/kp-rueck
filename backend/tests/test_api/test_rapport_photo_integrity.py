@@ -207,3 +207,15 @@ def test_a_copy_cut_short_leaves_no_truncated_photo(tmp_path, monkeypatch):
     (photo_storage.photos_dir / str(target_id) / "a.jpg").write_bytes(jpeg()[:12])
     assert photo_storage.copy_photos(source_id, target_id, ["a.jpg"]) == 1
     assert (photo_storage.photos_dir / str(target_id) / "a.jpg").read_bytes() == jpeg()
+
+
+def test_a_complete_photo_is_never_replaced_by_a_shorter_one():
+    """Undoing an old merge whose retry kept a short copy must not copy it back over the original."""
+    short_id, complete_id = uuid4(), uuid4()
+    for incident_id, content in ((short_id, jpeg()[:12]), (complete_id, jpeg())):
+        directory = photo_storage.photos_dir / str(incident_id)
+        directory.mkdir(parents=True)
+        (directory / "a.jpg").write_bytes(content)
+
+    assert photo_storage.copy_photos(short_id, complete_id, ["a.jpg"]) == 0
+    assert (photo_storage.photos_dir / str(complete_id) / "a.jpg").read_bytes() == jpeg()
