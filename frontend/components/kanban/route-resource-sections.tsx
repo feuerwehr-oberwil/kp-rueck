@@ -338,7 +338,7 @@ interface RouteResourceSectionsProps {
   /** Open the driver picker for a route vehicle that has nobody driving it —
    *  the «Fahrer wählen» action beside its amber «Kein Fahrer» note. */
   onPickDriver?: (vehicle: { resourceId: string; name: string }) => void
-  /** «Fahrer bleibt vor Ort» in the vehicle chip's menu – the route assignment's stay flag
+  /** «Fahrzeug bleibt vor Ort» in the vehicle chip's menu – the route assignment's stay flag
    *  (`setRouteDriverStay`, the dispatch gate's write for an Auftrag). */
   onSetDriverStay?: (assignmentId: string, driverStay: boolean) => void
   /** Whether `vehicleDrivers` has actually loaded. Defaults to «a map was

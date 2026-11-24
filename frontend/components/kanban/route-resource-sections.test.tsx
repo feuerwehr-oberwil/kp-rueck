@@ -48,7 +48,7 @@ describe("RouteResourceSections — driverless route vehicle", () => {
 })
 
 describe("RouteResourceSections — the vehicle chip menu (owner pick 2B)", () => {
-  it("«Fahrer ändern …» opens the driver picker, «Fahrer bleibt vor Ort» writes the route flag", async () => {
+  it("«Fahrer ändern …» opens the driver picker, «Fahrzeug bleibt vor Ort» writes the route flag", async () => {
     const onPickDriver = vi.fn()
     const onSetDriverStay = vi.fn()
     renderSections({
@@ -64,7 +64,7 @@ describe("RouteResourceSections — the vehicle chip menu (owner pick 2B)", () =
     expect(onPickDriver).toHaveBeenCalledWith({ resourceId: "v2", name: "Pio" })
 
     await userEvent.click(screen.getByRole("button", { name: /^Pio ?\(Meier\)$/ }))
-    const stay = await screen.findByRole("menuitemcheckbox", { name: "Fahrer bleibt vor Ort" })
+    const stay = await screen.findByRole("menuitemcheckbox", { name: "Fahrzeug bleibt vor Ort" })
     expect(stay).toHaveAttribute("aria-checked", "false")
     await userEvent.click(stay)
     expect(onSetDriverStay).toHaveBeenCalledWith("a2", true)

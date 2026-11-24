@@ -19,7 +19,7 @@ interface VehicleChipMenuInput {
 
 /**
  * The vehicle chip's own rows, the same on the card, in the detail and in the Auftrag
- * (owner pick 2B, 24.11.2026): «Fahrer ändern …» with who drives now, then «Fahrer bleibt
+ * (owner pick 2B, 24.11.2026): «Fahrer ändern …» with who drives now, then «Fahrzeug bleibt
  * vor Ort» as a checkbox. «Fahrzeug freigeben» is the chip's remove row below them.
  * Returns a builder; the caller passes the rows to `RemovableChip` as `menuActions`.
  */

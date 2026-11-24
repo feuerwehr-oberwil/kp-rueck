@@ -375,7 +375,7 @@
       "removeFromAuftrag": "Vom Auftrag freigeben",
       "remove": "Freigeben",
       "changeDriver": "Fahrer ändern …",
-      "driverStays": "Fahrer bleibt vor Ort"
+      "driverStays": "Fahrzeug bleibt vor Ort"
     },
     "participants": {
       "title": "Bisher im Einsatz",
@@ -474,8 +474,8 @@
       "priorityMedium": "Mittel",
       "priorityHigh": "Hoch",
       "funkrufname": "Funkrufname: {callsign}",
-      "driverStayTooltip": "Fahrer bleibt vor Ort – klicken für Rückkehr",
-      "driverReturnTooltip": "Fahrer kehrt zurück – klicken für vor Ort bleiben",
+      "driverStayTooltip": "Fahrzeug bleibt vor Ort – klicken für Rückkehr",
+      "driverReturnTooltip": "Fahrzeug kehrt zurück – klicken für vor Ort bleiben",
       "driverStays": "vor Ort",
       "driverReturns": "zurück",
       "driverStaysFull": "bleibt vor Ort",
@@ -530,8 +530,8 @@
       "priorityChangedToast": "{name}: Priorität {priority}",
       "zuFussOnToast": "{name}: zu Fuss unterwegs",
       "zuFussOffToast": "{name}: nicht mehr zu Fuss",
-      "driverStaysToast": "{vehicle}: Fahrer bleibt vor Ort",
-      "driverReturnsToast": "{vehicle}: Fahrer kehrt zurück",
+      "driverStaysToast": "{vehicle}: Fahrzeug bleibt vor Ort",
+      "driverReturnsToast": "{vehicle}: Fahrzeug kehrt zurück",
       "driverStayToastHint": "Steht so auf der Funkdurchsage und dem Einsatzzettel",
       "personCount": "{count, plural, one {# Person} other {# Personen}}",
       "deleteIncidentReleases": "freigegeben: {what}",

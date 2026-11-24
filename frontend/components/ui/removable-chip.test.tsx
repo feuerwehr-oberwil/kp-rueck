@@ -170,7 +170,7 @@ describe("RemovableChip with a mouse menu (the vehicle chip, owner pick 2B)", ()
           menuTitle="TLF"
           menuActions={[
             { label: "Fahrer ändern …", hint: "Meier Hans", onSelect: onPickDriver },
-            { label: "Fahrer bleibt vor Ort", checked: stays, onSelect: onToggleStay },
+            { label: "Fahrzeug bleibt vor Ort", checked: stays, onSelect: onToggleStay },
           ]}
           removeLabel="Fahrzeug freigeben"
           mouseMenu={mouseMenu}
@@ -205,7 +205,7 @@ describe("RemovableChip with a mouse menu (the vehicle chip, owner pick 2B)", ()
 
     const driverRow = await screen.findByRole("menuitem", { name: /^Fahrer ändern …/ })
     expect(driverRow).toHaveTextContent("Meier Hans")
-    expect(screen.getByRole("menuitemcheckbox", { name: "Fahrer bleibt vor Ort" })).toHaveAttribute("aria-checked", "true")
+    expect(screen.getByRole("menuitemcheckbox", { name: "Fahrzeug bleibt vor Ort" })).toHaveAttribute("aria-checked", "true")
     expect(screen.getByRole("menuitem", { name: "Fahrzeug freigeben" })).toHaveAttribute("data-variant", "destructive")
 
     await userEvent.click(driverRow)
@@ -216,7 +216,7 @@ describe("RemovableChip with a mouse menu (the vehicle chip, owner pick 2B)", ()
     setPointerFine(true)
     const { onToggleStay } = renderVehicleChip("click")
     await userEvent.click(screen.getByRole("button", { name: "TLF" }))
-    const stay = await screen.findByRole("menuitemcheckbox", { name: "Fahrer bleibt vor Ort" })
+    const stay = await screen.findByRole("menuitemcheckbox", { name: "Fahrzeug bleibt vor Ort" })
     expect(stay).toHaveAttribute("aria-checked", "false")
     await userEvent.click(stay)
     expect(onToggleStay).toHaveBeenCalledTimes(1)

@@ -1706,7 +1706,7 @@
       "removeFromAuftrag": "Libérer de la mission",
       "remove": "Libérer",
       "changeDriver": "Changer de conducteur …",
-      "driverStays": "Le conducteur reste sur place"
+      "driverStays": "Le véhicule reste sur place"
     },
     "participants": {
       "title": "Ont participé jusqu’ici",
@@ -1805,8 +1805,8 @@
       "priorityMedium": "Moyenne",
       "priorityHigh": "Haute",
       "funkrufname": "Indicatif radio : {callsign}",
-      "driverStayTooltip": "Le conducteur reste sur place – cliquer pour le faire rentrer",
-      "driverReturnTooltip": "Le conducteur rentre – cliquer pour le laisser sur place",
+      "driverStayTooltip": "Le véhicule reste sur place – cliquer pour le faire rentrer",
+      "driverReturnTooltip": "Le véhicule rentre – cliquer pour le laisser sur place",
       "driverStays": "sur place",
       "driverReturns": "rentre",
       "driverStaysFull": "reste sur place",
@@ -1861,8 +1861,8 @@
       "priorityChangedToast": "{name} : priorité {priority}",
       "zuFussOnToast": "{name} : engagement à pied",
       "zuFussOffToast": "{name} : plus à pied",
-      "driverStaysToast": "{vehicle} : le conducteur reste sur place",
-      "driverReturnsToast": "{vehicle} : le conducteur rentre",
+      "driverStaysToast": "{vehicle} : le véhicule reste sur place",
+      "driverReturnsToast": "{vehicle} : le véhicule rentre",
       "driverStayToastHint": "Repris dans le message radio et sur le bon d'engagement",
       "personCount": "{count, plural, one {# personne} other {# personnes}}",
       "deleteIncidentReleases": "libérés : {what}",

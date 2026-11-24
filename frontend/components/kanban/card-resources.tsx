@@ -53,7 +53,7 @@ interface CardResourcesProps {
   /** Personnel ids assigned to >1 incident — drawn with conflict styling. */
   doubleBookedCrewIds?: Set<string>
   /** Editor gate: offers «Als Einsatzleiter markieren» in the crew chip menu, and the
-   *  vehicle chip's right-click menu («Fahrer ändern …», «Fahrer bleibt vor Ort»). */
+   *  vehicle chip's right-click menu («Fahrer ändern …», «Fahrzeug bleibt vor Ort»). */
   canEdit: boolean
   onRemoveReko?: () => void
   onRemoveCrew: (personnelId: string) => void
