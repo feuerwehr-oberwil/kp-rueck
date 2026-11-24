@@ -23,7 +23,7 @@ describe('withAuftragDeployment', () => {
     const depot = [material('pump'), material('free'), material('on-incident', { status: 'assigned' })]
     const folded = withAuftragDeployment(depot, new Set(['pump']))
     expect(folded.map(materialResourceState)).toEqual(['assigned', 'available', 'assigned'])
-    expect(summarizeMaterials(folded)).toEqual({ free: 1, bound: 2, total: 3 })
+    expect(summarizeMaterials(folded)).toEqual({ free: 1, bound: 2, notReady: 0, total: 3 })
   })
 
   it('keeps readiness first: an out-of-service device on an Auftrag stays nicht verfügbar', () => {
