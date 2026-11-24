@@ -4418,7 +4418,8 @@
         "groupBack": "Zurück",
         "namedTag": "genannt",
         "onSiteUnitHint": "Zugewiesenes bleibt zugewiesen, bis es abgeholt ist – steht auf der Restliste.",
-        "onSiteNamedHint": "«genannt» ist nur ein Name vom Trupp, nichts freizugeben – steht auf der Restliste und der Abholliste."
+        "onSiteNamedHint": "«genannt» ist nur ein Name vom Trupp, nichts freizugeben – steht auf der Restliste und der Abholliste.",
+        "collected": "abgeholt"
       },
       "vehicles": {
         "empty": "Kein Fahrzeug erfasst.",
@@ -4501,7 +4502,8 @@
         "personnelEmpty": "niemand erfasst",
         "vehicles": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
         "vehiclesEmpty": "kein Fahrzeug",
-        "materialOnSite": "{count, plural, one {# Position} other {# Positionen}} · {onSite} vor Ort"
+        "onSite": "{count} vor Ort",
+        "toRelease": "{count} freizugeben"
       },
       "picker": {
         "done": "Fertig ({count})",

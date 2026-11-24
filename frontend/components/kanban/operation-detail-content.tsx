@@ -1864,6 +1864,7 @@ export function OperationDetailContent({
               canEdit={canEdit}
               boxed={false}
               hasRapport={operation.hasSchadenplatzRapport}
+              activeMaterialIds={operation.materials}
               // Only when the detail was OPENED on this tab — from Offene
               // Rapporte or a notification, i.e. somebody was sent here to write
               // it. Clicking «Rapport» by hand leaves the cursor alone: stealing

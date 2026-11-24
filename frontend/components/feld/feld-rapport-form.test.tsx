@@ -537,3 +537,66 @@ describe('the Abschluss question (UX-PHONE-05)', () => {
     expect(block?.contains(document.activeElement)).toBe(false)
   })
 })
+
+describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
+  const pump = {
+    assignment_id: 'a-pump',
+    material_id: 'm-pump',
+    name: 'Tauchpumpe S-Gr.',
+    location: 'Magazin',
+    consumable: false,
+    used: true,
+    left_on_site: false,
+    on_board: true,
+  }
+  const releaseUnit = { assignment_id: 'a-pump', material_id: 'm-pump', name: 'Tauchpumpe S-Gr.', location: 'Magazin', used: true, answered: true }
+
+  it('never releases a unit the operator just marked «vor Ort», saved or not (Sol review)', async () => {
+    const user = userEvent.setup()
+    const release = vi.fn()
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump] }))
+    renderWithIntl(
+      <FeldRapportForm
+        incidentId="inc-1"
+        transport={{ load, save: vi.fn(() => new Promise<never>(() => {})) }}
+        mount="kp"
+        activeMaterialIds={['m-pump']}
+        materialRelease={{ units: [releaseUnit], releasing: false, release }}
+      />,
+    )
+
+    await user.click(await screen.findByRole('button', { name: /^Material/ }))
+    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeInTheDocument()
+
+    // Mark it «vor Ort»; the save never answers, so the server set still holds the pump.
+    await user.click(screen.getByRole('button', { name: /Tauchpumpe S-Gr\.$/ }))
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
+
+    expect(screen.queryByRole('button', { name: /Gerät freigeben/ })).not.toBeInTheDocument()
+    expect(release).not.toHaveBeenCalled()
+  })
+
+  it('reads a unit marked «vor Ort» whose assignment is gone as collected, and opens on one still out', async () => {
+    const load = vi.fn().mockResolvedValue(
+      rapport({
+        exists: true,
+        is_draft: false,
+        materials: [
+          { ...pump, left_on_site: true },
+          { ...pump, assignment_id: 'a-gen', material_id: 'm-gen', name: 'Generator', left_on_site: true },
+        ],
+      }),
+    )
+    renderWithIntl(
+      <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" activeMaterialIds={['m-gen']} />,
+    )
+
+    // Open by itself: the Generator is still out there.
+    const onSite = await screen.findByRole('list', { name: 'Noch vor Ort' })
+    expect(within(onSite).getByText('Generator')).toBeInTheDocument()
+    const back = screen.getByRole('list', { name: 'Zurück' })
+    expect(within(back).getByText('Tauchpumpe S-Gr.')).toBeInTheDocument()
+    expect(within(back).getByText('abgeholt')).toBeInTheDocument()
+    expect(screen.getByText('2 Positionen · 1 vor Ort')).toBeInTheDocument()
+  })
+})

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -202,5 +203,28 @@ describe('FeldMaterialChecklist — grouped (the KP detail, pick 1A 24.11.2026)'
     expect(screen.queryByText('Noch vor Ort')).not.toBeInTheDocument()
     expect(screen.queryByText('Zurück')).not.toBeInTheDocument()
     expect(screen.getByRole('list', { name: 'Material' })).toBeInTheDocument()
+  })
+})
+
+describe('FeldMaterialChecklist — grouped, keyboard', () => {
+  /** The form's role: holds the rows, so an answer re-renders the list as in the app. */
+  function Harness() {
+    const [rows, setRows] = useState([material({ name: 'Tauchpumpe S-Gr.' })])
+    return <FeldMaterialChecklist grouped rows={rows} extraMaterials={[]} onChange={setRows} onExtraMaterialsChange={vi.fn()} />
+  }
+
+  it('keeps the focus on a chip that its «vor Ort» answer moved to the other group', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(<Harness />)
+
+    screen.getByRole('button', { name: /Tauchpumpe S-Gr\.$/ }).focus()
+    await user.keyboard('{Enter}')
+    await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' })
+    await user.keyboard('{ArrowDown}{Enter}')
+
+    const onSite = await screen.findByRole('list', { name: 'Noch vor Ort' })
+    // The chip's menu trigger, not its ✕ («Tauchpumpe S-Gr. entfernen»).
+    const moved = within(onSite).getAllByRole('button').find(button => button.hasAttribute('data-material-chip'))
+    await vi.waitFor(() => expect(moved).toHaveFocus())
   })
 })

@@ -39,8 +39,17 @@
  * place for material: a name the crew typed carries «genannt», each kind's
  * consequence is one line under the on-site chips, and `releaseSlot` – the
  * «N Geräte freigeben» action – sits under «Zurück». Tapping «vor Ort» on a chip
- * moves it between the two groups.
+ * moves it between the two groups, and the focus moves with it.
+ *
+ * «Noch vor Ort» is the crew's answer AND the board's: a unit marked «vor Ort» whose
+ * assignment is gone (`activeMaterialIds`) was collected – «Abgeholt» releases the
+ * assignment and keeps the answer as history – so it reads «abgeholt» under «Zurück».
  */
+
+/** True while a unit marked «vor Ort» is still assigned here (no set = assume it is). */
+export function unitStillOnSite(row: ApiRapportMaterialRow, active: ReadonlySet<string> | undefined): boolean {
+  return row.left_on_site && (!active || (row.material_id !== null && active.has(row.material_id)))
+}
 
 import { useMemo, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
@@ -73,6 +82,8 @@ interface FeldMaterialChecklistProps {
   onExtraMaterialsChange: (entries: ApiRapportExtraMaterial[]) => void
   /** Split the chips into «Noch vor Ort» and «Zurück» (KP mount). */
   grouped?: boolean
+  /** Only read with `grouped`: material ids still assigned here (see `unitStillOnSite`). */
+  activeMaterialIds?: ReadonlySet<string>
   /** Only read with `grouped`: shown under «Zurück» (the KP's release action). */
   releaseSlot?: ReactNode
 }
@@ -89,6 +100,7 @@ export function FeldMaterialChecklist({
   onChange,
   onExtraMaterialsChange,
   grouped = false,
+  activeMaterialIds,
   releaseSlot,
 }: FeldMaterialChecklistProps) {
   const t = useTranslations('feld.rapport.material')
@@ -144,10 +156,12 @@ export function FeldMaterialChecklist({
       onRemove={disabled ? undefined : () => update(new Set([row.assignment_id]), { used: false, left_on_site: false })}
     >
       <MaterialLabel
+        chipKey={UNIT_KEY + row.assignment_id}
         name={row.name}
         detail={unitDetail(row)}
         consumable={row.consumable}
         leftOnSite={row.left_on_site}
+        collected={grouped && row.left_on_site && !unitStillOnSite(row, activeMaterialIds)}
         disabled={disabled}
         onLeftOnSiteChange={left => update(new Set([row.assignment_id]), { left_on_site: left })}
       />
@@ -160,6 +174,7 @@ export function FeldMaterialChecklist({
       onRemove={disabled ? undefined : () => onExtraMaterialsChange(removeExtraMaterial(extraMaterials, entry.name))}
     >
       <MaterialLabel
+        chipKey={NAME_KEY + entry.name}
         name={entry.name}
         named={grouped}
         leftOnSite={entry.left_on_site}
@@ -189,9 +204,9 @@ export function FeldMaterialChecklist({
   )
 
   if (grouped) {
-    const unitsOnSite = shown.filter(row => row.left_on_site)
+    const unitsOnSite = shown.filter(row => unitStillOnSite(row, activeMaterialIds))
     const namesOnSite = extraMaterials.filter(entry => entry.left_on_site)
-    const unitsBack = shown.filter(row => !row.left_on_site)
+    const unitsBack = shown.filter(row => !unitStillOnSite(row, activeMaterialIds))
     const namesBack = extraMaterials.filter(entry => !entry.left_on_site)
     const anyOnSite = unitsOnSite.length + namesOnSite.length > 0
     return (
@@ -245,20 +260,26 @@ export function FeldMaterialChecklist({
  * read-only, the button that opens its «vor Ort verblieben» menu.
  */
 function MaterialLabel({
+  chipKey,
   name,
   detail,
   named = false,
   consumable = false,
   leftOnSite,
+  collected = false,
   disabled,
   onLeftOnSiteChange,
 }: {
+  /** Finds this chip's trigger again after a «vor Ort» answer moved it to the other group. */
+  chipKey: string
   name: string
   detail?: string | null
   /** A name the crew typed, not a unit the board sent – marked «genannt» (grouped KP view). */
   named?: boolean
   consumable?: boolean
   leftOnSite: boolean
+  /** Marked «vor Ort», assignment released since: shows «abgeholt», not the amber «vor Ort». */
+  collected?: boolean
   disabled?: boolean
   onLeftOnSiteChange: (left: boolean) => void
 }) {
@@ -270,7 +291,9 @@ function MaterialLabel({
         {detail && <span className="text-muted-foreground"> · {detail}</span>}
         {named && <span className="text-xs text-muted-foreground"> · {t('namedTag')}</span>}
       </span>
-      {leftOnSite && (
+      {collected ? (
+        <span className="shrink-0 text-xs text-muted-foreground">{t('collected')}</span>
+      ) : leftOnSite && (
         <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-warning">
           <MapPin className="size-3" aria-hidden="true" />
           {t('leftOnSiteShort')}
@@ -281,10 +304,25 @@ function MaterialLabel({
   if (disabled || consumable) return text
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-full text-left">
+      <DropdownMenuTrigger
+        data-material-chip={chipKey}
+        className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-full text-left"
+      >
         {text}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-56">
+      <DropdownMenuContent
+        align="start"
+        className="min-w-56"
+        // In the grouped view the answer moves the chip to the other list, which remounts
+        // its trigger – Radix would hand the focus back to a node that is gone. Find the
+        // chip by its key instead (Sol review, 24.11.2026).
+        onCloseAutoFocus={event => {
+          const trigger = document.querySelector<HTMLElement>(`[data-material-chip="${CSS.escape(chipKey)}"]`)
+          if (!trigger) return
+          event.preventDefault()
+          trigger.focus()
+        }}
+      >
         <DropdownMenuLabel className="break-words">{detail ? `${name} · ${detail}` : name}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuCheckboxItem checked={leftOnSite} onCheckedChange={checked => onLeftOnSiteChange(checked === true)}>

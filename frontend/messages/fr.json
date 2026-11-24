@@ -1038,7 +1038,8 @@
         "groupBack": "De retour",
         "namedTag": "nommé",
         "onSiteUnitHint": "Le matériel attribué reste attribué jusqu’à sa récupération – figure dans la liste des restes.",
-        "onSiteNamedHint": "« nommé » n’est qu’un nom donné par le groupe, rien à libérer – figure sur la liste des restes et sur la liste de récupération."
+        "onSiteNamedHint": "« nommé » n’est qu’un nom donné par le groupe, rien à libérer – figure sur la liste des restes et sur la liste de récupération.",
+        "collected": "récupéré"
       },
       "vehicles": {
         "empty": "Aucun véhicule saisi.",
@@ -1121,7 +1122,8 @@
         "personnelEmpty": "personne de saisi",
         "vehicles": "{count, plural, one {# véhicule} other {# véhicules}}",
         "vehiclesEmpty": "aucun véhicule",
-        "materialOnSite": "{count, plural, one {# position} other {# positions}} · {onSite} sur place"
+        "onSite": "{count} sur place",
+        "toRelease": "{count} à libérer"
       },
       "picker": {
         "done": "Terminé ({count})",

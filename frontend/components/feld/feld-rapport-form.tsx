@@ -42,7 +42,7 @@
  */
 
 import { formatDateTime, formatTime } from '@/lib/format-time'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Copy, Phone, RefreshCw, Send, UserRound } from 'lucide-react'
@@ -52,7 +52,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { FeldMaterialChecklist } from '@/components/feld/feld-material-checklist'
+import { FeldMaterialChecklist, unitStillOnSite } from '@/components/feld/feld-material-checklist'
+import { MaterialReleaseButton } from '@/components/kanban/material-release'
+import type { MaterialRelease } from '@/lib/hooks/use-material-release'
 import { FeldPersonnelChecklist } from '@/components/feld/feld-personnel-checklist'
 import { FeldRapportGapsDialog, rapportGaps, type RapportGap } from '@/components/feld/feld-rapport-gaps'
 import { FeldSection, type FeldSectionState } from '@/components/feld/feld-section'
@@ -120,9 +122,13 @@ interface FeldRapportFormProps {
    *  scroll to the Kurzbericht and put the caret in it — the journey's
    *  «Rapport erfassen» button. 0 / undefined = never fired. */
   focusKurzberichtSignal?: number
-  /** KP only: the «N Geräte freigeben» action, shown in the Material block's «Zurück» group
-   *  (`MaterialRelease`). Omitted on /feld and for a read-only mount. */
-  materialRelease?: ReactNode
+  /** KP only: the release set and its click (`useMaterialRelease`). The form drops every
+   *  unit its current answers keep «vor Ort» and shows the rest as «N Geräte freigeben»
+   *  under «Zurück». Omitted on /feld and for a read-only mount. */
+  materialRelease?: MaterialRelease
+  /** KP only: material ids the board still has assigned here (`operation.materials`). A unit
+   *  marked «vor Ort» whose assignment is gone was collected («Abgeholt») and reads as back. */
+  activeMaterialIds?: readonly string[]
 }
 
 const AUTOSAVE_MS = 30000
@@ -240,7 +246,7 @@ function RapportSection({
   )
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal, materialRelease }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal, materialRelease, activeMaterialIds }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const tLoading = useTranslations('common')
   const isKp = mount === 'kp'
@@ -638,9 +644,15 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // question counts.
   const materialCount =
     formData.materials.filter(row => row.used || row.left_on_site).length + formData.extra_materials.length
+  // Plain values, no memo: this runs after the load's early return, where a hook may not.
+  const activeMaterials = activeMaterialIds ? new Set(activeMaterialIds) : undefined
   const materialOnSite =
-    formData.materials.filter(row => row.left_on_site).length +
+    formData.materials.filter(row => unitStillOnSite(row, activeMaterials)).length +
     formData.extra_materials.filter(entry => entry.left_on_site).length
+  // The server's release set minus what the form keeps on site RIGHT NOW: a «vor Ort» tick
+  // the autosave has not delivered yet must never be released (Sol review, 24.11.2026).
+  const keptOnSite = new Set(formData.materials.filter(row => row.left_on_site).map(row => row.assignment_id))
+  const releasable = (materialRelease?.units ?? []).filter(unit => !keptOnSite.has(unit.assignment_id))
   const peopleCount = derivePersonnelCount(formData)
   const vehicleCount = formData.vehicles.filter(row => row.present).length
   const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
@@ -802,13 +814,14 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <RapportSection
         fold={foldLists}
         title={t('material.title')}
-        summary={
-          materialCount === 0
-            ? t('summary.materialEmpty')
-            : materialOnSite > 0
-              ? t('summary.materialOnSite', { count: materialCount, onSite: materialOnSite })
-              : t('summary.material', { count: materialCount })
-        }
+        summary={[
+          materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty'),
+          materialOnSite > 0 && t('summary.onSite', { count: materialOnSite }),
+          // An unused unit still assigned is in the release set but not in the count.
+          releasable.length > 0 && t('summary.toRelease', { count: releasable.length }),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
         // What is still out there is the block's news – open it (Feld-tab pick 1A, 24.11.2026).
         defaultOpen={materialOnSite > 0}
         // An empty material list is not a gap — the board simply never got the
@@ -826,7 +839,16 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           onExtraMaterialsChange={entries => update('extra_materials', entries)}
           // The KP reads the list by state: what is still on site, what came back.
           grouped={isKp}
-          releaseSlot={materialRelease}
+          activeMaterialIds={activeMaterials}
+          releaseSlot={
+            materialRelease && (
+              <MaterialReleaseButton
+                units={releasable}
+                releasing={materialRelease.releasing}
+                onRelease={() => void materialRelease.release(releasable.map(unit => unit.assignment_id))}
+              />
+            )
+          }
         />
       </RapportSection>
 
