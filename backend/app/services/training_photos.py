@@ -21,16 +21,21 @@ POOL_DIR = Path(__file__).resolve().parent.parent / "assets" / "training_photos"
 SUMMARY_IMAGE_DIR = POOL_DIR.with_name("training_reko_images")
 
 
+Season = Literal["spring", "summer", "autumn", "winter"]
+
+
 class SummaryImage(TypedDict):
     """One illustration of a Reko text. `style` is the prompt family («plain» = round 1,
     «phone» = the Reko's own phone shot, owner pick 19.11.2026). `depth` marks a water
-    scene drawn shallow (≤ SHALLOW_MAX_CM) or deep."""
+    scene drawn shallow (≤ SHALLOW_MAX_CM) or deep. `season` is the season the prompt asked
+    for; the early phone shots have none and look like autumn."""
 
     file: str
     prompt: str
     scene: str
     style: str
     depth: NotRequired[Literal["shallow", "deep"]]
+    season: NotRequired[Season]
 
 
 # The deepest figure a «shallow» water picture still fits.

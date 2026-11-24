@@ -1,10 +1,10 @@
 """Export image generation jobs and import the approved outputs as bundled WebP.
 
-`jobs` prints one JSON line per missing picture: every illustrated text needs one; a
-phone-style text (`phone_style_summaries`) needs a phone-style one; a water scene
-(`water_scenes`) needs a shallow and a deep one. Each job names a season, spread by its file
-name, so the pictures do not all look like autumn. `import` installs the PNGs a model made
-from those lines. A phone-style picture replaces the text's round-1 «plain» pictures.
+`jobs` prints one JSON line per missing picture: every illustrated text needs
+`PICTURES_PER_SCENE` phone shots in different seasons (owner pick 24.11.2026), a water scene
+(`water_scenes`) that many shallow and that many deep. A new shot takes the season that
+contrasts the text's existing one (`next_season`). `import` installs the PNGs a model made
+from those lines. A phone shot replaces the text's round-1 «plain» pictures.
 """
 
 import argparse
@@ -19,11 +19,12 @@ from PIL import Image, ImageOps
 from app.services.training_photos import (
     SHALLOW_MAX_CM,
     SUMMARY_IMAGE_DIR,
+    Season,
     SummaryImage,
     load_summary_image_manifest,
     summary_image_key,
 )
-from app.services.training_simulation_data import illustrated_summaries, phone_style_summaries, water_scenes
+from app.services.training_simulation_data import illustrated_summaries, water_scenes
 
 AS_FOUND_RULE = (
     "Show the scene AS FOUND, before the fire service takes any action. "
@@ -44,8 +45,8 @@ PHONE_PROMPT = (
     "Realistic handheld smartphone photo, taken by the first fire-service scout (Reko) the moment they arrive, "
     "for a fictional Swiss fire-service training report. Standing height, slightly imperfect framing, real "
     "available light for the situation and the season, ordinary phone-camera look, no cinematic grading. "
-    "Season: {season} – weather, light and vegetation as they are then (a summer thunderstorm, spring snowmelt, "
-    "a dry winter evening); when that season cannot fit the incident (wasps, a garden pool), use summer. Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, "
+    "Season: {season} – {season_hint}; when that season cannot fit the incident (wasps, a garden pool), use summer. "
+    "Setting: a suburb in Basel-Landschaft, Switzerland – Swiss houses, "
     "streets, kerbs, road markings and cars as they look there. The photographer and their gear stay out of frame. "
     "Show the very place the report names – inside the room when it names one – so its main fact is visible. "
     f"{AS_FOUND_RULE}{SAFE_RULE}"
@@ -61,8 +62,19 @@ DEPTH_HINTS = {
         "doors, steps or objects in the room. "
     ),
 }
-# Owner note 20.11.2026: storms come in every season, not only in autumn.
-SEASONS = ("spring", "summer", "autumn", "winter")
+# Owner note 20.11.2026: storms come in every season, not only in autumn. Owner 24.11.: «also
+# snow or in summer».
+SEASON_HINTS: dict[Season, str] = {
+    "spring": "fresh green leaves, blossom, mild light, maybe a spring shower or snowmelt",
+    "summer": "full green trees, bright sun or a summer thunderstorm, people in light clothes",
+    "autumn": "coloured or fallen leaves, overcast sky, rain or dusk",
+    "winter": "bare trees, snow on roofs, lawns, kerbs and parked cars, cold light or street lamps",
+}
+SEASONS: tuple[Season, ...] = tuple(SEASON_HINTS)
+# The season a scene's next shot takes after this one (autumn: see `next_season`).
+CONTRAST: dict[Season, Season] = {"summer": "winter", "spring": "winter", "winter": "summer"}
+# Each scene (text, or text and depth) gets this many phone shots, each in its own season.
+PICTURES_PER_SCENE = 2
 MAX_EDGE = 640
 # Phone shots (rain, grain, dusk) compress worse than the round-1 plain pictures.
 MAX_BYTES = 60_000
@@ -74,31 +86,47 @@ def _wanted(summary: str) -> list[Depth | None]:
     return ["shallow", "deep"] if summary in water_scenes() else [None]
 
 
-def _has(entries: list[SummaryImage], depth: Depth | None, phone: bool) -> bool:
-    return any(entry.get("depth") == depth and (not phone or entry["style"] == "phone") for entry in entries)
+def season_for(name: str) -> Season:
+    """A season that stays the same for this name and spreads across all of them."""
+    return SEASONS[int(hashlib.sha256(name.encode()).hexdigest(), 16) % len(SEASONS)]
 
 
-def season_for(out: str) -> str:
-    """A season that stays the same for this file and spreads across all of them."""
-    return SEASONS[int(hashlib.sha256(out.encode()).hexdigest(), 16) % len(SEASONS)]
+def next_season(taken: list[Season | None], name: str) -> Season:
+    """The season of a scene's next shot: the contrast to the one it has (summer ↔ winter,
+    spring → winter). A shot without a season is an early, autumn-looking one: snow or summer
+    next, spread by `name`. A scene with no shot starts at `season_for`."""
+    if not taken:
+        return season_for(name)
+    last = taken[-1]
+    if last is None or last == "autumn":
+        return ("winter", "summer")[int(hashlib.sha256(name.encode()).hexdigest(), 16) % 2]
+    contrast = CONTRAST[last]
+    return contrast if contrast not in taken else next(s for s in SEASONS if s not in taken)
 
 
-def phone_prompt(summary: str, depth: Depth | None, season: str) -> str:
-    return PHONE_PROMPT.format(summary=summary, depth=DEPTH_HINTS[depth] if depth else "", season=season)
+def phone_prompt(summary: str, depth: Depth | None, season: Season) -> str:
+    return PHONE_PROMPT.format(
+        summary=summary, depth=DEPTH_HINTS[depth] if depth else "", season=season, season_hint=SEASON_HINTS[season]
+    )
 
 
 def export_jobs() -> None:
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
-    phone = phone_style_summaries()
     for summary in sorted(illustrated_summaries()):
         key = summary_image_key(summary)
-        entries = [e for e in manifest.get(key, []) if (SUMMARY_IMAGE_DIR / e["file"]).is_file()]
+        entries = [
+            e for e in manifest.get(key, []) if e["style"] == "phone" and (SUMMARY_IMAGE_DIR / e["file"]).is_file()
+        ]
         for depth in _wanted(summary):
-            if _has(entries, depth, summary in phone):
-                continue
-            out = f"{key}-{depth}.png" if depth else f"{key}.png"
-            prompt = phone_prompt(summary, depth, season_for(out))
-            print(json.dumps({"out": out, "key": key, "depth": depth, "prompt": prompt}, ensure_ascii=False))
+            stem = f"{key}-{depth}" if depth else key
+            taken = [e.get("season") for e in entries if e.get("depth") == depth]
+            while len(taken) < PICTURES_PER_SCENE:
+                season = next_season(taken, stem)
+                taken.append(season)
+                out = f"{stem}-{season}.png"
+                prompt = phone_prompt(summary, depth, season)
+                job = {"out": out, "key": key, "depth": depth, "season": season, "prompt": prompt}
+                print(json.dumps(job, ensure_ascii=False))
 
 
 def encode_webp(source: Path) -> bytes:
@@ -130,6 +158,8 @@ def import_images(jobs: Path, source_dir: Path) -> None:
         entry: SummaryImage = {"file": filename, "prompt": job["prompt"], "scene": "as_found", "style": "phone"}
         if depth:
             entry["depth"] = depth
+        if season := job.get("season"):
+            entry["season"] = season
         # A phone picture replaces the round-1 pictures and an older picture of the same file.
         kept = [e for e in manifest.get(key, []) if e["style"] == "phone" and e["file"] != filename]
         manifest[key] = [*kept, entry]

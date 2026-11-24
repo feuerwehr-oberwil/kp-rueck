@@ -15,6 +15,7 @@ from PIL import Image
 
 from app.seed_training import EMERGENCY_TEMPLATES
 from app.services.training_photos import SUMMARY_IMAGE_DIR, load_summary_image_manifest, summary_image_key
+from app.services.training_reko_effort import REKO_EFFORT
 from app.services.training_simulation_data import (
     _NICE_CM,
     _NICE_LITER,
@@ -24,18 +25,19 @@ from app.services.training_simulation_data import (
     _TEMPLATE_SUMMARIES,
     _dispatch_figure,
     _dispatch_linked_photo_summary,
+    _figure_level,
     _get_elementar_subcategory,
     _oil_action,
-    _reconcile_with_summary,
+    _reconcile_dangers,
     _resolve_summary_pool,
     _water_action,
     classify_material_bucket,
     derive_scenario,
+    generate_effort,
     generate_rapport_data,
     generate_reko_report_data,
     generate_summary,
     illustrated_summaries,
-    phone_style_summaries,
     vary_dispatch_numbers,
     water_scenes,
 )
@@ -43,16 +45,16 @@ from app.services.training_simulation_data import (
 
 def test_all_reko_summaries_have_bundled_illustrations():
     manifest = load_summary_image_manifest(SUMMARY_IMAGE_DIR)
-    phone, water = phone_style_summaries(), water_scenes()
+    water = water_scenes()
     missing = set()
     for summary in illustrated_summaries():
         entries = [e for e in manifest.get(summary_image_key(summary), []) if (SUMMARY_IMAGE_DIR / e["file"]).is_file()]
-        if summary in phone:
-            # Owner pick 19.11.2026: template texts are the Reko's phone shot.
-            entries = [e for e in entries if e["style"] == "phone"]
-        depths = {e.get("depth") for e in entries}
-        if not entries or (summary in water and not {"shallow", "deep"} <= depths):
-            missing.add(summary)
+        # Owner picks 24.11.2026: every text is the Reko's phone shot, twice per scene, each
+        # in its own season (an early shot without one looks like autumn).
+        for depth in ("shallow", "deep") if summary in water else (None,):
+            shots = [e for e in entries if e["style"] == "phone" and e.get("depth") == depth]
+            if len({e.get("season", "autumn") for e in shots}) < 2:
+                missing.add(summary)
         for entry in entries:
             path = SUMMARY_IMAGE_DIR / entry["file"]
             assert entry["prompt"] and entry["scene"] == "as_found", summary
@@ -64,6 +66,13 @@ def test_all_reko_summaries_have_bundled_illustrations():
         f"{len(missing)} Reko texts lack their illustrations. "
         "Run `uv run python scripts/generate_reko_images.py jobs` from backend/ to export the missing jobs."
     )
+
+
+def test_every_reko_text_has_its_effort():
+    texts = illustrated_summaries()
+    assert texts == REKO_EFFORT.keys(), "Add or drop the text's people/hours in training_reko_effort.py"
+    for text, (min_p, max_p, min_h, max_h) in REKO_EFFORT.items():
+        assert 1 <= min_p <= max_p and 1 <= min_h <= max_h, text
 
 
 def test_a_water_figure_picks_the_picture_of_its_depth(tmp_path, monkeypatch):
@@ -172,16 +181,12 @@ class TestPoolDefinitions:
                 assert sub_key in _SUMMARIES, f"{sub_key} declared but no pool defined"
                 assert len(_SUMMARIES[sub_key]) > 0, f"{sub_key} pool is empty"
 
-    def test_elementar_subcategories_have_effort_and_power_profiles(self):
-        # Every subcategory the elementar resolver can return must have tuned
-        # effort + power profiles, otherwise reko falls back to a generic mismatch.
-        from app.services.training_simulation_data import (
-            _EFFORT_PROFILES,
-            _POWER_SUPPLY_WEIGHTS,
-        )
+    def test_elementar_subcategories_have_power_profiles(self):
+        # Every subcategory the elementar resolver can return must have a tuned
+        # power profile, otherwise reko falls back to a generic mismatch.
+        from app.services.training_simulation_data import _POWER_SUPPLY_WEIGHTS
 
         for sub_key in ("elementar_water", "elementar_tree", "elementar_storm"):
-            assert sub_key in _EFFORT_PROFILES, f"{sub_key} missing effort profile"
             assert sub_key in _POWER_SUPPLY_WEIGHTS, f"{sub_key} missing power profile"
 
 
@@ -238,20 +243,23 @@ class TestGenerateRekoReportData:
             )
             assert data["summary_text"] in _SUMMARIES["brand_kueche"]
 
-    def test_elementar_subcategory_drives_effort(self):
-        # Effort must stay within each subcategory's profile bounds — water
-        # (2..5), tree (2..4, short). Reconciliation may push a value to the
-        # floor ("Kontrolle genügt") or ceiling ("Verstärkung"), but never out
-        # of the profile range.
-        for _ in range(100):
-            water = _relevant_report("elementarereignis", title="Wasser im Keller", description="Hochwasser MFH.")
-            assert 2 <= water["effort_json"]["personnel_count"] <= 5
+    def test_people_and_hours_come_from_the_reported_text(self):
+        # Owner 24.11.2026: «A small absperren job doesnt take 5 people 3 hours».
+        for template in EMERGENCY_TEMPLATES:
+            for _ in range(5):
+                data = _relevant_report(
+                    template["incident_type"], template["title_pattern"], template["message_pattern"]
+                )
+                min_p, max_p, min_h, max_h = REKO_EFFORT[data["photo_summary"]]
+                assert min_p <= data["effort_json"]["personnel_count"] <= max_p, data["summary_text"]
+                assert min_h <= data["effort_json"]["estimated_duration_hours"] <= max_h, data["summary_text"]
 
-            tree = _relevant_report(
-                "elementarereignis", title="Baum auf Strasse", description="Ast blockiert Fahrbahn."
-            )
-            assert 2 <= tree["effort_json"]["personnel_count"] <= 4
-            assert tree["effort_json"]["estimated_duration_hours"] <= 2
+    @pytest.mark.parametrize(("depth", "people", "hours"), [(5, 2, 1), (20, 4, 2), (50, 5, 3)])
+    def test_the_found_water_depth_places_the_effort_in_its_range(self, depth, people, hours):
+        text = "Ganzer Keller unter Wasser, Kühltruhe und Kartons stehen im Wasser. Mehrere Räume betroffen."
+        assert REKO_EFFORT[text] == (2, 5, 1, 3)
+        effort = generate_effort(text, _figure_level("elementar_water", f"Vor Ort ~{depth}cm."))
+        assert (effort["personnel_count"], effort["estimated_duration_hours"]) == (people, hours)
 
     def test_diverse_einsaetze_relevance_lowered(self):
         # 60% relevant baseline for diverse — over 200 samples the average
@@ -392,7 +400,7 @@ class TestVaryDispatchNumbers:
 
 
 class TestRekoConsistency:
-    """Summary prose and the danger/effort badges must agree."""
+    """Summary prose and the danger badges must agree."""
 
     @staticmethod
     def _dangers(value=False):
@@ -406,21 +414,11 @@ class TestRekoConsistency:
             "other_notes": None,
         }
 
-    @staticmethod
-    def _effort(personnel, hours):
-        return {
-            "personnel_count": personnel,
-            "vehicles_needed": [],
-            "equipment_needed": [],
-            "estimated_duration_hours": hours,
-        }
-
     def test_asserted_danger_forced_on(self):
-        dangers, _ = _reconcile_with_summary(
+        dangers = _reconcile_dangers(
             "Dachstuhl in Vollbrand, Sparren durchgebrannt. Einsturzgefahr.",
             "brand_dachstock",
             self._dangers(False),
-            self._effort(4, 2),
         )
         assert dangers["collapse"] is True
         assert dangers["fire_danger"] is True
@@ -434,47 +432,26 @@ class TestRekoConsistency:
         ],
     )
     def test_only_a_power_line_asserts_electrical_danger(self, summary, electrical):
-        dangers, _ = _reconcile_with_summary(summary, "elementar_tree", self._dangers(False), self._effort(2, 1))
+        dangers = _reconcile_dangers(summary, "elementar_tree", self._dangers(False))
         assert dangers["electrical"] is electrical
 
     def test_fire_danger_only_asserted_for_brand_types(self):
         # A false-alarm summary mentioning 'Flammen' shouldn't light fire_danger
         # on a non-brand type.
-        dangers, _ = _reconcile_with_summary(
+        dangers = _reconcile_dangers(
             "Nachbar meldet Flammen — vor Ort nichts, Fehlalarm.",
             "bma_unechte_alarme",
             self._dangers(False),
-            self._effort(2, 1),
         )
         assert dangers["fire_danger"] is False
 
     def test_harmless_clears_all_dangers(self):
-        dangers, _ = _reconcile_with_summary(
+        dangers = _reconcile_dangers(
             "BMA hat angesprochen. Kein Rauch, Täuschungsalarm.",
             "bma_unechte_alarme",
             self._dangers(True),
-            self._effort(4, 2),
         )
         assert not any(dangers[k] for k in ("fire", "fire_danger", "explosion", "collapse", "chemical", "electrical"))
-
-    def test_small_effort_floors_personnel(self):
-        _, effort = _reconcile_with_summary(
-            "Keller trocken bei Ankunft. Kontrolle genügt.",
-            "elementar_water",
-            self._dangers(False),
-            self._effort(8, 4),
-        )
-        assert effort["personnel_count"] == 2  # elementar_water profile min
-        assert effort["estimated_duration_hours"] == 1
-
-    def test_large_effort_raises_personnel(self):
-        _, effort = _reconcile_with_summary(
-            "Vollbrand, Verstärkung und DLK nötig, Aussenangriff.",
-            "brandbekaempfung",
-            self._dangers(False),
-            self._effort(3, 2),
-        )
-        assert effort["personnel_count"] == 8  # brandbekaempfung profile max
 
 
 class TestDispatchLinkedSummary:
