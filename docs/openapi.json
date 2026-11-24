@@ -3473,6 +3473,9 @@
           },
           {
             "GeocodingFieldCookie": []
+          },
+          {
+            "GeocodingIntakeHeader": []
           }
         ],
         "parameters": [
@@ -3563,6 +3566,9 @@
           },
           {
             "GeocodingFieldCookie": []
+          },
+          {
+            "GeocodingIntakeHeader": []
           }
         ],
         "parameters": [
@@ -15192,6 +15198,126 @@
         }
       }
     },
+    "/api/training/autogen": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Get Autogen",
+        "description": "The Automatik: on or off, and the run – which Übung it feeds, since when, why it stopped.",
+        "operationId": "get_autogen_api_training_autogen_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutogenStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/autogen": {
+      "put": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Put Autogen",
+        "description": "Switch the Automatik. On starts a new run for THIS Übung; the «heisse Phase» counts from now.",
+        "operationId": "put_autogen_api_training_events__event_id__autogen_put",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutogenSwitchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutogenStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/training/events/{event_id}/simulate/checkin": {
       "post": {
         "tags": [
@@ -15260,6 +15386,64 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Stop Simulated Checkin",
+        "description": "Stop a trickled check-in: whoever has not arrived yet stays away. 0 when none is running.",
+        "operationId": "stop_simulated_checkin_api_training_events__event_id__simulate_checkin_delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateCheckinStopResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/training/events/{event_id}/simulate/field-complete/{incident_id}": {
@@ -15268,7 +15452,7 @@
           "training"
         ],
         "summary": "Simulate Field Complete",
-        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nThis used to write ``incident.field_complete_reported_at`` by hand, which\nmeant a training run stamped no provenance and rang no bell — the one thing\nthe exercise is supposed to rehearse. It now goes through the **KP-parity\nendpoint** (`POST /api/incidents/{id}/field-report`), so the simulated and\nthe real operator path are byte-for-byte the same code, audit entry and\nnotification included.\n\nThe Abholung answer (decision 24) is preselected by the situation — a crew\nthat walked there or whose vehicle drove on is usually stranded — and the\nÜbungsleiter can always override it by sending it explicitly.",
+        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nGoes through the same CRUD calls as the **KP-parity endpoint**\n(`POST /api/incidents/{id}/field-report`) – `services.training_steps.report_field_complete`,\nshared with the Regie – audit entry and notification included.\n\nThe Abholung answer (decision 24) is preselected by the situation — a crew\nthat walked there or whose vehicle drove on is usually stranded — and the\nÜbungsleiter can always override it by sending it explicitly.",
         "operationId": "simulate_field_complete_api_training_events__event_id__simulate_field_complete__incident_id__post",
         "parameters": [
           {
@@ -16422,6 +16606,294 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/regie": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Get Regie",
+        "description": "The Regie page: switches, every open incident with its next steps and due times, «Vorhin».",
+        "operationId": "get_regie_api_training_events__event_id__regie_get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegieStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Put Regie",
+        "description": "Switch the Autopilot, set the tempo (ruhig/normal/sturm) or pause/resume the whole Übung.",
+        "operationId": "put_regie_api_training_events__event_id__regie_put",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegieUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegieStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/regie/hold/{incident_id}": {
+      "put": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Put Regie Hold",
+        "description": "«Halten»: the Autopilot leaves this incident alone (``held=false`` releases it).",
+        "operationId": "put_regie_hold_api_training_events__event_id__regie_hold__incident_id__put",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegieHoldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegieStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training/events/{event_id}/regie/step/{incident_id}": {
+      "post": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Post Regie Step",
+        "description": "«Jetzt»: run one step of the incident now. 409 when it is not one of its current steps.\n\n``pickup_needed`` answers «Kommt der Trupp selbst zurück?» for ``field_complete``; null lets\nthe situation decide.",
+        "operationId": "post_regie_step_api_training_events__event_id__regie_step__incident_id__post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegieStepRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegieStateResponse"
+                }
               }
             }
           },
@@ -18199,6 +18671,78 @@
         "type": "object",
         "title": "AuftragTemplateUpdate",
         "description": "Partial PATCH. ``resources``, when given, REPLACES the whole list."
+      },
+      "AutogenRun": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "stopped": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "max"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "started_at"
+        ],
+        "title": "AutogenRun",
+        "description": "The Automatik's current run, stored as JSON in the ``training_autogen.run`` settings row.\n\nWritten by ``PUT /api/training/events/{id}/autogen`` when the switch goes on, read by the\nbackground task: which Übung it feeds, and since when (the «heisse Phase» counts from\nthere). ``stopped`` says why the task switched itself off."
+      },
+      "AutogenStateResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AutogenRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "run"
+        ],
+        "title": "AutogenStateResponse",
+        "description": "What the Übungssteuerung shows for the Automatik. ``run`` is None before the first start."
+      },
+      "AutogenSwitchRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "AutogenSwitchRequest",
+        "description": "Switch the Automatik on (for this Übung) or off."
       },
       "AvailableRekoPersonnel": {
         "properties": {
@@ -28131,6 +28675,17 @@
             "type": "array",
             "title": "Vehicle Candidates",
             "default": []
+          },
+          "vehicle_drivers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Vehicle Drivers",
+            "default": {}
           }
         },
         "type": "object",
@@ -28354,6 +28909,354 @@
         ],
         "title": "RapportVehicleUpdate",
         "description": "The one tick, as the form sends it back."
+      },
+      "RegieHistoryItem": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "by": {
+            "type": "string",
+            "enum": [
+              "autopilot",
+              "trainer"
+            ],
+            "title": "By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "incident_id",
+          "text",
+          "by"
+        ],
+        "title": "RegieHistoryItem",
+        "description": "One line of «Vorhin»: a step, inject or alarm that went through the Regie."
+      },
+      "RegieHoldRequest": {
+        "properties": {
+          "held": {
+            "type": "boolean",
+            "title": "Held"
+          }
+        },
+        "type": "object",
+        "required": [
+          "held"
+        ],
+        "title": "RegieHoldRequest"
+      },
+      "RegieIncident": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "held": {
+            "type": "boolean",
+            "title": "Held"
+          },
+          "mitspieler": {
+            "type": "boolean",
+            "title": "Mitspieler"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RegieStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "held",
+          "mitspieler",
+          "steps"
+        ],
+        "title": "RegieIncident"
+      },
+      "RegieStateResponse": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "autopilot": {
+            "type": "boolean",
+            "title": "Autopilot"
+          },
+          "tempo": {
+            "type": "string",
+            "enum": [
+              "ruhig",
+              "normal",
+              "sturm"
+            ],
+            "title": "Tempo"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "running_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Seconds"
+          },
+          "automatik": {
+            "$ref": "#/components/schemas/AutogenStateResponse"
+          },
+          "automatik_next_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automatik Next At"
+          },
+          "incidents": {
+            "items": {
+              "$ref": "#/components/schemas/RegieIncident"
+            },
+            "type": "array",
+            "title": "Incidents"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/RegieHistoryItem"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "gps_available": {
+            "type": "boolean",
+            "title": "Gps Available"
+          },
+          "magazin_configured": {
+            "type": "boolean",
+            "title": "Magazin Configured"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "autopilot",
+          "tempo",
+          "paused_at",
+          "started_at",
+          "running_seconds",
+          "automatik",
+          "automatik_next_at",
+          "incidents",
+          "history",
+          "gps_available",
+          "magazin_configured"
+        ],
+        "title": "RegieStateResponse",
+        "description": "What the Regie page shows; computed on every read from the stored run and the board."
+      },
+      "RegieStep": {
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Incident Id"
+          },
+          "key": {
+            "type": "string",
+            "enum": [
+              "reko_arrived",
+              "reko_report",
+              "drive_to_incident",
+              "vehicle_on_scene",
+              "field_complete",
+              "drive_to_magazin",
+              "rapport"
+            ],
+            "title": "Key"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "rolling": {
+            "type": "boolean",
+            "title": "Rolling"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "key",
+          "due_at",
+          "rolling",
+          "progress",
+          "eta_seconds"
+        ],
+        "title": "RegieStep",
+        "description": "A field step of an incident. ``due_at`` is None while held, Mitspieler, under way or not scheduled."
+      },
+      "RegieStepRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "reko_arrived",
+              "reko_report",
+              "drive_to_incident",
+              "vehicle_on_scene",
+              "field_complete",
+              "drive_to_magazin",
+              "rapport"
+            ],
+            "title": "Key"
+          },
+          "pickup_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Needed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "RegieStepRequest",
+        "description": "Run one step now. ``pickup_needed`` answers «Kommt der Trupp selbst zurück?» for field_complete."
+      },
+      "RegieUpdateRequest": {
+        "properties": {
+          "autopilot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Autopilot"
+          },
+          "tempo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ruhig",
+                  "normal",
+                  "sturm"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tempo"
+          },
+          "paused": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused"
+          }
+        },
+        "type": "object",
+        "title": "RegieUpdateRequest",
+        "description": "Switch the Autopilot, set the tempo, pause or resume. Absent fields stay."
       },
       "RekoArrivedState": {
         "properties": {
@@ -29705,6 +30608,20 @@
         ],
         "title": "SimulateCheckinResponse",
         "description": "Response for simulated check-ins."
+      },
+      "SimulateCheckinStopResponse": {
+        "properties": {
+          "stopped": {
+            "type": "integer",
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stopped"
+        ],
+        "title": "SimulateCheckinStopResponse",
+        "description": "Result of stopping a trickled check-in: how many people will no longer arrive."
       },
       "SimulateDiveraRequest": {
         "properties": {
@@ -31356,6 +32273,12 @@
         "description": "A live, bound field-device token; poster and picker tokens are not accepted.",
         "in": "cookie",
         "name": "feld-device-token"
+      },
+      "GeocodingIntakeHeader": {
+        "type": "apiKey",
+        "description": "The /alarm intake link's token, while its Ereignis is live (not revoked, not archived).",
+        "in": "header",
+        "name": "X-Intake-Token"
       }
     }
   }
