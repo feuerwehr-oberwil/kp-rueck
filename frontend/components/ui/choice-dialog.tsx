@@ -153,16 +153,21 @@ const CHIP_TONE: Record<MiniChipTone, string> = {
   double: 'border-warning/60 bg-warning/10 text-warning-foreground',
 }
 
+// Names and addresses take up to two lines, then clamp (sign-off 24.11.2026: «Hoffmann Li…»,
+// «1 · Langegasse …» on one line hid what the card is about).
+const MINI_TEXT = 'line-clamp-2 break-words'
+
 function MiniCardView({ card, faded }: { card: MiniCard; faded?: boolean }) {
   return (
     <span className={cn('block min-w-0 rounded-sm border bg-card px-2 py-1.5', faded && 'opacity-75')}>
-      <span className="block truncate text-xs font-semibold" title={card.title}>{card.title}</span>
+      <span className={cn(MINI_TEXT, 'text-xs font-semibold')} title={card.title}>{card.title}</span>
       <span className="mt-1 flex min-h-5 flex-wrap gap-1">
         {/* By position: two devices of one Modul can share a name. */}
         {card.chips.map((chip, i) => (
           <span
             key={i}
-            className={cn('max-w-full truncate rounded-sm border border-transparent px-1.5 py-0.5 text-xs', CHIP_TONE[chip.tone])}
+            title={chip.label}
+            className={cn(MINI_TEXT, 'max-w-full rounded-sm border border-transparent px-1.5 py-0.5 text-xs', CHIP_TONE[chip.tone])}
           >
             {chip.label}
           </span>

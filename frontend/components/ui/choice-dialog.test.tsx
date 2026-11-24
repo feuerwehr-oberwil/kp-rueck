@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import { type Choice, ChoiceDialog } from '@/components/ui/choice-dialog'
+import { type Choice, ChoiceDiagram, ChoiceDialog } from '@/components/ui/choice-dialog'
 
 const choice = (shortcut: string, label: string): Choice => ({
   shortcut,
@@ -49,5 +49,24 @@ describe('ChoiceDialog', () => {
     const cancel = screen.getByRole('button', { name: /Abbrechen/ })
     expect(cancel).toHaveClass('bg-action', 'text-action-foreground')
     expect(cancel.className).not.toMatch(/dark:bg-input/)
+  })
+})
+
+describe('ChoiceDiagram', () => {
+  // Sign-off 24.11.2026: «Hoffmann Li…», «1 · Langegasse …» – a mini card's words take up to
+  // two lines before they clamp.
+  it('lets names and addresses take two lines instead of cutting them to one', () => {
+    renderWithIntl(
+      <ChoiceDiagram
+        from={[{ id: 'a', title: '1 · Langegasse 28', chips: [{ label: 'Hoffmann Lisa', tone: 'double' }] }]}
+        to={{ id: 'b', title: '2 · Mühlemattstrasse 12', chips: [{ label: 'Hoffmann Lisa', tone: 'double' }] }}
+        link="both"
+      />,
+    )
+
+    for (const el of [screen.getByText('1 · Langegasse 28'), ...screen.getAllByText('Hoffmann Lisa')]) {
+      expect(el).toHaveClass('line-clamp-2')
+      expect(el).not.toHaveClass('truncate')
+    }
   })
 })
