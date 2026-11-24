@@ -6,7 +6,7 @@
  * unused one included, so the click is not a blind one.
  *
  * Presentational: `useMaterialRelease` owns the set and the release, and the rapport
- * form hands in only the units its current answers do not keep on site. Renders nothing
+ * form hands in only the units its checklist also calls back. Renders nothing
  * for an empty set.
  */
 
@@ -19,21 +19,18 @@ import type { ApiMaterialReturnUnit } from '@/lib/api/types'
 
 interface MaterialReleaseButtonProps {
   units: readonly ApiMaterialReturnUnit[]
-  /** Busy (releasing) or not safe to click yet (unsaved edits, set still loading). */
-  disabled: boolean
-  /** Shows the spinner. */
   releasing: boolean
   onRelease: () => void
 }
 
-export function MaterialReleaseButton({ units, disabled, releasing, onRelease }: MaterialReleaseButtonProps) {
+export function MaterialReleaseButton({ units, releasing, onRelease }: MaterialReleaseButtonProps) {
   const t = useTranslations('feld.materialReturn')
   if (units.length === 0) return null
 
   const names = units.map(unit => (unit.used === false ? `${unit.name} (${t('notUsed')})` : unit.name)).join(', ')
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <Button size="sm" variant="outline" disabled={disabled || releasing} onClick={onRelease}>
+      <Button size="sm" variant="outline" disabled={releasing} onClick={onRelease}>
         {releasing ? <ShellLoader className="size-3.5" /> : <Undo2 className="size-3.5" />}
         {t('releaseAll', { count: units.length })}
       </Button>

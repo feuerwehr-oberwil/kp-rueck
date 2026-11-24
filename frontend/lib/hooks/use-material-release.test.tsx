@@ -54,7 +54,7 @@ describe('useMaterialRelease', () => {
     await waitFor(() => expect(api.getRapportMaterialReturn).toHaveBeenCalledTimes(2))
   })
 
-  it('stays loading until the set answers for the latest save, and drops a late older answer (Sol round 2)', async () => {
+  it('drops a late answer to an older request', async () => {
     let answerFirst: (value: unknown) => void = () => {}
     api.getRapportMaterialReturn
       .mockReset()
@@ -64,18 +64,13 @@ describe('useMaterialRelease', () => {
       wrapper,
       initialProps: { key: 0 },
     })
-    expect(result.current.loading).toBe(true)
 
     // A save filed the rapport again (the pump is «vor Ort» now) before the first answer came.
     rerender({ key: 1 })
-    expect(result.current.loading).toBe(true)
-    await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.units).toEqual([])
+    await waitFor(() => expect(api.getRapportMaterialReturn).toHaveBeenCalledTimes(2))
 
     // The first, older answer still lists the pump as releasable – and is ignored.
     await act(async () => answerFirst({ returned: [unit('a-1')], left_on_site: [], left_on_site_named: [] }))
     expect(result.current.units).toEqual([])
-    expect(result.current.loading).toBe(false)
   })
 })
-

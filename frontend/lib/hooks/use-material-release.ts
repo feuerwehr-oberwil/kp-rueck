@@ -12,10 +12,8 @@
  * here that the FILED rapport did not mark «vor Ort verblieben», consumables never.
  * Submitted rapports only, deliberately (§18.23): the click RELEASES, and doing that
  * against a checklist somebody is still filling in is how a pump gets freed while it runs
- * in a cellar. `loading` stays true until the set answers for the latest `refreshKey`
- * (the latest filed save); the form keeps the button disabled until then, while a save is
- * on its way and while a material answer is unsaved, so the set it offers always answers
- * for what the form shows.
+ * in a cellar. The form offers only the part of this set its own checklist also calls back,
+ * so neither a stale set nor an unsaved answer can free a unit kept on site.
  *
  * Used by `SchadenplatzRapportSection` (editor + filed rapport only); it bumps
  * `refreshKey` whenever a save files the rapport.
@@ -32,8 +30,6 @@ import { useOperations } from '@/lib/contexts/operations-context'
 export interface MaterialRelease {
   /** The server's release set, before the caller drops what the form marks «vor Ort». */
   units: ApiMaterialReturnUnit[]
-  /** The set has not answered for the latest save yet – do not offer it. */
-  loading: boolean
   releasing: boolean
   /** Release exactly these assignments, one board release each, then reload. */
   release: (assignmentIds: readonly string[]) => Promise<void>
@@ -46,17 +42,14 @@ export function useMaterialRelease(
   const t = useTranslations('feld.materialReturn')
   const { refreshOperations } = useOperations()
   const [units, setUnits] = useState<ApiMaterialReturnUnit[]>([])
-  // The refreshKey the current `units` answer for. Only the newest REQUEST may set it – a
-  // sequence number, since a save and a release can ask twice for one key.
-  const [loadedFor, setLoadedFor] = useState<number | null>(null)
+  // Only the newest request may set `units` – a sequence number, since a save and a release
+  // can ask at the same time.
   const requestSeq = useRef(0)
-  const latestKey = useRef(0)
   const [releasing, setReleasing] = useState(false)
 
   const load = useCallback(
-    async (key: number) => {
+    async () => {
       const seq = ++requestSeq.current
-      latestKey.current = key
       let next: ApiMaterialReturnUnit[] = []
       try {
         next = (await apiClient.getRapportMaterialReturn(incidentId)).returned
@@ -66,15 +59,15 @@ export function useMaterialRelease(
       // An older request answering late must not overwrite a newer one.
       if (seq !== requestSeq.current) return
       setUnits(next)
-      setLoadedFor(key)
     },
     [incidentId],
   )
 
   // Not before a rapport is filed: the set is empty for a draft, and the detail mounts
-  // this with every opening – a request that can only answer «nothing».
+  // this with every opening – a request that can only answer «nothing». `refreshKey` is
+  // only a trigger: a new filed save asks again.
   useEffect(() => {
-    if (enabled) void load(refreshKey)
+    if (enabled) void load()
   }, [enabled, load, refreshKey])
 
   const release = useCallback(
@@ -91,12 +84,12 @@ export function useMaterialRelease(
         console.error('Failed to release returned material:', error)
         toast.error(t('releaseFailed'))
       } finally {
-        await load(latestKey.current)
+        await load()
         setReleasing(false)
       }
     },
     [incidentId, load, refreshOperations, t],
   )
 
-  return { units: enabled ? units : [], loading: enabled && loadedFor !== refreshKey, releasing, release }
+  return { units: enabled ? units : [], releasing, release }
 }

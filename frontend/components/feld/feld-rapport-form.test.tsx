@@ -551,41 +551,48 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
   }
   const releaseUnit = { assignment_id: 'a-pump', material_id: 'm-pump', name: 'Tauchpumpe S-Gr.', location: 'Magazin', used: true, answered: true }
 
-  it('offers «Geräte freigeben» only while the set answers for what the form shows (Sol review)', async () => {
+  it('frees only what the checklist on screen also calls back (Sol review)', async () => {
     const user = userEvent.setup()
     const release = vi.fn()
-    const save = vi.fn(() => new Promise<never>(() => {}))
     const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump] }))
     renderWithIntl(
       <FeldRapportForm
         incidentId="inc-1"
-        transport={{ load, save }}
+        transport={{ load, save: vi.fn(() => new Promise<never>(() => {})) }}
         mount="kp"
         activeAssignmentIds={['a-pump']}
-        materialRelease={{ units: [releaseUnit], loading: false, releasing: false, release }}
+        materialRelease={{ units: [releaseUnit], releasing: false, release }}
       />,
     )
 
     await user.click(await screen.findByRole('button', { name: /^Material/ }))
-    const button = screen.getByRole('button', { name: /1 Gerät freigeben/ })
-    expect(button).toBeEnabled()
+    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeInTheDocument()
 
-    // Marked «vor Ort», not saved yet: the set no longer answers for the form.
-    const toggle = async () => {
-      const trigger = document.querySelector<HTMLElement>('[data-material-chip="unit:a-pump"]')
-      if (!trigger) throw new Error('chip trigger missing')
-      await user.click(trigger)
-      await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
-    }
-    await toggle()
-    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeDisabled()
+    // Marked «vor Ort» on screen; the save never answers, so the server set still holds the pump.
+    const trigger = document.querySelector<HTMLElement>('[data-material-chip="unit:a-pump"]')
+    if (!trigger) throw new Error('chip trigger missing')
+    await user.click(trigger)
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'vor Ort verblieben' }))
 
-    // The save with the tick is on its way (it never answers here); taking the tick back makes
-    // the form match the server's last answer again – and the button still waits.
-    await vi.waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 })
-    await toggle()
-    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Gerät freigeben/ })).not.toBeInTheDocument()
     expect(release).not.toHaveBeenCalled()
+  })
+
+  it('offers nothing the server calls back while the open checklist still shows it on site', async () => {
+    // A filing from /feld cleared the tick; this form, loaded before, still shows «vor Ort».
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [{ ...pump, left_on_site: true }] }))
+    renderWithIntl(
+      <FeldRapportForm
+        incidentId="inc-1"
+        transport={{ load, save: vi.fn() }}
+        mount="kp"
+        activeAssignmentIds={['a-pump']}
+        materialRelease={{ units: [releaseUnit], releasing: false, release: vi.fn() }}
+      />,
+    )
+
+    expect(await screen.findByRole('list', { name: 'Noch vor Ort' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Gerät freigeben/ })).not.toBeInTheDocument()
   })
 
   it('reads a unit marked «vor Ort» whose assignment is gone as collected, and opens on one still out', async () => {
@@ -610,22 +617,6 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
     expect(within(back).getByText('Tauchpumpe S-Gr.')).toBeInTheDocument()
     expect(within(back).getByText('abgeholt')).toBeInTheDocument()
     expect(screen.getByText('2 Positionen · 1 vor Ort')).toBeInTheDocument()
-  })
-
-  it('keeps «Geräte freigeben» disabled while the set is still loading for the latest save', async () => {
-    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump] }))
-    renderWithIntl(
-      <FeldRapportForm
-        incidentId="inc-1"
-        transport={{ load, save: vi.fn() }}
-        mount="kp"
-        activeAssignmentIds={['a-pump']}
-        materialRelease={{ units: [releaseUnit], loading: true, releasing: false, release: vi.fn() }}
-      />,
-    )
-
-    await userEvent.click(await screen.findByRole('button', { name: /^Material/ }))
-    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeDisabled()
   })
 
   it('reads a pump assigned here again after its collection as back, not on site', async () => {

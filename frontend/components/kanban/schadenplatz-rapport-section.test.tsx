@@ -5,7 +5,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 vi.mock('@/components/feld/feld-rapport-form', () => ({
   FeldRapportForm: () => <div>Rapport-Formular</div>,
 }))
-const useMaterialRelease = vi.hoisted(() => vi.fn(() => ({ units: [], loading: false, releasing: false, release: vi.fn() })))
+const useMaterialRelease = vi.hoisted(() => vi.fn(() => ({ units: [], releasing: false, release: vi.fn() })))
 vi.mock('@/lib/hooks/use-material-release', () => ({ useMaterialRelease }))
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
 
