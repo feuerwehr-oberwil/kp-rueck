@@ -440,3 +440,83 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     expect(result.current.ops.boardNeverLoaded).toBe(false)
   })
 })
+
+// KP hunt 2026-11-24 (state-sync F1, F3; ux-flows F6): the board never presents a board it
+// did not load as current.
+describe("OperationsProvider — the board never looks current when it is not", () => {
+  it("a failed reload is never certified by the next «same version» poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.ops.isLoaded).toBe(true))
+
+    // A reload fails: the warning is up and the fallback poll starts.
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+
+    // Another desk changed something: the poll reads v2 and loads – and that load fails too.
+    api.getSyncVersion.mockResolvedValue({ version: "v2" })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+
+    // The next tick still reads v2, but the board on screen is v1: load again, keep the warning.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    expect(result.current.sync.loadError).not.toBeNull()
+  })
+
+  it("an explicit refresh (R / F5) says whether it got through", async () => {
+    const { result } = await renderLoaded()
+
+    let outcome: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      outcome = result.current.refreshOperations()
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+    await expect(outcome).resolves.toBe(false)
+
+    act(() => {
+      outcome = result.current.refreshOperations()
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await expect(outcome).resolves.toBe(true)
+  })
+
+  it("a «bleibt vor Ort» from another desk is not turned back by a reload that read before it", async () => {
+    const tlf = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
+    const assignment = (driverStay: boolean) => ({
+      "1": [{ id: "a1", resource_type: "vehicle", resource_id: "v1", driver_stay: driverStay }],
+    })
+    api.getVehicles.mockResolvedValue([tlf])
+    api.getAssignmentsByEvent.mockResolvedValue(assignment(false))
+    const { result } = await renderLoaded()
+    const stays = () => result.current.operations[0].vehicles[0]?.driverStay
+    expect(stays()).toBe(false)
+
+    // A reload is out and has already read «kehrt zurück».
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    act(() =>
+      ws.emit("assignment_update", { action: "driver_stay", data: { id: "a1", incident_id: "1", driver_stay: true } }),
+    )
+    expect(stays()).toBe(true)
+
+    api.getAssignmentsByEvent.mockResolvedValue(assignment(true))
+    await answer([incident("1")])
+    expect(stays()).toBe(true)
+    // The outdated snapshot is replaced by a fresh one, which knows.
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    expect(stays()).toBe(true)
+  })
+})

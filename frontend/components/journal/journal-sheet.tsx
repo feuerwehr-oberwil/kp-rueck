@@ -68,7 +68,7 @@ export interface JournalSheetProps {
   /** The board's Einsätze — the `#` pick-list and the names on the incident chips. */
   operations: readonly Operation[]
   isEditor: boolean
-  refreshBoard?: () => Promise<void>
+  refreshBoard?: () => Promise<unknown>
   /** Opens the Einsatz behind an incident chip. */
   /** Opens the Einsatz on the tab that shows this row's fact (`detailTargetForJournalEntry`). */
   onOpenIncident?: (incidentId: string, target: DetailTarget | undefined) => void
