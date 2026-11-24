@@ -372,6 +372,23 @@ class FeldMaterialResponse(BaseModel):
     materials: list[FeldMaterialItem] = []
 
 
+class FeldPlanned(BaseModel):
+    """A «Danach» of this person (owner pick 5C, 24.11.2026): where they go after their current
+    work, unmistakably not active – read-only on /feld until the KP makes it Jetzt."""
+
+    id: UUID
+    incident_id: UUID | None = None
+    incident_group_id: UUID | None = None
+    #: The address (the board's display form) or the Auftrag's name.
+    place: str
+    #: The Meldung, so the crew knows what waits there.
+    description: str | None = None
+    #: 1 = next.
+    position: int
+    #: Free now: the KP can make it their Einsatz any moment.
+    ready: bool
+
+
 class FeldAssignmentsResponse(BaseModel):
     """Response for "meine Einsatzstellen"."""
 
@@ -403,6 +420,9 @@ class FeldAssignmentsResponse(BaseModel):
     # like the same night on a phone that was handed over from the last one.
     event_started_at: datetime
     assignments: list[FeldAssignment]
+    # Their «Danach», in queue order (owner pick 5C). Only what the KP planned; nothing here can
+    # be reported on until it is Jetzt.
+    planned: list[FeldPlanned] = []
     # The station's Freitext-Meldung chips (decision 20). Carried on this
     # response rather than on an endpoint of their own: the detail view is one
     # tap away from this call, and a separate GET would be a second public

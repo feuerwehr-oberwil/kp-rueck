@@ -215,3 +215,17 @@ async def test_another_ereignis_never_binds(
     training = await _incident(db_session, other, test_user, "Übungsweg 1")
     assert await _assign(editor_client, training, "personnel", test_personnel.id) == 200
     assert await _assign(editor_client, a, "personnel", test_personnel.id) == 200
+
+
+async def test_feld_lists_the_persons_danach_in_queue_order(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, three, test_personnel: Personnel
+):
+    """Owner pick 5C: /feld shows «Danach» after «Jetzt», in queue order, ready once free."""
+    from app.api.feld import _feld_planned
+
+    a, b, c = three
+    await _assign(editor_client, a, "personnel", test_personnel.id)
+    await _plan(editor_client, c, "personnel", test_personnel.id)
+    await _plan(editor_client, b, "personnel", test_personnel.id)
+    rows = await _feld_planned(db_session, test_event.id, test_personnel.id, "Oberwil")
+    assert [(r.place, r.position, r.ready) for r in rows] == [("Post 6", 1, False), ("Mühleweg 12", 2, False)]

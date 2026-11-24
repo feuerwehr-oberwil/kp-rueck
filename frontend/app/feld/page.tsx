@@ -14,6 +14,7 @@
  * field pages are the exception — this one is read on a phone in the rain.
  */
 
+import { FeldDanachList } from "@/components/feld/feld-danach-list"
 import { SearchEmptyState } from "@/components/ui/empty-state"
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
@@ -30,6 +31,7 @@ import {
   type ApiFeldPersonnel,
   type ApiFeldUnlockResponse,
   type ApiFeldAssignment,
+  type ApiFeldPlanned,
   type ApiFeldMaterialItem,
   type ApiFeldOwnReport,
   type ApiFieldReportState,
@@ -276,6 +278,8 @@ function FeldSurface() {
   const [personnel, setPersonnel] = useState<ApiFeldPersonnel[]>([])
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
+  // «Danach» (owner pick 5C): shown after the live rows, before «Früher».
+  const [planned, setPlanned] = useState<ApiFeldPlanned[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   // The fixed footer's slot for the Rapport form's «Rapport abschliessen» (FeldActions hands
   // it over on the Rapport step; null while the footer shows another step or none).
@@ -502,6 +506,7 @@ function FeldSurface() {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
       if (superseded()) return
       setAssignments(data.assignments)
+      setPlanned(data.planned ?? [])
       setMessageChips(data.message_chips ?? [])
       setDriverMessageChips(data.driver_message_chips ?? [])
       setRequestMaterials(data.request_materials ?? [])
@@ -1620,6 +1625,7 @@ function FeldSurface() {
             const lastKpMessage = kpMessages.length > 0 ? kpMessages[kpMessages.length - 1] : null
             return (
               <div key={`group-${assignment.incident_id}`}>
+              {startsPast && <FeldDanachList planned={planned} />}
               {startsPast && (
                 <p className="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t('assignments.past')}
@@ -1782,6 +1788,10 @@ function FeldSurface() {
               </div>
             )
           })
+        )}
+        {/* No «Früher» row to sit above: the Danach close the live list. */}
+        {!loadingAssignments && !feed.some((assignment) => !isLiveAssignment(assignment)) && (
+          <FeldDanachList planned={planned} />
         )}
 
         {/* Section: what I reported.

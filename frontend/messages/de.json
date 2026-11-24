@@ -4283,6 +4283,13 @@
         "approach": "Anfahrt",
         "onSite": "Vor Ort",
         "returning": "Rückfahrt"
+      },
+      "danach": {
+        "heading": "Danach",
+        "tag": "DANACH · NICHT AKTIV",
+        "hint": "Wird dein Einsatz, wenn der KP dich freigibt. Noch nicht losfahren.",
+        "ready": "Du bist frei – der KP kann es jetzt zu deinem Einsatz machen.",
+        "queuePos": "{position}. Danach"
       }
     },
     "briefing": {

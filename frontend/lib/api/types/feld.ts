@@ -276,6 +276,19 @@ export interface ApiFeldMaterialResponse {
   materials: ApiFeldMaterialItem[]
 }
 
+/** A «Danach» of this person: where they go after their current work. Not active. */
+export interface ApiFeldPlanned {
+  id: string
+  incident_id: string | null
+  incident_group_id: string | null
+  place: string
+  description: string | null
+  /** 1 = next. */
+  position: number
+  /** Free now – the KP can make it their Einsatz any moment. */
+  ready: boolean
+}
+
 export interface ApiFeldAssignmentsResponse {
   personnel_id: string
   personnel_name: string
@@ -299,6 +312,8 @@ export interface ApiFeldAssignmentsResponse {
   /** When the Ereignis was opened — the header's «Sa 14.11.». */
   event_started_at: string
   assignments: ApiFeldAssignment[]
+  /** Their «Danach» (owner pick 5C, 24.11.2026), queue order; read-only until it is Jetzt. */
+  planned?: ApiFeldPlanned[]
   /**
    * The station's Freitext-Meldung chips. Station config, NOT i18n
    * (decision 20) — a brigade rewords them without a translation round, the
