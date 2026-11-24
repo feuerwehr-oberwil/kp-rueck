@@ -105,6 +105,58 @@ async def unassign_resource(
     )
 
 
+@router.post("/{incident_id}/material-collected/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def collect_material(
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """«Abgeholt – freigeben»: a unit left on site was collected (editor only).
+
+    Releases exactly this material assignment and records «Abgeholt» in the journal and the
+    Chronik. 404 when it is no material assignment of ``incident_id``; 409 when it is already
+    released. The undo is ``DELETE`` on the same path.
+    """
+    try:
+        released = await crud.collect_material(
+            db, incident_id=incident_id, assignment_id=assignment_id, current_user=current_user, request=request
+        )
+    except crud.MaterialCollectRefusedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    if released is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
+    background_tasks.add_task(
+        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "delete"
+    )
+
+
+@router.delete("/{incident_id}/material-collected/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def undo_collect_material(
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentEditor,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Undo «Abgeholt»: the same assignment is open again, so the unit is back on the
+    Restliste (editor only). 409 when the unit has since been assigned elsewhere."""
+    try:
+        restored = await crud.undo_collect_material(
+            db, incident_id=incident_id, assignment_id=assignment_id, current_user=current_user, request=request
+        )
+    except crud.MaterialCollectRefusedError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    if restored is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.ASSIGNMENT_NOT_FOUND)
+    background_tasks.add_task(
+        broadcast_assignment_update, {"id": str(assignment_id), "incident_id": str(incident_id)}, "create"
+    )
+
+
 @router.get("/{incident_id}/assignments", response_model=list[schemas.AssignmentResponse])
 async def get_assignments(
     incident_id: uuid.UUID,

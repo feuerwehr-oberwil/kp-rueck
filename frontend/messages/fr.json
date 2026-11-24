@@ -1967,7 +1967,16 @@
         "toggleTitle": "{count, plural, one {# pièce de matériel se trouve encore sur une place sinistrée} other {# pièces de matériel se trouvent encore sur une place sinistrée}} – les plus anciennes d’abord",
         "rowTitle": "{name} se trouve encore à {address}",
         "since": "depuis {duration}",
-        "unknownAddress": "Sans adresse"
+        "unknownAddress": "Sans adresse",
+        "collect": "Récupéré",
+        "collectLabel": "{name} récupéré …",
+        "confirmTitle": "Récupéré et de retour au dépôt ?",
+        "confirmHint": "Inscrit « récupéré {time} » au journal, puis libère – avec annulation.",
+        "cancel": "Annuler",
+        "confirm": "Récupéré – libérer",
+        "collectedToast": "{name} récupéré – libéré",
+        "collectFailed": "Impossible de libérer {name}",
+        "undoFailed": "Impossible d’annuler « récupéré » pour {name}"
       },
       "linksAndQr": "Liens & QR",
       "distributeConfirmTitle": "Ajouter à la mission « {auftrag} » ?",
@@ -4743,7 +4752,9 @@
         "vehicle_on_site": "Véhicule sur le lieu d’intervention",
         "vehicle_returned": "Véhicule de retour à la caserne",
         "vehicle_down": "Véhicule en panne",
-        "situation_escalated": "La situation s’aggrave"
+        "situation_escalated": "La situation s’aggrave",
+        "material_collected": "Récupéré",
+        "material_collected_cleared": "« Récupéré » annulé"
       },
       "itemsMoved": "Repris de {other}",
       "itemsReturned": "Revenu de {other}"

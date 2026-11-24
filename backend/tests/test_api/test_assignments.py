@@ -325,6 +325,135 @@ async def test_unassign_not_found(editor_client: AsyncClient, test_incident: Inc
 
 
 # ============================================
+# «Abgeholt – freigeben» (owner pick 6A, 24.11.2026)
+# ============================================
+
+
+@pytest_asyncio.fixture
+async def material_on_site(
+    db_session: AsyncSession, test_incident: Incident, test_material: Material, test_editor: User
+) -> IncidentAssignment:
+    """A unit still on a CLOSED Einsatz – the Restliste's case: the crew left, the pump stayed."""
+    test_incident.status = "complete"
+    assignment = IncidentAssignment(
+        id=uuid4(),
+        incident_id=test_incident.id,
+        resource_type="material",
+        resource_id=test_material.id,
+        assigned_by=test_editor.id,
+    )
+    db_session.add(assignment)
+    await db_session.commit()
+    await db_session.refresh(assignment)
+    return assignment
+
+
+async def _field_facts(db_session: AsyncSession, incident_id) -> list[tuple[str, str | None]]:
+    from sqlalchemy import select
+
+    from app.models import JournalEntry
+
+    rows = await db_session.execute(
+        select(JournalEntry)
+        .where(JournalEntry.incident_id == incident_id, JournalEntry.kind == "field")
+        .order_by(JournalEntry.seq)
+    )
+    return [(row.data["type"], row.text) for row in rows.scalars().all()]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_collect_material_releases_exactly_that_assignment_and_logs_abgeholt(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_incident: Incident,
+    material_on_site: IncidentAssignment,
+    existing_assignment: IncidentAssignment,
+):
+    response = await editor_client.post(f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}")
+    assert response.status_code == 204
+
+    await db_session.refresh(material_on_site)
+    await db_session.refresh(existing_assignment)
+    assert material_on_site.unassigned_at is not None
+    assert existing_assignment.unassigned_at is None  # the person on the same card stays
+    assert await _field_facts(db_session, test_incident.id) == [("material_collected", "Tauchpumpe 1")]
+
+    # A second «Abgeholt» on the released row is refused, not logged twice.
+    again = await editor_client.post(f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}")
+    assert again.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_collect_material_refuses_a_person_and_a_foreign_card(
+    editor_client: AsyncClient,
+    test_incident: Incident,
+    second_incident: Incident,
+    existing_assignment: IncidentAssignment,
+    material_on_site: IncidentAssignment,
+):
+    person = await editor_client.post(f"/api/incidents/{test_incident.id}/material-collected/{existing_assignment.id}")
+    assert person.status_code == 404
+    foreign = await editor_client.post(f"/api/incidents/{second_incident.id}/material-collected/{material_on_site.id}")
+    assert foreign.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_collect_material_viewer_forbidden(
+    viewer_client: AsyncClient, test_incident: Incident, material_on_site: IncidentAssignment
+):
+    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_undo_collect_reopens_the_same_row_on_the_closed_card(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_incident: Incident,
+    material_on_site: IncidentAssignment,
+):
+    path = f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}"
+    assert (await editor_client.post(path)).status_code == 204
+    assert (await editor_client.delete(path)).status_code == 204
+
+    await db_session.refresh(material_on_site)
+    # The same row – the rapport's «vor Ort verblieben» points at it, so the Restliste finds it again.
+    assert material_on_site.unassigned_at is None
+    assert await _field_facts(db_session, test_incident.id) == [
+        ("material_collected", "Tauchpumpe 1"),
+        ("material_collected_cleared", "Tauchpumpe 1"),
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_undo_collect_refuses_when_the_unit_is_elsewhere_now(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_incident: Incident,
+    second_incident: Incident,
+    material_on_site: IncidentAssignment,
+    test_material: Material,
+):
+    path = f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}"
+    assert (await editor_client.post(path)).status_code == 204
+    reassigned = await editor_client.post(
+        f"/api/incidents/{second_incident.id}/assign",
+        json={"resource_type": "material", "resource_id": str(test_material.id)},
+    )
+    assert reassigned.status_code == 200
+
+    response = await editor_client.delete(path)
+    assert response.status_code == 409
+    await db_session.refresh(material_on_site)
+    assert material_on_site.unassigned_at is not None
+
+
+# ============================================
 # Get Assignments Tests
 # ============================================
 

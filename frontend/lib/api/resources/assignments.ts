@@ -58,6 +58,22 @@ export class AssignmentsApi {
     })
   }
 
+  /** «Abgeholt – freigeben»: releases this material assignment (a unit left on site) and
+   *  records «Abgeholt» in the journal. 409 when it is already released. */
+  async collectMaterial(incidentId: string, assignmentId: string): Promise<void> {
+    return httpRequest<void>(`/api/incidents/${incidentId}/material-collected/${assignmentId}`, {
+      method: 'POST',
+    })
+  }
+
+  /** The undo of `collectMaterial`: re-opens the same assignment. 409 when the unit has since
+   *  been assigned elsewhere. */
+  async undoCollectMaterial(incidentId: string, assignmentId: string): Promise<void> {
+    return httpRequest<void>(`/api/incidents/${incidentId}/material-collected/${assignmentId}`, {
+      method: 'DELETE',
+    })
+  }
+
   /**
    * Get all assignments for all incidents in an event (bulk endpoint).
    * Optimizes performance by fetching all assignments in one request instead of N requests.

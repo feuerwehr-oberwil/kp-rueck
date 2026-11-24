@@ -5,21 +5,23 @@ import { useTranslations } from "next-intl"
 import { ChevronDown, ChevronRight, MapPin } from "lucide-react"
 
 import type { Material } from "@/lib/contexts/materials-context"
+import type { MaterialOnSiteLocation } from "@/lib/contexts/operations/types"
 import { getTimeSince } from "@/lib/kanban-utils"
+import { formatClockTime } from "@/lib/incident-time"
+import { Button } from "@/components/ui/button"
 import { Reveal } from "@/components/ui/reveal"
+import type { CollectTarget } from "@/lib/hooks/use-collect-material"
 
 /** Where one unit is standing — the shape `operations-context` keys by material id. */
-export interface MaterialOnSiteLocation {
-  incidentId: string
-  address: string | null
-  since: string | null
-}
+export type { MaterialOnSiteLocation }
 
 /** One line of the overview: which unit, at which Schadenplatz, since when. */
 export interface MaterialOnSiteEntry {
   materialId: string
   name: string
   incidentId: string
+  /** The open assignment «Abgeholt» releases; null when the Restliste did not name one. */
+  assignmentId: string | null
   /** Address of the Schadenplatz, already falling back to the incident title. */
   address: string | null
   /** Null when the rapport carried no usable timestamp — unknown, not "just now". */
@@ -54,6 +56,7 @@ export function selectMaterialOnSite(
       materialId,
       name: material.name,
       incidentId: location.incidentId,
+      assignmentId: location.assignmentId,
       address: location.address,
       since: parsed && !Number.isNaN(parsed.getTime()) ? parsed : null,
     })
@@ -72,6 +75,8 @@ interface MaterialOnSitePanelProps {
   entries: readonly MaterialOnSiteEntry[]
   /** Opens the Schadenplatz the unit is standing at. */
   onOpenIncident: (incidentId: string) => void
+  /** Editors: «Abgeholt – freigeben» per unit (`useCollectMaterial`). Omitted = read-only. */
+  onCollect?: (target: CollectTarget) => void
 }
 
 /**
@@ -86,12 +91,18 @@ interface MaterialOnSitePanelProps {
  * must not be able to filter away the answer to "what is still out there".
  *
  * Collapsed by default and absent at zero: the count is the whole headline, and
- * a board with nothing on site must not carry a permanent empty row. Read-only,
- * so a viewer sees it too — knowing where a pump is standing is not an edit.
+ * a board with nothing on site must not carry a permanent empty row. A viewer
+ * sees it too — knowing where a pump is standing is not an edit.
+ *
+ * Editors get «Abgeholt» per unit (owner pick 6A, 24.11.2026): it opens an inline
+ * confirm, «Abgeholt – freigeben» releases exactly that assignment and logs the
+ * time, with «Rückgängig». The row's own click still opens the Einsatz.
  */
-export function MaterialOnSitePanel({ entries, onOpenIncident }: MaterialOnSitePanelProps) {
+export function MaterialOnSitePanel({ entries, onOpenIncident, onCollect }: MaterialOnSitePanelProps) {
   const t = useTranslations("kanban.dashboard.materialOnSite")
   const [expanded, setExpanded] = useState(false)
+  // The unit whose confirm is open, and the clock time it will log.
+  const [confirming, setConfirming] = useState<{ assignmentId: string; at: Date } | null>(null)
 
   if (entries.length === 0) return null
 
@@ -115,13 +126,17 @@ export function MaterialOnSitePanel({ entries, onOpenIncident }: MaterialOnSiteP
 
       <Reveal open={expanded}>
         <ul className="mt-0.5 max-h-44 space-y-0.5 overflow-y-auto overscroll-y-contain pl-2">
-          {entries.map((entry) => (
+          {entries.map((entry) => {
+            const assignmentId = entry.assignmentId
+            const isConfirming = !!assignmentId && confirming?.assignmentId === assignmentId
+            return (
             <li key={entry.materialId}>
+              <div className="flex items-end gap-1">
               <button
                 type="button"
                 onClick={() => onOpenIncident(entry.incidentId)}
                 title={t("rowTitle", { name: entry.name, address: entry.address ?? "–" })}
-                className="flex w-full flex-col gap-0.5 rounded px-1.5 py-1 text-left hover:bg-muted/60"
+                className="flex min-w-0 flex-1 flex-col gap-0.5 rounded px-1.5 py-1 text-left hover:bg-muted/60"
               >
                 <span className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
@@ -139,8 +154,43 @@ export function MaterialOnSitePanel({ entries, onOpenIncident }: MaterialOnSiteP
                   {entry.address ?? t("unknownAddress")}
                 </span>
               </button>
+              {onCollect && assignmentId && !isConfirming && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  className="mb-0.5 min-h-6 shrink-0 rounded-sm px-1.5 py-0"
+                  aria-label={t("collectLabel", { name: entry.name })}
+                  onClick={() => setConfirming({ assignmentId, at: new Date() })}
+                >
+                  {t("collect")}
+                </Button>
+              )}
+              </div>
+              {onCollect && assignmentId && isConfirming && (
+                <div role="group" aria-label={t("confirmTitle")} className="mx-1.5 mb-1 space-y-1.5 rounded-md border border-border bg-muted/40 p-2">
+                  <p className="text-xs font-medium">{t("confirmTitle")}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("confirmHint", { time: formatClockTime(confirming.at) })}
+                  </p>
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="xs" onClick={() => setConfirming(null)}>
+                      {t("cancel")}
+                    </Button>
+                    <Button
+                      size="xs"
+                      onClick={() => {
+                        setConfirming(null)
+                        onCollect({ incidentId: entry.incidentId, assignmentId, name: entry.name })
+                      }}
+                    >
+                      {t("confirm")}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </li>
-          ))}
+            )
+          })}
         </ul>
       </Reveal>
     </div>

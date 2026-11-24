@@ -12,6 +12,7 @@ import type { ApiDangersAssessment, ApiEventRestliste, ApiIncident } from "@/lib
 import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import type { Operation } from "../operations-context"
+import type { MaterialOnSiteLocation } from "./types"
 
 /** Just the checkboxes — the `/api/viewer/data` payload drops `other_notes`,
  *  so the shared derivation below must not insist on it. */
@@ -50,12 +51,13 @@ export function rekoDangerTypes(dangers: RekoDangerFlags | null | undefined): st
  */
 export function toMaterialOnSite(
   restliste: ApiEventRestliste | null,
-): Map<string, { incidentId: string; address: string | null; since: string | null }> {
-  const map = new Map<string, { incidentId: string; address: string | null; since: string | null }>()
+): Map<string, MaterialOnSiteLocation> {
+  const map = new Map<string, MaterialOnSiteLocation>()
   for (const unit of restliste?.material_on_site ?? []) {
     if (!unit.material_id) continue
     map.set(unit.material_id, {
       incidentId: unit.incident_id,
+      assignmentId: unit.assignment_id ?? null,
       address: unit.location_address ?? unit.incident_title ?? null,
       since: unit.since,
     })

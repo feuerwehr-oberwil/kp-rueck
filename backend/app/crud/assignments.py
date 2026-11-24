@@ -422,6 +422,118 @@ async def unassign_resource(
     return assignment
 
 
+class MaterialCollectRefusedError(Exception):
+    """«Abgeholt» or its undo cannot run on this row now; ``str()`` is the German reason (409)."""
+
+
+async def _lock_material_assignment(
+    db: AsyncSession, incident_id: uuid.UUID, assignment_id: uuid.UUID
+) -> IncidentAssignment | None:
+    """The material assignment ``assignment_id`` of ``incident_id``, locked in the order of
+    ``crud/locking.py``: the incident (with its Auftrag), then the material row. None when the
+    row is no material assignment of that incident."""
+    await lock_incident_with_group(db, incident_id)
+    assignment = await db.scalar(
+        select(IncidentAssignment)
+        .where(IncidentAssignment.id == assignment_id, IncidentAssignment.incident_id == incident_id)
+        .execution_options(populate_existing=True)
+    )
+    if assignment is None or assignment.resource_type != "material":
+        return None
+    await lock_resource(db, "material", assignment.resource_id)
+    return assignment
+
+
+async def collect_material(
+    db: AsyncSession,
+    *,
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    current_user: User,
+    request: Request | None,
+) -> IncidentAssignment | None:
+    """«Abgeholt – freigeben» from the «Gerät vor Ort» roll-up (owner pick 6A, 24.11.2026).
+
+    Releases exactly this material assignment and records the collection as a field fact
+    (audit ``material_collected`` → journal and Chronik: «Abgeholt: Tauchpumpe»). None when
+    the row is no material assignment of the incident (404); refused when it is already
+    released – somebody else took it back first, and a second «abgeholt» line would lie.
+    Flushes only; the request commits.
+    """
+    assignment = await _lock_material_assignment(db, incident_id, assignment_id)
+    if assignment is None:
+        return None
+    if assignment.unassigned_at is not None:
+        raise MaterialCollectRefusedError("Dieses Material ist schon freigegeben.")
+    material = await db.get(Material, assignment.resource_id)
+    await unassign_resource(db, assignment_id, current_user, request, incident_id=incident_id)
+    await log_action(
+        db=db,
+        action_type="material_collected",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={
+            "assignment_id": str(assignment_id),
+            "material_name": material.name if material else None,
+            "source": "kp",
+        },
+        request=request,
+    )
+    await db.flush()
+    return assignment
+
+
+async def undo_collect_material(
+    db: AsyncSession,
+    *,
+    incident_id: uuid.UUID,
+    assignment_id: uuid.UUID,
+    current_user: User,
+    request: Request | None,
+) -> IncidentAssignment | None:
+    """The undo of ``collect_material``: re-opens the SAME row (``unassigned_at`` back to NULL).
+
+    The same row, not a new assignment: the Schadenplatz-Rapport names this assignment as
+    left on site, and the Restliste finds the unit only through it. Like the completion undo
+    (``restore_released_assignments``) it is an internal re-opener, so it skips
+    ``ensure_assignable`` (the Einsatz is usually closed), but it refuses when the unit has
+    since been assigned elsewhere – the check runs under the material's row lock, which every
+    assignment writer takes. Records ``material_collected_cleared``. Flushes only.
+    """
+    assignment = await _lock_material_assignment(db, incident_id, assignment_id)
+    if assignment is None:
+        return None
+    if assignment.unassigned_at is None:
+        return assignment  # already back – nothing to undo
+    elsewhere = await db.scalar(
+        select(IncidentAssignment.id).where(
+            IncidentAssignment.resource_type == "material",
+            IncidentAssignment.resource_id == assignment.resource_id,
+            IncidentAssignment.unassigned_at.is_(None),
+        )
+    )
+    if elsewhere is not None:
+        raise MaterialCollectRefusedError("Das Material ist inzwischen einem anderen Einsatz zugewiesen.")
+    material = await db.get(Material, assignment.resource_id)
+    assignment.unassigned_at = None
+    await log_action(
+        db=db,
+        action_type="material_collected_cleared",
+        resource_type="incident",
+        resource_id=incident_id,
+        user=current_user,
+        changes={
+            "assignment_id": str(assignment_id),
+            "material_name": material.name if material else None,
+            "source": "kp",
+        },
+        request=request,
+    )
+    await db.flush()
+    return assignment
+
+
 # `update_resource_status(db, resource_type, resource_id, new_status)` used to sit
 # here and wrote `Vehicle.status` / `Material.status` straight. It is gone rather
 # than fixed. Nothing in `app/` ever called it — assignment is tracked in this

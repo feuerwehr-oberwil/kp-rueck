@@ -190,6 +190,15 @@ export interface Operation {
 
 /** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
  *  where it was just assigned, so dismissing can ask whether it comes back off. */
+/** Where one unit left on site is standing (the Restliste, keyed by material id). */
+export interface MaterialOnSiteLocation {
+  incidentId: string
+  /** The open assignment that keeps it there – what «Abgeholt» releases (`collectMaterial`). */
+  assignmentId: string | null
+  address: string | null
+  since: string | null
+}
+
 export interface VehicleNeedingDriver {
   vehicleId: string
   vehicleName: string
@@ -338,7 +347,7 @@ export interface OperationsContextType {
    * actually watches — showed a pump in a stranger's cellar exactly like a pump
    * on a truck. Read from the same `/restliste` endpoint the Abholliste prints,
    * so there is one computation of "what is still out there", not two. */
-  materialOnSite: Map<string, { incidentId: string; address: string | null; since: string | null }>
+  materialOnSite: Map<string, MaterialOnSiteLocation>
   /** Vehicle ids flagged «Nicht einsatzbereit» in the fleet list.
    *
    * Vehicles have no sidebar of their own, so their readiness has to travel with

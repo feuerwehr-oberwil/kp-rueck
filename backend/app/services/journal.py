@@ -19,7 +19,8 @@ What counts as a fact (and what deliberately does not — the log must stay read
 * the field facts, each from the ONE row that records it once (`field`): arrival on the
   Schadenplatz, «Einsatz beendet», pickup needed / done / «Wir fahren selbst» (their audit
   rows, set AND cleared), the Schadenplatz-Rapport filed, the Reko arriving (the report's
-  `arrived_at`), and the vehicle facts a bell announced (`services/vehicle_facts`).
+  `arrived_at`), the vehicle facts a bell announced (`services/vehicle_facts`), and a unit
+  left on site collected («Abgeholt», `crud/assignments.collect_material`).
 
 NOT the bell. A notification is a reminder the board rebuilds and de-duplicates as it
 sees fit (`vehicle_arrived` is re-derived on every poll with a 30-minute window); a
@@ -82,6 +83,9 @@ FIELD_AUDIT_ACTIONS: frozenset[str] = frozenset(
         "vehicle_down",
         # the Übung's «Lage verschärft» (api/training_simulate): the Lagemeldung is the text
         "situation_escalated",
+        # a unit left on site collected – «Abgeholt», and its undo (crud/assignments.collect_material)
+        "material_collected",
+        "material_collected_cleared",
     }
 )
 
@@ -428,11 +432,16 @@ class _Collector:
             )
         elif action in FIELD_AUDIT_ACTIONS:
             # the line's detail: the crew's pickup note, the vehicle a vehicle fact is about,
-            # or the Lagemeldung
+            # the unit that was collected, or the Lagemeldung
             detail = next(
                 (
                     str(v).strip()
-                    for v in (changes.get("pickup_note"), changes.get("vehicle_name"), changes.get("text"))
+                    for v in (
+                        changes.get("pickup_note"),
+                        changes.get("vehicle_name"),
+                        changes.get("material_name"),
+                        changes.get("text"),
+                    )
                     if v and str(v).strip()
                 ),
                 None,

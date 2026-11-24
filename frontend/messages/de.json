@@ -647,7 +647,16 @@
         "toggleTitle": "{count, plural, one {# Gerät steht noch an einem Schadenplatz} other {# Geräte stehen noch an einem Schadenplatz}} – älteste zuerst",
         "rowTitle": "{name} steht noch bei {address}",
         "since": "seit {duration}",
-        "unknownAddress": "Ohne Adresse"
+        "unknownAddress": "Ohne Adresse",
+        "collect": "Abgeholt",
+        "collectLabel": "{name} abgeholt …",
+        "confirmTitle": "Abgeholt und zurück im Magazin?",
+        "confirmHint": "Hält «abgeholt {time}» im Verlauf fest, dann frei – mit Rückgängig.",
+        "cancel": "Abbrechen",
+        "confirm": "Abgeholt – freigeben",
+        "collectedToast": "{name} abgeholt – freigegeben",
+        "collectFailed": "{name} konnte nicht freigegeben werden",
+        "undoFailed": "«Abgeholt» für {name} nicht rückgängig"
       },
       "linksAndQr": "Links & QR",
       "distributeConfirmTitle": "In Auftrag «{auftrag}» aufnehmen?",
@@ -4743,7 +4752,9 @@
         "vehicle_on_site": "Fahrzeug am Einsatzort",
         "vehicle_returned": "Fahrzeug zurück im Magazin",
         "vehicle_down": "Fahrzeug ausgefallen",
-        "situation_escalated": "Lage verschärft"
+        "situation_escalated": "Lage verschärft",
+        "material_collected": "Abgeholt",
+        "material_collected_cleared": "«Abgeholt» zurückgenommen"
       },
       "itemsMoved": "Übernommen von {other}",
       "itemsReturned": "Zurück von {other}"
