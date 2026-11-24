@@ -46,6 +46,7 @@ import { FeldMeldenSheet } from '@/components/feld/feld-melden-sheet'
 import { FeldPlaceLine } from '@/components/feld/feld-place-line'
 import { FeldRapportForm } from '@/components/feld/feld-rapport-form'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { PlannedTimePicker } from '@/components/attendance/planned-time'
 import { IncidentNumber } from '@/components/ui/incident-number'
@@ -316,6 +317,11 @@ function FeldSurface() {
   /** Counts loads: only the newest one may write. A poll still retrying in a dead spot must not
    *  bring «Keine Verbindung» back over a refresh that already landed, nor rows over a forget. */
   const loadGeneration = useRef(0)
+  /** The load still out, if any: a poll never starts over it (on a link slower than the 10 s tick
+   *  each poll would supersede the last and none would ever land). A deliberate load may. */
+  const loadInFlight = useRef<number | null>(null)
+  /** Counts Reko opens: a link that comes back after a forget or a newer open goes nowhere. */
+  const rekoAttempt = useRef(0)
   const [meldenOpen, setMeldenOpen] = useState(false)
   // Which roles this person holds here. The roles are data (decision 5); which
   // sections they unlock stays code, deliberately.
@@ -433,7 +439,11 @@ function FeldSurface() {
     setViewMode('code')
     setSyncedAt(null)
     setSyncFailed(false)
+    setLoadingAssignments(false)
     loadGeneration.current += 1
+    loadInFlight.current = null
+    setRekoOpening(null)
+    rekoAttempt.current += 1
     clearCookie(PERSON_COOKIE, FELD_COOKIE_SCOPE)
     clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
     clearFeldName()
@@ -478,10 +488,12 @@ function FeldSurface() {
   ) => {
     const activeToken = options?.token ?? token
     if (!activeToken) return
+    const silent = options?.silent === true
+    if (silent && loadInFlight.current !== null) return
     lastLoad.current = { personnelId, token: activeToken }
     const generation = ++loadGeneration.current
+    loadInFlight.current = generation
     const superseded = () => generation !== loadGeneration.current
-    const silent = options?.silent === true
     if (!silent) setLoadingAssignments(true)
     try {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
@@ -541,6 +553,9 @@ function FeldSurface() {
       // the Schadenplatz somebody is standing at.
       if ((err instanceof ApiError && err.status === 403) || (err instanceof Error && err.message.includes('403'))) {
         setAssignments([])
+        // The request skips the transport's toast (the band speaks for an outage), so the
+        // server's reason is said here.
+        toast.error(err.message)
         return
       }
       // Any other failure keeps the rows, silent or not, and says so: the band shows the last
@@ -548,7 +563,12 @@ function FeldSurface() {
       // Auftrag»). An offline GET resolves to nothing (`lib/api/http.ts`), so it lands here too.
       setSyncFailed(true)
     } finally {
-      if (!silent) setLoadingAssignments(false)
+      // Only the newest load ends the loading state: an older one settling first would show
+      // an empty list before any answer was taken.
+      if (!superseded()) {
+        loadInFlight.current = null
+        if (!silent) setLoadingAssignments(false)
+      }
     }
   }, [token, forgetDevice])
 
@@ -686,16 +706,19 @@ function FeldSurface() {
       // The row says it is opening, and on a failure says so with a retry (crosscheck A3): the
       // tap used to do nothing visible until the link came back, and nothing at all if it did not.
       setRekoOpening({ incidentId: assignment.incident_id, failed: false })
+      const attempt = ++rekoAttempt.current
       try {
         const { link } = await apiClient.mintFeldRekoLink(
           assignment.incident_id,
           selectedPerson.personnel_id,
           token,
         )
+        if (attempt !== rekoAttempt.current) return
         clearCookie(INCIDENT_COOKIE, FELD_COOKIE_SCOPE)
         router.push(withReturnTo(link, `/feld?token=${encodeURIComponent(linkToken)}`))
       } catch (err) {
         console.error('Failed to open the reko form:', err)
+        if (attempt !== rekoAttempt.current) return
         setRekoOpening({ incidentId: assignment.incident_id, failed: true })
       }
       return

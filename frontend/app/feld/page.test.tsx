@@ -765,6 +765,25 @@ describe('/feld without a connection', () => {
     expect(screen.queryByText(/Keine Verbindung/)).not.toBeInTheDocument()
   })
 
+  it('no poll starts while a load is still out – on a slow link each would supersede the last', async () => {
+    getFeldAssignments.mockResolvedValueOnce(answer).mockReturnValueOnce(new Promise(() => {}))
+    vi.useFakeTimers({ toFake: ['setInterval'] })
+    try {
+      renderWithIntl(<FeldPage />)
+      await screen.findByText('Hauptstrasse 1')
+      act(() => {
+        window.dispatchEvent(new Event('focus')) // out, never answers
+      })
+      expect(getFeldAssignments).toHaveBeenCalledTimes(2)
+      act(() => {
+        vi.advanceTimersByTime(30_000)
+      })
+      expect(getFeldAssignments).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('a first load that failed is not an empty list, and «Erneut versuchen» loads it', async () => {
     getFeldAssignments.mockResolvedValueOnce(undefined).mockResolvedValue(answer)
     const user = userEvent.setup()

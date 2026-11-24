@@ -50,16 +50,32 @@ describe('useHistoryLevel', () => {
     expect(hasLevel()).toBe(true)
   })
 
-  it('pushes nothing on a page nobody has touched yet – Chromium would skip that entry', () => {
+  it('on a page nobody has touched yet, waits for the first touch – Chromium would skip the entry', () => {
+    vi.stubGlobal('navigator', { ...navigator, userActivation: { hasBeenActive: false, isActive: false } })
+    try {
+      window.history.pushState({}, '') // a plain page under it, not a level left over
+      const before = window.history.length
+      renderHook(() => useHistoryLevel(true, vi.fn()))
+      expect(window.history.length).toBe(before)
+
+      window.dispatchEvent(new Event('pointerup'))
+      window.dispatchEvent(new Event('keydown'))
+      expect(window.history.length).toBe(before + 1)
+      expect(hasLevel()).toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('before that touch, the in-page back goes down in memory and leaves the history alone', () => {
     vi.stubGlobal('navigator', { ...navigator, userActivation: { hasBeenActive: false, isActive: false } })
     try {
       const onBack = vi.fn()
       const before = window.history.length
       const { result } = renderHook(() => useHistoryLevel(true, onBack))
-      expect(window.history.length).toBe(before)
-      // The in-page «Zurück» still goes down, in memory.
       result.current()
       expect(onBack).toHaveBeenCalledTimes(1)
+      expect(window.history.length).toBe(before)
     } finally {
       vi.unstubAllGlobals()
     }

@@ -40,44 +40,56 @@ export function useHistoryLevel(open: boolean, onBack: () => void): () => void {
   useEffect(() => {
     if (!open) return
     const top = topLevel()
-    // Chromium skips back over an entry pushed before the page was ever touched (its history
-    // manipulation intervention): a level opened by a restore on load would be a back that leaves
-    // the page anyway, and a trap entry behind it. Such a level lives in memory only; `back()`
-    // still works. (No `userActivation` – jsdom, an old browser – pushes.)
-    const untouched = typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive === false
     const remount = top !== null && top === level.current.leaving
-    if (untouched && !remount) {
-      level.current = { at: null, leaving: null }
-      return
-    }
-    let id: string
-    if (remount) {
-      // StrictMode's dev remount: the clean-up just ran, its walk-back has not – stay on the entry.
-      id = top
-    } else {
-      id = `level-${++lastId}`
-      const leftOver = top !== null && !live.has(top)
-      if (leftOver) window.history.replaceState({ [LEVEL_KEY]: id }, '')
-      else window.history.pushState({ [LEVEL_KEY]: id }, '')
-    }
-    level.current = { at: id, leaving: null }
-    live.add(id)
+    let id: string | null = null
     const onPop = () => {
       if (topLevel() !== id) leave()
     }
-    window.addEventListener('popstate', onPop)
+    /** Put the level on its own entry. */
+    const stand = () => {
+      if (id !== null) return
+      if (remount && top !== null) {
+        // StrictMode's dev remount: the clean-up just ran, its walk-back has not – stay on the entry.
+        id = top
+      } else {
+        id = `level-${++lastId}`
+        const leftOver = top !== null && !live.has(top)
+        if (leftOver) window.history.replaceState({ [LEVEL_KEY]: id }, '')
+        else window.history.pushState({ [LEVEL_KEY]: id }, '')
+      }
+      level.current = { at: id, leaving: null }
+      live.add(id)
+      window.addEventListener('popstate', onPop)
+    }
+    // Chromium skips back over an entry pushed before the page was ever touched (its history
+    // manipulation intervention), so a level a restore opened on load would be a back that leaves
+    // the page anyway. Such a level waits for the first touch or key – a user activation – and
+    // lives in memory until then; `back()` works either way. (No `userActivation` – jsdom, an
+    // old browser – stands at once.)
+    const untouched = typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive === false
+    if (untouched && !remount) {
+      level.current = { at: null, leaving: null }
+      window.addEventListener('pointerup', stand, { capture: true })
+      window.addEventListener('keydown', stand, { capture: true })
+    } else {
+      stand()
+    }
     return () => {
+      window.removeEventListener('pointerup', stand, { capture: true })
+      window.removeEventListener('keydown', stand, { capture: true })
       window.removeEventListener('popstate', onPop)
-      live.delete(id)
+      if (id === null) return
+      const own = id
+      live.delete(own)
       // `back()` below already walked; otherwise walk after the commit – a remount on the same
       // entry (above) cancels it.
-      const walked = level.current.at !== id
-      level.current = { at: null, leaving: walked ? null : id }
+      const walked = level.current.at !== own
+      level.current = { at: null, leaving: walked ? null : own }
       if (walked) return
       queueMicrotask(() => {
-        if (level.current.leaving !== id) return
+        if (level.current.leaving !== own) return
         level.current.leaving = null
-        if (topLevel() === id) window.history.back()
+        if (topLevel() === own) window.history.back()
       })
     }
   }, [open])

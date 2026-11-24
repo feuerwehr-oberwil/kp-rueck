@@ -921,7 +921,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
       {/* Only on a correction: the way out of an edit nobody wanted after all.
           The alarm itself is already at the KP and stays there. */}
       {editing && onCancel && (
-        <Button type="button" variant="ghost" size="lg" className="w-full" onClick={onCancel}>
+        <Button type="button" variant="ghost" size="lg" className="w-full" onClick={onCancel} disabled={submitting}>
           {t('correctCancel')}
         </Button>
       )}
