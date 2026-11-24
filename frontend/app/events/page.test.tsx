@@ -20,6 +20,14 @@ const archiveEvent = vi.hoisted(() => vi.fn())
 const deleteEvent = vi.hoisted(() => vi.fn())
 const createEvent = vi.hoisted(() => vi.fn())
 const role = vi.hoisted(() => ({ isAdmin: true }))
+const EMPTY_RESTLISTE = vi.hoisted(() => ({
+  missing_rapport: [],
+  material_on_site: [],
+  open_pickups: [],
+  open_incidents: [],
+  attendees_present: 0,
+  incident_total: 0,
+}))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -50,14 +58,7 @@ vi.mock('@/lib/api-client', () => ({
     getPrinterStatus: vi.fn().mockResolvedValue({ enabled: false }),
     // The row chips ask every active row the same question; empty answer here —
     // the chips are not what this test is about.
-    getEventRestliste: vi.fn().mockResolvedValue({
-      missing_rapport: [],
-      material_on_site: [],
-      open_pickups: [],
-      open_incidents: [],
-      attendees_present: 0,
-      incident_total: 0,
-    }),
+    getEventRestliste: vi.fn().mockResolvedValue(EMPTY_RESTLISTE),
   },
 }))
 
@@ -75,6 +76,7 @@ vi.mock('@/components/page-navigation', () => ({ PageNavigation: () => null }))
 vi.mock('@/components/mobile-bottom-navigation', () => ({ MobileBottomNavigation: () => null }))
 
 import EventsPage from '@/app/events/page'
+import { apiClient } from '@/lib/api-client'
 
 function event(overrides: Partial<Event> = {}): Event {
   return {
@@ -181,6 +183,7 @@ describe('Ereignisse — Archivieren/Löschen bestätigen', () => {
   it('archiviert einmal, auch bei einem Doppelklick auf «Archivieren»', async () => {
     archiveEvent.mockReturnValue(pending())
     const { user, dialog } = await openDialog('Archivieren')
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Archivieren' })).toBeEnabled())
 
     await user.dblClick(within(dialog).getByRole('button', { name: 'Archivieren' }))
 
@@ -268,5 +271,41 @@ describe('Ereignisse — Fehlschläge sind sichtbar', () => {
       })
     )
     expect(screen.getByRole('alertdialog')).toBeVisible()
+  })
+})
+
+/**
+ * Archivieren wartet auf die Restliste (hunt 2026-11-24): ein schneller Klick
+ * archivierte, bevor die Warnungen da waren – und ohne das Auschecken.
+ */
+describe('Ereignisse — Archivieren wartet auf die Prüfung', () => {
+  beforeEach(() => {
+    archiveEvent.mockReset()
+  })
+  afterEach(async () => {
+    cleanup()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    vi.mocked(apiClient.getEventRestliste).mockResolvedValue(EMPTY_RESTLISTE)
+  })
+
+  it('lässt nicht archivieren, solange offene Einsätze und Anwesenheit geprüft werden', async () => {
+    vi.mocked(apiClient.getEventRestliste).mockReturnValue(new Promise(() => {}))
+    const { dialog } = await openDialog('Archivieren')
+
+    expect(within(dialog).getByText('Offene Einsätze, Abholungen und Anwesenheit werden geprüft …')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Archivieren' })).toBeDisabled()
+  })
+
+  it('sagt, wenn die Prüfung fehlschlägt, und archiviert dann nur ausdrücklich ohne sie', async () => {
+    vi.mocked(apiClient.getEventRestliste).mockRejectedValue(new Error('offline'))
+    archiveEvent.mockReturnValue(pending())
+    const { user, dialog } = await openDialog('Archivieren')
+
+    await within(dialog).findByText('Restliste konnte nicht geladen werden')
+    expect(within(dialog).getByRole('button', { name: 'Erneut laden' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Ohne Restlistenprüfung archivieren' }))
+
+    // Attendance unknown: the checkbox (on by default) is the answer.
+    expect(archiveEvent).toHaveBeenCalledWith('evt-active', { checkoutAttendees: true })
   })
 })

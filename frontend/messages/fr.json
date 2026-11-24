@@ -768,6 +768,10 @@
       "showOnBoard": "Afficher sur le tableau",
       "moreItems": "+{count} autres",
       "confirmAnyway": "Archiver quand même",
+      "checking": "Vérification des interventions ouvertes, des retraits et des présences …",
+      "checkFailed": "Impossible de charger la liste des points ouverts",
+      "retryCheck": "Recharger",
+      "confirmUnchecked": "Archiver sans vérification",
       "cancel": "Annuler",
       "confirm": "Archiver"
     },
@@ -2099,7 +2103,9 @@
       "rapportSource": "D’après le rapport de {name}",
       "rapportSourceDraft": "D’après le brouillon de rapport de {name}",
       "answeredHint": "Selon le rapport",
-      "consumableHint": "Consommable – ne revient pas"
+      "consumableHint": "Consommable – ne revient pas",
+      "unknownHint": "Inconnu – à demander",
+      "rapportLoading": "Chargement du rapport …"
     },
     "disponiert": {
       "whatsappCopied": "Message WhatsApp copié",
@@ -2125,6 +2131,7 @@
       "auftragContext": "Mission « {name} » · étape {pos}/{total}",
       "copyWhatsapp": "Copier le message WhatsApp",
       "sendDivera": "Envoyer la convocation",
+      "markSpoken": "Transmis",
       "auftragBatchQuestion": "La mission « {name} » compte {count} autres étapes que personne n’a encore prises.",
       "auftragBatchAction": "{count, plural, one {Engager aussi l’autre étape} other {Engager aussi les # autres étapes}}",
       "auftragBatchDone": "{count, plural, one {# étape supplémentaire engagée} other {# étapes supplémentaires engagées}}"
@@ -2614,7 +2621,11 @@
       "stopConfirm": "Terminer l'étape",
       "stopToastTitle": "Arrêt {location} terminé",
       "stopConfirmAndNext": "Terminer & prochaine étape en intervention",
-      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Cette étape ne libère rien – les moyens appartiennent à la mission et suivent."
+      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Cette étape ne libère rien – les moyens appartiennent à la mission et suivent.",
+      "statusLabel": "Statut",
+      "crewReleased": "Personnel libéré",
+      "vehiclesReleased": "{count, plural, one {Véhicule libéré} other {Véhicules libérés}}",
+      "materialLabel": "Matériel"
     },
     "statusCorrection": {
       "title": "Corriger le statut ?",
