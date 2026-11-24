@@ -32,6 +32,10 @@ interface DriverAssignmentDialogProps {
   personnel: Person[]
   operations: Operation[]
   specialFunctions: ApiEventSpecialFunctionResponse[]
+  /** The driver data (`specialFunctions`, the current driver) is not there yet: the picker
+   *  waits, or says the load failed and offers `retry`. Omitted = loaded. Without it a
+   *  quick «Übernehmen» would assign a second driver next to one it does not know of. */
+  driversPending?: { status: "loading" } | { status: "failed"; retry: () => void }
   onDriverAssigned: () => void
   /** Resolves false when the removal failed (already rolled back + toasted). */
   removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
@@ -60,6 +64,7 @@ export function DriverAssignmentDialog({
   personnel,
   operations,
   specialFunctions,
+  driversPending,
   onDriverAssigned,
   removeCrew,
 }: DriverAssignmentDialogProps) {
@@ -108,15 +113,21 @@ export function DriverAssignmentDialog({
   // the person is treated as a normal person afterwards)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
 
-  // Sync local state when props change (e.g., dialog reopened)
-  useEffect(() => {
+  // Follow the props (dialog reopened, the current driver changed elsewhere) – adjusted
+  // during render, not in an effect. The ticked tile follows only on a fresh open or while
+  // the operator has not changed it: a driver update arriving later must not overwrite the
+  // choice they already made.
+  const [synced, setSynced] = useState({ open, driverId: initialDriverId, driverName: initialDriverName })
+  if (synced.open !== open || synced.driverId !== initialDriverId || synced.driverName !== initialDriverName) {
+    const reopened = open && !synced.open
+    setSynced({ open, driverId: initialDriverId, driverName: initialDriverName })
     if (open) {
+      if (reopened || chosenId === localDriverId) setChosenId(initialDriverId)
+      if (reopened) setPickMessage(null)
       setLocalDriverId(initialDriverId)
       setLocalDriverName(initialDriverName)
-      setChosenId(initialDriverId)
-      setPickMessage(null)
     }
-  }, [open, initialDriverId, initialDriverName])
+  }
 
   // The «just assigned» flash on a row lasts 600ms. The effect owns the timer, so closing or
   // unmounting the dialog clears it instead of setting state on a component that is gone.
@@ -183,6 +194,7 @@ export function DriverAssignmentDialog({
   /** «Übernehmen»: nothing changed → close; the current driver unticked → «Ohne Fahrer»
    *  (confirm first); somebody else ticked → assign, through the conflict confirms. */
   const applyChoice = () => {
+    if (driversPending) return
     if (chosenId === localDriverId) {
       if (chosenId) onOpenChange(false)
       else setPickMessage(tPick('noneChosen'))
@@ -533,7 +545,8 @@ export function DriverAssignmentDialog({
         onOpenChange={onOpenChange}
         title={t('title', { vehicle: vehicleName })}
         description={localDriverName ? t('currentDriver', { driver: localDriverName }) : t('noDriverAssigned')}
-        toolbar={toolbar}
+        // Search and the walk-in assign wait for the driver data too.
+        toolbar={driversPending ? undefined : toolbar}
         listTestId="driver-list"
         radioGroupLabel={t('title', { vehicle: vehicleName })}
         footer={
@@ -541,13 +554,28 @@ export function DriverAssignmentDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               {tCommon('cancel')}
             </Button>
-            <Button onClick={applyChoice} disabled={isAssigning} aria-describedby={pickMessage ? PICK_MESSAGE_ID : undefined}>
+            <Button onClick={applyChoice} disabled={isAssigning || !!driversPending} aria-describedby={pickMessage ? PICK_MESSAGE_ID : undefined}>
               {isAssigning && <ShellLoader className="size-4" />}
               {chosenId === null && localDriverId ? t('withoutDriver') : tPick('apply')}
             </Button>
           </>
         }
       >
+        {driversPending ? (
+          driversPending.status === "loading" ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground" role="status">
+              <ShellLoader className="size-4" />
+              {t('loading')}
+            </div>
+          ) : (
+            <EmptyState
+              compact
+              title={t('loadFailed')}
+              action={{ label: t('retry'), onClick: driversPending.retry }}
+            />
+          )
+        ) : (
+        <>
         {/* Fahrer (F-tagged) section */}
         {driversGroup.length > 0 && othersGroup.length > 0 && (
           <p className="px-1 pt-1 text-xs font-medium tracking-wide text-muted-foreground">{t('driversSection')}</p>
@@ -570,6 +598,8 @@ export function DriverAssignmentDialog({
         ) : (
           <EmptyState compact title={t('noAvailablePersons')} description={t('allAssignedHint')} />
         ))}
+        </>
+        )}
       </PickerDialog>
 
       {/* Conflict confirmation dialog */}

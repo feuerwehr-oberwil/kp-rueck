@@ -27,10 +27,17 @@ vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => ({ selectedEven
 const api = vi.hoisted(() => ({ getEventSpecialFunctions: vi.fn(async (): Promise<unknown[]> => []) }))
 vi.mock("@/lib/api-client", () => ({ apiClient: api }))
 vi.mock("./driver-assignment-dialog", () => ({
-  DriverAssignmentDialog: ({ onOpenChange, vehicleName, currentDriverName }: { onOpenChange: (o: boolean) => void; vehicleName: string; currentDriverName: string | null }) => (
+  DriverAssignmentDialog: ({ onOpenChange, vehicleName, currentDriverName, driversPending }: {
+    onOpenChange: (o: boolean) => void
+    vehicleName: string
+    currentDriverName: string | null
+    driversPending?: { status: "loading" } | { status: "failed"; retry: () => void }
+  }) => (
     <>
       <button onClick={() => onOpenChange(false)}>close picker for {vehicleName}</button>
       <span>current driver: {currentDriverName ?? "none"}</span>
+      <span>drivers: {driversPending?.status ?? "loaded"}</span>
+      {driversPending?.status === "failed" && <button onClick={driversPending.retry}>retry</button>}
     </>
   ),
 }))
@@ -46,6 +53,7 @@ function renderPrompt() {
 }
 
 beforeEach(() => {
+  api.getEventSpecialFunctions.mockClear()
   routes.unassignResource.mockClear()
   ops.clearVehicleNeedingDriver.mockClear()
 })
@@ -84,5 +92,27 @@ describe("VehicleDriverPrompt from «Fahrer ändern …»", () => {
     ops.vehicleNeedingDriver = { vehicleId: "v1", vehicleName: "TLF" }
     renderPrompt()
     expect(await screen.findByText("current driver: Meier Hans")).toBeInTheDocument()
+  })
+})
+
+describe("VehicleDriverPrompt waits for the driver data", () => {
+  it("says loading until the rows are in, then hands them over", async () => {
+    let answer: (rows: unknown[]) => void = () => {}
+    api.getEventSpecialFunctions.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve }))
+    ops.vehicleNeedingDriver = { vehicleId: "v1", vehicleName: "TLF" }
+    renderPrompt()
+    expect(screen.getByText("drivers: loading")).toBeInTheDocument()
+    answer([{ function_type: "driver", vehicle_id: "v1", personnel_id: "p1", personnel_name: "Meier Hans" }])
+    expect(await screen.findByText("drivers: loaded")).toBeInTheDocument()
+    expect(screen.getByText("current driver: Meier Hans")).toBeInTheDocument()
+  })
+
+  it("a failed load offers a retry that loads again", async () => {
+    api.getEventSpecialFunctions.mockRejectedValueOnce(new Error("offline"))
+    ops.vehicleNeedingDriver = { vehicleId: "v1", vehicleName: "TLF" }
+    renderPrompt()
+    await userEvent.click(await screen.findByRole("button", { name: "retry" }))
+    expect(await screen.findByText("drivers: loaded")).toBeInTheDocument()
+    expect(api.getEventSpecialFunctions).toHaveBeenCalledTimes(2)
   })
 })

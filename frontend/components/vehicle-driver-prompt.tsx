@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { useTranslations } from "next-intl"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { useOperations } from "@/lib/contexts/operations-context"
@@ -39,7 +39,8 @@ import type { VehicleNeedingDriver } from "@/lib/contexts/operations/types"
  *
  * **«Fahrer ändern …» too.** The vehicle chip's menu (card, detail, Auftrag) opens this
  * same prompt for a vehicle that HAS a driver: the dialog starts on the current driver,
- * read from the special functions loaded for that request.
+ * read from the special functions loaded for that request – and waits for them (load error:
+ * «Erneut versuchen»), so a quick «Übernehmen» cannot add a second driver.
  *
  * Mounted once in the root layout so it covers every assignment entry point
  * (kanban drag-drop, map, command palette, context menu, Aufträge).
@@ -60,9 +61,22 @@ export function VehicleDriverPrompt() {
   const eventId = selectedEvent?.id ?? null
 
   // Tagged with the request they were loaded for: a row list from an earlier request
-  // must not name the previous driver of another vehicle.
-  const [loaded, setLoaded] = useState<{ request: VehicleNeedingDriver; rows: ApiEventSpecialFunctionResponse[] } | null>(null)
-  const specialFunctions = loaded && loaded.request === vehicleNeedingDriver ? loaded.rows : []
+  // must not name the previous driver of another vehicle. Until this request's rows are
+  // in, the picker waits (`driversPending`) – it cannot know who drives yet.
+  const [loaded, setLoaded] = useState<
+    | { request: VehicleNeedingDriver; attempt: number; rows: ApiEventSpecialFunctionResponse[] }
+    | { request: VehicleNeedingDriver; attempt: number; failed: true }
+    | null
+  >(null)
+  // «Erneut versuchen» bumps it, which runs the load again.
+  const [attempt, setAttempt] = useState(0)
+  const current = loaded && loaded.request === vehicleNeedingDriver && loaded.attempt === attempt ? loaded : null
+  const specialFunctions = current && "rows" in current ? current.rows : []
+  const driversPending: ComponentProps<typeof DriverAssignmentDialog>["driversPending"] = !current
+    ? { status: "loading" }
+    : "failed" in current
+      ? { status: "failed", retry: () => setAttempt((n) => n + 1) }
+      : undefined
   const currentDriver = vehicleNeedingDriver
     ? driversFromSpecialFunctions(specialFunctions).get(vehicleNeedingDriver.vehicleId) ?? null
     : null
@@ -88,15 +102,16 @@ export function VehicleDriverPrompt() {
     apiClient
       .getEventSpecialFunctions(eventId)
       .then((functions) => {
-        if (!cancelled) setLoaded({ request, rows: functions })
+        if (!cancelled) setLoaded({ request, attempt, rows: functions })
       })
       .catch((err) => {
         console.error("Failed to load special functions for driver prompt:", err)
+        if (!cancelled) setLoaded({ request, attempt, failed: true })
       })
     return () => {
       cancelled = true
     }
-  }, [vehicleNeedingDriver, eventId])
+  }, [vehicleNeedingDriver, eventId, attempt])
 
   const incident = driverless?.incidentId ? operations.find((op) => op.id === driverless.incidentId) : undefined
   const incidentLabel = incident
@@ -167,6 +182,7 @@ export function VehicleDriverPrompt() {
       personnel={personnel}
       operations={operations}
       specialFunctions={specialFunctions}
+      driversPending={driversPending}
       onDriverAssigned={() => {
         // Notify the sidebar / vehicle status sheet of the change (same-tab).
         window.dispatchEvent(new Event("driver-assignment-changed"))

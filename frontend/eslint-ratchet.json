@@ -3,7 +3,7 @@
   "warnings": {
     "kp/disable-reason": 10,
     "kp/no-literal-copy": 26,
-    "kp/no-raw-effect": 350,
+    "kp/no-raw-effect": 349,
     "kp/no-raw-timer": 118
   },
   "suppressed": {

@@ -166,3 +166,54 @@ describe("DriverAssignmentDialog choice", () => {
     expect(assignSpecialFunction).not.toHaveBeenCalled()
   })
 })
+
+describe("DriverAssignmentDialog while the driver data loads", () => {
+  const dialog = (props: { currentDriver?: Person | null; driversPending?: { status: "loading" } | { status: "failed"; retry: () => void } }) => (
+    <DriverAssignmentDialog
+      open
+      onOpenChange={vi.fn()}
+      vehicleId="vehicle-1"
+      vehicleName="TLF"
+      eventId="event-1"
+      currentDriverId={props.currentDriver?.id ?? null}
+      currentDriverName={props.currentDriver?.name ?? null}
+      personnel={[person("p-1", "Brunner Sara"), person("p-2", "Meier Alex")]}
+      operations={[]}
+      specialFunctions={[]}
+      driversPending={props.driversPending}
+      onDriverAssigned={vi.fn()}
+      removeCrew={vi.fn()}
+    />
+  )
+
+  it("offers no tile and no «Übernehmen» until it knows who drives", () => {
+    renderWithIntl(dialog({ driversPending: { status: "loading" } }))
+    expect(screen.getByRole("status")).toHaveTextContent("Fahrer werden geladen …")
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Person hinzufügen" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Übernehmen" })).toBeDisabled()
+  })
+
+  it("says a failed load and retries it", async () => {
+    const retry = vi.fn()
+    renderWithIntl(dialog({ driversPending: { status: "failed", retry } }))
+    expect(screen.getByText("Die Fahrer konnten nicht geladen werden.")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Erneut versuchen" }))
+    expect(retry).toHaveBeenCalledTimes(1)
+  })
+
+  it("a driver update arriving later keeps the tile the operator ticked", async () => {
+    const user = userEvent.setup()
+    const view = renderWithIntl(dialog({}))
+    await user.click(screen.getByRole("radio", { name: /Brunner Sara/ }))
+    view.rerender(dialog({ currentDriver: person("p-2", "Meier Alex") }))
+    expect(screen.getByRole("radio", { name: /Brunner Sara/ })).toHaveAttribute("aria-checked", "true")
+    expect(screen.getByRole("radio", { name: /Meier Alex/ })).toHaveAttribute("aria-checked", "false")
+  })
+
+  it("an untouched picker follows the driver that arrives", () => {
+    const view = renderWithIntl(dialog({ driversPending: { status: "loading" } }))
+    view.rerender(dialog({ currentDriver: person("p-2", "Meier Alex") }))
+    expect(screen.getByRole("radio", { name: /Meier Alex/ })).toHaveAttribute("aria-checked", "true")
+  })
+})
