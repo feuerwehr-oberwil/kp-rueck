@@ -3805,7 +3805,9 @@
         "fieldComplete": "Einsatz beendet",
         "driveToMagazin": "Rückfahrt Magazin",
         "rapport": "Rapport eingetroffen"
-      }
+      },
+      "pauseShort": "Pause",
+      "resumeShort": "Weiter"
     }
   },
   "checklist": {

@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   getRegie: vi.fn(),
   getAllSettings: vi.fn(async () => ({})),
   runRegieStep: vi.fn(),
+  setRegie: vi.fn(),
   simulateEscalation: vi.fn(async () => ({})),
 }))
 vi.mock('@/lib/contexts/operations-context', () => ({
@@ -25,7 +26,7 @@ vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
 
 import { RegieProvider } from './regie-provider'
 import { RegieStoerung } from './regie-stoerung'
-import { RegieTimeline } from './regie-timeline'
+import { RegieRunStrip, RegieTimeline } from './regie-timeline'
 
 const operation = (id: string, location: string, status: string, priority = 'medium') => ({
   id,
@@ -101,5 +102,19 @@ describe('Regie page', () => {
     expect(api.runRegieStep).not.toHaveBeenCalled()
     await userEvent.click(await screen.findByRole('button', { name: 'Fährt selbst' }))
     await waitFor(() => expect(api.runRegieStep).toHaveBeenCalledWith('e1', 'i-open', 'field_complete', false))
+  })
+
+  it('the run strip holds the clock and a labelled Pause (owner 24.11.: not in the header bar)', async () => {
+    api.getRegie.mockResolvedValue(regie({ running_seconds: 42 }))
+    api.setRegie.mockResolvedValue(regie({ paused_at: new Date().toISOString(), running_seconds: 42 }))
+    renderWithIntl(
+      <RegieProvider eventId="e1">
+        <RegieRunStrip />
+      </RegieProvider>,
+    )
+    expect(await screen.findByText('Übung läuft · 0:42')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Übung pausieren' }))
+    await waitFor(() => expect(api.setRegie).toHaveBeenCalledWith('e1', { paused: true }))
+    expect(await screen.findByRole('button', { name: 'Übung fortsetzen' })).toHaveTextContent('Weiter')
   })
 })

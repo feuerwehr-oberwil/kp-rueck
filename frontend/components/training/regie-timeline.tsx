@@ -209,13 +209,18 @@ export function RegieTimeline() {
   )
 }
 
-/** The header's clock and its ⏸ / ▶: «Übung» before the start, then «Übung läuft · m:ss». */
-export function RegieTitle() {
+/**
+ * The drill's clock and its Pause, in a strip that stays at the top of the page while the
+ * trainer scrolls (owner 24.11.: not in the header bar). «Übung» before the first start, then
+ * «Übung läuft · m:ss»; the button only once there is something to pause.
+ */
+export function RegieRunStrip() {
   const t = useTranslations('training.regie')
   const { state, clock, receivedAt, actions, isBusy } = useRegie()
-  const paused = !!state?.paused_at
+  if (!state) return null
+  const paused = !!state.paused_at
   // The server's un-paused run time, ticking on from when it came (`clock` stands still while paused).
-  const running = state?.running_seconds == null ? null : state.running_seconds * 1000 + (clock - receivedAt)
+  const running = state.running_seconds == null ? null : state.running_seconds * 1000 + (clock - receivedAt)
   const title =
     running === null
       ? t('titleIdle')
@@ -223,21 +228,21 @@ export function RegieTitle() {
         ? t('titlePaused', { time: formatClock(running) })
         : t('titleRunning', { time: formatClock(running) })
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <h1 className="min-w-0 truncate text-xl font-bold tracking-tight tabular-nums sm:text-2xl" title={title}>
+    <div className="sticky top-0 z-10 flex min-h-14 items-center gap-3 rounded-lg border border-border bg-card px-4 py-2 shadow-sm">
+      <p className="min-w-0 flex-1 truncate text-base font-semibold tabular-nums" title={title}>
         {title}
-      </h1>
-      {state && (
+      </p>
+      {running !== null && (
         <Button
           variant={paused ? 'selected' : 'outline'}
-          size="icon"
           aria-pressed={paused}
           disabled={isBusy('regie')}
           onClick={() => void actions.setRegie({ paused: !paused })}
           aria-label={paused ? t('resume') : t('pause')}
-          title={paused ? t('resume') : t('pause')}
+          className="shrink-0"
         >
           {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
+          {paused ? t('resumeShort') : t('pauseShort')}
         </Button>
       )}
     </div>

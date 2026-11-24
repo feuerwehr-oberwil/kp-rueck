@@ -4594,7 +4594,9 @@
         "fieldComplete": "Intervention terminée",
         "driveToMagazin": "Retour à la caserne",
         "rapport": "Rapport arrivé"
-      }
+      },
+      "pauseShort": "Pause",
+      "resumeShort": "Reprendre"
     }
   },
   "duplicates": {

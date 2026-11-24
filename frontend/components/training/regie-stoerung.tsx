@@ -335,7 +335,7 @@ export function RegieStoerung({ className }: { className?: string }) {
         {view === 'menu' && (
           <>
             <RegieSheetSection title={t('regie.alarms')}>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-2">
                 <RegieTile icon={Droplet} label={t('controls.normal')} hint={t('regie.alarmNormalHint')} disabled={busy} onClick={() => void fire(() => actions.alarm('normal'))} />
                 <RegieTile icon={Flame} label={t('controls.critical')} hint={t('regie.alarmCriticalHint')} disabled={busy} onClick={() => void fire(() => actions.alarm('critical'))} />
                 <RegieTile icon={Phone} label={t('controls.phoneAlarm')} hint={t('regie.alarmPhoneHint')} disabled={busy} onClick={() => void fire(() => actions.alarm('phone'))} />
@@ -358,7 +358,7 @@ export function RegieStoerung({ className }: { className?: string }) {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-2">
                 {injects.map(({ kind, icon, label, hint }) => (
                   <RegieTile key={kind} icon={icon} label={label} hint={hint} disabled={busy || !fits(kind)} onClick={() => inject(kind)} />
                 ))}

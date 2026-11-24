@@ -9,7 +9,7 @@ import { RegiePrepare } from "@/components/training/regie-prepare"
 import { RegieProvider, useRegie } from "@/components/training/regie-provider"
 import { RegieStoerung } from "@/components/training/regie-stoerung"
 import { RegieSwitches } from "@/components/training/regie-switches"
-import { PausedNote, RegieTimeline, RegieTitle } from "@/components/training/regie-timeline"
+import { PausedNote, RegieRunStrip, RegieTimeline } from "@/components/training/regie-timeline"
 import { useEvent } from "@/lib/contexts/event-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -47,6 +47,10 @@ function RegieBody() {
           and the preparation. Below xl one column in that order; the Störung button stands in
           the footer above the bottom nav, in flow, so it never covers the last row. */}
       <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        {/* Clock + Pause stay in view while the page scrolls (sticky in this scroll container). */}
+        <div className="mx-auto mb-4 max-w-2xl xl:mb-6 xl:max-w-7xl">
+          <RegieRunStrip />
+        </div>
         <div className="mx-auto flex max-w-2xl flex-col gap-4 xl:grid xl:max-w-7xl xl:grid-cols-2 xl:items-start xl:gap-6">
           <div className="flex min-w-0 flex-col gap-4">
             <RegieSwitches />
@@ -127,7 +131,7 @@ export default function TrainingPage() {
               opens on a training Ereignis, and it says so the same way. */}
           <TrainingBand />
           <header className="flex items-center justify-between gap-2 border-b border-border/50 bg-header px-4 sm:px-6 py-2 min-h-14">
-            <RegieTitle />
+            <h1 className="min-w-0 truncate text-xl font-bold tracking-tight sm:text-2xl">{t("common.title")}</h1>
             <PageNavigation
               currentPage="training"
               hasSelectedEvent={!!selectedEvent}
