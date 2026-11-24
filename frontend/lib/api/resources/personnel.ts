@@ -102,9 +102,15 @@ export class PersonnelApi {
     )
   }
 
-  async checkInPersonnelForEvent(personnelId: string, eventId: string): Promise<ApiPersonnel> {
+  /** `resume`: the board's undo of its own check-out – the same stint continues («anwesend
+   *  seit» and the plan kept) instead of a new one starting now. */
+  async checkInPersonnelForEvent(
+    personnelId: string,
+    eventId: string,
+    { resume = false }: { resume?: boolean } = {},
+  ): Promise<ApiPersonnel> {
     return httpRequest<ApiPersonnel>(
-      `/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}`,
+      `/api/personnel/check-in/${personnelId}/in?event_id=${encodeURIComponent(eventId)}${resume ? '&resume=true' : ''}`,
       { method: 'POST' }
     )
   }

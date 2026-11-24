@@ -7992,7 +7992,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In",
-        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\nBroadcasts real-time update via WebSocket.",
+        "description": "Check in a person (mark as present for the event).\n\nEither a valid check-in token or an editor session with `event_id`.\n`resume` (editor session only) takes back a check-out instead of starting a new stint.\nBroadcasts real-time update via WebSocket.",
         "operationId": "check_in_api_personnel_check_in__personnel_id__in_post",
         "parameters": [
           {
@@ -8041,6 +8041,18 @@
               "title": "Event Id"
             },
             "description": "Event ID (board, requires an editor session)"
+          },
+          {
+            "name": "resume",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Board only: undo a check-out – the same stint continues (check-in time and plan kept)",
+              "default": false,
+              "title": "Resume"
+            },
+            "description": "Board only: undo a check-out – the same stint continues (check-in time and plan kept)"
           },
           {
             "name": "access_token",

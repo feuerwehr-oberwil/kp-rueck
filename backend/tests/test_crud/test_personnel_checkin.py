@@ -6,6 +6,7 @@ Tests cover:
 - check_out_personnel: Check out personnel from an event
 """
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -393,6 +394,45 @@ class TestCheckInPersonnel:
         )
 
         assert result.checked_in is True
+
+    async def test_resume_takes_back_the_check_out(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ):
+        """The board's undo of «Auschecken»: the same stint, its start and plan kept."""
+        first = await checkin_crud.check_in_personnel(
+            db=db_session, event_id=test_event.id, personnel_id=test_personnel.id
+        )
+        until = datetime.now(UTC) + timedelta(hours=3)
+        await checkin_crud.set_attendance_plan(
+            db_session, test_event.id, test_personnel.id, schemas.AttendancePlanUpdate(planned_until=until)
+        )
+        await checkin_crud.check_out_personnel(db=db_session, event_id=test_event.id, personnel_id=test_personnel.id)
+
+        result = await checkin_crud.check_in_personnel(
+            db=db_session, event_id=test_event.id, personnel_id=test_personnel.id, resume=True
+        )
+
+        assert result.checked_in is True
+        assert result.checked_out_at is None
+        assert result.checked_in_at == first.checked_in_at
+        assert result.planned_until == until
+
+    async def test_resume_without_a_departure_is_an_ordinary_check_in(
+        self,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_personnel: Personnel,
+    ):
+        """Nothing to take back (the row was cleared meanwhile): a plain check-in."""
+        result = await checkin_crud.check_in_personnel(
+            db=db_session, event_id=test_event.id, personnel_id=test_personnel.id, resume=True
+        )
+
+        assert result.checked_in is True
+        assert result.checked_in_at is not None
 
 
 # ============================================

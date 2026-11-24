@@ -302,6 +302,38 @@ async def test_checkout_not_checked_in(client: AsyncClient, valid_token: str, te
     assert response.status_code in [200, 400, 404]
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_resume_undoes_a_board_check_out(editor_client: AsyncClient, test_event: Event, test_personnel):
+    """The board's «Rückgängig»: back in, with the same «anwesend seit»."""
+    person = test_personnel[0]
+    query = f"?event_id={test_event.id}"
+    first = await editor_client.post(f"/api/personnel/check-in/{person.id}/in{query}")
+    await editor_client.post(f"/api/personnel/check-in/{person.id}/out{query}")
+
+    response = await editor_client.post(f"/api/personnel/check-in/{person.id}/in{query}&resume=true")
+
+    assert response.status_code == 200
+    assert response.json()["checked_in"] is True
+    assert response.json()["checked_out_at"] is None
+    assert response.json()["checked_in_at"] == first.json()["checked_in_at"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_resume_through_the_link_is_a_new_stint(client: AsyncClient, valid_token: str, test_personnel):
+    """The link has no check-out to take back: `resume` changes nothing there."""
+    person = test_personnel[0]
+    first = await client.post(f"/api/personnel/check-in/{person.id}/in?token={valid_token}")
+    await client.post(f"/api/personnel/check-in/{person.id}/out?token={valid_token}")
+
+    response = await client.post(f"/api/personnel/check-in/{person.id}/in?token={valid_token}&resume=true")
+
+    assert response.status_code == 200
+    assert response.json()["checked_in"] is True
+    assert response.json()["checked_in_at"] != first.json()["checked_in_at"]
+
+
 # ============================================
 # "Nicht anwesend" — the third step of the board's cycle
 # ============================================

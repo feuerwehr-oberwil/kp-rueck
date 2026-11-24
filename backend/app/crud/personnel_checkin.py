@@ -104,6 +104,7 @@ async def check_in_personnel(
     personnel_id: uuid.UUID,
     current_user: User | None = None,
     request: Request | None = None,
+    resume: bool = False,
 ) -> schemas.PersonnelCheckInResponse | None:
     """
     Check in a person for a specific event (mark as present on-site).
@@ -114,6 +115,10 @@ async def check_in_personnel(
         personnel_id: ID of personnel to check in
         current_user: Optional user performing the action (for audit log)
         request: Optional request object (for audit log)
+        resume: The board's «Rückgängig» after its own «Auschecken»: take back the
+                departure instead of starting a new stint, so «anwesend seit» (time on
+                duty) and the plan survive. Without a departure to take back it is an
+                ordinary check-in.
 
     Returns:
         Updated personnel with event-specific check-in status, or None if not found (a
@@ -149,6 +154,24 @@ async def check_in_personnel(
     if attendance:
         # Already checked in for this event
         if attendance.checked_in:
+            return _response(person, attendance, is_assigned=is_assigned)
+        if resume and attendance.checked_out_at is not None and attendance.checked_in_at is not None:
+            attendance.checked_in = True
+            attendance.checked_out_at = None
+            attendance.checked_out_by_user_id = None
+            attendance.updated_at = now
+            if current_user and request:
+                await log_action(
+                    db=db,
+                    action_type="check_out_undone",
+                    resource_type="personnel",
+                    resource_id=person.id,
+                    user=current_user,
+                    changes={"name": person.name, "event_id": str(event_id), "checked_in": True},
+                    request=request,
+                )
+            await db.flush()
+            await db.refresh(attendance)
             return _response(person, attendance, is_assigned=is_assigned)
         # Coming BACK after a departure starts a new stint: the old «kommt um» / «geht um»
         # were about the one that ended, and a spent «geht um» would ring the bell again.

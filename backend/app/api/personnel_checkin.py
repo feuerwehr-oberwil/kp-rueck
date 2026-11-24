@@ -153,6 +153,10 @@ async def check_in(
     request: Request,
     token: str | None = Query(default=None, description="Access token from the check-in link"),
     event_id: uuid.UUID | None = Query(default=None, description="Event ID (board, requires an editor session)"),
+    resume: bool = Query(
+        default=False,
+        description="Board only: undo a check-out – the same stint continues (check-in time and plan kept)",
+    ),
     access_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PersonnelCheckInResponse:
@@ -160,6 +164,7 @@ async def check_in(
     Check in a person (mark as present for the event).
 
     Either a valid check-in token or an editor session with `event_id`.
+    `resume` (editor session only) takes back a check-out instead of starting a new stint.
     Broadcasts real-time update via WebSocket.
     """
     event_id, current_user = await _resolve_event_and_actor(
@@ -177,6 +182,8 @@ async def check_in(
             personnel_id=personnel_id,
             current_user=current_user,
             request=request,
+            # The link has no «Auschecken» to take back; only the board resumes a stint.
+            resume=resume and current_user is not None,
         )
     except ValueError as e:
         logger.warning("Personnel check-in failed: %s", e)
