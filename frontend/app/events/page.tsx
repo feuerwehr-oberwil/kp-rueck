@@ -118,7 +118,7 @@ export default function EventsPage() {
   const { events, selectedEvent, setSelectedEvent, createEvent, archiveEvent, unarchiveEvent, deleteEvent } = useEvent()
   // Permanent delete is admin-only (DELETE /api/events/{id}); archiving stays with editors, and
   // so do the exports (CurrentEditor). A viewer reaches this page on a phone only, to switch.
-  const { isAdmin, isEditor } = useAuth()
+  const { isAdmin, isViewer } = useAuth()
   const isMobile = useIsMobile()
   // On a standby mirror a new Ereignis is created OFFLINE: it lives on this box only (the
   // outage that starts before the hosted board had it). Editors and admins only.
@@ -393,7 +393,7 @@ export default function EventsPage() {
             <ChartColumn className="mr-2 h-4 w-4" />
             {t(event.training_flag ? 'figures.titleTraining' : 'figures.menuItem')}
           </DropdownMenuItem>
-          {isEditor && (
+          {!isViewer && (
             <>
               <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
                 <FileText className="mr-2 h-4 w-4" />
@@ -562,7 +562,7 @@ export default function EventsPage() {
                   eventId={bannerEvent.id}
                   onOpenIncident={(incidentId) => handleOpenIncident(bannerEvent, incidentId)}
                   printerEnabled={printerEnabled}
-                  canEdit={isEditor}
+                  canEdit={!isViewer}
                 />
               </div>
             )}

@@ -35,7 +35,7 @@ export function FieldRequestInbox({
   readOnly?: boolean
 }) {
   const t = useTranslations('feld.requests')
-  const { isEditor } = useAuth()
+  const { isEditor, isViewer } = useAuth()
   const { assignAction } = useNotifications()
   const { setStatus, markSeen, canMarkSeen, busyId } = useFieldRequestActions()
 
@@ -62,8 +62,8 @@ export function FieldRequestInbox({
             onAssign={readOnly ? undefined : (assignAction ?? undefined)}
             busy={busyId === request.id}
             onSetStatus={(r, status) => void setStatus(r, status)}
-            // «Gesehen» dismisses the bell entry – an editor's (POST …/dismiss)
-            onMarkSeen={canMarkSeen && isEditor ? r => void markSeen(r) : undefined}
+            // «Gesehen» dismisses the bell entry (POST …/dismiss): never a viewer's
+            onMarkSeen={canMarkSeen && !isViewer ? r => void markSeen(r) : undefined}
             onOpen={onOpenIncident ? () => onOpenIncident(request.incident_id) : undefined}
           />
         ))}

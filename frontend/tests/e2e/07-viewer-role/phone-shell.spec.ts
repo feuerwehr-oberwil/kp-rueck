@@ -78,6 +78,8 @@ test.describe('Viewer role — the phone shell', () => {
     authenticatedPage: editor,
     viewerPage: viewer,
   }) => {
+    // Both roles through every phone surface, each on a cold `next dev` route.
+    test.setTimeout(120_000);
     const api = watchApi(viewer);
     await selectEvent(editor, '/', fixture.eventId);
     await selectEvent(viewer, '/', fixture.eventId);
@@ -85,7 +87,9 @@ test.describe('Viewer role — the phone shell', () => {
     // --- The board: the same list, no intake, «Nur Ansicht» ---
     await expect(editor.getByRole('button', { name: 'Neuer Einsatz' })).toBeVisible({ timeout: ROUTE_COMPILE_MS });
     await expect(editor.getByText('Nur Ansicht')).toHaveCount(0);
-    await expect(viewer.getByText(fixture.address).first()).toBeVisible({ timeout: ROUTE_COMPILE_MS });
+    // The card's heading: its address also sits in the card's sr-only «Details anzeigen» opener.
+    const card = viewer.getByRole('heading', { name: new RegExp(fixture.address) }).first();
+    await expect(card).toBeVisible({ timeout: ROUTE_COMPILE_MS });
     expect(new URL(viewer.url()).pathname).toBe('/');
     await expect(viewer.getByText('Nur Ansicht')).toBeVisible();
     await expect(viewer.getByRole('button', { name: 'Neuer Einsatz' })).toHaveCount(0);
@@ -97,7 +101,7 @@ test.describe('Viewer role — the phone shell', () => {
     await expect(viewer.getByRole('dialog')).toHaveCount(0);
 
     // --- The detail sheet: the data, nothing to change it with ---
-    await viewer.getByText(fixture.address).first().click();
+    await card.click();
     const detail = viewer.getByRole('dialog');
     await expect(detail).toContainText(fixture.address);
     await expect(detail.locator('input, textarea, select, [role="combobox"]')).toHaveCount(0);

@@ -61,7 +61,7 @@ const initialsOf = (name: string) =>
 export function PhoneEventPill({ className }: { className?: string }) {
   const t = useTranslations('nav.eventPill')
   const tAccount = useTranslations('nav.account')
-  const { isAuthenticated, isEditor, user } = useAuth()
+  const { isAuthenticated, isViewer, user } = useAuth()
   const { selectedEvent, events, setSelectedEvent } = useEvent()
   const { requestLogout, logoutDialog } = useLogout()
   const pathname = usePathname()
@@ -148,7 +148,7 @@ export function PhoneEventPill({ className }: { className?: string }) {
 
           <DropdownMenuSeparator className="my-2" />
           <DropdownMenuLabel className={HEADING}>{t('app')}</DropdownMenuLabel>
-          {isEditor && pageRow('/settings', t('settings'), Settings)}
+          {!isViewer && pageRow('/settings', t('settings'), Settings)}
           {pageRow('/help', t('help'), HelpCircle)}
 
           <DropdownMenuSeparator className="my-2" />
@@ -180,8 +180,8 @@ export function PhoneEventPill({ className }: { className?: string }) {
  *  is the editor's, so the head says why nothing on it writes. Nothing for an editor. */
 export function ViewOnlyTag({ className }: { className?: string }) {
   const t = useTranslations('nav.eventPill')
-  const { isAuthenticated, isEditor } = useAuth()
-  if (!isAuthenticated || isEditor) return null
+  const { isViewer } = useAuth()
+  if (!isViewer) return null
   return (
     <span
       className={cn(

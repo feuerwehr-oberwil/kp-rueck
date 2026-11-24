@@ -30,6 +30,7 @@ vi.mock('@/lib/contexts/auth-context', () => ({
   useAuth: () => ({
     isAuthenticated: true,
     isEditor: role.current === 'editor',
+    isViewer: role.current === 'viewer',
     user: { username: 'demo', display_name: 'Demo Bearbeiter', role: role.current },
   }),
 }))

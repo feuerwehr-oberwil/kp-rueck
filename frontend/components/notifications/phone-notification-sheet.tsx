@@ -41,8 +41,9 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
   const tInbox = useTranslations('divera.inbox')
   const { notifications, dismissNotification, dismissAllNotifications, navigateToIncident } = useNotifications()
   const openRequests = useOpenFieldRequests()
-  // A viewer reads the list: no Alarmeingang, no dismissing (POST …/dismiss is an editor's)
-  const { isEditor } = useAuth()
+  // A viewer reads the list: no Alarmeingang, no dismissing (POST …/dismiss is an editor's).
+  // The role, not `isEditor` – a standby-led Ereignis turns that off for editors too.
+  const { isViewer } = useAuth()
   // «Alarmeingang» closes this sheet first and opens the inbox once it is gone (one layer at a
   // time): set here, read where the sheet hands focus back.
   const alarmNext = useRef(false)
@@ -81,7 +82,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
         </SheetHeader>
 
         <SheetBody className="space-y-4 px-6 pt-1 pb-sheet-safe">
-          {isEditor && (
+          {!isViewer && (
             <Button
               variant="outline"
               className="h-auto min-h-11 w-full justify-start gap-3 touch-manipulation"
@@ -113,7 +114,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
                     {activeNotifications.length}
                   </span>
                 </h3>
-                {isEditor && (
+                {!isViewer && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -129,7 +130,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onDismiss={isEditor ? dismissNotification : undefined}
+                    onDismiss={isViewer ? undefined : dismissNotification}
                     onClickIncident={openIncident}
                     readOnly
                   />

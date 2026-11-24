@@ -61,20 +61,20 @@ describe("AppShell – Kommandopalette", () => {
   });
 
   it("mounts it once an editor is signed in", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, isEditor: true });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, isViewer: false });
     render(<AppShell>content</AppShell>);
     expect(screen.getByTestId("command-palette")).toBeInTheDocument();
   });
 
   // A viewer (on a phone only) has no command to give: they write or open writing sheets.
   it("does not mount it for a viewer", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, isEditor: false });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, isViewer: true });
     render(<AppShell>content</AppShell>);
     expect(screen.queryByTestId("command-palette")).not.toBeInTheDocument();
   });
 
   it("keeps a wall display quiet: no palette, no notification sidebar", () => {
-    mockUseAuth.mockReturnValue({ isAuthenticated: true, isEditor: true });
+    mockUseAuth.mockReturnValue({ isAuthenticated: true, isViewer: false });
     pathname = "/display/board";
     render(<AppShell>content</AppShell>);
     expect(screen.queryByTestId("command-palette")).not.toBeInTheDocument();

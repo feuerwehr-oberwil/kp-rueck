@@ -21,7 +21,8 @@ export interface KanbanShortcutsState {
   /** True when any modal/dialog/sheet is open — disables every shortcut. */
   modalOpen: boolean
   /** A viewer's board (a phone, lib/role-home.ts): no board key at all – they write or open
-   *  a writing sheet («N» Neuer Einsatz, «T» Links & QR, digits, Delete). */
+   *  a writing sheet («N» Neuer Einsatz, «T» Links & QR, digits, Delete). The role, not
+   *  `isEditor`: a standby-led Ereignis keeps an editor's «N» (`canAddNew`). */
   readOnly: boolean
   /**
    * Currently-hovered operation. READING shortcuts target it — Enter and Space

@@ -209,7 +209,8 @@ export default function FireStationDashboard() {
   // material sidebar, its counter and every drop read one frei/gebunden.
   const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
   const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
-  const { isEditor } = useAuth()
+  // `isViewer` is the role itself; `isEditor` is also off on a standby-led Ereignis.
+  const { isEditor, isViewer } = useAuth()
   // While a standby box leads the open Ereignis this board is look-only, but new things – an
   // Einsatz, a Verlauf line – may still be added (`StandbyProvider`).
   const { canAddNew } = useStandby()
@@ -521,15 +522,15 @@ export default function FireStationDashboard() {
    *  dialog — a modal mounted inside the checklist popover dies with it. */
   const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
-  // Auto-generate check-in QR code URL when no personnel are available – an editor's: the
-  // link is a credential (POST, CurrentEditor), and a viewer's phone shows no QR.
+  // Auto-generate check-in QR code URL when no personnel are available – never for a viewer:
+  // the link is a credential (POST, CurrentEditor), and a viewer's phone shows no QR.
   useEffect(() => {
-    if (!isEditor || !selectedEvent || checkInUrl || isLoading) return
+    if (isViewer || !selectedEvent || checkInUrl || isLoading) return
     if (personnel.filter((p) => p.status === "available").length > 0) return
     apiClient.generateCheckInLink(selectedEvent.id).then((response) => {
       setCheckInUrl(`${window.location.origin}${response.link}`)
     }).catch(() => {})
-  }, [isEditor, selectedEvent, personnel, checkInUrl, isLoading])
+  }, [isViewer, selectedEvent, personnel, checkInUrl, isLoading])
 
   const gPrefix = useGPrefixNavigation(router, '/')
   const cmdHint = useCommandPaletteHint()
@@ -785,7 +786,7 @@ export default function FireStationDashboard() {
 
   useKanbanShortcuts(
     {
-      readOnly: !isEditor,
+      readOnly: isViewer,
       modalOpen:
         detailModalOpen ||
         newEmergencyModalOpen ||

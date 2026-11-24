@@ -80,7 +80,7 @@ export function MobileBottomNavigation({
   hasSelectedEvent = true,
 }: MobileBottomNavigationProps) {
   const t = useTranslations('nav.mobileBottomNav')
-  const { isEditor, isAuthenticated } = useAuth()
+  const { isEditor, isViewer, isAuthenticated } = useAuth()
   const { selectedEvent } = useEvent()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [meldungenOpen, setMeldungenOpen] = useState(false)
@@ -281,7 +281,7 @@ export function MobileBottomNavigation({
                   })}
 
                   {/* Training Control - only for training events */}
-                  {isEditor && selectedEvent?.training_flag && (
+                  {!isViewer && selectedEvent?.training_flag && (
                     <Button
                       asChild
                       variant="ghost"
