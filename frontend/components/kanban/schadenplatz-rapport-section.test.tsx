@@ -5,8 +5,8 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 vi.mock('@/components/feld/feld-rapport-form', () => ({
   FeldRapportForm: () => <div>Rapport-Formular</div>,
 }))
-vi.mock('@/components/kanban/material-return-list', () => ({
-  MaterialReturnList: () => <div>Material zurück</div>,
+vi.mock('@/components/kanban/material-release', () => ({
+  MaterialRelease: () => <div>Material freigeben</div>,
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
 

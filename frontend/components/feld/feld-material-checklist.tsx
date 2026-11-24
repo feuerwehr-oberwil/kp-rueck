@@ -33,9 +33,16 @@
  * creates an assignment. An extra entry left on site reaches the Restliste and
  * the Abholliste, and deliberately NOT «Material zurück – freigeben», which frees
  * assignments — the hint under the chips says so.
+ *
+ * **`grouped` (the KP's incident detail, Feld-tab pick 1A, 24.11.2026).** The
+ * same chips, split into «Noch vor Ort» and «Zurück». This block is the KP's ONE
+ * place for material: a name the crew typed carries «genannt», each kind's
+ * consequence is one line under the on-site chips, and `releaseSlot` – the
+ * «N Geräte freigeben» action – sits under «Zurück». Tapping «vor Ort» on a chip
+ * moves it between the two groups.
  */
 
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { MapPin } from 'lucide-react'
 
@@ -64,6 +71,10 @@ interface FeldMaterialChecklistProps {
   disabled?: boolean
   onChange: (rows: ApiRapportMaterialRow[]) => void
   onExtraMaterialsChange: (entries: ApiRapportExtraMaterial[]) => void
+  /** Split the chips into «Noch vor Ort» and «Zurück» (KP mount). */
+  grouped?: boolean
+  /** Only read with `grouped`: shown under «Zurück» (the KP's release action). */
+  releaseSlot?: ReactNode
 }
 
 /** Picker keys: a board unit by its assignment, a catalogue name by itself. */
@@ -77,6 +88,8 @@ export function FeldMaterialChecklist({
   disabled,
   onChange,
   onExtraMaterialsChange,
+  grouped = false,
+  releaseSlot,
 }: FeldMaterialChecklistProps) {
   const t = useTranslations('feld.rapport.material')
 
@@ -124,62 +137,98 @@ export function FeldMaterialChecklist({
     if (names.length > 0 || typed.length > 0) onExtraMaterialsChange(addExtraMaterial(extraMaterials, [...names, ...typed]))
   }
 
+  const unitChip = (row: ApiRapportMaterialRow) => (
+    <FeldChip
+      key={row.assignment_id}
+      removeLabel={t('removeAria', { name: row.name })}
+      onRemove={disabled ? undefined : () => update(new Set([row.assignment_id]), { used: false, left_on_site: false })}
+    >
+      <MaterialLabel
+        name={row.name}
+        detail={unitDetail(row)}
+        consumable={row.consumable}
+        leftOnSite={row.left_on_site}
+        disabled={disabled}
+        onLeftOnSiteChange={left => update(new Set([row.assignment_id]), { left_on_site: left })}
+      />
+    </FeldChip>
+  )
+  const nameChip = (entry: ApiRapportExtraMaterial) => (
+    <FeldChip
+      key={entry.name}
+      removeLabel={t('removeAria', { name: entry.name })}
+      onRemove={disabled ? undefined : () => onExtraMaterialsChange(removeExtraMaterial(extraMaterials, entry.name))}
+    >
+      <MaterialLabel
+        name={entry.name}
+        named={grouped}
+        leftOnSite={entry.left_on_site}
+        disabled={disabled}
+        onLeftOnSiteChange={left => onExtraMaterialsChange(setExtraMaterialLeftOnSite(extraMaterials, entry.name, left))}
+      />
+    </FeldChip>
+  )
+  const addPicker = !disabled && (
+    <li>
+      <FeldAddPicker
+        label={t('add')}
+        chipLabel={t('addChip')}
+        searchPlaceholder={t('searchPlaceholder')}
+        items={pickable}
+        freeTextLabel={name => t('addTyped', { name })}
+        takenNames={takenNames}
+        onAdd={add}
+      />
+    </li>
+  )
+  const empty = shown.length === 0 && extraMaterials.length === 0 && (
+    // The list is only as good as the material assignments (§12). An empty
+    // one is not a bug, it is a board that never got the material — which
+    // is what «+ Material» is for.
+    <li className="text-sm text-muted-foreground">{t('empty')}</li>
+  )
+
+  if (grouped) {
+    const unitsOnSite = shown.filter(row => row.left_on_site)
+    const namesOnSite = extraMaterials.filter(entry => entry.left_on_site)
+    const unitsBack = shown.filter(row => !row.left_on_site)
+    const namesBack = extraMaterials.filter(entry => !entry.left_on_site)
+    const anyOnSite = unitsOnSite.length + namesOnSite.length > 0
+    return (
+      <div className="space-y-3">
+        {anyOnSite && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">{t('groupOnSite')}</p>
+            <FeldChipList label={t('groupOnSite')}>
+              {unitsOnSite.map(unitChip)}
+              {namesOnSite.map(nameChip)}
+            </FeldChipList>
+            {/* Why the two kinds end differently – said once per kind present. */}
+            {unitsOnSite.length > 0 && <p className="text-xs text-muted-foreground">{t('onSiteUnitHint')}</p>}
+            {namesOnSite.length > 0 && <p className="text-xs text-muted-foreground">{t('onSiteNamedHint')}</p>}
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {anyOnSite && <p className="text-xs font-medium text-muted-foreground">{t('groupBack')}</p>}
+          <FeldChipList label={anyOnSite ? t('groupBack') : t('listLabel')}>
+            {empty}
+            {unitsBack.map(unitChip)}
+            {namesBack.map(nameChip)}
+            {addPicker}
+          </FeldChipList>
+          {releaseSlot}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       <FeldChipList label={t('listLabel')}>
-        {shown.length === 0 && extraMaterials.length === 0 && (
-          // The list is only as good as the material assignments (§12). An empty
-          // one is not a bug, it is a board that never got the material — which
-          // is what «+ Material» is for.
-          <li className="text-sm text-muted-foreground">{t('empty')}</li>
-        )}
-        {shown.map(row => (
-          <FeldChip
-            key={row.assignment_id}
-            removeLabel={t('removeAria', { name: row.name })}
-            onRemove={
-              disabled ? undefined : () => update(new Set([row.assignment_id]), { used: false, left_on_site: false })
-            }
-          >
-            <MaterialLabel
-              name={row.name}
-              detail={unitDetail(row)}
-              consumable={row.consumable}
-              leftOnSite={row.left_on_site}
-              disabled={disabled}
-              onLeftOnSiteChange={left => update(new Set([row.assignment_id]), { left_on_site: left })}
-            />
-          </FeldChip>
-        ))}
-        {extraMaterials.map(entry => (
-          <FeldChip
-            key={entry.name}
-            removeLabel={t('removeAria', { name: entry.name })}
-            onRemove={disabled ? undefined : () => onExtraMaterialsChange(removeExtraMaterial(extraMaterials, entry.name))}
-          >
-            <MaterialLabel
-              name={entry.name}
-              leftOnSite={entry.left_on_site}
-              disabled={disabled}
-              onLeftOnSiteChange={left =>
-                onExtraMaterialsChange(setExtraMaterialLeftOnSite(extraMaterials, entry.name, left))
-              }
-            />
-          </FeldChip>
-        ))}
-        {!disabled && (
-          <li>
-            <FeldAddPicker
-              label={t('add')}
-              chipLabel={t('addChip')}
-              searchPlaceholder={t('searchPlaceholder')}
-              items={pickable}
-              freeTextLabel={name => t('addTyped', { name })}
-              takenNames={takenNames}
-              onAdd={add}
-            />
-          </li>
-        )}
+        {empty}
+        {shown.map(unitChip)}
+        {extraMaterials.map(nameChip)}
+        {addPicker}
       </FeldChipList>
       {/* The asymmetry, said out loud instead of left to be discovered: these
           are names, not units the board dispatched, so the Abholliste fetches
@@ -198,6 +247,7 @@ export function FeldMaterialChecklist({
 function MaterialLabel({
   name,
   detail,
+  named = false,
   consumable = false,
   leftOnSite,
   disabled,
@@ -205,6 +255,8 @@ function MaterialLabel({
 }: {
   name: string
   detail?: string | null
+  /** A name the crew typed, not a unit the board sent – marked «genannt» (grouped KP view). */
+  named?: boolean
   consumable?: boolean
   leftOnSite: boolean
   disabled?: boolean
@@ -216,6 +268,7 @@ function MaterialLabel({
       <span className="min-w-0 break-words">
         {name}
         {detail && <span className="text-muted-foreground"> · {detail}</span>}
+        {named && <span className="text-xs text-muted-foreground"> · {t('namedTag')}</span>}
       </span>
       {leftOnSite && (
         <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-warning">

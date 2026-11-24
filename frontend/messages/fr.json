@@ -1024,7 +1024,7 @@
         "title": "Matériel",
         "empty": "Aucun matériel saisi.",
         "leftOnSite": "resté sur place",
-        "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
+        "extraLeftOnSiteHint": "Passe sur la liste de récupération. Rien à libérer : ce sont des noms, pas du matériel saisi.",
         "add": "Ajouter du matériel",
         "addTyped": "Ajouter « {name} »",
         "listLabel": "Matériel",
@@ -1033,7 +1033,12 @@
         "groupCatalogue": "Autre matériel",
         "leftOnSiteShort": "sur place",
         "removeAria": "Retirer {name}",
-        "searchPlaceholder": "Rechercher du matériel …"
+        "searchPlaceholder": "Rechercher du matériel …",
+        "groupOnSite": "Encore sur place",
+        "groupBack": "De retour",
+        "namedTag": "nommé",
+        "onSiteUnitHint": "Le matériel attribué reste attribué jusqu’à sa récupération – figure dans la liste des restes.",
+        "onSiteNamedHint": "« nommé » n’est qu’un nom donné par le groupe, rien à libérer – figure sur la liste des restes et sur la liste de récupération."
       },
       "vehicles": {
         "empty": "Aucun véhicule saisi.",
@@ -1115,7 +1120,8 @@
         "personnel": "{count, plural, one {# personne} other {# personnes}}",
         "personnelEmpty": "personne de saisi",
         "vehicles": "{count, plural, one {# véhicule} other {# véhicules}}",
-        "vehiclesEmpty": "aucun véhicule"
+        "vehiclesEmpty": "aucun véhicule",
+        "materialOnSite": "{count, plural, one {# position} other {# positions}} · {onSite} sur place"
       },
       "picker": {
         "done": "Terminé ({count})",
@@ -1123,16 +1129,11 @@
       }
     },
     "materialReturn": {
-      "title": "Matériel de retour – libérer",
-      "description": "Le groupe n’a pas marqué ce matériel comme « resté sur place ».",
       "notUsed": "pas utilisé",
       "releaseAll": "{count, plural, one {Libérer # pièce de matériel} other {Libérer # pièces de matériel}}",
       "released": "{count, plural, one {# pièce de matériel libérée} other {# pièces de matériel libérées}}",
       "releaseFailed": "Échec de la libération",
-      "stillOnSiteTitle": "Restés sur place",
-      "stillOnSiteHint": "Reste attribué jusqu’à sa récupération – apparaît dans la liste des restes.",
-      "namedTitle": "Autre matériel sur place",
-      "namedHint": "Nommé par le groupe, pas attribué depuis le tableau – il n’y a rien à libérer. Figure sur la liste des restes et sur la liste de récupération."
+      "stillAssigned": "Encore attribué : {names}"
     },
     "code": {
       "title": "Saisir le code",

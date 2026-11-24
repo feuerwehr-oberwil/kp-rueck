@@ -42,7 +42,7 @@
  */
 
 import { formatDateTime, formatTime } from '@/lib/format-time'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Copy, Phone, RefreshCw, Send, UserRound } from 'lucide-react'
@@ -120,6 +120,9 @@ interface FeldRapportFormProps {
    *  scroll to the Kurzbericht and put the caret in it — the journey's
    *  «Rapport erfassen» button. 0 / undefined = never fired. */
   focusKurzberichtSignal?: number
+  /** KP only: the «N Geräte freigeben» action, shown in the Material block's «Zurück» group
+   *  (`MaterialRelease`). Omitted on /feld and for a read-only mount. */
+  materialRelease?: ReactNode
 }
 
 const AUTOSAVE_MS = 30000
@@ -168,7 +171,9 @@ function prefersReducedMotion(): boolean {
  */
 function RapportSection({
   fold = false,
+  defaultOpen,
   title,
+  titleClassName,
   summary,
   state,
   jumpSignal,
@@ -177,8 +182,12 @@ function RapportSection({
   children,
 }: {
   fold?: boolean
+  /** Only read with `fold`: see `FeldSection.defaultOpen`. */
+  defaultOpen?: boolean
   /** Shown as the heading; a block with only a labelled field passes none. */
   title?: string
+  /** Overrides the open block's heading style – the KP's Kurzbericht reads as a field label. */
+  titleClassName?: string
   /** The folded block's one line — only read with `fold`. */
   summary?: string
   state?: FeldSectionState
@@ -218,20 +227,20 @@ function RapportSection({
 
   if (fold) {
     return (
-      <FeldSection title={title ?? ''} summary={summary ?? ''} state={state ?? 'optional'} dense>
+      <FeldSection title={title ?? ''} summary={summary ?? ''} state={state ?? 'optional'} defaultOpen={defaultOpen} dense>
         {children}
       </FeldSection>
     )
   }
   return (
     <section ref={ref} className={cn('scroll-mt-28 space-y-2', className)}>
-      {title && <h3 className="text-sm font-semibold">{title}</h3>}
+      {title && <h3 className={titleClassName ?? 'text-sm font-semibold'}>{title}</h3>}
       {children}
     </section>
   )
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal, materialRelease }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const tLoading = useTranslations('common')
   const isKp = mount === 'kp'
@@ -629,6 +638,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // question counts.
   const materialCount =
     formData.materials.filter(row => row.used || row.left_on_site).length + formData.extra_materials.length
+  const materialOnSite =
+    formData.materials.filter(row => row.left_on_site).length +
+    formData.extra_materials.filter(entry => entry.left_on_site).length
   const peopleCount = derivePersonnelCount(formData)
   const vehicleCount = formData.vehicles.filter(row => row.present).length
   const ownerSummary = formData.owner_name.trim() || formData.owner_phone.trim()
@@ -714,6 +726,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       {/* ------------------------------------------------- Kurzbericht */}
       <RapportSection
         title={t('sections.kurzbericht')}
+        // In the KP the rapport's one heading is the section's «Schadenplatz-Rapport»; a second
+        // bold heading right under it read as a section of its own (owner, 24.11.2026).
+        titleClassName={isKp ? 'text-xs font-medium text-muted-foreground' : undefined}
         jumpSignal={jumps.kurzbericht}
         jumpFocus
         className={blockClass}
@@ -787,7 +802,15 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
       <RapportSection
         fold={foldLists}
         title={t('material.title')}
-        summary={materialCount > 0 ? t('summary.material', { count: materialCount }) : t('summary.materialEmpty')}
+        summary={
+          materialCount === 0
+            ? t('summary.materialEmpty')
+            : materialOnSite > 0
+              ? t('summary.materialOnSite', { count: materialCount, onSite: materialOnSite })
+              : t('summary.material', { count: materialCount })
+        }
+        // What is still out there is the block's news – open it (Feld-tab pick 1A, 24.11.2026).
+        defaultOpen={materialOnSite > 0}
         // An empty material list is not a gap — the board simply never got the
         // material (see the checklist's own empty state), so it never nags.
         state={materialCount > 0 ? 'filled' : 'optional'}
@@ -801,6 +824,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           disabled={readOnly}
           onChange={(rows: ApiRapportMaterialRow[]) => update('materials', rows)}
           onExtraMaterialsChange={entries => update('extra_materials', entries)}
+          // The KP reads the list by state: what is still on site, what came back.
+          grouped={isKp}
+          releaseSlot={materialRelease}
         />
       </RapportSection>
 
