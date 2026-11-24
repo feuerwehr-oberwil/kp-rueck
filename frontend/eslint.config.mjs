@@ -31,7 +31,12 @@ const SYNTAX = [
     message: "Use useEffectEvent from '@/lib/hooks/use-effect-event' – Next 15's vendored React does not export it.",
   },
   { selector: "Literal[value=/\\banimate-spin\\b/]", message: SPINNER },
-  { selector: "TemplateElement[value.raw=/\\banimate-spin\\b/]", message: SPINNER },
+  { selector: "TemplateElement[value.raw=/\\banimate-spin\\b/]", message: SPINNER },  // Sign-off 24.11.2026: the merge kept the base variant's `dark:` fill under the new one (dark
+  // text on a dark Abbrechen). The look is the `variant` prop of components/ui/alert-dialog.tsx.
+  {
+    selector: "JSXOpeningElement[name.name=/^AlertDialog(Action|Cancel)$/] CallExpression[callee.name='buttonVariants']",
+    message: "Set `variant` on AlertDialogAction / AlertDialogCancel – buttonVariants() in className keeps the base variant's dark: classes.",
+  },
 ];
 // Every map goes through components/map/base-map.tsx: its `isolate` wrapper keeps markers and
 // controls below the page's overlays, and it sets MapLibre's worker URL (docs/FRONTEND.md › Maps).

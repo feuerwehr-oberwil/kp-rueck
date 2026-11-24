@@ -8,26 +8,33 @@
  * nobody found. It is now the Verlauf tab's own content: always expanded, no
  * toggle, scrolling with the tab like everything else.
  *
- * Three kinds of entry, one chronology: status changes, resource assignments,
- * and the crew's Freitext-Meldungen. The messages are the reason this is a list
- * and not a popover — until they were merged in, what came in over the radio
- * lived only in a dismissible notification.
+ * One chronology: status changes, resource assignments, the crew's
+ * Freitext-Meldungen, the facts a notification announced (vor Ort, Abholung,
+ * «fährt selbst», Reko, GPS am Einsatzort …), and every saved change of the Reko report
+ * (`reko_change`: who, Feld or KP, which field, old → new – owner pick 23.11.2026, the
+ * Reko tab shows none of it). The messages and the facts are the reason this is a list
+ * and not a popover — until they were merged in, what came in over the radio lived only
+ * in a dismissible notification. A fact is the journal's own row for this card, worded
+ * by the drawer's `JournalText`.
  *
  * The events themselves are fetched once per detail view by
  * `useIncidentTimeline` and handed down, because the Rapport tab's message
  * thread reads the same feed.
  */
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
-import { AlertCircle, ArrowRight, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
+import { AlertCircle, ArrowRight, Binoculars, ClipboardCheck, Combine, MessageSquare, Package, Send, Split, Truck, UserMinus, UserPlus } from "lucide-react"
 
 import type { ApiIncidentTimelineEvent } from "@/lib/api-client"
-import { formatAgo } from "@/lib/duration"
+import type { RekoChangeValue } from "@/lib/api/types"
+import { formatAgo, formatDurationHours } from "@/lib/duration"
+import { listDiff, textExcerpts } from "@/lib/reko-change"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn } from "@/lib/utils"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { Button } from "@/components/ui/button"
+import { JournalText } from "@/components/journal/journal-text"
 
 export interface IncidentTimelineProps {
   events: ApiIncidentTimelineEvent[] | null
@@ -93,7 +100,11 @@ function TimelineRow({
   const [splitting, setSplitting] = useState(false)
   const time = formatTime(event.timestamp)
   const isMessage =
-    event.event_type === "field_message" || event.event_type === "kp_message" || event.event_type === "merge"
+    event.event_type === "field_message" ||
+    event.event_type === "kp_message" ||
+    event.event_type === "merge" ||
+    event.event_type === "journal" ||
+    event.event_type === "reko_change"
   // A merged report can be split off again for as long as the merge stands.
   const splittable = event.event_type === "merge" && event.merge_active && event.merged_incident_id && onUnmerge
   // A move the operator confirmed after «Gerade geändert» – the board it came from was stale.
@@ -173,6 +184,12 @@ function EventIcon({ event }: { event: ApiIncidentTimelineEvent }) {
     // are muted, the icon tells them apart.
     return <Send className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
   }
+  if (event.event_type === "reko_change") {
+    return <Binoculars className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+  }
+  if (event.event_type === "journal") {
+    return <ClipboardCheck className="mt-px h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+  }
   if (event.event_type === "assignment") {
     if (event.resource_type === "vehicle") {
       return <Truck className={cn("h-3.5 w-3.5 shrink-0", event.assignment_action === "unassigned" ? "text-muted-foreground" : "text-foreground")} />
@@ -251,6 +268,20 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
     )
   }
 
+  if (event.event_type === "reko_change") {
+    return <RekoChangeLabel event={event} />
+  }
+
+  if (event.event_type === "journal" && event.journal_kind) {
+    // «Fährt selbst zurück · Meier Anna», «Fahrzeug am Einsatzort: TLF 1 (GPS)»
+    return (
+      <>
+        <JournalText entry={{ kind: event.journal_kind, data: event.journal_data ?? null }} text={event.message ?? null} />
+        {event.actor_name && <span className="text-muted-foreground"> · {event.actor_name}</span>}
+      </>
+    )
+  }
+
   if (event.event_type === "assignment") {
     const verb = event.assignment_action === "unassigned" ? t('timeline.removed') : t('timeline.assigned')
     const verbClass = event.assignment_action === "unassigned" ? "text-muted-foreground" : "text-foreground"
@@ -264,6 +295,102 @@ function EventLabel({ event }: { event: ApiIncidentTimelineEvent }) {
   }
 
   return null
+}
+
+/**
+ * «Keller Marco (Feld) · Zusammenfassung: «… steckt fest.» → «… steckt fest, Lenker …»»
+ *
+ * Lists say what moved (+Einsturz · −Feuer, +2 Fotos), texts show both ends cut to what
+ * changed (`textExcerpts`), the rest old → new. An empty end reads «leer».
+ */
+function RekoChangeLabel({ event }: { event: ApiIncidentTimelineEvent }) {
+  const t = useTranslations('kanban')
+  const tForm = useTranslations('reko.form')
+  const tReport = useTranslations('reko.reportSection')
+  const source = event.source === 'kp' ? t('timeline.rekoKp') : t('timeline.rekoFeld')
+  const from = event.old_value
+  const to = event.new_value
+
+  const fieldLabel = (() => {
+    switch (event.reko_field) {
+      case 'is_relevant': return tForm('relevantQuestion')
+      case 'dangers': return tForm('dangers')
+      case 'dangers_other': return tForm('otherDangers')
+      case 'personnel_count': return tForm('personnelCount')
+      case 'estimated_duration_hours': return tReport('durationLabel')
+      case 'vehicles_needed': return tReport('vehiclesLabel')
+      case 'equipment_needed': return tReport('equipmentLabel')
+      case 'power_supply': return tForm('powerSupply')
+      case 'summary_text': return tForm('summary')
+      case 'additional_notes': return tReport('notesShort')
+      case 'photos': return tForm('photos')
+      default: return event.reko_field ?? t('timeline.unknown')
+    }
+  })()
+
+  const dangerLabel = (key: string): string => {
+    switch (key) {
+      case 'fire': return tReport('dangerBadges.fire')
+      case 'fire_danger': return tReport('dangerBadges.fire_danger')
+      case 'explosion': return tReport('dangerBadges.explosion')
+      case 'collapse': return tReport('dangerBadges.collapse')
+      case 'chemical': return tReport('dangerBadges.chemical')
+      case 'electrical': return tReport('dangerBadges.electrical')
+      default: return key
+    }
+  }
+
+  /** One end of an old → new change, or null for an empty field. */
+  const plain = (value: RekoChangeValue): string | null => {
+    if (value === null || value === undefined || value === '') return null
+    switch (event.reko_field) {
+      case 'is_relevant': return value ? tForm('yes') : tForm('no')
+      case 'estimated_duration_hours': return typeof value === 'number' ? formatDurationHours(value) : String(value)
+      case 'power_supply':
+        switch (value) {
+          case 'available': return tForm('powerLabels.available')
+          case 'unavailable': return tForm('powerLabels.unavailable')
+          case 'emergency_needed': return tForm('powerLabels.emergency_needed')
+          default: return String(value)
+        }
+      default: return Array.isArray(value) ? (value.length ? value.join(', ') : null) : String(value)
+    }
+  }
+
+  let change: ReactNode
+  if (event.reko_field === 'dangers' || event.reko_field === 'photos') {
+    const { added, removed } = listDiff(from, to)
+    const parts = event.reko_field === 'photos'
+      ? [
+          added.length ? t('timeline.rekoPhotosAdded', { count: added.length }) : null,
+          removed.length ? t('timeline.rekoPhotosRemoved', { count: removed.length }) : null,
+        ]
+      : [...added.map(key => `+${dangerLabel(key)}`), ...removed.map(key => `−${dangerLabel(key)}`)]
+    change = <span className="text-foreground">{parts.filter(Boolean).join(' · ')}</span>
+  } else {
+    const isText = event.reko_field === 'summary_text' || event.reko_field === 'additional_notes'
+      || event.reko_field === 'dangers_other'
+    const ends = isText
+      ? textExcerpts(plain(from), plain(to))
+      : { from: plain(from), to: plain(to) }
+    const quote = (text: string | null) => (text === null ? null : isText ? `«${text}»` : text)
+    change = (
+      <>
+        <span className="text-muted-foreground">{quote(ends.from) ?? t('timeline.rekoEmpty')}</span>
+        <span className="text-muted-foreground mx-1">→</span>
+        <span className="text-foreground">{quote(ends.to) ?? t('timeline.rekoEmpty')}</span>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <span className="font-medium text-foreground">{event.actor_name ?? source}</span>
+      {event.actor_name && <span className="text-muted-foreground"> ({source})</span>}
+      <span className="text-muted-foreground"> · {fieldLabel}: </span>
+      {change}
+    </>
+  )
 }
 
 function formatTime(iso: string): string {

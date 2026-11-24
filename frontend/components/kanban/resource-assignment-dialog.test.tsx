@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { describe, expect, it, vi, type Mock } from "vitest"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
@@ -11,6 +11,9 @@ import type { Person } from "@/lib/contexts/operations-context"
 const operationsState = vi.hoisted(() => ({
   operations: [] as unknown[],
   outOfServiceVehicleIds: new Set<string>(),
+  requestResourceConflict: vi.fn(),
+  removeMaterial: vi.fn(async () => true),
+  removeCrew: vi.fn(async () => true),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => operationsState,
@@ -89,7 +92,9 @@ describe("material double-booking guard", () => {
 
     await user.click(screen.getByRole("button", { name: /Tauchpumpe Gr\./ }))
 
-    expect(await screen.findByText("Doppelbelegung?")).toBeDefined()
+    const confirm = await screen.findByRole("alertdialog", { name: /ist schon zugewiesen/ })
+    // A double booking is chosen by hand: Enter stays on Abbrechen (owner pick #3, 23.11.2026).
+    expect(within(confirm).getByRole("button", { name: "Abbrechen" })).toHaveFocus()
   })
 
   it("selects Verbrauchsmaterial straight away – unlimited stock is never double-booked", async () => {
@@ -104,7 +109,7 @@ describe("material double-booking guard", () => {
 
     // Ticked immediately – the confirm never opens.
     await waitFor(() => expect(screen.getByText("Änderungen")).toBeDefined())
-    expect(screen.queryByText("Doppelbelegung?")).toBeNull()
+    expect(screen.queryByText(/ist schon zugewiesen/)).toBeNull()
   })
 
   it("clears the «just assigned» flash timer when the dialog unmounts", () => {
@@ -118,6 +123,129 @@ describe("material double-booking guard", () => {
 
     unmount()
     expect(clearSpy).toHaveBeenCalledWith(flashTimer)
+  })
+})
+
+describe("«Hierher verschieben» from the assignment dialog", () => {
+  // The pump stands on Einsatz 11; the dialog assigns to incident-1.
+  const holder = {
+    id: "incident-2", number: 11, location: "Bahnhofstrasse 12", incidentType: "", vehicles: [], crew: [],
+    materials: [PUMP.id], materialAssignments: new Map([[PUMP.id, "asg-pump"]]),
+  }
+
+  /** Ticks the pump and answers «Hierher verschieben». `beforeMove` runs between the two. */
+  async function moveThePump(
+    onAssignMaterial: Mock<(materialId: string, operationId: string) => void>,
+    beforeMove?: () => void,
+  ) {
+    operationsState.operations = [holder]
+    operationsState.requestResourceConflict.mockClear()
+    operationsState.removeMaterial.mockClear()
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    const view = renderWithIntl(
+      <ResourceAssignmentDialog
+        open
+        onOpenChange={onOpenChange}
+        resourceType="materials"
+        operationId="incident-1"
+        personnel={[]}
+        vehicles={[]}
+        materials={[PUMP]}
+        assignedPersonnelIds={[]}
+        assignedVehicleIds={[]}
+        assignedMaterials={[]}
+        onAssignPerson={vi.fn()}
+        onAssignVehicle={vi.fn()}
+        onAssignMaterial={onAssignMaterial}
+        onRemovePerson={vi.fn()}
+        onRemoveVehicle={vi.fn()}
+        onRemoveMaterial={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /Tauchpumpe Gr\./ }))
+    const [[conflict]] = operationsState.requestResourceConflict.mock.calls
+    beforeMove?.()
+    await conflict.customResolve("move")
+    return { user, view, onOpenChange }
+  }
+
+  it("frees the holder only together with the assign, at «Fertig»", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { user } = await moveThePump(onAssignMaterial)
+    // Staged like the tick: nothing has left Einsatz 11 yet.
+    expect(operationsState.removeMaterial).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Fertig" }))
+    await waitFor(() => expect(onAssignMaterial).toHaveBeenCalledWith(PUMP.id, "incident-1"))
+    expect(operationsState.removeMaterial).toHaveBeenCalledExactlyOnceWith("incident-2", PUMP.id)
+    expect(operationsState.removeMaterial.mock.invocationCallOrder[0]).toBeLessThan(onAssignMaterial.mock.invocationCallOrder[0])
+    operationsState.operations = []
+  })
+
+  // Sol review E round 2, S3: a failed release used to assign anyway – a double booking.
+  it("skips the assign and stays open when freeing the holder fails", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { user, onOpenChange } = await moveThePump(onAssignMaterial)
+    operationsState.removeMaterial.mockResolvedValueOnce(false)
+
+    await user.click(screen.getByRole("button", { name: "Fertig" }))
+    await waitFor(() => expect(operationsState.removeMaterial).toHaveBeenCalledOnce())
+    expect(onAssignMaterial).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    // The move stays staged: the next «Fertig» (now marking the open change) tries again.
+    await user.click(screen.getByRole("button", { name: /^Fertig/ }))
+    await waitFor(() => expect(onAssignMaterial).toHaveBeenCalledWith(PUMP.id, "incident-1"))
+    expect(operationsState.removeMaterial).toHaveBeenCalledTimes(2)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    operationsState.operations = []
+  })
+
+  // Sol review E round 3, S2: released elsewhere since the prompt – free already, so assign.
+  it("assigns without a release when the holder no longer holds it", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { user, onOpenChange } = await moveThePump(onAssignMaterial, () => {
+      operationsState.operations = [{ ...holder, materials: [], materialAssignments: new Map() }]
+    })
+
+    await user.click(screen.getByRole("button", { name: /^Fertig/ }))
+    await waitFor(() => expect(onAssignMaterial).toHaveBeenCalledWith(PUMP.id, "incident-1"))
+    expect(operationsState.removeMaterial).not.toHaveBeenCalled()
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    operationsState.operations = []
+  })
+
+  // Sol review E round 3, S3: while «Fertig» waits for the release the picker is frozen – no
+  // tick, no close – and the save closes it once done.
+  it("takes no edit and no close while «Fertig» waits for the release", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { user, onOpenChange } = await moveThePump(onAssignMaterial)
+    let release!: (freed: boolean) => void
+    operationsState.removeMaterial.mockReturnValueOnce(new Promise<boolean>((resolve) => { release = resolve }))
+
+    await user.click(screen.getByRole("button", { name: /^Fertig/ }))
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Fertig/ })).toBeDisabled())
+    expect(screen.getByRole("button", { name: "Abbrechen" })).toBeDisabled()
+    fireEvent.click(screen.getByRole("button", { name: /Tauchpumpe Gr\./ }))
+    await user.keyboard("{Escape}")
+    expect(screen.getByText("Änderungen")).toBeDefined()
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    release(true)
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(onAssignMaterial).toHaveBeenCalledExactlyOnceWith(PUMP.id, "incident-1")
+    expect(screen.getByRole("button", { name: /^Fertig/ })).toBeEnabled()
+    operationsState.operations = []
+  })
+
+  it("changes neither side when the picker closes without «Fertig»", async () => {
+    const onAssignMaterial = vi.fn<(materialId: string, operationId: string) => void>()
+    const { view } = await moveThePump(onAssignMaterial)
+    view.unmount()
+    expect(operationsState.removeMaterial).not.toHaveBeenCalled()
+    expect(onAssignMaterial).not.toHaveBeenCalled()
+    operationsState.operations = []
   })
 })
 
@@ -329,6 +457,22 @@ describe("special functions in the crew list", () => {
 
     expect(screen.getByRole("button", { name: /Egger Olivier/ })).toBeDefined()
     expect(screen.queryByRole("button", { name: /Frei Anna/ })).toBeNull()
+  })
+
+  // Sign-off 24.11.2026: «Niemand ist frei» under a search that only matched busy people,
+  // although Frei Anna is free.
+  it("says the search found no free one, not that nobody is free", async () => {
+    const user = userEvent.setup()
+    renderCrew([
+      person({ name: "Egger Olivier", status: "assigned", isMagazin: true }),
+      person({ name: "Frei Anna" }),
+    ])
+
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "egger")
+
+    expect(screen.getByText(/Verfügbar · 0/)).toBeDefined()
+    expect(screen.getByText("Keine Treffer für «egger»")).toBeDefined()
+    expect(screen.queryByText(/Niemand ist frei/)).toBeNull()
   })
 })
 

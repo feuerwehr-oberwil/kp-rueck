@@ -163,7 +163,7 @@ async def _briefings(
                 # row belongs to the ROUTE and is therefore on every stop of it.
                 #
                 # `stays` stays None: an Auftrag vehicle's flag is settable in the
-                # dispatch gate, but an untouched row is a copy (`_mirror`) or the
+                # dispatch gate, but an untouched row is a copy (`mirror_to_auftrag`) or the
                 # default, indistinguishable from a decision. Saying «fährt
                 # zurück» on that basis would be the board answering a question
                 # it was never asked — see `FeldVehicleLine`.
@@ -202,7 +202,7 @@ async def _briefings(
         if (incident_id, personnel_id) in seen_crew:
             continue
         seen_crew.add((incident_id, personnel_id))
-        # A resource can sit at both levels — `_mirror` puts it there on purpose
+        # A resource can sit at both levels — `mirror_to_auftrag` puts it there on purpose
         # (crud/feld/melden.py). One person is one line on the slip either way.
         if name not in briefings[incident_id]["crew"]:
             briefings[incident_id]["crew"].append(name)
@@ -229,7 +229,7 @@ async def _briefings(
         if (incident_id, vehicle_id) in seen_vehicles:
             continue
         seen_vehicles.add((incident_id, vehicle_id))
-        # A resource can sit at both levels (`_mirror`); one vehicle is one line.
+        # A resource can sit at both levels (`mirror_to_auftrag`); one vehicle is one line.
         # The route's copy wins when there is one — it is the truthful answer to
         # "does this come with us to the next stop".
         if not any(line["name"] == name for line in briefings[incident_id]["vehicles"]):

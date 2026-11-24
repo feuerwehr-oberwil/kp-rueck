@@ -94,7 +94,9 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {announced ? tAuftraege("repeatRadioTitle") : tAuftraege("repeatRadioTitlePreview")}
+            {announced
+              ? tAuftraege("repeatRadioTitle", { name: group?.name ?? "" })
+              : tAuftraege("repeatRadioTitlePreview", { name: group?.name ?? "" })}
           </DialogTitle>
           <DialogDescription>
             {announced

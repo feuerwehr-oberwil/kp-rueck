@@ -238,9 +238,11 @@ export function LinksQrSheet({
   /** One link row. `bare` drops the row's own border so it can stack inside a
    *  grouped container (divide-y draws the seams there instead).
    *
-   *  The row wraps: the name never gets narrower than its longest word (`min-w-min`), and
-   *  when the buttons no longer fit beside it – a phone, with print and «neu erzeugen» – they
-   *  go to a second line, right-aligned. Before, «Wandanzeige» ran under the icons at 360px. */
+   *  The row wraps: the name never gets narrower than its longest word (`min-w-min`). Below
+   *  `md` the buttons always take a second line, right-aligned, so every row has the same
+   *  shape – when they wrapped only where they did not fit, «Wandanzeige» broke differently
+   *  from «Alarm erfassen» (VIS.11). A row without «neu erzeugen» keeps its slot, so ↗ and
+   *  copy stand in one column on every row. */
   const linkRow = (key: LinkKey, bare = false) => {
     const url = urls[key]
     return (
@@ -274,7 +276,7 @@ export function LinksQrSheet({
           <div className="text-sm font-medium">{t(`${key}.title`)}</div>
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 max-md:basis-full max-md:justify-end">
           <Button variant="ghost" size="sm" asChild disabled={!url} title={tCommon("openInNewTab")}>
             <a href={url ?? "#"} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="size-3.5" />
@@ -305,6 +307,13 @@ export function LinksQrSheet({
             >
               <RefreshCw className="size-3.5" />
             </Button>
+          )}
+          {isEditor && !isRegenerable(key) && (
+            <span aria-hidden className="invisible flex">
+              <Button variant="outline" size="sm" tabIndex={-1}>
+                <RefreshCw className="size-3.5" />
+              </Button>
+            </span>
           )}
         </div>
       </div>

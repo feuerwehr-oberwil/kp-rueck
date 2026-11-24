@@ -23,10 +23,11 @@ from app.models import Incident, IncidentAssignment, RekoReport, User, Vehicle
 from app.schemas import RekoReportUpdate
 from app.services.gps_simulation import SimulatedDrive, gps_simulation
 from app.services.rapport_rows import STATUS_LABELS
+from app.services.reko_history import RekoAuthor
 from app.services.tokens import generate_form_token
-from app.services.training import has_vehicle, simulated_filer, stranded_pickup_note
+from app.services.training import simulated_filer, stranded_pickup_note
 from app.services.training_photos import attach_training_photos
-from app.services.training_simulation_data import RAPPORT_SIM_PROFILE, generate_reko_report_data, scene_type
+from app.services.training_simulation_data import generate_reko_report_data, scene_type
 
 DriveTarget = Literal["incident", "magazin"]
 
@@ -54,7 +55,9 @@ async def mark_reko_arrived(db: AsyncSession, incident: Incident) -> None:
 async def file_reko_report(db: AsyncSession, incident: Incident) -> RekoReport:
     """«Reko-Meldung»: arrival (if not yet), a generated report, submitted like a real one.
 
-    The submission runs the real side effects (status → Reko abgeschlossen, priority, bell).
+    The submission runs the real side effects (status → Reko abgeschlossen, priority, bell),
+    once: only when this write filed the incident's one report (`filed_now`). The simulated
+    crew is a form link without a person – «Feld» in the Chronik.
     """
     _require_status(incident, "reko")
     token = generate_form_token(str(incident.id), "reko")
@@ -66,7 +69,10 @@ async def file_reko_report(db: AsyncSession, incident: Incident) -> RekoReport:
     # A not-relevant report carries no illustration (`_not_relevant_report`).
     photo_summary = reko_data.pop("photo_summary", None)
     photo_depth_cm = reko_data.pop("photo_depth_cm", None)
-    updated = await reko_crud.update_reko_report(db, report.id, RekoReportUpdate(**reko_data), submit=True)
+    author = RekoAuthor.feld(None)
+    updated, filed_now = await reko_crud.update_reko_report(
+        db, report.id, RekoReportUpdate(**reko_data), author=author, submit=True
+    )
 
     # The wording illustration alone, or a type photo when the text has none.
     if updated.is_relevant:
@@ -78,12 +84,14 @@ async def file_reko_report(db: AsyncSession, incident: Incident) -> RekoReport:
             depth_cm=photo_depth_cm,
         )
         if photo_filenames:
+            # Part of the simulated filing, not an edit after it: no Chronik row of its own.
             updated.photos_json = (updated.photos_json or []) + photo_filenames
             await db.flush()
             await db.refresh(updated)
 
     await db.refresh(incident)
-    await reko_crud.process_reko_submission(db, incident, updated)
+    if filed_now:
+        await reko_crud.process_reko_submission(db, incident, updated)
     await db.refresh(incident)
     return updated
 
@@ -113,19 +121,27 @@ async def report_field_complete(
 
     Informational: stamps `field_complete_reported_at` (the card badge), no status change –
     closing is the operator's move. Written as a KP radio entry (the trainer sits in the KP),
-    the same calls as `POST /api/incidents/{id}/field-report`. `pickup_needed=None` lets the
-    situation decide: a crew on foot or without a vehicle is usually stranded.
+    the same calls as `POST /api/incidents/{id}/field-report`. `pickup_needed=None` follows
+    the «bleibt vor Ort» pill, the suggestion /feld makes (`crud.feld.vehicle_on_site`, owner
+    23.11.2026): a vehicle on site → «fährt selbst», none → «Abholung nötig». The answer goes
+    to `record_pickup` as `self_drive`: a KP «nein» reads «fährt selbst», not «Abholung disponiert».
     """
     if pickup_needed is None:
-        stranded = incident.zu_fuss or not await has_vehicle(db, incident)
-        rate = RAPPORT_SIM_PROFILE.pickup_when_stranded if stranded else RAPPORT_SIM_PROFILE.pickup_otherwise
-        pickup_needed = random.Random().random() < rate
+        pickup_needed = await feld_crud.vehicle_on_site(db, incident) is None
         if pickup_needed and pickup_note is None:
             pickup_note = stranded_pickup_note(incident)
 
     actor = feld_crud.FieldActor(user=user)
     await feld_crud.record_field_complete(db, incident, actor=actor, at=datetime.now(UTC), request=request)
-    await feld_crud.record_pickup(db, incident, actor=actor, needed=pickup_needed, note=pickup_note, request=request)
+    await feld_crud.record_pickup(
+        db,
+        incident,
+        actor=actor,
+        needed=pickup_needed,
+        note=pickup_note,
+        request=request,
+        self_drive=not pickup_needed,
+    )
     await db.refresh(incident)
 
 

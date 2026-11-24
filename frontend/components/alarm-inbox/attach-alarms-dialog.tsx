@@ -285,8 +285,9 @@ export function AttachAlarmsDialog({ alarms, onClose, onAttached }: AttachAlarms
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Wider while the duplicate hint is up: its sketch needs the room. */}
-      <DialogContent size="md">
+      {/* S: one select and its hints – a short form (#14 row 18). The duplicate hint fits the
+          phone sheet, so it fits 512 px too. */}
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>{t('attachDialogTitle')}</DialogTitle>
           <DialogDescription>{t('attachDialogDescription', { count: selected.length })}</DialogDescription>

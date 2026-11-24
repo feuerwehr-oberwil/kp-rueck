@@ -486,7 +486,7 @@ export function AttendanceModal({
       <ConfirmDialog
         open={!!confirmOut}
         onOpenChange={(next) => !next && setConfirmOut(null)}
-        title={t('assignedTitle')}
+        title={confirmOut ? t('assignedTitle', { name: confirmOut.person.name }) : ''}
         description={
           confirmOut ? t('assignedDescription', { name: confirmOut.person.name, where: confirmOut.where }) : ''
         }

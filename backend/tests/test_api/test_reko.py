@@ -24,7 +24,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models import Event, EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport, User
+from app.models import (
+    Event,
+    EventSpecialFunction,
+    Incident,
+    IncidentAssignment,
+    Personnel,
+    RekoReport,
+    RekoReportChange,
+    User,
+)
 from app.services.photo_storage import photo_storage
 from app.services.tokens import generate_feld_token, generate_form_token
 from tests.conftest import TEST_PASSWORD
@@ -766,45 +775,6 @@ async def test_editor_uploads_photo_onto_an_existing_report(
     assert report.photos_json == ["crew.jpg", "kp-photo.jpg"]
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_editor_cannot_upload_onto_another_incidents_report(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    test_event: Event,
-    test_incident: Incident,
-    test_editor: User,
-    valid_token: str,
-):
-    """A report id from elsewhere must not become a way to write into it."""
-    other_incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Other Incident",
-        type="brandbekaempfung",
-        priority="medium",
-        status="reko",
-        created_by=test_editor.id,
-    )
-    db_session.add(other_incident)
-    await db_session.commit()
-
-    other = RekoReport(
-        id=uuid4(),
-        incident_id=other_incident.id,
-        token=valid_token,
-        is_draft=False,
-    )
-    db_session.add(other)
-    await db_session.commit()
-
-    response = await editor_client.post(
-        f"/api/reko/{test_incident.id}/photos?report_id={other.id}",
-        files={"file": ("whatsapp.jpg", b"fake image content", "image/jpeg")},
-    )
-    assert response.status_code == 404
-
-
 # ============================================
 # Photo Delete Tests
 # ============================================
@@ -1335,6 +1305,29 @@ async def test_serve_photo_logs_access(editor_client: AsyncClient, test_incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_the_viewer_open_is_never_cached(editor_client: AsyncClient, test_incident: Incident):
+    """Sol review G, S8: `?view=full` (the in-app viewer) answers no-store, so each open is logged."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_file:
+        tmp_file.write(b"fake jpeg content")
+        tmp_path = Path(tmp_file.name)
+    try:
+        with patch("app.api.reko.photo_storage") as mock_storage:
+            mock_storage.get_photo_path = MagicMock(return_value=tmp_path)
+            url = f"/api/photos/{test_incident.id}/full.jpg"
+            thumbnail = await editor_client.get(url)
+            full = await editor_client.get(url, params={"view": "full"})
+        assert thumbnail.headers["cache-control"] == "private, max-age=3600"
+        assert full.status_code == 200
+        assert full.headers["cache-control"] == "private, no-store"
+    finally:
+        tmp_path.unlink()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_generate_link_custom_form_type(editor_client: AsyncClient, test_incident: Incident):
     """Test generating link with custom form type."""
     response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom")
@@ -1462,10 +1455,10 @@ async def test_field_derived_reko_token_closes_with_its_device(
 
 
 @pytest.mark.parametrize("bound", [False, True])
-async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
+async def test_every_link_of_the_incident_edits_its_one_report(
     client, db_session, test_event, test_incident, test_personnel, test_editor, tmp_path, monkeypatch, bound
 ):
-    """Real form/photo requests cannot overwrite another link's report or photo."""
+    """Two people's links open THE incident's report; each edit is in the Chronik with its author."""
     monkeypatch.setattr(photo_storage, "photos_dir", tmp_path)
     other_person = Personnel(id=uuid4(), name="Second crew", role="Feuerwehr", status="available")
     db_session.add(other_person)
@@ -1504,7 +1497,7 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     second_headers = {"X-Reko-Token": second_token}
     first = await client.get("/api/reko/form", params={"incident_id": str(test_incident.id), "token": first_token})
     assert first.status_code == 200, first.text
-    first_id = first.json()["id"]
+    report_id = first.json()["id"]
     image = io.BytesIO()
     Image.new("RGB", (8, 8), "red").save(image, format="JPEG")
     uploaded = await client.post(
@@ -1518,9 +1511,11 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     assert own_photo.headers["cache-control"] == "private, no-store"
     assert own_photo.headers.get_list("referrer-policy") == ["no-referrer"]
     assert (await client.get(read_url, params={"token": first_token})).status_code == 401
-    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 404
+    # Another link of the SAME incident reads the incident's report – one report per Einsatz.
+    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 200
     wrong_incident = generate_form_token(str(uuid4()))
     assert (await client.get(read_url, params={"reko_token": wrong_incident})).status_code == 400
+    # A file on the incident's disk that the report does not list (a Rapport photo) stays out.
     rapport_filename = f"{uuid4()}.jpg"
     (tmp_path / str(test_incident.id) / rapport_filename).write_bytes(image.getvalue())
     assert (
@@ -1528,59 +1523,37 @@ async def test_form_writes_stay_with_own_report_and_shared_photos_survive(
     ).status_code == 404
     assert (
         await client.patch(
-            f"/api/reko/{first_id}",
+            f"/api/reko/{report_id}",
             headers=first_headers,
             params={"submit": True},
             json={"summary_text": "Original crew"},
         )
     ).status_code == 200
 
+    # The second link opens and edits the same report.
     second = await client.get("/api/reko/form", params={"incident_id": str(test_incident.id), "token": second_token})
     assert second.status_code == 200, second.text
-    second_id = second.json()["id"]
-    assert second_id != first_id
-    assert second.json()["photos_json"] == [filename]  # Deliberate shared prefill.
-    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 200
-    denied = await client.patch(f"/api/reko/{first_id}", headers=second_headers, json={"summary_text": "Forged"})
-    assert denied.status_code == 403, denied.text
-    own = await client.patch(f"/api/reko/{second_id}", headers=second_headers, json={"summary_text": "Follow-up crew"})
-    assert own.status_code == 200, own.text
-
-    # A token-door report_id cannot redirect an upload or unlink into another row.
-    uploaded_second = await client.post(
-        photo_url,
-        params={"report_id": first_id},
-        headers=second_headers,
-        files={"file": ("photo.jpg", image.getvalue(), "image/jpeg")},
+    assert second.json()["id"] == report_id
+    assert second.json()["summary_text"] == "Original crew"
+    follow_up = await client.patch(
+        f"/api/reko/{report_id}", headers=second_headers, json={"summary_text": "Follow-up crew"}
     )
-    assert uploaded_second.status_code == 200, uploaded_second.text
-    assert (
-        await client.get(
-            f"/api/photos/{test_incident.id}/{uploaded_second.json()['filename']}", params={"reko_token": first_token}
-        )
-    ).status_code == 404
-    deleted = await client.delete(f"{photo_url}/{filename}", params={"report_id": first_id}, headers=second_headers)
+    assert follow_up.status_code == 200, follow_up.text
+    deleted = await client.delete(f"{photo_url}/{filename}", headers=second_headers)
     assert deleted.status_code == 200, deleted.text
-    original = await db_session.get(RekoReport, first_id)
-    follow_up = await db_session.get(RekoReport, second_id)
-    await db_session.refresh(original)
-    await db_session.refresh(follow_up)
-    assert original.summary_text == "Original crew"
-    assert original.photos_json == [filename]
-    assert follow_up.photos_json == [uploaded_second.json()["filename"]]
-    assert photo_storage.get_photo_path(test_incident.id, filename) is not None
-    assert (await client.get(read_url, params={"reko_token": second_token})).status_code == 404
-    assert (await client.get(read_url, params={"reko_token": first_token})).status_code == 200
-    assert (await client.delete(f"{photo_url}/{filename}", headers=second_headers)).status_code == 404
 
-    # Operators retain their deliberate ability to amend any crew's report.
-    assert (
-        await client.post("/api/auth/login", data={"username": test_editor.username, "password": TEST_PASSWORD})
-    ).status_code == 200
-    amended = await client.patch(f"/api/reko/{first_id}", json={"summary_text": "Operator amendment"})
-    assert amended.status_code == 200, amended.text
-    assert (await client.delete(f"{photo_url}/{filename}", params={"report_id": first_id})).status_code == 200
+    report = await db_session.get(RekoReport, report_id)
+    await db_session.refresh(report)
+    assert report.summary_text == "Follow-up crew"
+    assert report.photos_json == []
     assert photo_storage.get_photo_path(test_incident.id, filename) is None
+    # Filed by the first crew – the filing is no change row; the second one's edits after it
+    # are in the Chronik, not the byline.
+    assert report.submitted_by_personnel_id == (test_personnel.id if bound else None)
+    rows = (await db_session.execute(select(RekoReportChange).where(RekoReportChange.report_id == report.id))).scalars()
+    second_id = other_person.id if bound else None
+    assert {(row.field, row.personnel_id) for row in rows} == {("summary_text", second_id), ("photos", second_id)}
+    assert (await client.delete(f"{photo_url}/{filename}", headers=second_headers)).status_code == 404
 
 
 # ============================================

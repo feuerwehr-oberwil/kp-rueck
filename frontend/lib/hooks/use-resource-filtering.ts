@@ -1,128 +1,51 @@
 import { useMemo } from 'react'
-import type { Person, Material, PersonRole } from '@/lib/contexts/operations-context'
+import type { Person, Material } from '@/lib/contexts/operations-context'
 import type { PersonPlaces } from '@/lib/person-places'
-import { isPersonOccupied, materialResourceState, personMatchesQuery } from '@/lib/resource-status'
-import { compareByName, compareByRankThenName } from '@/lib/roster-order'
+import { personMatchesQuery } from '@/lib/resource-status'
 
 /**
- * Shared hook for filtering and grouping personnel and materials
- * Used across Kanban, Map, and Combined views
+ * The board's search over personnel and materials. Each sidebar filters, groups and sorts
+ * what it leaves itself (`lib/personnel-view.ts`, `lib/material-view.ts`).
  */
 export function useResourceFiltering(
   personnel: Person[],
   materials: Material[],
   personnelQuery: string,
   materialQuery?: string,
-  /** Group label for personnel without a role (e.g. quick-added walk-ins). */
-  roleFallbackLabel: string = 'Andere',
-  /** Sidebar toggles: drop everything that is currently tied up. Availability is
-   *  read exactly as the cards draw it — `isPersonOccupied` counts Fahrer/Reko/
-   *  Magazin as busy, consumables count as available, and «Nicht einsatzbereit»
-   *  counts as neither (materialResourceState returns "unavailable"). */
-  availableOnly: { personnel?: boolean; materials?: boolean } = {},
   /** Where each person is bound now (`usePersonPlaces`), so the search finds «12» or «Sturmholz». */
   places?: ReadonlyMap<string, PersonPlaces>,
 ) {
   const effectiveMaterialQuery = materialQuery ?? personnelQuery
-  const personnelAvailableOnly = !!availableOnly.personnel
-  const materialsAvailableOnly = !!availableOnly.materials
 
   const filteredPersonnel = useMemo(
     () => {
-      const base = personnelAvailableOnly
-        ? personnel.filter((p) => !isPersonOccupied(p))
-        : personnel
-      if (!personnelQuery) return base
+      if (!personnelQuery) return personnel
       // Shared matcher (name / rank / tags / special functions incl.
       // Telefondienst + Kommandoposten / current place) — see lib/resource-status.ts.
-      return base.filter((p) => personMatchesQuery({ ...p, places: places?.get(p.id) }, personnelQuery))
+      return personnel.filter((p) => personMatchesQuery({ ...p, places: places?.get(p.id) }, personnelQuery))
     },
-    [personnel, personnelQuery, personnelAvailableOnly, places]
+    [personnel, personnelQuery, places]
   )
 
   const filteredMaterials = useMemo(
     () => {
-      const base = materialsAvailableOnly
-        ? materials.filter((m) => materialResourceState(m) === 'available')
-        : materials
-      if (!effectiveMaterialQuery) return base
+      if (!effectiveMaterialQuery) return materials
       const q = effectiveMaterialQuery.toLowerCase()
       // All three axes, under the names the UI now uses everywhere: the device
       // itself, its Typ ("alle Sägen") and its Standort ("alles auf dem Pio").
       // Only the second question could be asked before, and the column asking
       // it was headed «Kategorie».
-      return base.filter((m) =>
+      return materials.filter((m) =>
         m.name.toLowerCase().includes(q) ||
         m.type.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q)
       )
     },
-    [materials, effectiveMaterialQuery, materialsAvailableOnly]
-  )
-
-  /**
-   * Grouped by Grad, in the station's own order, alphabetical inside a group.
-   *
-   * This used to be a bare `reduce`: both the group order and the order inside
-   * each group were whatever the API happened to return — which is the DATABASE
-   * collation, not `de-CH`. The crew sidebar and the assignment dialog then
-   * showed the same roster in two different orders on the same screen, and an
-   * Ö or an ä landed in a different place in each.
-   */
-  const groupedPersonnel = useMemo(
-    () => {
-      const ranked = [...filteredPersonnel].sort(compareByRankThenName)
-      return ranked.reduce(
-        (acc, person) => {
-          // Fall back to a labelled group so a null role never renders as "null".
-          const key = person.role || roleFallbackLabel
-          if (!acc[key]) acc[key] = []
-          acc[key].push(person)
-          return acc
-        },
-        {} as Record<PersonRole, Person[]>
-      )
-    },
-    [filteredPersonnel, roleFallbackLabel]
-  )
-
-  /**
-   * The same roster split by the question the BOARD's sidebar answers first:
-   * who can I still send? Same `isPersonOccupied` predicate as the
-   * available-only filter and the footer counter, so the three can never
-   * disagree. Alphabetical inside each group (de-CH, see roster-order) — rank
-   * is demoted to a suffix on the row, so it stops dictating where somebody
-   * is found in the list.
-   */
-  const availabilityGroupedPersonnel = useMemo(() => {
-    const free: Person[] = []
-    const bound: Person[] = []
-    for (const person of filteredPersonnel) {
-      ;(isPersonOccupied(person) ? bound : free).push(person)
-    }
-    free.sort(compareByName)
-    bound.sort(compareByName)
-    return { free, bound }
-  }, [filteredPersonnel])
-
-  const groupedMaterials = useMemo(
-    () => {
-      const groups: Record<string, Material[]> = {}
-      for (const material of filteredMaterials) {
-        const key = material.category || 'Sonstige'
-        if (!groups[key]) groups[key] = []
-        groups[key].push(material)
-      }
-      return groups
-    },
-    [filteredMaterials]
+    [materials, effectiveMaterialQuery]
   )
 
   return {
     filteredPersonnel,
     filteredMaterials,
-    groupedPersonnel,
-    availabilityGroupedPersonnel,
-    groupedMaterials,
   }
 }

@@ -24,17 +24,15 @@
 import { useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronRight } from 'lucide-react'
-// The bare primitives for the two answers: the wrapped AlertDialogCancel is
-// pre-styled as an outline, and «Zurück» here is the filled one.
-import { Action as AlertDialogAction, Cancel as AlertDialogCancel } from '@radix-ui/react-alert-dialog'
 
 import {
   AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { buttonVariants } from '@/components/ui/button'
 import { FELD_STATE_DOT } from '@/components/feld/feld-section'
 import { cn } from '@/lib/utils'
 
@@ -166,8 +164,8 @@ export function FeldRapportGapsDialog({ open, onOpenChange, gaps, onJump, onConf
                 its Cancel on open, so Enter means «Zurück» – going ahead is
                 still one deliberate tap away. */}
             <div className="mt-1 flex flex-col gap-2">
-              <AlertDialogCancel className={cn(buttonVariants(), 'h-12 w-full')}>{t('gaps.back')}</AlertDialogCancel>
-              <AlertDialogAction className={cn(buttonVariants({ variant: 'outline' }), 'h-12 w-full whitespace-normal')} onClick={onConfirm}>
+              <AlertDialogCancel variant="default" className="h-12 w-full">{t('gaps.back')}</AlertDialogCancel>
+              <AlertDialogAction variant="outline" className="h-12 w-full whitespace-normal" onClick={onConfirm}>
                 {t(`gaps.confirm.${key}`)}
               </AlertDialogAction>
             </div>

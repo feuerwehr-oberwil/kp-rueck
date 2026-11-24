@@ -155,6 +155,8 @@ export interface ApiFieldRequest {
   in_progress_by_name: string | null
   done_at: string | null
   done_by_name: string | null
+  /** Closed by the crew itself – an Abholung: «Wir fahren selbst». */
+  done_in_field?: boolean
 }
 
 /** A Meldung or a structured request, from either door (same payload). */

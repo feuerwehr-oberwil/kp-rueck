@@ -8,7 +8,8 @@ The hard cases this pins down:
   and «Trennen» gives the merged card its row back;
 * two Einsatzleiter: the surviving card's stays, the other one gets it back on
   «Trennen»;
-* Reko reports move with their photo files (copied, never moved);
+* a Reko report moves with its photo files (copied, never moved) – unless the surviving
+  card has one too: one per Einsatz, so each keeps its own;
 * one Rapport per Einsatz: a lone one moves; two are BOTH kept, and the event
   report prints the merged card's under the surviving card;
 * flags travel (Nachbarhilfe set, Am Warten notes joined) and come back;
@@ -255,6 +256,29 @@ class TestRekoRapportPhotos:
 
         await _unmerge(editor_client, dup_id)
         assert (await _get(db_session, RekoReport, reko_id)).incident_id == dup_id
+
+    async def test_two_reko_reports_each_stay_on_their_card(
+        self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, photos_dir
+    ) -> None:
+        """One Reko report per Einsatz (23.11.2026): the surviving card's stays THE report."""
+        target = await _card(db_session, test_event, "Hauptstrasse 6")
+        dup = await _card(db_session, test_event, "Hauptstr. 6", status="reko_done")
+        target_id, dup_id = target.id, dup.id
+        kept = RekoReport(incident_id=target_id, token="t1", is_draft=False, summary_text="Erster Trupp")
+        other = RekoReport(incident_id=dup_id, token="t2", is_draft=False, summary_text="Zweiter Trupp")
+        db_session.add_all([kept, other])
+        await db_session.commit()
+        kept_id, other_id = kept.id, other.id
+
+        await _merge(editor_client, dup_id, target_id)
+        assert (await _get(db_session, RekoReport, kept_id)).incident_id == target_id
+        assert (await _get(db_session, RekoReport, other_id)).incident_id == dup_id
+        # A tab still open on the merged-away card cannot edit its hidden report (Sol G S5).
+        stale = await editor_client.patch(f"/api/reko/{other_id}", json={"summary_text": "zu spät"})
+        assert (stale.status_code, stale.json()["code"]) == (409, "reko_report_merged")
+        assert (await _get(db_session, RekoReport, other_id)).summary_text == "Zweiter Trupp"
+        await _unmerge(editor_client, dup_id)
+        assert (await _get(db_session, RekoReport, other_id)).incident_id == dup_id
 
     async def test_a_lone_rapport_moves(
         self, editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, photos_dir

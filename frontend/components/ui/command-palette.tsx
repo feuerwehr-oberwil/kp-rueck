@@ -130,7 +130,7 @@ function previewScore(parsed: ParsedDispatch): number {
   // may as well be a command typed by name.
   if (plan.kind === "open") return plan.loose ? LAST : 2
   if (plan.kind === "blocked") {
-    const numbered = plan.reason === "unknown-incident" || (plan.reason === "ambiguous" && plan.incident !== null)
+    const numbered = plan.reason === "unknown-incident" || plan.reason === "closed" || (plan.reason === "ambiguous" && plan.incident !== null)
     return numbered ? 2 : LAST
   }
   if (plan.kind === "jump") return plan.exact ? 2 : LAST

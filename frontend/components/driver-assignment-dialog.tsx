@@ -576,7 +576,7 @@ export function DriverAssignmentDialog({
       <ConfirmDialog
         open={conflictDialog.open}
         onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}
-        title={t('conflictTitle')}
+        title={t('conflictTitle', { name: conflictDialog.person?.name ?? '' })}
         description={t.rich('conflictDescription', {
           name: conflictDialog.person?.name ?? '',
           count: conflictDialog.conflictingOperations.length,
@@ -585,6 +585,8 @@ export function DriverAssignmentDialog({
         })}
         cancelText={tCommon('cancel')}
         confirmText={t('conflictConfirm')}
+        // A double booking is chosen by hand, never by Enter (owner pick #3, 23.11.2026).
+        initialFocus="cancel"
         onConfirm={handleConflictConfirm}
       />
 

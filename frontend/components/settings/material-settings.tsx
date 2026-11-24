@@ -86,8 +86,10 @@ function compareMaterials(a: ApiMaterialResource, b: ApiMaterialResource, column
 
 /** A tab label that may take two lines on a phone rather than run out of its third. */
 // `flex-auto`: the tabs share the row by the length of their text, not in equal thirds –
-// «Trier les emplacements» needs more than a third of a phone.
-const TAB_WRAP = 'h-auto min-h-[calc(2.25rem-7px)] min-w-0 flex-auto py-1 leading-tight break-words whitespace-normal hyphens-auto'
+// «Trier les emplacements» needs more than a third of a phone. `self-stretch`: when one label
+// takes two lines, every pill fills the taller track – the one-line active pill floated in
+// its middle (VIS.15).
+const TAB_WRAP = 'h-auto min-h-[calc(2.25rem-7px)] min-w-0 flex-auto self-stretch py-1 leading-tight break-words whitespace-normal hyphens-auto'
 
 export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
   const t = useTranslations('settings');
@@ -266,7 +268,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
               <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                   <DialogTitle>
-                    {dialog.editing ? t('materials.dialogEditTitle') : t('materials.dialogCreateTitle')}
+                    {dialog.editing ? t('materials.dialogEditTitle', { name: dialog.editing.name }) : t('materials.dialogCreateTitle')}
                   </DialogTitle>
                 </DialogHeader>
                 {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.

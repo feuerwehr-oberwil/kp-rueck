@@ -138,7 +138,7 @@ erDiagram
     incidents ||--o{ field_requests : has
     incidents ||--o{ incident_assignments : has
     incidents ||--o{ status_transitions : tracks
-    incidents ||--o{ reko_reports : has
+    incidents ||--o| reko_reports : has
     incident_assignments }o--|| personnel : assigns
     incident_assignments }o--|| vehicles : assigns
     incident_assignments }o--|| materials : assigns
@@ -213,7 +213,7 @@ erDiagram
 
 Every incident gets its `number` from a database trigger – counted per Ereignis, never reused – which is what the board, the prints and the ⌘K line (`14 tlf meier`) name it by. `journal_entries` is append-only: a correction is a new row pointing at the old one (`corrects_id`). Check-in lives in `event_attendance`, per Ereignis, not on the person; beside the record it holds the plan («kommt um» / «geht um», `planned_from` / `planned_until`), which check-in and check-out never write.
 
-**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports`, `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `telemetry_outbox`
+**Additional tables** (not shown): `users`, `settings`, `audit_log`, `divera_emergencies` (the alarm pool, including Divera Rückmeldungen), `revoked_tokens` (the persisted JWT blocklist), `special_function_types`, `reko_reports` (+ `reko_report_changes`, `reko_reports_folded`), `schadenplatz_reports`, `status_transitions`, `incident_field_messages`, `incident_groups` / `incident_group_assignments` (Aufträge), `auftrag_templates` / `auftrag_template_resources` (Standard-Aufträge), `material_groups`, `personnel_external_identities`, `feld_device_claims` / `feld_unlock_claims`, `print_jobs`, `notifications`, `geocoding_dispatch`, `emergency_templates`, `training_locations`, `microsoft_login_transactions`, `telemetry_outbox`
 
 ### Print Agent (Standalone Python)
 
@@ -518,10 +518,12 @@ At each transition:
 - WebSocket broadcasts the change to all connected clients
 - Entering **`complete`** automatically releases all assigned personnel, vehicles, and materials
   (`crud/assignments.auto_release_incident_resources`); moving back out restores them
-- A status move files no Reko report. The board's own Reko form saves as it goes and has no
-  submit: the save that answers «Einsatz relevant?» files it, exactly like the crew's submit
-  (`api/reko._kp_draft_files_now` → `crud/reko.process_reko_submission`: `reko` → `reko_done`,
-  priority bump, the bell)
+- A status move files no Reko report. An incident has ONE Reko report that the field and
+  the KP edit together (owner pick 23.11.2026). The board's Reko form saves as it goes and
+  has no submit: the save that answers «Einsatz relevant?» files it, exactly like the crew's
+  submit (`api/reko._board_save_files_now` → `crud/reko.process_reko_submission`: `reko` →
+  `reko_done`, priority bump, the bell). Only that first filing rings, and it is one Chronik
+  fact; every change saved after it is a Chronik row (`services/reko_history.py`)
 
 ### Duplicates and merge
 
@@ -534,7 +536,8 @@ card is marked `possible_duplicate_of_id` and the operator decides.
 
 A merge (`POST /api/incidents/{id}/merge`) sets `merged_into_id` on the merged card, which keeps
 its row and number but is hidden; its work moves to the card that stays – crew, vehicles,
-material, Reko reports (photos copied, never moved), the Schadenplatz-Rapport, messages and
+material, the Reko report (photos copied, never moved) and the Schadenplatz-Rapport (each only
+when the card that stays has none – one per Einsatz, otherwise it stays on the merged card), messages and
 field requests (`services/merge_work.py`, `services/merge_requests.py`). «Trennen»
 (`POST /api/incidents/{id}/unmerge`) moves it back. Closed Einsätze are never merged, and
 Reaktionszeiten count the place from its first report – the merge is not a dispatch.
@@ -606,7 +609,7 @@ count apart, and the other system follows at the next sync (`standby_sync.LINK_G
 | JWT (refresh) | Login form | **7 days** (`REFRESH_TOKEN_EXPIRE_DAYS`) | Mints a new access token |
 | Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
 | Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis |
-| Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |
+| Reko Form Token | Generated per incident (link/QR) | **24 hours** | The incident's one Reko report |
 | Alarm Token | Generated in UI (QR code) | **30 days** (720 h) | Public alarm intake – **write**: creates incidents in one Ereignis, rate-limited and flagged `source='intake'` |
 | Feld Token (link) | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | Nothing on its own – the right to be asked for the Feld-Code |
 | Feld Token (unlocked) | `POST /feld/unlock` with the four-digit code | **5 minutes** (`FELD_UNLOCK_MINUTES`, `crud/feld/access.py`) – the picker window | The crew picker for one Ereignis, and nothing else; good for **one** claim (the unlock row is consumed). Picking a name trades it for the 30-day bound token below, so a crew is not asked again |

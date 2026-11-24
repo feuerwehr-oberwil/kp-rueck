@@ -85,6 +85,18 @@ describe("applyResourceDrop", () => {
     expect(assignGroupResource).toHaveBeenCalledWith("grp-1", "material", "m-1")
   })
 
+  // Owner feedback 23.11.2026 #7: a closed Einsatz takes nothing new, not even via its Auftrag.
+  it("assigns nothing onto a closed Einsatz or a closed stop", () => {
+    const closed = { ...ungrouped, status: "complete" } as Operation
+    const closedStop = { ...stop, status: "complete" } as Operation
+    const onClosed = deps()
+    onClosed.operations = [closed, closedStop]
+    expect(applyResourceDrop({ type: "person", person: busyPerson }, onCard, onClosed)).toBe(true)
+    expect(applyResourceDrop({ type: "material", material: busyMaterial }, onStop, onClosed)).toBe(true)
+    expect(assignPersonToOperation).not.toHaveBeenCalled()
+    expect(assignGroupResource).not.toHaveBeenCalled()
+  })
+
   it("leaves an operation card being moved to the monitor", () => {
     const source = { type: "operation", operation: ungrouped, index: 0 }
     expect(applyResourceDrop(source, onCard, deps())).toBe(false)

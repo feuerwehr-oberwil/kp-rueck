@@ -27,6 +27,7 @@ vi.mock("@/lib/contexts/operations-context", () => ({
     formatLocation: (value: string) => value,
     setOperations: vi.fn(),
     refreshOperations,
+    operations: [],
     personnel: [],
     vehicles: fleet.vehicles,
   }),
