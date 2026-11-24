@@ -1116,20 +1116,14 @@ export default function FireStationDashboard() {
   }, [setMaterialOutOfService])
 
   /** The device row answers the same question the person row does, including
-   *  «nirgends» — a free device used to be a click into the void as well. */
+   *  «nirgends» — a free device used to be a click into the void as well. Any
+   *  device drawn as its own row comes here, a module member too (by Typ, or
+   *  when its module is gone): the row is the popover's anchor. */
   const handleMaterialClick = (material: Material) => {
     const bindings = collectMaterialBindings(material)
     const only = soleDestination(bindings)
     if (only) {
       followBinding(only)
-      return
-    }
-    // A device inside a module block is drawn by MaterialGroupBlock, which has no
-    // anchor for the popover — there the click keeps jumping to the first
-    // reachable binding rather than opening a list nothing could position.
-    if (material.groupId) {
-      const first = bindings.find(isNavigableBinding)
-      if (first) followBinding(first)
       return
     }
     setBindingsPopover({
@@ -1139,6 +1133,15 @@ export default function FireStationDashboard() {
       subtitle: material.category,
       bindings,
     })
+  }
+
+  /** A device inside a module block (MaterialGroupBlock) has no anchor for the
+   *  popover, so its click jumps to the first reachable binding rather than
+   *  opening a list nothing could position. */
+  const handleModuleMaterialClick = (material: Material) => {
+    const bindings = collectMaterialBindings(material)
+    const target = soleDestination(bindings) ?? bindings.find(isNavigableBinding)
+    if (target) followBinding(target)
   }
 
   /** The aggregate row answers for the WHOLE bundle: every taken unit's
@@ -1703,6 +1706,7 @@ export default function FireStationDashboard() {
               filteredMaterials={filteredMaterials}
               effectiveMaterialQuery={effectiveMaterialQuery}
               handleMaterialClick={handleMaterialClick}
+              handleModuleMaterialClick={handleModuleMaterialClick}
               handleAggregateMaterialClick={handleAggregateMaterialClick}
               handleToggleMaterialOutOfService={handleToggleMaterialOutOfService}
               bindingsPopover={bindingsPopover}

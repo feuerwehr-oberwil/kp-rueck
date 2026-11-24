@@ -40,6 +40,7 @@ import {
   materialFacets,
   materialFilterCount,
   viewMaterials,
+  withoutStaleValues,
   type MaterialViewPrefs,
 } from "@/lib/material-view"
 import type { summarizeMaterials } from "@/lib/resource-status"
@@ -65,7 +66,10 @@ export interface MaterialSidebarProps {
   /** What the search left; the filters narrow this further (`viewMaterials`). */
   filteredMaterials: Material[]
   effectiveMaterialQuery: string
+  /** A device drawn as its own row – the row anchors the bindings popover. */
   handleMaterialClick: (material: Material) => void
+  /** A device inside a module block, which has no anchor: jumps to its first binding. */
+  handleModuleMaterialClick: (material: Material) => void
   handleAggregateMaterialClick: (units: Material[]) => void
   handleToggleMaterialOutOfService: (material: Material, outOfService: boolean) => void
   bindingsPopover: BindingsPopoverState | null
@@ -95,6 +99,7 @@ export function MaterialSidebar({
   filteredMaterials,
   effectiveMaterialQuery,
   handleMaterialClick,
+  handleModuleMaterialClick,
   handleAggregateMaterialClick,
   handleToggleMaterialOutOfService,
   bindingsPopover,
@@ -107,10 +112,18 @@ export function MaterialSidebar({
   const tDash = useTranslations('kanban.dashboard')
   const tSidePanel = useTranslations('kanban.sidePanel')
   const labels = useMaterialLabels()
-  const { shown, groups } = useMemo(() => viewMaterials(filteredMaterials, materialView), [filteredMaterials, materialView])
-  const facets = useMemo(() => materialFacets(filteredMaterials, materialView), [filteredMaterials, materialView])
-  const filtering = materialFilterCount(materialView) > 0
-  const byType = materialView.sort === 'type'
+  // A saved Standort or Typ the catalogue lost (a renamed depot) is dropped – once the catalogue
+  // is in; while it loads every value looks gone. The popover writes this view back, so the
+  // stored one is cleaned with the next change.
+  const catalogueLoaded = isLoaded && !boardNeverLoaded && materials.length > 0
+  const view = useMemo(
+    () => (catalogueLoaded ? withoutStaleValues(materialView, materials) : materialView),
+    [catalogueLoaded, materialView, materials],
+  )
+  const { shown, groups } = useMemo(() => viewMaterials(filteredMaterials, view), [filteredMaterials, view])
+  const facets = useMemo(() => materialFacets(filteredMaterials, view), [filteredMaterials, view])
+  const filtering = materialFilterCount(view) > 0
+  const byType = view.sort === 'type'
   const resetView = () => setMaterialView(DEFAULT_MATERIAL_VIEW)
   const filterButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -150,7 +163,7 @@ export function MaterialSidebar({
               allAvailable={allAvailable}
               someAssigned={someAssigned}
               allAssigned={allAssigned}
-              onMaterialClick={handleMaterialClick}
+              onMaterialClick={handleModuleMaterialClick}
             />
           )
         })}
@@ -244,7 +257,7 @@ export function MaterialSidebar({
             hint={!isMobile ? <Kbd>M</Kbd> : undefined}
           />
           <MaterialFilterButton
-            prefs={materialView}
+            prefs={view}
             onChange={setMaterialView}
             facets={facets}
             shown={shown.length}
@@ -252,7 +265,7 @@ export function MaterialSidebar({
             buttonRef={filterButtonRef}
           />
         </div>
-        <MaterialFilterSummary prefs={materialView} onReset={resetView} buttonRef={filterButtonRef} />
+        <MaterialFilterSummary prefs={view} onReset={resetView} buttonRef={filterButtonRef} />
         {/* «Vor Ort» roll-up — above the scroll area on purpose, so neither
             the search nor the filters (Frei hides everything that is
             assigned, i.e. exactly this material) can filter the answer to

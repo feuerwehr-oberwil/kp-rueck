@@ -534,6 +534,7 @@
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
+      "rosterNotReady": "{count} nicht einsatzbereit",
       "bindingsNone": "Keine Zuweisung – nichts zum Anspringen.",
       "transferredToast": "Ressourcen nach «{target}» übertragen",
       "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",

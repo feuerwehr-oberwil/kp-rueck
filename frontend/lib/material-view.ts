@@ -16,7 +16,7 @@
  * (`kp-board-materialView`, `usePersistedState`).
  */
 
-import { materialResourceState } from '@/lib/resource-status'
+import { materialResourceState, summarizeMaterials } from '@/lib/resource-status'
 
 export const MATERIAL_STATUSES = ['all', 'free', 'bound', 'not-ready'] as const
 export type MaterialStatus = (typeof MATERIAL_STATUSES)[number]
@@ -79,7 +79,26 @@ export function isDefaultMaterialView(prefs: MaterialViewPrefs): boolean {
   return materialFilterCount(prefs) === 0 && prefs.sort === DEFAULT_MATERIAL_VIEW.sort
 }
 
-/** Frei, Gebunden (on an Einsatz or Auftrag) or «Nicht einsatzbereit». Consumables are frei. */
+/**
+ * The saved view without the Standort and Typ values no device carries any more: a depot
+ * renamed from «Depot» to «Magazin» must not leave every reload filtering for «Depot», an empty
+ * list. Pass the FULL catalogue, and only once it has loaded – while it loads, every value
+ * looks gone. Returns `prefs` itself when nothing is dropped.
+ */
+export function withoutStaleValues(prefs: MaterialViewPrefs, catalogue: readonly ViewableMaterial[]): MaterialViewPrefs {
+  const known = (values: readonly string[], keyOf: (material: ViewableMaterial) => string) => {
+    const present = new Set(catalogue.map(keyOf))
+    return values.filter((value) => present.has(value))
+  }
+  const locations = known(prefs.locations, (m) => m.category)
+  const types = known(prefs.types, (m) => m.type)
+  return locations.length === prefs.locations.length && types.length === prefs.types.length
+    ? prefs
+    : { ...prefs, locations, types }
+}
+
+/** Frei, Gebunden (on an Einsatz or Auftrag) or «Nicht einsatzbereit». Consumables are frei.
+ *  The buckets `summarizeMaterials` counts for the footer. */
 export function materialStatusOf(material: ViewableMaterial): Exclude<MaterialStatus, 'all'> {
   const state = materialResourceState(material)
   if (state === 'available') return 'free'
@@ -149,16 +168,22 @@ export interface MaterialFacet {
  * The popover's options, counted over every device the search left (not narrowed by the other
  * filters – the numbers say how big each choice is). Units, not rows: «Tauchpumpe 3/4» is 4.
  *
- * Standorte in the station's depot order, Typen alphabetical. A chosen value no device carries
- * any more stays listed with 0, so it can be seen and unticked instead of silently emptying
- * the list.
+ * Standorte in the station's depot order, Typen alphabetical. A chosen value the search left no
+ * device of stays listed with 0, so it can be seen and unticked instead of silently emptying
+ * the list (one the whole catalogue lost is dropped first, `withoutStaleValues`). The Status
+ * counts are the footer's (`summarizeMaterials`), so the two never disagree.
  */
 export function materialFacets(
   materials: readonly ViewableMaterial[],
   prefs: MaterialViewPrefs,
 ): { status: Record<MaterialStatus, number>; locations: MaterialFacet[]; types: MaterialFacet[] } {
-  const status: Record<MaterialStatus, number> = { all: materials.length, free: 0, bound: 0, 'not-ready': 0 }
-  for (const material of materials) status[materialStatusOf(material)] += 1
+  const summary = summarizeMaterials(materials)
+  const status: Record<MaterialStatus, number> = {
+    all: summary.total,
+    free: summary.free,
+    bound: summary.bound,
+    'not-ready': summary.notReady,
+  }
 
   const withChosen = (counts: Map<string, number>, chosen: readonly string[]) => {
     for (const key of chosen) if (!counts.has(key)) counts.set(key, 0)

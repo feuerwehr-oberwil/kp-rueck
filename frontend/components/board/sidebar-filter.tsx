@@ -166,15 +166,15 @@ export function SidebarFilterPopover({
         </PopoverTrigger>
       </ShortcutTooltip>
       {/* Keys typed in here stay here: the board's shortcuts listen on window, and ↓ would move
-          the board selection instead of scrolling the popover. Escape still bubbles, so the
-          popover closes as usual. */}
+          the board selection instead of scrolling the popover. Escape too – Radix closes the
+          popover from its own document listener (capture phase, before this one), and the
+          board must not also take it, e.g. to cancel an armed «G» chord. */}
       <PopoverContent
         align="start"
         side={side}
         className="w-80 space-y-3 p-3.5"
-        onKeyDown={(event) => {
-          if (event.key !== "Escape") event.stopPropagation()
-        }}
+        onKeyDown={(event) => event.stopPropagation()}
+        onEscapeKeyDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">{t("title")}</h2>

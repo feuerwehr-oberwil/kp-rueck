@@ -8,7 +8,7 @@
  * Moved out of `app/page.tsx` verbatim (2026-09-23).
  */
 
-import { useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
@@ -88,10 +88,15 @@ export function SidebarEmpty({
  * The free count is the green fact (with its ✓), «von n» its word-spaced tail, and «gebunden»
  * stands apart behind the board's middle dot with 8px either side – with only a gap between
  * them the two numbers read as one («19 17», hill climb r22). «gebunden» is plain muted text:
- * a fact, not a warning (VISUAL-03); it is left out when nothing is bound.
+ * a fact, not a warning (VISUAL-03); it is left out when nothing is bound. The material footer
+ * adds «· 1 nicht einsatzbereit» the same way – the Status buckets of its popover.
  */
 export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
   const t = useTranslations("kanban.common")
+  const tail = [
+    summary.bound > 0 ? t("rosterBound", { count: summary.bound }) : null,
+    summary.notReady ? t("rosterNotReady", { count: summary.notReady }) : null,
+  ].filter((part) => part !== null)
   return (
     <div className="flex items-center justify-center gap-2 text-xs">
       <span className="inline-flex items-center gap-1">
@@ -101,12 +106,12 @@ export function SidebarCounter({ summary }: { summary: ResourceSummary }) {
         </span>
         <span className="text-muted-foreground">{t("rosterOf", { total: summary.total })}</span>
       </span>
-      {summary.bound > 0 && (
-        <>
+      {tail.map((part) => (
+        <Fragment key={part}>
           <span aria-hidden="true" className="text-muted-foreground">·</span>
-          <span className="text-muted-foreground">{t("rosterBound", { count: summary.bound })}</span>
-        </>
-      )}
+          <span className="text-muted-foreground">{part}</span>
+        </Fragment>
+      ))}
     </div>
   )
 }

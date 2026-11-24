@@ -7,8 +7,10 @@ import {
   materialFilterCount,
   viewMaterials,
   type MaterialViewPrefs,
+  withoutStaleValues,
   type ViewableMaterial,
 } from './material-view'
+import { summarizeMaterials } from './resource-status'
 
 // API order: depot sort order (TLF before Pio), then name.
 const DEPOT: ViewableMaterial[] = [
@@ -67,10 +69,27 @@ describe('materialFacets', () => {
     expect(facets.types.map((f) => f.key)).toEqual(['Pumpen', 'Sägen', ''])
   })
 
+  it('counts Status in the footer’s buckets: a defective device is not gebunden', () => {
+    const { free, bound, notReady } = summarizeMaterials(DEPOT)
+    expect(materialFacets(DEPOT, DEFAULT_MATERIAL_VIEW).status).toMatchObject({ free, bound, 'not-ready': notReady })
+  })
+
   it('keeps a remembered value nothing carries any more, at 0, so it can be unticked', () => {
     const facets = materialFacets(DEPOT, prefs({ locations: ['Magazin'], types: ['Leitern'] }))
     expect(facets.locations.at(-1)).toEqual({ key: 'Magazin', count: 0 })
     expect(facets.types).toContainEqual({ key: 'Leitern', count: 0 })
+  })
+})
+
+describe('withoutStaleValues', () => {
+  it('drops a saved Standort or Typ the catalogue lost, keeps the rest', () => {
+    const saved = prefs({ status: 'free', locations: ['Depot', 'Pio'], types: ['Leitern', 'Sägen'] })
+    expect(withoutStaleValues(saved, DEPOT)).toEqual(prefs({ status: 'free', locations: ['Pio'], types: ['Sägen'] }))
+  })
+
+  it('returns the same prefs when every value still exists', () => {
+    const saved = prefs({ locations: ['TLF'], types: [''] })
+    expect(withoutStaleValues(saved, DEPOT)).toBe(saved)
   })
 })
 
