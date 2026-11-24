@@ -12,7 +12,7 @@
  * on the same element as before.
  */
 
-import { useMemo, type Dispatch, type SetStateAction } from "react"
+import { useMemo, useRef, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { QRCodeSVG } from "qrcode.react"
 import { Check, ChevronLeft, Copy, Users } from "lucide-react"
@@ -135,6 +135,7 @@ export function PersonnelSidebar({
   const shownSummary = useMemo(() => summarizeRoster(shown), [shown])
   const filtering = activeFilterCount(personnelView) > 0
   const resetView = () => setPersonnelView(DEFAULT_PERSONNEL_VIEW)
+  const filterButtonRef = useRef<HTMLButtonElement>(null)
   const groups = layout.kind === 'grouped'
     ? [
         { key: 'free', heading: tDash('groupFree', { count: layout.free.length }), people: layout.free },
@@ -180,9 +181,10 @@ export function PersonnelSidebar({
             facets={facets}
             shown={shown.length}
             total={personnel.length}
+            buttonRef={filterButtonRef}
           />
         </div>
-        <PersonnelFilterSummary prefs={personnelView} onReset={resetView} />
+        <PersonnelFilterSummary prefs={personnelView} onReset={resetView} buttonRef={filterButtonRef} />
         {/* Scrollable content. No bottom padding: the `ScrollEndFade` closing it is
             the end room (24px), and while more is below it fades the list into the
             sidebar above the counter – a row cut by the footer used to look like the

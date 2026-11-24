@@ -10,10 +10,11 @@
  *
  * Presentational: the rule is `lib/personnel-view.ts`, the stored prefs the board page's.
  * Keyboard: Tab from the search reaches the button, Enter opens, Tab walks the choices, Escape
- * closes (Radix Popover).
+ * closes (Radix Popover). Both resets unmount themselves, so they hand focus on: the popover's
+ * to «Alle», the summary's to the button (pass the same `buttonRef` to both).
  */
 
-import type { ReactNode } from "react"
+import { useRef, type MouseEvent, type ReactNode, type Ref, type RefObject } from "react"
 import { useTranslations } from "next-intl"
 import { Check, ListFilter, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -43,8 +44,10 @@ function Choice({
   count,
   title,
   className,
+  ref,
   children,
 }: {
+  ref?: Ref<HTMLButtonElement>
   on: boolean
   onClick: () => void
   count?: number
@@ -54,6 +57,7 @@ function Choice({
 }) {
   return (
     <Button
+      ref={ref}
       type="button"
       size="xs"
       variant={on ? "selected" : "outline"}
@@ -95,12 +99,14 @@ export function PersonnelFilterButton({
   facets,
   shown,
   total,
+  buttonRef,
 }: {
   prefs: PersonnelViewPrefs
   onChange: (prefs: PersonnelViewPrefs) => void
   facets: Facets
   shown: number
   total: number
+  buttonRef?: Ref<HTMLButtonElement>
 }) {
   const t = useTranslations("kanban.dashboard.personnelFilter")
   const gradeLabel = useGradeLabel()
@@ -108,6 +114,11 @@ export function PersonnelFilterButton({
   const changed = !isDefaultView(prefs)
   const label = count > 0 ? t("buttonActive", { count }) : t("title")
   const set = (patch: Partial<PersonnelViewPrefs>) => onChange({ ...prefs, ...patch })
+  const allRef = useRef<HTMLButtonElement>(null)
+  const reset = () => {
+    onChange(DEFAULT_PERSONNEL_VIEW)
+    allRef.current?.focus()
+  }
 
   const statuses: { value: PersonnelStatus; label: string }[] = [
     { value: "all", label: t("statusAll") },
@@ -125,6 +136,7 @@ export function PersonnelFilterButton({
       <ShortcutTooltip label={label}>
         <PopoverTrigger asChild>
           <Button
+            ref={buttonRef}
             size="icon-xs"
             variant={changed ? "selected" : "ghost"}
             aria-label={label}
@@ -144,7 +156,7 @@ export function PersonnelFilterButton({
           {changed && (
             <button
               type="button"
-              onClick={() => onChange(DEFAULT_PERSONNEL_VIEW)}
+              onClick={reset}
               className="text-xs text-muted-foreground underline underline-offset-2 decoration-muted-foreground/50 transition-colors hover:text-foreground hover:decoration-foreground"
             >
               {t("reset")}
@@ -157,6 +169,7 @@ export function PersonnelFilterButton({
             {statuses.map(({ value, label: text }) => (
               <Choice
                 key={value}
+                ref={value === "all" ? allRef : undefined}
                 on={prefs.status === value}
                 onClick={() => set({ status: value })}
                 count={value === "all" ? undefined : facets.status[value]}
@@ -195,8 +208,9 @@ export function PersonnelFilterButton({
                   on={prefs.tags.includes(tag)}
                   onClick={() => set({ tags: toggled(prefs.tags, tag) })}
                   count={n}
+                  className="max-w-full whitespace-normal"
                 >
-                  {tag}
+                  <span className="min-w-0 break-words text-left">{tag}</span>
                 </Choice>
               ))}
             </div>
@@ -228,9 +242,12 @@ export function PersonnelFilterButton({
 export function PersonnelFilterSummary({
   prefs,
   onReset,
+  buttonRef,
 }: {
   prefs: PersonnelViewPrefs
   onReset: () => void
+  /** The filter button, which takes focus after a keyboard reset. */
+  buttonRef?: RefObject<HTMLButtonElement | null>
 }) {
   const t = useTranslations("kanban.dashboard.personnelFilter")
   const gradeLabel = useGradeLabel()
@@ -242,14 +259,23 @@ export function PersonnelFilterSummary({
     prefs.tags.join(", "),
     prefs.sort === "rank" ? t("summaryRank") : prefs.sort === "name" ? t("summaryName") : null,
   ].filter(Boolean)
+  const summary = parts.join(" · ")
+  // Enter/Space fire a click with `detail` 0. Only then move focus: after a mouse click it would
+  // pop the button's tooltip.
+  const reset = (event: MouseEvent) => {
+    onReset()
+    if (event.detail === 0) buttonRef?.current?.focus()
+  }
 
   return (
     <div className="flex items-center gap-1.5 pb-1.5 pl-4 pr-3">
-      <span className="min-w-0 flex-1 truncate type-micro text-sel-foreground">{parts.join(" · ")}</span>
+      <span className="min-w-0 flex-1 truncate type-micro text-sel-foreground" title={summary}>
+        {summary}
+      </span>
       <ShortcutTooltip label={t("resetAll")}>
         <button
           type="button"
-          onClick={onReset}
+          onClick={reset}
           aria-label={t("resetAll")}
           className="relative hit-area inline-flex shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >

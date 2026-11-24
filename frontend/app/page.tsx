@@ -230,7 +230,6 @@ export default function FireStationDashboard() {
 
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
-  const tRes = useTranslations('kanban.resources')
   const tSidePanel = useTranslations('kanban.sidePanel')
   const tPanels = useTranslations('panels')
 
@@ -1039,7 +1038,6 @@ export default function FireStationDashboard() {
     materials,
     effectivePersonnelQuery,
     effectiveMaterialQuery,
-    tRes('roleOther'),
     { materials: materialsAvailableOnly },
   )
 

@@ -27,22 +27,23 @@ const MATERIALS = [
 
 const names = (groups: Record<string, Array<{ name: string }>>) =>
   Object.values(groups).flat().map((x) => x.name).sort()
+const personNames = (people: Person[]) => people.map((p) => p.name)
 
 describe("useResourceFiltering — availableOnly", () => {
   it("returns everything when the toggle is off", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere"),
+      useResourceFiltering(PERSONNEL, MATERIALS, "", ""),
     )
-    expect(names(result.current.groupedPersonnel)).toHaveLength(5)
+    expect(result.current.filteredPersonnel).toHaveLength(5)
     expect(names(result.current.groupedMaterials)).toHaveLength(3)
   })
 
   it("hides assigned material but keeps consumables", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(PERSONNEL, MATERIALS, "", "", "Andere", { materials: true }),
+      useResourceFiltering(PERSONNEL, MATERIALS, "", "", { materials: true }),
     )
     expect(names(result.current.groupedMaterials)).toEqual(["Tauchpumpe", "Ölbindemittel"].sort())
-    expect(names(result.current.groupedPersonnel)).toHaveLength(5)
+    expect(result.current.filteredPersonnel).toHaveLength(5)
   })
 
 })
@@ -58,15 +59,15 @@ describe("useResourceFiltering — search by special function", () => {
 
   it("finds the Telefondienst by function name", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(ROSTER, [], "telefondienst", "", "Andere"),
+      useResourceFiltering(ROSTER, [], "telefondienst", ""),
     )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Telefon Fritz"])
+    expect(personNames(result.current.filteredPersonnel)).toEqual(["Telefon Fritz"])
   })
 
   it("finds the Kommandoposten by function name", () => {
     const { result } = renderHook(() =>
-      useResourceFiltering(ROSTER, [], "kommandoposten", "", "Andere"),
+      useResourceFiltering(ROSTER, [], "kommandoposten", ""),
     )
-    expect(names(result.current.groupedPersonnel)).toEqual(["Posten Gina"])
+    expect(personNames(result.current.filteredPersonnel)).toEqual(["Posten Gina"])
   })
 })
