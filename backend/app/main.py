@@ -58,6 +58,7 @@ from .api.stats import router as stats_router
 from .api.traccar import router as traccar_router
 from .api.training import router as training_router
 from .api.training_gps_sim import router as training_gps_sim_router
+from .api.training_regie import router as training_regie_router
 from .api.training_simulate import router as training_simulate_router
 from .api.users import router as users_router
 from .api.vehicles import router as vehicles_router
@@ -356,6 +357,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await training_autogen_task.start()
         except Exception as e:
             logger.warning(f"Training auto-generation task failed to start: {e}")
+        # The Regie's Autopilot: idle unless switched on in the Übungs-Steuerung.
+        try:
+            from .services.training_regie import regie_autopilot_task
+
+            await regie_autopilot_task.start()
+        except Exception as e:
+            logger.warning(f"Regie Autopilot task failed to start: {e}")
 
     # Start fallback auto-print monitor (idle unless fallback.auto_print_enabled;
     # pointless in demo mode – there is no printer)
@@ -429,6 +437,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await training_autogen_task.stop()
         except Exception as e:
             logger.warning(f"Training auto-generation task shutdown failed: {e}")
+        try:
+            from .services.training_regie import regie_autopilot_task
+
+            await regie_autopilot_task.stop()
+        except Exception as e:
+            logger.warning(f"Regie Autopilot task shutdown failed: {e}")
 
     # Shutdown: Stop audit cleanup scheduler
     logger.info("Stopping audit cleanup scheduler...")
@@ -673,6 +687,7 @@ app.include_router(notifications_router, prefix=settings.api_v1_prefix)
 app.include_router(training_router, prefix=settings.api_v1_prefix)
 app.include_router(training_simulate_router, prefix=settings.api_v1_prefix)
 app.include_router(training_gps_sim_router, prefix=settings.api_v1_prefix)
+app.include_router(training_regie_router, prefix=settings.api_v1_prefix)
 app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(viewer_router, prefix=settings.api_v1_prefix)
 app.include_router(weather_router, prefix=settings.api_v1_prefix)

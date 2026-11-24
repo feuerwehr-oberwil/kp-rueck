@@ -22,12 +22,13 @@ DEFAULT_SETTINGS = {
     "alarm_webhook_secret": "",  # Auto-generated on first init
     # Training auto-generation (Übungssteuerung → "Automatik"). The background
     # monitor (services/training_autogen_task.py) idles until enabled and then
-    # feeds the newest active training event.
+    # feeds the Übung it was switched on for (state row `training_autogen.run`).
+    # The switch itself has its own endpoint – see GENERIC_WRITE_DENY_REASONS.
     "training_autogen_enabled": "false",  # Master toggle for auto-generation
     "training_autogen_interval_min": "5",  # Minutes between generated alarms
     "training_autogen_mode": "board",  # "board" (incidents) or "divera" (pool alarms)
     "training_boost_multiplicator": "2.0",  # Interval divisor during the boost phase
-    "training_boost_duration_min": "30",  # Boost phase length after event creation
+    "training_boost_duration_min": "30",  # Boost phase length after the Automatik is switched on
     "training_autogen_max_emergencies": "50",
     # Paper fallback: periodic automatic board snapshots to the thermal printer
     # (background/fallback_print.py idles until enabled; needs printer.enabled too)
@@ -366,12 +367,13 @@ SECRET_PLACEHOLDER = "***"  # noqa: S105 – the mask itself, not a credential
 # own endpoint serves the bytes with an image content type instead.
 BLOB_SETTING_KEYS = frozenset({"branding.report_logo"})
 
-# Rows a background job writes ABOUT itself, not configuration anyone sets: today the last
-# roster-snapshot run (services/roster_snapshot_sync.py). Left out of `GET /api/settings/` so the
+# Rows a background job writes ABOUT itself, not configuration anyone sets: the last
+# roster-snapshot run (services/roster_snapshot_sync.py) and the training Automatik's run
+# (services/training_autogen_task.py, read at `GET /api/training/autogen`). Left out of `GET /api/settings/` so the
 # settings page does not render a JSON report as an editable value; it has its own read at
 # `GET /api/integrations/roster-snapshot`, and the generic PATCH refuses it because it is not in
 # DEFAULT_SETTINGS.
-STATE_SETTING_KEYS = frozenset({"roster_snapshot.status"})
+STATE_SETTING_KEYS = frozenset({"roster_snapshot.status", "training_autogen.run", "training_regie.state"})
 
 # Keys the generic PATCH /api/settings/{key} must refuse, because a dedicated endpoint
 # owns them and does something the generic one cannot (decode, bound and re-encode an
@@ -387,6 +389,11 @@ GENERIC_WRITE_DENY_REASONS: dict[str, str] = {
     # into the audit log in clear text on the way past. Admin-only now, with its own
     # reveal-and-rotate endpoints, which is also what finally retires the documented
     # `SELECT value FROM settings …`.
+    # The switch alone would leave the run row (which Übung, since when) behind – the
+    # Automatik would feed the wrong Übung and boost from the wrong start.
+    "training_autogen_enabled": (
+        "Die Automatik wird in der Übungs-Steuerung geschaltet (/api/training/events/{id}/autogen), nicht hier."
+    ),
     "alarm_webhook_secret": (
         "Dieser Wert wird über /api/settings/alarm-webhook-secret gesetzt oder rotiert, nicht hier."
     ),
