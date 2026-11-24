@@ -522,7 +522,7 @@ export function FieldMessageThread({
                     </span>
                   ) : (
                     <>
-                      <p className="text-xs text-muted-foreground">{provenance(entry)}</p>
+                      <p className="break-words text-xs text-muted-foreground">{provenance(entry)}</p>
                       <p className="break-words">{entry.message}</p>
                     </>
                   )}
