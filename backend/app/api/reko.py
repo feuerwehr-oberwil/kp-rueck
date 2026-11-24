@@ -33,7 +33,7 @@ from ..crud import assignments as assignments_crud
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
-from ..crud.locking import lock_incident_with_group, lock_incidents_with_groups, lock_resource
+from ..crud.locking import lock_incident_crew, lock_incident_with_group, lock_incidents_with_groups, lock_resource
 from ..crud.manual_order import OrderChangedError
 from ..database import get_db
 from ..logging_config import get_logger
@@ -1034,8 +1034,9 @@ async def assign_reko_personnel(
     a closed Einsatz); a missing Einsatz or person is a 404.
     """
     try:
+        # With the crew: replacing a Reko on a crew row releases it, which can promote one of them.
         locked_incident = await assignments_crud.lock_for_new_assignment(
-            db, incident_id, "personnel", assignment.personnel_id
+            db, incident_id, "personnel", assignment.personnel_id, with_crew=True
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
@@ -1185,13 +1186,16 @@ async def transfer_reko_assignments(
 
     The new person gets NEW assignments, so ``ensure_assignable`` applies: an
     archived Ereignis refuses the whole handover (409), an unknown person is a 404.
-    Lock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person.
+    Lock order (``crud/locking.py``): the Einsätze with their Aufträge, then the person with the
+    Einsätze's crew, sorted.
     """
     # Get all reko assignments for the source person in this event
     assignments = await reko_assign_crud.get_reko_assignments_for_personnel(db, event_id, from_personnel_id)
 
     locked = await lock_incidents_with_groups(db, [a["incident_id"] for a in assignments])
-    to_person = await lock_resource(db, "personnel", to_personnel_id)
+    # The new person with every crew member a release below may promote, sorted (crud/locking.py).
+    await lock_incident_crew(db, locked, [to_personnel_id])
+    to_person = await lock_resource(db, "personnel", to_personnel_id)  # held already: a fresh read
     event = await db.get(Event, event_id)
     if to_person is None or event is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND)
