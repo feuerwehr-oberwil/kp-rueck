@@ -3476,8 +3476,7 @@
       "relevantRequired": "Réponds à « Intervention pertinente ? »",
       "submitError": "Non transmis – le rapport reste dans le formulaire.",
       "contactLabel": "Contact / annonceur : ",
-      "markingArrival": "Annonce de l’arrivée …",
-      "arrivalReported": "Arrivée annoncée ({time})",
+      "onSiteSince": "Sur place depuis {time}",
       "imOnSite": "Je suis sur place",
       "relevantQuestion": "Intervention pertinente ? *",
       "yes": "Oui",
@@ -3513,6 +3512,7 @@
       "notesPlaceholder": "Autres remarques …",
       "submitting": "Transmission …",
       "submit": "Transmettre le rapport de reconnaissance",
+      "submitShort": "Transmettre",
       "autoSave": "Enregistrement automatique",
       "summaries": {
         "notRelevant": [

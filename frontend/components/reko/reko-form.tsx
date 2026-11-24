@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { useIntlLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, Binoculars, MapPin, Check, CircleCheck, CloudCheck, CloudOff } from 'lucide-react'
+import { AlertCircle, Binoculars, MapPin, CircleCheck, CloudCheck, CloudOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiClient, type ApiDangersAssessment, type ApiEffortEstimation, type ApiRekoReportResponse } from '@/lib/api-client'
 import { ApiError } from '@/lib/api/types'
@@ -573,37 +573,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
           )}
         </div>
 
-        {/* Arrival Ping Button */}
-        <Button
-          type="button"
-          onClick={handleMarkArrived}
-          disabled={isMarkingArrived || !!arrivedAt}
-          // Outline, not ink: the send in the footer is the page's one main button (9C).
-          variant={arrivedAt ? "secondary" : "outline"}
-          size="lg"
-          className={`w-full ${arrivedAt ? 'bg-muted text-muted-foreground' : ''}`}
-        >
-          {isMarkingArrived ? (
-            <>
-              <ShellLoader className="h-5 w-5" />
-              {t('markingArrival')}
-            </>
-          ) : arrivedAt ? (
-            <>
-              <Check className="h-5 w-5" />
-              {t('arrivalReported', { time: formatTime(arrivedAt, intlLocale) })}
-            </>
-          ) : (
-            <>
-              <MapPin className="h-5 w-5" />
-              {t('imOnSite')}
-            </>
-          )}
-        </Button>
-
         {/* The field set itself — the SAME component the board's incident detail
             mounts, with a different transport and identity (plan 26 §5.1). The
-            shell above (header, arrival ping, dummy generator) is what differs;
+            shell (header, arrival ping, dummy generator) is what differs;
             the fields must not. */}
         <RekoReportForm
           incidentId={incidentId!}
@@ -619,8 +591,31 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
               (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
             remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
           }}
-          footer={
-            /* Three honest states instead of one friendly lie, one line each in the fixed
+          /* «Ich bin vor Ort» sits beside the send in the footer until it is reported (owner
+             pick, sign-off #387): the first thing a Reko does on site, where the thumb is. It
+             is no gate – sending stays possible before arrival. After the tap it goes, and
+             the status line says since when. Outline: the send is the page's one main button. */
+          footerAction={arrivedAt ? undefined : (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-12 shrink-0"
+              disabled={isMarkingArrived}
+              onClick={handleMarkArrived}
+            >
+              {isMarkingArrived ? <ShellLoader className="h-5 w-5" /> : <MapPin className="h-5 w-5" />}
+              {t('imOnSite')}
+            </Button>
+          )}
+          footer={<div className="space-y-1">
+            {arrivedAt && (
+              <p role="status" className="flex items-center gap-2 font-medium">
+                <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+                {t('onSiteSince', { time: formatTime(arrivedAt, intlLocale) })}
+              </p>
+            )}
+            {/* Three honest states instead of one friendly lie, one line each in the fixed
                footer (9C). The question at a Schadenplatz is never «wurde gespeichert?» –
                localStorage answers that on every keystroke – it is whether the KP has it or
                whether it is still on this phone. «Jetzt senden» is the same action the Rapport
@@ -667,8 +662,8 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
                   {t('sendNowShort')}
                 </Button>
               </div>
-            )
-          }
+            )}
+          </div>}
         />
       </div>
     </PhotoViewerProvider>

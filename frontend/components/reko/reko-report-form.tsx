@@ -10,7 +10,7 @@
  * phase is that a Reko report can arrive over the radio at all.
  *
  * What stays outside, in each mount's own shell: the field page's incident
- * header, its "Ich bin vor Ort" button, its localStorage draft and its 30 s
+ * header, its «Ich bin vor Ort» (handed to the footer as `footerAction`), its localStorage draft and its 30 s
  * autosave; the board's collapse, its create-vs-amend choice, its transport and
  * its save-as-you-go (`use-reko-autosave.ts` – the board's mount has no submit
  * button, owner pick 19.11.2026).
@@ -138,6 +138,9 @@ interface RekoReportFormProps {
   /** The field mount's status line (what the KP has, «Jetzt senden»): it rides above the
    *  button in the fixed footer (9C, phone sweep 24.11.2026). The board mount has neither. */
   footer?: React.ReactNode
+  /** A button beside the send in that footer – the field shell's «Ich bin vor Ort» until the
+   *  arrival is reported. With it the send takes its short label: two side by side at 375px. */
+  footerAction?: React.ReactNode
 }
 
 export function RekoReportForm({
@@ -151,6 +154,7 @@ export function RekoReportForm({
   busy = false,
   disabled = false,
   footer,
+  footerAction,
 }: RekoReportFormProps) {
   const t = useTranslations('reko.form')
   const tReport = useTranslations('reko.reportSection')
@@ -658,19 +662,15 @@ export function RekoReportForm({
           KP Front's phone-form footer) – on screen however far the form scrolls. Inside the
           <form>, so the button still submits it. */}
       <LinkPageFooter status={footer}>
-        <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-12 w-full" size="lg">
-          {isSubmitting ? (
-            <>
-              <ShellLoader className="h-5 w-5" />
-              {t('submitting')}
-            </>
-          ) : (
-            <>
-              <Send className="h-5 w-5" />
-              {t('submit')}
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          {footerAction}
+          <Button type="submit" disabled={disabled || isSubmitting || busy} className="h-12 min-w-0 flex-1" size="lg">
+            {isSubmitting ? <ShellLoader className="h-5 w-5" /> : <Send className="h-5 w-5" />}
+            {/* Beside another button only the short label fits; «Wird übermittelt …» says the
+                same as the spinner and would not fit either. */}
+            {footerAction ? t('submitShort') : isSubmitting ? t('submitting') : t('submit')}
+          </Button>
+        </div>
       </LinkPageFooter>
     </form>
   )

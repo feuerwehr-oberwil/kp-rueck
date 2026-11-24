@@ -2932,8 +2932,7 @@
       "relevantRequired": "Bitte «Einsatz relevant?» beantworten",
       "submitError": "Nicht übermittelt – der Bericht bleibt im Formular.",
       "contactLabel": "Kontakt / Melder: ",
-      "markingArrival": "Ankunft wird gemeldet …",
-      "arrivalReported": "Ankunft gemeldet ({time})",
+      "onSiteSince": "Vor Ort seit {time}",
       "imOnSite": "Ich bin vor Ort",
       "relevantQuestion": "Einsatz relevant?",
       "yes": "Ja",
@@ -2969,6 +2968,7 @@
       "notesPlaceholder": "Weitere Bemerkungen …",
       "submitting": "Wird übermittelt …",
       "submit": "Reko-Bericht übermitteln",
+      "submitShort": "Übermitteln",
       "autoSave": "Wird automatisch gespeichert",
       "summaries": {
         "notRelevant": [

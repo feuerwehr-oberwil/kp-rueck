@@ -280,7 +280,10 @@ test.describe('/feld als Reko-Trupp', () => {
     // arriving here at all is the server agreeing about the role.
     await phone.waitForURL(/\/reko\?/, { timeout: FIELD_TIMEOUT });
     await expect(phone.getByText('Einsatz relevant?')).toBeVisible({ timeout: FIELD_TIMEOUT });
-    await expect(phone.getByRole('button', { name: 'Reko-Bericht übermitteln' })).toBeVisible();
+    // Before the arrival «Ich bin vor Ort» stands beside the send, which takes its short label.
+    const footer = phone.locator('[data-slot="link-page-footer"]');
+    await expect(footer.getByRole('button', { name: 'Ich bin vor Ort' })).toBeVisible();
+    await expect(footer.getByRole('button', { name: 'Übermitteln', exact: true })).toBeVisible();
 
     // None of the crew's field actions, and no Rapport anywhere. The server
     // refuses all of them for a reko source; an offer that 403s in the rain is
