@@ -116,7 +116,7 @@ SELECTS: tuple[str, ...] = (
     FROM reko_reports r
     JOIN incidents i ON i.id = r.incident_id
     LEFT JOIN personnel p ON p.id = r.submitted_by_personnel_id
-    LEFT JOIN users u ON u.id = r.created_by_user_id
+    LEFT JOIN users u ON u.id = COALESCE(r.submitted_by_user_id, r.created_by_user_id)
     WHERE NOT COALESCE(r.is_draft, false) AND r.submitted_at IS NOT NULL
     """,
     # Reko vor Ort

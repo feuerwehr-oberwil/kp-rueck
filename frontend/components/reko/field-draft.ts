@@ -77,18 +77,30 @@ export interface RecoverableDraft {
 // Each write gets a fresh key, including repeated edits in a single tab. Acknowledging a
 // revision can therefore never delete a newer one.
 //
-// Keyed by report AND by the person the link names (`personnel_id`; `link` for a link that
-// names nobody). Since one report serves the whole incident, a phone handed to the next crew
-// member must not restore – and send under their name – what the previous one left unsent
-// (Sol review G round 2, S1). Older keys (per report only, or incident-wide) cannot say whose
-// they are and are not read.
+/** The form link's own id (its `jti` claim) – not secret, unlike the token. Decoded without
+ *  verifying: it only names a local draft; the server checks the token on every request. */
+function linkId(token: string): string | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return typeof payload?.jti === 'string' ? payload.jti : null
+  } catch {
+    return null
+  }
+}
+
+// Keyed by report AND by the person the link names (`personnel_id`), or by the link itself
+// (its `jti`) for a link that names nobody. Since one report serves the whole incident, a phone
+// handed to the next crew member must not restore – and send under their name – what the
+// previous one left unsent (Sol review G round 2, S1), and two unnamed links issued apart are
+// two people (round 3, S3). Older keys (per report only, incident-wide, or `@link`) cannot say
+// whose they are and are not read.
 export class ReportDrafts {
   private readonly prefix: string
   private own: StoredRevision | null = null
   private currentData: string | null = null
 
-  constructor(reportId: string, personnelId: string | null) {
-    this.prefix = `reko-report-draft-${reportId}@${personnelId ?? 'link'}`
+  constructor(reportId: string, personnelId: string | null, token: string) {
+    this.prefix = `reko-report-draft-${reportId}@${personnelId ?? `link-${linkId(token) ?? 'unknown'}`}`
   }
 
   read(): RecoverableDraft[] {

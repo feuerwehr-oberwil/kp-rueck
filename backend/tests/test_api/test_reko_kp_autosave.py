@@ -124,13 +124,14 @@ async def test_without_the_answer_a_draft_stays_a_draft_whatever_the_status(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_the_kp_answer_files_a_crew_draft_and_keeps_the_crews_byline(
+async def test_the_kp_answer_files_a_crew_draft_and_names_the_kp_as_filer(
     editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_editor: User
 ):
     """One live report (23.11.2026): the KP's «Einsatz relevant?» files the crew's open draft too.
 
     The crew opened the link and is still typing; the KP hears «relevant» over the radio.
-    The board's answer files THE report – once, stamped now – and the crew stays its author.
+    The board's answer files THE report – once, stamped now – and the KP is its one filer
+    (Sol review G round 3, S2): bell, briefing, journal and PDF name the same person.
     """
     from datetime import UTC, datetime, timedelta
 
@@ -153,7 +154,7 @@ async def test_the_kp_answer_files_a_crew_draft_and_keeps_the_crews_byline(
     filed = await editor_client.patch(f"/api/reko/{crew_draft.id}?submit=false", json={"is_relevant": True})
     assert filed.status_code == 200, filed.text
     assert filed.json()["is_draft"] is False
-    assert filed.json()["submitted_by_personnel_id"] == str(person.id)
+    assert filed.json()["submitted_by_personnel_id"] is None
     assert datetime.fromisoformat(filed.json()["submitted_at"]) > datetime.now(UTC) - timedelta(minutes=1)
     assert await _reko_bells(db_session, incident_id) == 1
 

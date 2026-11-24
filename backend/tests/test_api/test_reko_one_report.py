@@ -253,3 +253,69 @@ async def test_a_crew_filing_names_the_person_who_filed(
         db_session, opened.id, schemas.RekoReportUpdate(is_relevant=True), author=RekoAuthor.feld(filer.id), submit=True
     )
     assert (report.submitted_by_personnel_id, report.submitted_by_user_id) == (filer.id, None)
+
+
+async def test_a_kp_filing_of_a_crew_draft_names_the_kp_everywhere(
+    db_session: AsyncSession, test_event: Event, incident_id: UUID, test_personnel: Personnel, test_admin: User
+):
+    # Sol review G round 3, S2: the crew opens the draft, the KP files it – exactly one filer.
+    from app import schemas
+    from app.crud import reko as crud
+    from app.crud.feld.briefings import _reko_briefings
+    from app.models import JournalEntry
+    from app.services.audit_export_service import collect_event_report_data
+    from app.services.rapport_rows import reko_filing_lines
+    from app.services.reko_history import RekoAuthor
+
+    opened = await crud.get_or_create_reko_report(
+        db_session, incident_id, generate_form_token(str(incident_id), "reko"), test_personnel.id
+    )
+    report, filed_now = await crud.update_reko_report(
+        db_session, opened.id, schemas.RekoReportUpdate(is_relevant=True), author=RekoAuthor.kp(test_admin), submit=True
+    )
+    assert filed_now
+    assert (report.submitted_by_user_id, report.submitted_by_personnel_id) == (test_admin.id, None)
+    incident = await db_session.get(Incident, incident_id)
+    assert incident is not None
+    await crud.process_reko_submission(db_session, incident, report)
+    await db_session.commit()
+
+    kp_name = test_admin.display_name or test_admin.username
+    [bell] = (
+        await db_session.execute(
+            select(Notification).where(Notification.incident_id == incident_id, Notification.type == "reko_submitted")
+        )
+    ).scalars()
+    assert f"von {kp_name}" in bell.message and test_personnel.name not in bell.message
+    assert (await _reko_briefings(db_session, [incident_id]))[incident_id]["submitted_by_name"] is None
+    [journal] = (
+        await db_session.execute(
+            select(JournalEntry).where(JournalEntry.incident_id == incident_id, JournalEntry.kind == "reko")
+        )
+    ).scalars()
+    assert journal.author_name == kp_name
+    data = await collect_event_report_data(db_session, test_event.id)
+    [line] = reko_filing_lines(data, next(r for r in data.reko_reports if r.id == report.id))
+    assert line.startswith(f"Erfasst im KP durch {kp_name}")
+
+
+async def test_the_journal_names_the_kp_user_who_filed_not_who_opened(
+    db_session: AsyncSession, incident_id: UUID, test_editor: User, test_admin: User
+):
+    # S2: operator A opens the draft, operator B files – the Einsatzjournal names B.
+    from app import schemas
+    from app.crud import reko as crud
+    from app.models import JournalEntry
+    from app.services.reko_history import RekoAuthor
+
+    opened = await crud.get_or_create_kp_reko_report(db_session, incident_id, test_editor)
+    await crud.update_reko_report(
+        db_session, opened.id, schemas.RekoReportUpdate(is_relevant=True), author=RekoAuthor.kp(test_admin), submit=True
+    )
+    await db_session.commit()
+    [journal] = (
+        await db_session.execute(
+            select(JournalEntry).where(JournalEntry.incident_id == incident_id, JournalEntry.kind == "reko")
+        )
+    ).scalars()
+    assert journal.author_name == (test_admin.display_name or test_admin.username)

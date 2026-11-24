@@ -266,7 +266,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
         }
 
         // The incident's one report, as the person this link names left it on this phone.
-        const store = new ReportDrafts(data.id, personnelId)
+        const store = new ReportDrafts(data.id, personnelId, token)
         const serverData = toRekoFormData(data)
         setDrafts(store)
         setSyncedData(serverData)
@@ -341,14 +341,20 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
    * The server answered the save that carried `form`. Its report – the KP's edits since
    * included – becomes the baseline and the form, with what the crew typed while the save
    * was on its way laid over it (the board's rule, `use-reko-autosave`; Sol review G round 2,
-   * S2). The photo list stays the form's own: upload and delete answers feed it.
+   * S2). The photo list is the server's too – the KP's uploads and deletes arrive – with the
+   * uploads and deletes this phone finished while the save was out laid over it (round 3, S4).
    */
   function acknowledged(form: RekoFormData, sent: StoredRevision | null | undefined, report: ApiRekoReportResponse) {
     const server = toRekoFormData(report)
-    setFormData(current => ({
-      ...applyDraft(server, changedFields(form, current)),
-      photos_json: current.photos_json,
-    }))
+    setFormData(current => {
+      const removed = form.photos_json.filter(filename => !current.photos_json.includes(filename))
+      const added = current.photos_json.filter(filename =>
+        !form.photos_json.includes(filename) && !server.photos_json.includes(filename))
+      return {
+        ...applyDraft(server, changedFields(form, current)),
+        photos_json: [...server.photos_json.filter(filename => !removed.includes(filename)), ...added],
+      }
+    })
     // The request may finish after the component unmounts, when no effect can do this.
     // Retire the exact revision sent; a later keystroke already has its own storage key.
     if (sent) {

@@ -70,7 +70,8 @@ async def get_or_create_reko_report(
 
     The person is stamped while the report has no person and is not filed yet: the crew
     that files it is who the outputs name («Erfasst von …»), also when the KP opened the
-    row first («Reko vor Ort» over the radio). A report already filed keeps its author;
+    row first («Reko vor Ort» over the radio). If the KP files it instead, the KP is the
+    filer (`update_reko_report`). A report already filed keeps its author;
     each edit names its own in the Chronik (`reko_history`).
 
     Raises:
@@ -100,9 +101,9 @@ async def get_or_create_kp_reko_report(
 
     No link, so nobody to resolve: a report the board creates carries the operator in
     ``created_by_user_id`` and no personnel (decision 6) – what an editor files is a radio
-    message they transcribed. A report the crew created is edited in place and keeps its
-    ``submitted_by_personnel_id``; ``update_reko_report`` adds the operator as
-    ``updated_by_user_id``.
+    message they transcribed. A report the crew created is edited in place: a filed one keeps
+    its ``submitted_by_personnel_id`` and ``update_reko_report`` adds the operator as
+    ``updated_by_user_id``; a crew draft the KP files names the KP as its filer instead.
 
     The row still gets a real form token: ``token`` is NOT NULL. It is never handed out.
 
@@ -142,8 +143,9 @@ async def update_reko_report(
             nothing else, so a crew-filed report keeps its ``submitted_by_personnel_id``
             (§5.3). Every field that moved gets its Chronik row (`reko_history`).
         submit: If True, files a draft (no-op on a filed report). The filing names its
-            author: ``submitted_by_user_id`` for the KP, ``submitted_by_personnel_id`` (when
-            the link names a person) for the field – not whoever opened the draft (S4).
+            author and only its author: ``submitted_by_user_id`` for the KP (the crew's
+            person is cleared), ``submitted_by_personnel_id`` (when the link names a
+            person) for the field (the KP user is cleared) – not whoever opened the draft.
 
     Returns:
         The report, and whether THIS write filed it (draft → filed, read under the row
@@ -181,8 +183,14 @@ async def update_reko_report(
     if filed_now:
         report.is_draft = False
         report.submitted_at = now
+        # Exactly one filer: bell, field briefing, journal and PDF all read this pair, so
+        # the side that did not file is cleared (Sol review G round 3, S2). A link that
+        # names nobody keeps the person stamped when the draft opened – the crew's best
+        # name – but never the KP's.
         report.submitted_by_user_id = author.user_id
-        if author.personnel_id is not None:
+        if author.user_id is not None:
+            report.submitted_by_personnel_id = None
+        elif author.personnel_id is not None:
             report.submitted_by_personnel_id = author.personnel_id
 
     if author.user_id is not None:
@@ -480,11 +488,14 @@ async def process_reko_submission(
 
     # Create notification
     if incident.event_id:
+        # The filer: one side of the pair is set (`update_reko_report`).
         submitted_by_name = None
         if report.submitted_by_personnel_id:
             await db.refresh(report, ["submitted_by_personnel"])
             if report.submitted_by_personnel:
                 submitted_by_name = report.submitted_by_personnel.name
+        elif report.submitted_by_user_id and (filer := await db.get(User, report.submitted_by_user_id)):
+            submitted_by_name = filer.display_name or filer.username
 
         # Keys, not labels: the bell names them in the operator's language, and the
         # German sentence maps them itself (`notification_params.DANGER_LABELS_DE`).

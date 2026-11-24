@@ -18,7 +18,11 @@ vi.mock('next/navigation', () => ({
 const getRekoForm = vi.hoisted(() => vi.fn())
 const saveRekoDraft = vi.hoisted(() => vi.fn())
 const submitRekoReport = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api-client', () => ({ apiClient: { getRekoForm, saveRekoDraft, submitRekoReport } }))
+const uploadRekoPhoto = vi.hoisted(() => vi.fn())
+const deleteRekoPhoto = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/api-client', () => ({
+  apiClient: { getRekoForm, saveRekoDraft, submitRekoReport, uploadRekoPhoto, deleteRekoPhoto },
+}))
 const toast = vi.hoisted(() => ({ error: vi.fn(), info: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
 const unmutedToast = vi.hoisted(() => vi.fn())
@@ -56,6 +60,11 @@ describe('RekoForm — a dead link', () => {
     expect(screen.queryByRole('heading', { name: 'Link ungültig oder abgelaufen' })).toBeNull()
   })
 })
+
+/** A form link as the server mints it (only its `jti` matters here; the signature is not read). */
+function formLink(jti: string): string {
+  return `header.${btoa(JSON.stringify({ type: 'reko_form', jti }))}.signature`
+}
 
 describe('field report autosave', () => {
   /** The report as the server has it: what the last form load returned, each save on top. */
@@ -211,18 +220,19 @@ describe('field report autosave', () => {
 
   it('keeps an offline draft when the server also edited that field, until the crew chooses', async () => {
     vi.useFakeTimers()
-    localStorage.setItem('reko-report-draft-report-a@link/offline', JSON.stringify({
+    const link = formLink('jti-a')
+    localStorage.setItem('reko-report-draft-report-a@link-jti-a/offline', JSON.stringify({
       previous: { summary_text: 'Alter Stand' }, changes: { summary_text: 'Notizen vom Gerät' },
     }))
-    await openReport('link-a', 'report-a')
+    await openReport(link, 'report-a')
     await tick()
     expect(saveRekoDraft).not.toHaveBeenCalled()
-    expect(localStorage.getItem('reko-report-draft-report-a@link/offline')).toContain('Notizen vom Gerät')
+    expect(localStorage.getItem('reko-report-draft-report-a@link-jti-a/offline')).toContain('Notizen vom Gerät')
     fireEvent.click(screen.getByRole('button', { name: 'Entwurf vom Gerät verwenden' }))
     expect(screen.getByDisplayValue('Notizen vom Gerät')).toBeInTheDocument()
     await tick()
-    expect(saveRekoDraft).toHaveBeenCalledWith('same-incident', 'link-a', { summary_text: 'Notizen vom Gerät' })
-    expect(localStorage.getItem('reko-report-draft-report-a@link/offline')).toBeNull()
+    expect(saveRekoDraft).toHaveBeenCalledWith('same-incident', link, { summary_text: 'Notizen vom Gerät' })
+    expect(localStorage.getItem('reko-report-draft-report-a@link-jti-a/offline')).toBeNull()
   })
 
   it('recovers only this report’s edits and sends only changed fields once', async () => {
@@ -259,6 +269,22 @@ describe('field report autosave', () => {
     expect(screen.getByDisplayValue('Notiz von A')).toBeInTheDocument()
   })
 
+  // Round 3, S3: two links that name nobody, issued apart, are two people – keyed by the link's
+  // `jti`, never by the token itself.
+  it('does not restore what another unnamed link left unsent on this phone', async () => {
+    vi.useFakeTimers()
+    const first = await openReport(formLink('jti-a'), 'report-a')
+    fireEvent.change(screen.getByDisplayValue('Vom KP erfasst'), { target: { value: 'Notiz über Link A' } })
+    first.unmount()
+    expect(Object.keys(localStorage).every(key => !key.includes(formLink('jti-a')))).toBe(true)
+    const next = await openReport(formLink('jti-b'), 'report-a')
+    expect(screen.getByDisplayValue('Vom KP erfasst')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Entwurf vom Gerät verwenden' })).toBeNull()
+    next.unmount()
+    await openReport(formLink('jti-a'), 'report-a')
+    expect(screen.getByDisplayValue('Notiz über Link A')).toBeInTheDocument()
+  })
+
   // S2: the KP edits the same report – a save's answer brings that in, unsent typing stays.
   it('takes the KP’s edits from a save’s answer and keeps what is typed meanwhile', async () => {
     vi.useFakeTimers()
@@ -275,6 +301,50 @@ describe('field report autosave', () => {
     expect(screen.getByDisplayValue('C')).toBeInTheDocument()
     await tick()
     expect(saveRekoDraft).toHaveBeenLastCalledWith('same-incident', 'link-a', { summary_text: 'C' })
+  })
+
+  // Round 3, S4: the KP's photo changes arrive with a save's answer; what this phone uploaded
+  // or deleted while that save was out stays.
+  it('takes the photo list from a save’s answer and keeps photo changes made meanwhile', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 10, height: 10, close() {} })))
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage() {} } as unknown as CanvasRenderingContext2D)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(cb => cb(new Blob(['x'])))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:neu')
+    try {
+      const view = await openReport('link-a', 'report-a', 'A')
+      row = { ...row, photos_json: ['eigen.jpg', 'weg-kp.jpg'] }
+      view.unmount()
+      getRekoForm.mockResolvedValueOnce(row)
+      const { container } = renderWithIntl(<RekoForm />)
+      await act(async () => {})
+      let acknowledge!: () => void
+      saveRekoDraft.mockImplementationOnce((...args: Parameters<typeof serverAnswer>) =>
+        new Promise(resolve => { acknowledge = () => resolve(serverAnswer(...args)) }))
+      fireEvent.change(screen.getByDisplayValue('A'), { target: { value: 'B' } })
+      await tick()
+      // While the save is out: this phone deletes one photo and uploads another; the KP deletes
+      // one and adds one – the answer was read before this phone's two landed.
+      deleteRekoPhoto.mockResolvedValueOnce(undefined)
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Foto 1 verwerfen' })) })
+      uploadRekoPhoto.mockResolvedValueOnce({ filename: 'neu.jpg' })
+      const input = container.querySelector('input[type="file"]:not([capture])') as HTMLInputElement
+      await act(async () => {
+        fireEvent.change(input, { target: { files: [new File(['x'], 'neu.png', { type: 'image/png' })] } })
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      row = { ...row, photos_json: ['eigen.jpg', 'kp.jpg'] }
+      await act(async () => { acknowledge() })
+      // A server photo by its name in the link's URL; this phone's upload by its local preview.
+      const shown = screen.getAllByRole('img', { name: /^Foto \d+$/ }).map(img => {
+        const src = decodeURIComponent(img.getAttribute('src') ?? '')
+        return src.match(/photos\/same-incident\/([^?]+)/)?.[1] ?? src
+      })
+      expect(shown).toEqual(['kp.jpg', 'blob:neu'])
+    } finally {
+      vi.unstubAllGlobals()
+      vi.restoreAllMocks()
+    }
   })
 
   // S3: the /reko page has no incident surface around it – the form brings its own viewer.

@@ -464,7 +464,9 @@ class _Collector:
         if obj.submitted_by_personnel_id:
             person = self.session.get(Personnel, obj.submitted_by_personnel_id)
             author = person.name if person else None
-        author = author or self.user_name(obj.created_by_user_id)
+        # The filer (`update_reko_report` keeps one side); a filing before that column
+        # existed names the opener.
+        author = author or self.user_name(obj.submitted_by_user_id or obj.created_by_user_id)
         self.add(
             key=f"reko:{obj.id}:{ms(obj.submitted_at)}",
             kind="reko",
