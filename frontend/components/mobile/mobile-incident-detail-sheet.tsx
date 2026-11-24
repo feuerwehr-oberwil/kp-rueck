@@ -52,6 +52,9 @@ interface MobileIncidentDetailSheetProps {
   onOpenChange: (open: boolean) => void
   materials: Material[]
   formatLocation: (address: string) => string
+  /** Opened ON the Lagekarte: «Auf Karte anzeigen» closes the sheet and the map flies to the
+   *  marker (the caller does both). Without it the button goes to `/map?highlight=`. */
+  onShowOnMap?: (incidentId: string) => void
 }
 
 export function MobileIncidentDetailSheet({
@@ -60,6 +63,7 @@ export function MobileIncidentDetailSheet({
   onOpenChange,
   materials,
   formatLocation,
+  onShowOnMap,
 }: MobileIncidentDetailSheetProps) {
   const t = useTranslations('incidents')
   const tColumns = useTranslations('kanban.columns')
@@ -333,12 +337,19 @@ export function MobileIncidentDetailSheet({
         {/* The one way on from here, in the foot that stays: never on the screen's edge,
             never scrolled away. The same foot frame as «Neuer Einsatz». */}
         <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
-          <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
-            <Button variant="outline" size="lg" className="w-full gap-2">
+          {onShowOnMap ? (
+            <Button variant="outline" size="lg" className="w-full gap-2" onClick={() => onShowOnMap(operation.id)}>
               <MapIcon className="h-4 w-4" />
               {t('mobileDetail.showOnMap')}
             </Button>
-          </Link>
+          ) : (
+            <Link href={`/map?highlight=${operation.id}`} onClick={() => onOpenChange(false)}>
+              <Button variant="outline" size="lg" className="w-full gap-2">
+                <MapIcon className="h-4 w-4" />
+                {t('mobileDetail.showOnMap')}
+              </Button>
+            </Link>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>

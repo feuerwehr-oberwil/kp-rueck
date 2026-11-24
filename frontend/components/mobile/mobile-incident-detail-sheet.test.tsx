@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { Material, Operation } from '@/lib/contexts/operations-context'
 
@@ -64,5 +64,30 @@ describe('the phone Einsatz sheet is read-only', () => {
   it('makes the Melder one tel: link', () => {
     renderSheet()
     expect(screen.getByRole('link', { name: 'Muster Anna · 061 111 11 11' })).toHaveAttribute('href', 'tel:0611111111')
+  })
+})
+
+// Opened on the Lagekarte, «Auf Karte anzeigen» linked to the page it was on (sweep 24.11.2026).
+describe('«Auf Karte anzeigen»', () => {
+  it('goes to the Lagekarte from the board', () => {
+    renderSheet()
+    expect(screen.getByRole('link', { name: 'Auf Karte anzeigen' })).toHaveAttribute('href', '/map?highlight=incident-1')
+  })
+
+  it('hands the Einsatz back to the Lagekarte it was opened on, without a link', () => {
+    const onShowOnMap = vi.fn()
+    renderWithIntl(
+      <MobileIncidentDetailSheet
+        operation={OPERATION}
+        open
+        onOpenChange={vi.fn()}
+        onShowOnMap={onShowOnMap}
+        materials={[] as Material[]}
+        formatLocation={(a) => a}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: 'Auf Karte anzeigen' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Auf Karte anzeigen' }))
+    expect(onShowOnMap).toHaveBeenCalledWith('incident-1')
   })
 })

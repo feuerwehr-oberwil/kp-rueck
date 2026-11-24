@@ -29,6 +29,7 @@ import { BaseMap } from "@/components/map/base-map"
 import { DEFAULT_CENTER_LATLNG, type LatLngPoint } from "@/lib/map-view"
 import { MAP_INK } from "@/lib/map-colors"
 import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from "@/components/ui/surface-step"
+import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 import { cn } from "@/lib/utils"
 
 /** `[lat, lon]`, the order every caller of this picker speaks. MapLibre wants them the other way. */
@@ -71,7 +72,10 @@ export function MapPickerModal({
   onLocationSelect,
 }: MapPickerModalProps) {
   const t = useTranslations('map')
-  const surface = useOpenSurface()
+  // A step on the phone too: the «Neuer Einsatz» sheet registers itself as a surface.
+  const surface = useOpenSurface({ phone: true })
+  // «Tippe» under a finger, «Klicke» with a mouse.
+  const description = usePointerFine() ? t('mapPicker.description') : t('mapPicker.descriptionTouch')
   const [selectedLat, setSelectedLat] = useState<number | null>(initialLat ?? null)
   const [selectedLon, setSelectedLon] = useState<number | null>(initialLon ?? null)
   const [isGeocoding, setIsGeocoding] = useState(false)
@@ -229,7 +233,16 @@ export function MapPickerModal({
         the LEFT and its confirm FIRST, so the one button an operator aims at
         sat where every other dialog in the app puts «Abbrechen». Cancel
         left, confirm right, right-aligned — the primitive's order. */}
-    <DialogFooter className={cn("flex-shrink-0 border-t", surface ? "px-5 py-3" : "pt-4")}>
+    {/* In the phone sheet the foot is the sheet's own (new-emergency-modal.tsx): two equal
+        44px buttons in one row, above the home indicator. */}
+    <DialogFooter
+      className={cn(
+        "flex-shrink-0 border-t",
+        surface
+          ? "px-5 py-3 max-md:flex-row max-md:px-4 max-md:pb-sheet-safe max-md:[&>button]:min-h-11 max-md:[&>button]:flex-1"
+          : "pt-4",
+      )}
+    >
       {surface && <SurfaceStepEscHint host={surface} />}
       <Button variant="outline" onClick={() => onOpenChange(false)}>
         {t('mapPicker.cancel')}
@@ -245,12 +258,13 @@ export function MapPickerModal({
     </>
   )
 
-  // Opened from a work surface (Neuer Einsatz, Einsatz-Detail): a step inside it, the map
-  // filling the surface (owner pick 5A). Elsewhere an M window – a map needs the width.
+  // Opened from a work surface (Neuer Einsatz – the phone sheet as well – or the Einsatz-Detail):
+  // a step inside it, the map filling the surface (owner pick 5A). Elsewhere an M window – a map
+  // needs the width.
   if (surface) {
     if (!open) return null
     return (
-      <SurfaceStep host={surface} title={t('mapPicker.title')} description={t('mapPicker.description')} onBack={() => onOpenChange(false)}>
+      <SurfaceStep host={surface} title={t('mapPicker.title')} description={description} onBack={() => onOpenChange(false)}>
         {content}
       </SurfaceStep>
     )
@@ -265,7 +279,7 @@ export function MapPickerModal({
             {t('mapPicker.title')}
           </DialogTitle>
           <DialogDescription>
-            {t('mapPicker.description')}
+            {description}
           </DialogDescription>
         </DialogHeader>
         {content}

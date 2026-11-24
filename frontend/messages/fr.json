@@ -1514,7 +1514,8 @@
       "meldung": "Annonce",
       "crew": "Effectif",
       "vehicles": "Véhicules",
-      "reko": "Reconnaissance"
+      "reko": "Reconnaissance",
+      "openDetail": "Afficher les détails : {incident}"
     },
     "mobileDetail": {
       "rekoBadge": "Reco",
@@ -2733,6 +2734,7 @@
     "mapPicker": {
       "title": "Choisir le lieu d’intervention sur la carte",
       "description": "Clique sur la carte pour marquer le lieu d’intervention",
+      "descriptionTouch": "Touche la carte pour marquer le lieu d’intervention",
       "searchingAddress": "Recherche de l’adresse …",
       "noAddress": "Aucune adresse trouvée",
       "confirm": "Reprendre le lieu",

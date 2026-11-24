@@ -1,12 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+
+const viewport = vi.hoisted(() => ({ mobile: false }))
+vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => viewport.mobile }))
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { PickerDialog } from '@/components/ui/picker-dialog'
 import { Button } from '@/components/ui/button'
-import { SurfaceStep, useOpeningSurface } from '@/components/ui/surface-step'
+import { SurfaceStep, useOpenSurface, useOpeningSurface } from '@/components/ui/surface-step'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 
 /** «Fahrzeuge zuweisen» open, and a Fahrer picker mounted OUTSIDE its tree – the driver
  *  prompt lives in the root layout. */
@@ -159,5 +163,35 @@ describe('an assignment opened from the Einsatz-Detail («Schritt im Detail»)',
     renderWithIntl(<Detail withDetail={false} />)
     expect(screen.getByRole('dialog')).toHaveAttribute('data-size', 'lg')
     expect(screen.queryByRole('button', { name: 'Zurück' })).not.toBeInTheDocument()
+  })
+})
+
+/** Who sees the open surface on a phone: only a window that asks with `phone: true`. */
+function PhoneProbe() {
+  const desk = useOpenSurface()
+  const phone = useOpenSurface({ phone: true })
+  return <p>{`desk:${desk?.name ?? '-'} phone:${phone?.name ?? '-'}`}</p>
+}
+
+// The map picker over the phone's «Neuer Einsatz» sheet (phone sweep 24.11.2026); every
+// other step-capable window stays its own phone sheet.
+describe('a surface on a phone', () => {
+  it('is open only for a window that asks with `phone: true`', () => {
+    viewport.mobile = true
+    try {
+      renderWithIntl(
+        <>
+          <Sheet open>
+            <SheetContent side="bottom" surface="Neuer Einsatz" aria-describedby={undefined}>
+              <SheetTitle>Neuer Einsatz</SheetTitle>
+            </SheetContent>
+          </Sheet>
+          <PhoneProbe />
+        </>,
+      )
+      expect(screen.getByText('desk:- phone:Neuer Einsatz')).toBeInTheDocument()
+    } finally {
+      viewport.mobile = false
+    }
   })
 })
