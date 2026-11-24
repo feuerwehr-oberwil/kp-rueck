@@ -580,7 +580,7 @@ export function IncidentDetailModal({
                   // to-do, not a report, and nobody operates this screen.
                   canEdit={false}
                   hasRapport={operation.hasSchadenplatzRapport}
-                  activeMaterialIds={operation.materials}
+                  activeAssignmentIds={[...operation.materialAssignments.values()]}
                   applies={rapportApplies({
                     hasBeenDispatched: operation.hasBeenDispatched,
                     status: operation.status,

@@ -14,13 +14,16 @@
  * against a checklist somebody is still filling in is how a pump gets freed while it runs
  * in a cellar. `release` takes the assignment ids to free from the caller, which drops
  * whatever the form marks «vor Ort» right now – so a tick the autosave has not reached
- * the server yet can never be released.
+ * the server yet can never be released. `loading` stays true until the set answers for
+ * the latest `refreshKey` (i.e. the latest filed save); the caller keeps the button
+ * disabled until then and while its own edits are unsaved, so a set from before an
+ * edit is never clicked (Sol review round 2).
  *
  * Used by `SchadenplatzRapportSection` (editor + filed rapport only); it bumps
  * `refreshKey` whenever a save files the rapport.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
@@ -31,6 +34,8 @@ import { useOperations } from '@/lib/contexts/operations-context'
 export interface MaterialRelease {
   /** The server's release set, before the caller drops what the form marks «vor Ort». */
   units: ApiMaterialReturnUnit[]
+  /** The set has not answered for the latest save yet – do not offer it. */
+  loading: boolean
   releasing: boolean
   /** Release exactly these assignments, one board release each, then reload. */
   release: (assignmentIds: readonly string[]) => Promise<void>
@@ -43,21 +48,32 @@ export function useMaterialRelease(
   const t = useTranslations('feld.materialReturn')
   const { refreshOperations } = useOperations()
   const [units, setUnits] = useState<ApiMaterialReturnUnit[]>([])
+  // The refreshKey the current `units` answer for; only the latest request may set it.
+  const [loadedFor, setLoadedFor] = useState<number | null>(null)
+  const latest = useRef(0)
   const [releasing, setReleasing] = useState(false)
 
-  const load = useCallback(async () => {
-    try {
-      setUnits((await apiClient.getRapportMaterialReturn(incidentId)).returned)
-    } catch (error) {
-      console.error('Failed to load material return list:', error)
-      setUnits([])
-    }
-  }, [incidentId])
+  const load = useCallback(
+    async (key: number) => {
+      latest.current = key
+      let next: ApiMaterialReturnUnit[] = []
+      try {
+        next = (await apiClient.getRapportMaterialReturn(incidentId)).returned
+      } catch (error) {
+        console.error('Failed to load material return list:', error)
+      }
+      // An older request answering late must not overwrite a newer one.
+      if (latest.current !== key) return
+      setUnits(next)
+      setLoadedFor(key)
+    },
+    [incidentId],
+  )
 
   // Not before a rapport is filed: the set is empty for a draft, and the detail mounts
   // this with every opening – a request that can only answer «nothing».
   useEffect(() => {
-    if (enabled) void load()
+    if (enabled) void load(refreshKey)
   }, [enabled, load, refreshKey])
 
   const release = useCallback(
@@ -74,12 +90,12 @@ export function useMaterialRelease(
         console.error('Failed to release returned material:', error)
         toast.error(t('releaseFailed'))
       } finally {
-        await load()
+        await load(latest.current)
         setReleasing(false)
       }
     },
     [incidentId, load, refreshOperations, t],
   )
 
-  return { units: enabled ? units : [], releasing, release }
+  return { units: enabled ? units : [], loading: enabled && loadedFor !== refreshKey, releasing, release }
 }

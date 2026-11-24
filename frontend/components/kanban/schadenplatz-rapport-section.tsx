@@ -41,9 +41,9 @@ interface SchadenplatzRapportSectionProps {
    *  an empty form nobody can fill in meaningfully. Computed by the caller
    *  through `rapportApplies`, which never hides an already-filed rapport. */
   applies?: boolean
-  /** Material ids the board still has assigned here (`operation.materials`): tells a unit
-   *  still «vor Ort» from one collected since. */
-  activeMaterialIds?: readonly string[]
+  /** The material assignments the board still has open here (`operation.materialAssignments`):
+   *  tells a unit still «vor Ort» from one collected since. */
+  activeAssignmentIds?: readonly string[]
   /** Passed straight to the form: put the cursor in the Kurzbericht when the
    *  operator was sent here to write it (Offene Rapporte, a notification). */
   autoFocusKurzbericht?: boolean
@@ -55,7 +55,7 @@ export function SchadenplatzRapportSection({
   hasRapport = false,
   applies = true,
   boxed = true,
-  activeMaterialIds,
+  activeAssignmentIds,
   autoFocusKurzbericht,
 }: SchadenplatzRapportSectionProps) {
   const t = useTranslations('feld.rapport')
@@ -67,6 +67,16 @@ export function SchadenplatzRapportSection({
   // The board's flag counts too: a rapport filed on /feld while this detail is open
   // arrives as `hasRapport` flipping, not as a save here.
   const filed = savedFiled || hasRapport
+  // …and the form loaded before that filing shows none of it (Sol review round 2). Reload it
+  // – a new mount restores unsaved KP text from its local draft – but only for a filing from
+  // OUTSIDE: our own first save flips the flag too, and must not yank the caret.
+  // Adjusted during render (no effect): React's pattern for state derived from a prop change.
+  const [seenHasRapport, setSeenHasRapport] = useState(hasRapport)
+  const [formGeneration, setFormGeneration] = useState(0)
+  if (hasRapport !== seenHasRapport) {
+    setSeenHasRapport(hasRapport)
+    if (hasRapport && !savedFiled) setFormGeneration(generation => generation + 1)
+  }
 
   const transport: RapportTransport = useMemo(
     () => ({
@@ -131,6 +141,7 @@ export function SchadenplatzRapportSection({
         // form's own blocks are boxes too — three borders around one form.
         <div className={cn(boxed && "rounded-lg border border-border p-4")}>
           <FeldRapportForm
+            key={formGeneration}
             incidentId={incidentId}
             transport={transport}
             mount="kp"
@@ -138,7 +149,7 @@ export function SchadenplatzRapportSection({
             onSaved={handleSaved}
             autoFocusKurzbericht={autoFocusKurzbericht}
             materialRelease={canEdit ? release : undefined}
-            activeMaterialIds={activeMaterialIds}
+            activeAssignmentIds={activeAssignmentIds}
           />
         </div>
       )}

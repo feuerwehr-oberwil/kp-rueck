@@ -560,8 +560,8 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
         incidentId="inc-1"
         transport={{ load, save: vi.fn(() => new Promise<never>(() => {})) }}
         mount="kp"
-        activeMaterialIds={['m-pump']}
-        materialRelease={{ units: [releaseUnit], releasing: false, release }}
+        activeAssignmentIds={['a-pump']}
+        materialRelease={{ units: [releaseUnit], loading: false, releasing: false, release }}
       />,
     )
 
@@ -588,7 +588,7 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
       }),
     )
     renderWithIntl(
-      <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" activeMaterialIds={['m-gen']} />,
+      <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" activeAssignmentIds={['a-gen']} />,
     )
 
     // Open by itself: the Generator is still out there.
@@ -599,4 +599,33 @@ describe('the KP Material block (Feld-tab pick 1A, 24.11.2026)', () => {
     expect(within(back).getByText('abgeholt')).toBeInTheDocument()
     expect(screen.getByText('2 Positionen · 1 vor Ort')).toBeInTheDocument()
   })
+
+  it('keeps «Geräte freigeben» disabled while the set is still loading for the latest save', async () => {
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [pump] }))
+    renderWithIntl(
+      <FeldRapportForm
+        incidentId="inc-1"
+        transport={{ load, save: vi.fn() }}
+        mount="kp"
+        activeAssignmentIds={['a-pump']}
+        materialRelease={{ units: [releaseUnit], loading: true, releasing: false, release: vi.fn() }}
+      />,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /^Material/ }))
+    expect(screen.getByRole('button', { name: /1 Gerät freigeben/ })).toBeDisabled()
+  })
+
+  it('reads a pump assigned here again after its collection as back, not on site', async () => {
+    // Same material, new assignment: the old row's «vor Ort» is history.
+    const load = vi.fn().mockResolvedValue(rapport({ exists: true, is_draft: false, materials: [{ ...pump, left_on_site: true }] }))
+    renderWithIntl(
+      <FeldRapportForm incidentId="inc-1" transport={{ load, save: vi.fn() }} mount="kp" activeAssignmentIds={['a-pump-2']} />,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /^Material/ }))
+    expect(screen.queryByRole('list', { name: 'Noch vor Ort' })).not.toBeInTheDocument()
+    expect(screen.getByText('abgeholt')).toBeInTheDocument()
+  })
 })
+

@@ -126,9 +126,9 @@ interface FeldRapportFormProps {
    *  unit its current answers keep «vor Ort» and shows the rest as «N Geräte freigeben»
    *  under «Zurück». Omitted on /feld and for a read-only mount. */
   materialRelease?: MaterialRelease
-  /** KP only: material ids the board still has assigned here (`operation.materials`). A unit
-   *  marked «vor Ort» whose assignment is gone was collected («Abgeholt») and reads as back. */
-  activeMaterialIds?: readonly string[]
+  /** KP only: the material assignments the board still has open here. A unit marked «vor
+   *  Ort» whose assignment is closed was collected («Abgeholt») and reads as back. */
+  activeAssignmentIds?: readonly string[]
 }
 
 const AUTOSAVE_MS = 30000
@@ -246,7 +246,7 @@ function RapportSection({
   )
 }
 
-export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal, materialRelease, activeMaterialIds }: FeldRapportFormProps) {
+export function FeldRapportForm({ incidentId, transport, mount = 'feld', disabled, onSaved, autoFocusKurzbericht, focusKurzberichtSignal, materialRelease, activeAssignmentIds }: FeldRapportFormProps) {
   const t = useTranslations('feld.rapport')
   const tLoading = useTranslations('common')
   const isKp = mount === 'kp'
@@ -645,9 +645,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   const materialCount =
     formData.materials.filter(row => row.used || row.left_on_site).length + formData.extra_materials.length
   // Plain values, no memo: this runs after the load's early return, where a hook may not.
-  const activeMaterials = activeMaterialIds ? new Set(activeMaterialIds) : undefined
+  const activeAssignments = activeAssignmentIds ? new Set(activeAssignmentIds) : undefined
   const materialOnSite =
-    formData.materials.filter(row => unitStillOnSite(row, activeMaterials)).length +
+    formData.materials.filter(row => unitStillOnSite(row, activeAssignments)).length +
     formData.extra_materials.filter(entry => entry.left_on_site).length
   // The server's release set minus what the form keeps on site RIGHT NOW: a «vor Ort» tick
   // the autosave has not delivered yet must never be released (Sol review, 24.11.2026).
@@ -839,11 +839,14 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
           onExtraMaterialsChange={entries => update('extra_materials', entries)}
           // The KP reads the list by state: what is still on site, what came back.
           grouped={isKp}
-          activeMaterialIds={activeMaterials}
+          activeAssignmentIds={activeAssignments}
           releaseSlot={
             materialRelease && (
               <MaterialReleaseButton
                 units={releasable}
+                // Only against a set that answers for what is saved: no unsaved edit, no
+                // refetch outstanding (Sol review round 2).
+                disabled={dirty || materialRelease.loading}
                 releasing={materialRelease.releasing}
                 onRelease={() => void materialRelease.release(releasable.map(unit => unit.assignment_id))}
               />
