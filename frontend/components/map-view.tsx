@@ -1723,6 +1723,14 @@ export default function MapView({
     setOpenSpotKey(null)
     onMarkerClick?.(incidentId)
   }
+  // …and so does a selection made elsewhere (a search hit, the Abholung chip) of an Einsatz that is
+  // not in the open list. Set during render, React's pattern for state that follows another value.
+  const [spotSelection, setSpotSelection] = useState(selectedIncidentId)
+  if (spotSelection !== selectedIncidentId) {
+    setSpotSelection(selectedIncidentId)
+    const open = spots.find((spot) => spot.key === openSpotKey)
+    if (open && selectedIncidentId && !open.incidents.some((member) => member.id === selectedIncidentId)) setOpenSpotKey(null)
+  }
   const dockedSpot = compactMap
     ? spots.find((spot) => spot.key === openSpotKey && spot.incidents.length > 1 && !clusteredKeys.has(spot.key))
     : undefined

@@ -1015,9 +1015,12 @@ export default function MapPage() {
           id="map-search-hits"
           aria-label={t('page.searchHits')}
           // Ends inside the visible band (`--vv-*`, lib/viewport-insets.ts): iOS never shrinks the
-          // layout for the keyboard, so a `dvh` cap left the last hits under the keys. 9.5rem ≈
-          // the panel's own top (pill, gap, the 44px row, its 8px).
-          className="absolute inset-x-0 top-full mt-2 max-h-[min(20rem,calc(var(--vv-top,0px)+var(--vv-height,100dvh)-9.5rem))] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-lg"
+          // layout for the keyboard, so a `dvh` cap left the last hits under the keys. Its own top
+          // (layout px) is measured as it opens – a banner above the map moves it down.
+          ref={(list) => {
+            if (list) list.style.setProperty('--hits-top', `${list.getBoundingClientRect().top + window.scrollY}px`)
+          }}
+          className="absolute inset-x-0 top-full mt-2 max-h-[min(20rem,calc(var(--vv-top,0px)+var(--vv-height,100dvh)-var(--hits-top,9.5rem)-0.5rem))] overflow-y-auto overscroll-contain rounded-md border border-border bg-card p-1 shadow-lg"
         >
           {searchHits.map((incident) => (
             <li key={incident.id}>
