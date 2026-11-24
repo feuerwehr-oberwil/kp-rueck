@@ -329,8 +329,10 @@ export class FeldApi {
   }
 
   async getFeldAssignments(personnelId: string, token: string): Promise<ApiFeldAssignmentsResponse> {
+    // No transport toast: /feld says it itself («Keine Verbindung – Stand hh:mm», phone sweep 24.11.2026).
     return linkRequest<ApiFeldAssignmentsResponse>(
-      `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`
+      `/api/feld/assignments/${personnelId}?token=${encodeURIComponent(token)}`,
+      { skipToast: true },
     )
   }
 

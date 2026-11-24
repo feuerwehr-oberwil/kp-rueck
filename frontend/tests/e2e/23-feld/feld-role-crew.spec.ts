@@ -210,6 +210,13 @@ test.describe('/feld — die eigene Zuteilung (crew)', () => {
       // No form at all — not a folded one, not a disabled one.
       await expect(feld.kurzberichtField).toHaveCount(0);
       await expect(feld.submitRapportButton).toHaveCount(0);
+
+      // The phone's back gesture steps from the Schadenplatz to the list, not off /feld
+      // (phone sweep 24.11.2026). Walked here, not in a test of its own: the door's unlock budget.
+      await phone.goBack();
+      await expect(row).toBeVisible({ timeout: FIELD_TIMEOUT });
+      await expect(phone.getByRole('button', { name: 'Zurück' })).toHaveCount(0);
+      expect(new URL(phone.url()).pathname).toBe('/feld');
     } finally {
       await phone.context().close();
     }

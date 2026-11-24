@@ -841,6 +841,12 @@
     "accessRequired": "Accès requis",
     "missingCode": "Code d’accès manquant. Scanne le code QR.",
     "invalidCode": "Code non valable ou échu. Scanne à nouveau le code QR.",
+    "sync": {
+      "stale": "Pas de connexion – état de {time}",
+      "failedTitle": "Pas de connexion",
+      "failedBody": "Tes places sinistrées n’ont pas pu être chargées.",
+      "retry": "Réessayer"
+    },
     "picker": {
       "description": "Choisis-toi dans la liste – tu verras ensuite tes places sinistrées.",
       "searchPlaceholder": "Rechercher un nom …",
@@ -1153,6 +1159,8 @@
       "rekoReason": "Assigné en reconnaissance par le PC",
       "magazinReason": "Du matériel d'ici n'est pas encore rentré",
       "rekoAction": "Saisir la reco",
+      "rekoOpening": "Ouverture du formulaire de reco …",
+      "rekoOpenFailed": "Le formulaire de reco n’a pas pu être ouvert.",
       "rekoClosed": "Engagé sans reco – plus d'annonce nécessaire"
     },
     "access": {
@@ -1534,7 +1542,8 @@
       "meldung": "Annonce",
       "crew": "Effectif",
       "vehicles": "Véhicules",
-      "reko": "Reconnaissance"
+      "reko": "Reconnaissance",
+      "openDetail": "Afficher les détails : {incident}"
     },
     "mobileDetail": {
       "rekoBadge": "Reco",
@@ -1591,7 +1600,8 @@
       "invalidTitle": "Lien non valable ou échu",
       "invalidDescription": "Ce lien d’alarme n’est plus valable. Demande un nouveau lien.",
       "another": "Saisir une autre alarme",
-      "submitError": "L’alarme n’a pas été transmise – les données restent dans le formulaire.",
+      "submitError": "L’alarme n’est pas confirmée – les données restent dans le formulaire.",
+      "submitErrorHint": "Annonce-la au PC par radio ou par téléphone.",
       "title": "Saisir une alarme",
       "trainingMode": "Mode exercice",
       "messageLabel": "Annonce",
@@ -1624,7 +1634,7 @@
       "correct": "Corriger l’annonce",
       "correctSubmit": "Envoyer la correction",
       "correctCancel": "Annuler",
-      "correctError": "La correction n’a pas été transmise – les données restent dans le formulaire.",
+      "correctError": "La correction n’est pas confirmée – les données restent dans le formulaire.",
       "receiptTitle": "L'alarme est au PC",
       "receiptMeta": "{eventName} · {time}",
       "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel."
@@ -2696,7 +2706,6 @@
       "routePlanning": "Éditeur de mission",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
-      "modesMenuLabel": "Mode",
       "modes": "Mode"
     },
     "planning": {
@@ -2802,6 +2811,7 @@
     "mapPicker": {
       "title": "Choisir le lieu d’intervention sur la carte",
       "description": "Clique sur la carte pour marquer le lieu d’intervention",
+      "descriptionTouch": "Touche la carte pour marquer le lieu d’intervention",
       "searchingAddress": "Recherche de l’adresse …",
       "noAddress": "Aucune adresse trouvée",
       "confirm": "Reprendre le lieu",
