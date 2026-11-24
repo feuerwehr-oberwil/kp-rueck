@@ -19,8 +19,8 @@ import {
  * The two resource sidebars: Personal on the left, Material on the right.
  *
  * - Personal lists who is checked in, «Frei» above «Gebunden»; its search and
- *   «Nur Verfügbare» narrow the list, and a search that hides everybody says so
- *   and offers the way back.
+ *   «Filter & Sortierung» narrow the list, and a search that hides everybody says
+ *   so and offers the way back. The filter is remembered per browser.
  * - `[` and `]` fold the sidebars away, and the fold is per-device memory: a
  *   reload does not undo it.
  * - Identical devices in one depot are ONE row with a free/total count.
@@ -84,15 +84,30 @@ test('Personal: free above bound, and the search narrows — or says why nothing
   await expect(sidebar.getByTitle(bound.name, { exact: true })).toBeVisible();
 });
 
-test('Personal: «Nur Verfügbare» hides the bound, and toggles back', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
+test('Personal: «Filter & Sortierung» narrows by keyboard, survives a reload, and resets', { tag: '@smoke' }, async ({
+  authenticatedPage: page,
+}) => {
   const sidebar = personnelSidebar(page);
-  const toggle = sidebar.getByRole('button', { name: 'Nur Verfügbare zeigen' });
-  await toggle.click();
-  await expect(sidebar.getByRole('button', { name: 'Alle zeigen' })).toHaveAttribute('aria-pressed', 'true');
+  await sidebar.getByRole('button', { name: 'Filter & Sortierung' }).click();
+  const popover = page.getByRole('dialog').filter({ hasText: 'Filter & Sortierung' });
+  await popover.getByRole('group', { name: 'Status' }).getByRole('button', { name: /^Frei/ }).click();
+  await popover.getByRole('group', { name: 'Sortierung' }).getByRole('button', { name: 'Name' }).click();
+  await page.keyboard.press('Escape');
+  await expect(popover).toHaveCount(0);
+
+  // One filter on the button, the summary under the search, one flat list.
+  await expect(sidebar.getByRole('button', { name: 'Filter & Sortierung – 1 aktiv' })).toBeVisible();
+  await expect(sidebar).toContainText('Frei · nach Name');
+  await expect(sidebar.getByRole('heading', { name: 'Gefiltert · 1' })).toBeVisible();
   await expect(sidebar.getByTitle(free.name, { exact: true })).toBeVisible();
   await expect(sidebar.getByTitle(bound.name, { exact: true })).toHaveCount(0);
 
-  await sidebar.getByRole('button', { name: 'Alle zeigen' }).click();
+  await page.reload();
+  await expect(sidebar.getByRole('heading', { name: 'Gefiltert · 1' })).toBeVisible({ timeout: 20_000 });
+  await expect(sidebar.getByTitle(bound.name, { exact: true })).toHaveCount(0);
+
+  await sidebar.getByRole('button', { name: 'Filter zurücksetzen' }).click();
+  await expect(sidebar.getByRole('heading', { name: 'Gebunden · 1' })).toBeVisible();
   await expect(sidebar.getByTitle(bound.name, { exact: true })).toBeVisible();
 });
 

@@ -3,7 +3,9 @@
 * A release names its incident in the path; an assignment id of another card is a 404.
 * An Auftrag's assignment protects a resource from archive and purge like an Einsatz's.
 * ``ensure_assignable`` refuses archived or out-of-service inventory, an archived
-  Ereignis, and personnel/vehicles onto a closed Einsatz (material may still go there).
+  Ereignis, anything onto a closed Einsatz, and anything onto an Auftrag whose stops are all
+  closed (owner feedback 23.11.2026 #7).
+* «Übertragen» onto an Auftrag makes the Einsatz a stop and moves its resources up (#9).
 """
 
 from datetime import UTC, datetime, timedelta
@@ -249,51 +251,70 @@ class TestEnsureAssignable:
         assert response.status_code == 409
         assert "Ereignis ist archiviert" in response.json()["detail"]
 
-    async def test_completed_incident_refuses_personnel(
+    @pytest.mark.parametrize("kind", ["personnel", "material"])
+    async def test_completed_incident_refuses_everything(
         self,
         editor_client: AsyncClient,
         db_session: AsyncSession,
         test_event: Event,
         test_editor: User,
         test_personnel: Personnel,
+        test_material: Material,
+        kind: str,
     ):
         closed = await _incident(db_session, test_event, test_editor, status="complete")
+        resource = test_personnel if kind == "personnel" else test_material
 
         response = await editor_client.post(
             f"/api/incidents/{closed.id}/assign",
-            json={"resource_type": "personnel", "resource_id": str(test_personnel.id)},
+            json={"resource_type": kind, "resource_id": str(resource.id)},
         )
 
         assert response.status_code == 409
         assert "abgeschlossen" in response.json()["detail"]
 
-    async def test_completed_incident_still_takes_material(
+    @pytest.mark.parametrize(
+        ("statuses", "refused"), [(["complete", "complete"], True), (["complete", "active"], False)]
+    )
+    async def test_auftrag_with_every_stop_closed_refuses(
         self,
         editor_client: AsyncClient,
         db_session: AsyncSession,
         test_event: Event,
         test_editor: User,
+        auftrag: IncidentGroup,
         test_material: Material,
+        statuses: list[str],
+        refused: bool,
     ):
-        closed = await _incident(db_session, test_event, test_editor, status="complete")
+        for position, status in enumerate(statuses):
+            stop = await _incident(db_session, test_event, test_editor, status=status)
+            stop.group_id, stop.group_position = auftrag.id, position
+        await db_session.commit()
 
         response = await editor_client.post(
-            f"/api/incidents/{closed.id}/assign",
+            f"/api/incident-groups/{auftrag.id}/assign",
             json={"resource_type": "material", "resource_id": str(test_material.id)},
         )
 
-        assert response.status_code == 200
+        assert response.status_code == (409 if refused else 200)
 
 
-async def test_transfer_onto_a_closed_einsatz_is_409(
+@pytest.mark.parametrize("closed", ["source", "target"])
+async def test_transfer_from_or_onto_a_closed_einsatz_is_409(
+    closed: str,
     editor_client: AsyncClient,
     db_session: AsyncSession,
     test_event: Event,
     test_editor: User,
     test_personnel: Personnel,
 ):
-    source = await _incident(db_session, test_event, test_editor)
-    target = await _incident(db_session, test_event, test_editor, status="complete")
+    source = await _incident(
+        db_session, test_event, test_editor, status="complete" if closed == "source" else "incoming"
+    )
+    target = await _incident(
+        db_session, test_event, test_editor, status="complete" if closed == "target" else "incoming"
+    )
     db_session.add(
         IncidentAssignment(
             incident_id=source.id, resource_type="personnel", resource_id=test_personnel.id, assigned_by=test_editor.id
@@ -612,3 +633,196 @@ async def test_deleted_incidents_that_never_shared_cannot_acquire_each_others_ve
     refused = await editor_client.post(f"{paths[second]}/restore")
     assert refused.status_code == 409
     assert refused.json()["code"] == "incident_restore_resource_conflict"
+
+
+class TestTransferToAuftrag:
+    """«Übertragen» onto an Auftrag: the Einsatz becomes a stop, its resources move up (#9)."""
+
+    async def _setup(self, db: AsyncSession, event: Event, user: User, auftrag: IncidentGroup, person, vehicle):
+        """An Einsatz with `person` and `vehicle`; the Auftrag holds `vehicle` already and has one stop."""
+        first = await _incident(db, event, user, status="active")
+        first.group_id, first.group_position = auftrag.id, 0
+        source = await _incident(db, event, user)
+        db.add_all(
+            [
+                IncidentAssignment(incident_id=source.id, resource_type="personnel", resource_id=person.id),
+                IncidentAssignment(incident_id=source.id, resource_type="vehicle", resource_id=vehicle.id),
+                IncidentGroupAssignment(incident_group_id=auftrag.id, resource_type="vehicle", resource_id=vehicle.id),
+            ]
+        )
+        await db.commit()
+        return source.id
+
+    async def _on_auftrag(self, db: AsyncSession, group_id) -> list[str]:
+        rows = await db.scalars(
+            select(IncidentGroupAssignment.resource_type).where(
+                IncidentGroupAssignment.incident_group_id == group_id, IncidentGroupAssignment.unassigned_at.is_(None)
+            )
+        )
+        return sorted(rows.all())
+
+    async def _on_incident(self, db: AsyncSession, incident_id) -> list[str]:
+        rows = await db.scalars(
+            select(IncidentAssignment.resource_type).where(
+                IncidentAssignment.incident_id == incident_id, IncidentAssignment.unassigned_at.is_(None)
+            )
+        )
+        return sorted(rows.all())
+
+    async def test_becomes_the_last_stop_and_moves_its_resources_up(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        source_id = await self._setup(db_session, test_event, test_editor, auftrag, test_personnel, test_vehicle)
+
+        response = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(source_id)}
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        # The vehicle was on the Auftrag already: no second row, only the person is new.
+        assert len(body["group_assignment_ids"]) == 1
+        assert len(body["released_assignment_ids"]) == 2
+        source = await db_session.get(Incident, source_id)
+        await db_session.refresh(source)
+        assert (source.group_id, source.group_position) == (auftrag.id, 1)
+        assert await self._on_auftrag(db_session, auftrag.id) == ["personnel", "vehicle"]
+        assert await self._on_incident(db_session, source_id) == []
+
+        undo = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer/undo", json={"incident_id": str(source_id)} | body
+        )
+
+        assert undo.status_code == 204
+        await db_session.refresh(source)
+        assert source.group_id is None
+        assert await self._on_auftrag(db_session, auftrag.id) == ["vehicle"]
+        assert await self._on_incident(db_session, source_id) == ["personnel", "vehicle"]
+
+    async def test_undo_is_refused_once_a_moved_resource_was_released(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        source_id = await self._setup(db_session, test_event, test_editor, auftrag, test_personnel, test_vehicle)
+        body = (
+            await editor_client.post(
+                f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(source_id)}
+            )
+        ).json()
+        released = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/unassign/{body['group_assignment_ids'][0]}"
+        )
+        assert released.status_code == 204
+
+        undo = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer/undo", json={"incident_id": str(source_id)} | body
+        )
+
+        assert undo.status_code == 409
+        assert (await db_session.get(Incident, source_id)).group_id == auftrag.id
+
+    async def test_a_stop_cannot_be_transferred(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+    ):
+        other = IncidentGroup(id=uuid4(), event_id=test_event.id, name="Route Süd")
+        stop = await _incident(db_session, test_event, test_editor)
+        db_session.add(other)
+        await db_session.flush()
+        stop.group_id, stop.group_position = other.id, 0
+        await db_session.commit()
+
+        response = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(stop.id)}
+        )
+
+        assert response.status_code == 409
+        assert (await db_session.get(Incident, stop.id)).group_id == other.id
+
+    @pytest.mark.parametrize("closed", ["source", "auftrag"])
+    async def test_refused_from_a_closed_einsatz_and_onto_an_all_closed_auftrag(
+        self,
+        closed: str,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        """Review B: a closed Einsatz moves nothing; an open one does not reopen a closed Auftrag."""
+        source_id = await self._setup(db_session, test_event, test_editor, auftrag, test_personnel, test_vehicle)
+        if closed == "source":
+            (await db_session.get(Incident, source_id)).status = "complete"
+        else:
+            first = await db_session.scalar(select(Incident).where(Incident.group_id == auftrag.id))
+            first.status = "complete"
+        await db_session.commit()
+
+        response = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(source_id)}
+        )
+
+        assert response.status_code == 409
+        source = await db_session.get(Incident, source_id)
+        await db_session.refresh(source)
+        assert source.group_id is None
+        assert await self._on_incident(db_session, source_id) == ["personnel", "vehicle"]
+
+    async def test_undo_brings_back_a_hand_picked_leader(
+        self,
+        editor_client: AsyncClient,
+        db_session: AsyncSession,
+        test_event: Event,
+        test_editor: User,
+        auftrag: IncidentGroup,
+        test_personnel: Personnel,
+        test_vehicle: Vehicle,
+    ):
+        source_id = await self._setup(db_session, test_event, test_editor, auftrag, test_personnel, test_vehicle)
+        source = await db_session.get(Incident, source_id)
+        source.leader_manual, source.leader_personnel_id = True, test_personnel.id
+        person_row = await db_session.scalar(
+            select(IncidentAssignment).where(
+                IncidentAssignment.incident_id == source_id, IncidentAssignment.resource_type == "personnel"
+            )
+        )
+        person_row.is_leader = True
+        await db_session.commit()
+        body = (
+            await editor_client.post(
+                f"/api/incident-groups/{auftrag.id}/transfer", json={"incident_id": str(source_id)}
+            )
+        ).json()
+
+        undo = await editor_client.post(
+            f"/api/incident-groups/{auftrag.id}/transfer/undo", json={"incident_id": str(source_id)} | body
+        )
+
+        assert undo.status_code == 204
+        leader = await db_session.scalar(
+            select(IncidentAssignment.resource_id).where(
+                IncidentAssignment.incident_id == source_id,
+                IncidentAssignment.unassigned_at.is_(None),
+                IncidentAssignment.is_leader.is_(True),
+            )
+        )
+        assert leader == test_personnel.id

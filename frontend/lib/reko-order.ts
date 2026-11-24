@@ -3,7 +3,7 @@
  *
  * The order is real data on the server (`incident_assignments.reko_position`, written by
  * `POST /api/reko/personnel/{id}/order`) and reads like an Auftrag's stop order: numbered
- * pins and a dotted line on the map, the order of the person's /feld list. The Reko-Modus
+ * pins and a dotted line on the map, the order of the person's /feld list. The Reko-Editor
  * shows and drags only the OPEN ones; the server orders all the person holds, so a drag
  * puts the open ones in their new order back into the places they had and leaves the done
  * ones where they were.

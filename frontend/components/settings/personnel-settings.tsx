@@ -666,7 +666,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
         <DialogContent size="md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
-              {dialog.editing ? t('personnel.dialogEditTitle') : t('personnel.dialogCreateTitle')}
+              {dialog.editing ? t('personnel.dialogEditTitle', { name: dialog.editing.name }) : t('personnel.dialogCreateTitle')}
             </DialogTitle>
           </DialogHeader>
           {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.

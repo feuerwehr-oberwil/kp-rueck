@@ -341,6 +341,52 @@ class TestTakeOver:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_a_route_whose_stops_are_all_closed_takes_no_new_stop(
+        self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # Sol review B round 2: the squad is still on the Auftrag, but its only stop is
+        # closed and a pump stayed there. Attaching would reopen a finished route and
+        # mirror the pump that stayed on site onto it. The reporter takes it on alone.
+        leader = await _person(db_session)
+        stop = await _incident(db_session, test_event, test_user, "Sturmholz 1")
+        group = IncidentGroup(event_id=test_event.id, name="Sturmholz Nord", position=0)
+        db_session.add(group)
+        await db_session.commit()
+        stop.group_id = group.id
+        stop.group_position = 0
+        stop.status = "complete"
+        pump = uuid.uuid4()
+        db_session.add_all(
+            [
+                IncidentGroupAssignment(
+                    incident_group_id=group.id, resource_type="personnel", resource_id=leader.id, is_leader=True
+                ),
+                IncidentAssignment(incident_id=stop.id, resource_type="material", resource_id=pump, purpose="crew"),
+            ]
+        )
+        await db_session.commit()
+
+        response = await _post(client, test_event, db_session, leader, take_over=True)
+
+        assert response.json()["takeover"] == "solo"
+        new = await db_session.get(Incident, uuid.UUID(response.json()["incident_id"]))
+        assert new is not None
+        assert new.group_id is None
+        direct = (
+            (await db_session.execute(select(IncidentAssignment).where(IncidentAssignment.incident_id == new.id)))
+            .scalars()
+            .all()
+        )
+        assert {(row.resource_type, row.resource_id) for row in direct} == {("personnel", leader.id)}
+        route = (
+            await db_session.scalars(
+                select(IncidentGroupAssignment.resource_id).where(IncidentGroupAssignment.incident_group_id == group.id)
+            )
+        ).all()
+        assert route == [leader.id]
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_the_whole_squad_comes_along_not_just_the_reporter(
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event, test_user: User
     ):

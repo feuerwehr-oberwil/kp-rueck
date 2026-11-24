@@ -480,6 +480,9 @@ export interface ApiRapportPersonnelCandidate {
   name: string
   /** Tells two people of the same name apart; shown only for namesakes. */
   kennung?: string | null
+  /** Grad and tags – what the add-picker searches besides the name. */
+  role?: string | null
+  tags?: string[]
   checked_in: boolean
 }
 

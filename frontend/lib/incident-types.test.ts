@@ -19,10 +19,10 @@ describe("getIncidentRefParts", () => {
   const op = { location: "Bachweg 3, 4104 Oberwil", locationDisplay: "Bachweg 3", incidentType: "elementarereignis", notes: "Wasser im Keller" }
 
   it("splits number · address from «Einsatzart: Meldung»", () => {
-    expect(getIncidentRefParts({ ...op, number: 14 })).toEqual({ head: "14 · Bachweg 3", detail: "Elementarereignis: Wasser im Keller" })
+    expect(getIncidentRefParts({ ...op, number: 14 })).toEqual({ head: "14 · Bachweg 3", detail: "Elementarereignis: Wasser im Keller", place: "Bachweg 3" })
   })
 
   it("moves the detail up when the address was only the home town", () => {
-    expect(getIncidentRefParts({ ...op, locationDisplay: "", number: 2 })).toEqual({ head: "2 · Elementarereignis: Wasser im Keller", detail: "" })
+    expect(getIncidentRefParts({ ...op, locationDisplay: "", number: 2 })).toEqual({ head: "2 · Elementarereignis: Wasser im Keller", detail: "", place: "Elementarereignis: Wasser im Keller" })
   })
 })

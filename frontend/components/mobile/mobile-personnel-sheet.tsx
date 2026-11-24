@@ -11,7 +11,8 @@ import { Users } from "lucide-react"
 import { type Person, type Operation } from "@/lib/contexts/operations-context"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { personResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
+import type { PersonPlaces } from "@/lib/person-places"
+import { personMatchesQuery, personResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { CrewDutyButton } from "@/components/kanban/crew-duty-sheet"
 
 interface MobilePersonnelSheetProps {
@@ -19,6 +20,8 @@ interface MobilePersonnelSheetProps {
   onOpenChange: (open: boolean) => void
   personnel: Person[]
   operations: Operation[]
+  /** Where each person is bound now (`usePersonPlaces`): the search finds «12» or «Sturmholz». */
+  places?: ReadonlyMap<string, PersonPlaces>
   /** Opens the Dienstzeiten overview (replaces this sheet). */
   onOpenCrewDuty?: () => void
 }
@@ -28,22 +31,17 @@ export function MobilePersonnelSheet({
   onOpenChange,
   personnel,
   operations,
+  places,
   onOpenCrewDuty,
 }: MobilePersonnelSheetProps) {
   const t = useTranslations("incidents.mobilePersonnel")
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Filter personnel by search
+  // The board's one person search (name, Grad, tags, functions, current place).
   const filteredPersonnel = useMemo(() => {
     if (!searchQuery.trim()) return personnel
-    const query = searchQuery.toLowerCase()
-    return personnel.filter(
-      (p) =>
-        p.name.toLowerCase().includes(query) ||
-        p.role.toLowerCase().includes(query) ||
-        p.tags?.some((t) => t.toLowerCase().includes(query))
-    )
-  }, [personnel, searchQuery])
+    return personnel.filter((p) => personMatchesQuery({ ...p, places: places?.get(p.id) }, searchQuery))
+  }, [personnel, searchQuery, places])
 
   // Grouped by Grad, in the station's own order, alphabetical inside a group —
   // the same rule the board's crew sidebar uses, so the phone and the desk do

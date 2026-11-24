@@ -547,12 +547,11 @@ export function UserSettings() {
 
       {/* Edit User Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={editGuard.handleOpenChange}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>{t('users.editDialogTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('users.editDialogDescription')}
-            </DialogDescription>
+            <DialogTitle>
+              {t('users.editDialogTitle', { name: selectedUser?.display_name || selectedUser?.username || '' })}
+            </DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {

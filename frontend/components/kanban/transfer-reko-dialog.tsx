@@ -14,6 +14,7 @@ import { type Person } from "@/lib/contexts/personnel-context"
 import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { MarkRekoRow, REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from "@/components/incidents/assign-reko-dialog"
 import { toast } from "sonner"
 
@@ -44,6 +45,7 @@ export function TransferRekoDialog({
   const tPick = useTranslations('common.personPick')
   const { selectedEvent } = useEvent()
   const { personnel, operations, refreshOperations } = useOperations()
+  const { groups } = useGroups()
   const factsOf = usePersonTileFacts()
   const [isTransferring, setIsTransferring] = useState(false)
   const [markMode, setMarkMode] = useState(false)
@@ -179,7 +181,7 @@ export function TransferRekoDialog({
       ) : (
         targetOptions.map((person) => {
           // Every target is Reko – «Reko» on each tile would say nothing.
-          const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), omitReko: true })
+          const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations, groups), omitReko: true })
           return (
             <PersonPickTile
               key={person.id}

@@ -13,7 +13,7 @@ const STEPS: Partial<Record<string, 1 | -1>> = { ArrowDown: 1, ArrowRight: 1, Ar
 /**
  * The keys of a picker (owner, 19.11.2026: «space = select, enter = finish selection / move on
  * to next stage»). One handler for every picker – `PickerDialog` (Fahrer, Reko zuweisen /
- * übertragen, Reko-Modus) and the assignment dialog (Mannschaft, Fahrzeuge, Material) – put on
+ * übertragen, Reko-Editor) and the assignment dialog (Mannschaft, Fahrzeuge, Material) – put on
  * the element that holds the search, the list and the footer: `onKeyDown={onPickerKeyDown}`.
  *
  * - **Space** ticks / unticks the focused tile: tiles are buttons, so that is the browser's own
