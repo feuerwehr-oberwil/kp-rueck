@@ -98,6 +98,7 @@ import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
 import { Kbd } from "@/components/ui/kbd"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMac } from "@/lib/hooks/use-is-mac"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
@@ -532,7 +533,8 @@ export function NewEmergencyModal({
         aria-busy={submitting}
         className="hover-delight flex-1 rounded-r-none"
       >
-        <Plus className="h-4 w-4" />
+        {/* The busy button's sign, beside its label (docs/DESIGN.md): the write is on its way. */}
+        {submitting ? <ShellLoader className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         {t('newEmergency.create')}
       </Button>
       <DropdownMenu>
