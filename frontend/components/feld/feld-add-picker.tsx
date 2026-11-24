@@ -4,8 +4,9 @@
  * «Person / Fahrzeug / Material hinzufügen» – the one way the Rapport's three
  * resource sections add what the board did not send (owner pick 2A, 14.11.2026).
  *
- * One button in the section opens the picker: a search field, the list in
- * groups, and «Fertig (n)» in the footer. Below 768px it is a bottom sheet (the
+ * The dashed «+ Person» chip at the end of the section's chips opens the picker
+ * (owner pick 1B, 24.11.2026): a search field, the list in groups, and
+ * «Fertig (n)» in the footer. Below 768px it is a bottom sheet (the
  * phone rules: opens without focusing the search, grip + swipe); from 768px –
  * the board's incident detail mounts the same Rapport form – a centred dialog
  * with the same content, the split `new-emergency-modal.tsx` makes. A tap TICKS a row and the sheet stays
@@ -14,9 +15,10 @@
  * hinzufügen» – when the section can store a name that is on no list
  * (`freeTextLabel`); Fahrzeuge cannot, so it passes none.
  *
- * The sheet only offers what is not in the section yet – taking a row back out
- * is the section's ✕, never an untick in here – so every tick is an addition and
- * the count on «Fertig» is what will be added. Closing the sheet any other way
+ * The sheet only offers what is not in the section yet – taking a chip back out
+ * is the chip's ✕, never an untick in here – so every tick is an addition and
+ * the count on «Fertig» is what will be added. A chip taken out shows up here
+ * again, which is how a removal is taken back. Closing the sheet any other way
  * (✕, swipe, backdrop) adds the ticks too: a swipe on a wet phone must not
  * silently drop three names somebody just picked.
  *
@@ -28,6 +30,7 @@ import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { CheckCircle, Circle, Plus } from 'lucide-react'
 
+import { FELD_CHIP_CLASS } from '@/components/feld/feld-chip'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
@@ -83,8 +86,10 @@ export function pickerRows(
 }
 
 interface FeldAddPickerProps {
-  /** The button and the sheet's title: «Person hinzufügen». */
+  /** The sheet's title and the add chip's accessible name: «Person hinzufügen». */
   label: string
+  /** What the add chip shows after its «+»: «Person». */
+  chipLabel: string
   searchPlaceholder: string
   /** What is still addable – the section leaves out whatever it already holds. */
   items: FeldAddPickerItem[]
@@ -100,6 +105,7 @@ interface FeldAddPickerProps {
 
 export function FeldAddPicker({
   label,
+  chipLabel,
   searchPlaceholder,
   items,
   freeTextLabel,
@@ -200,16 +206,21 @@ export function FeldAddPicker({
 
   return (
     <>
-      <Button
+      {/* The dashed «+ Person» chip at the end of the section's chips. Its
+          name is the full «Person hinzufügen»; the short word is what shows. */}
+      <button
         type="button"
-        variant="outline"
-        className="w-full"
         disabled={disabled}
+        aria-label={label}
         onClick={() => setOpen(true)}
+        className={cn(
+          FELD_CHIP_CLASS,
+          'cursor-pointer border border-dashed border-border px-3 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50',
+        )}
       >
-        <Plus className="size-4" />
-        {label}
-      </Button>
+        <Plus className="size-3.5" aria-hidden="true" />
+        {chipLabel}
+      </button>
 
       {isMobile ? (
         <Sheet open={open} onOpenChange={handleOpenChange}>

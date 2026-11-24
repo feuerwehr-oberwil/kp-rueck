@@ -519,7 +519,7 @@ async def attach_simulated_rapport_photos(
     incident: Incident,
     *,
     actor: feld_crud.FieldActor,
-    request: Request,
+    request: Request | None,
 ) -> int:
     """Put 0-2 curated scene photos on the Schadenplatz-Rapport; returns how many.
 
@@ -550,7 +550,7 @@ async def file_simulated_rapport(
     *,
     current_user: User,
     rng: random.Random,
-    request: Request,
+    request: Request | None,
 ) -> SimulateRapportResponse:
     """Generate one plausible rapport and file it through the shared upsert.
 

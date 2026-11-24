@@ -1,4 +1,11 @@
-/** Address lookup through the authenticated, operator-configured backend. */
+/**
+ * Address lookup through the authenticated, operator-configured backend.
+ *
+ * Credentials travel with every lookup, whichever page asks: the board's session cookie, the
+ * bound /feld device (cookie scoped to /feld, so it goes in a header), or on /alarm – a token
+ * link with no login – the link's own token. `searchAddress` answers null when the lookup
+ * failed, so the field can say «nicht erreichbar» instead of «Keine Adressen gefunden.»
+ */
 import { z } from 'zod'
 import { getApiUrl } from './env'
 import { haversineKm } from './utils/route-geo'
@@ -20,13 +27,18 @@ interface SearchOptions {
   signal?: AbortSignal
 }
 
-/** Field cookies are scoped to /feld; forward the bound device credential in a header. */
+/** Field cookies are scoped to /feld; forward the bound device credential in a header.
+ *  /alarm has no login: forward its link token (`?token=`) instead. */
 function requestHeaders(): Headers {
   const headers = new Headers()
   if (typeof document !== 'undefined') {
     const token = document.cookie.split(';').map(part => part.trim())
       .find(part => part.startsWith('feld-device-token='))?.slice('feld-device-token='.length)
     if (token) headers.set('X-Feld-Token', token)
+    const intakeToken = window.location.pathname.replace(/\/$/, '') === '/alarm'
+      ? new URLSearchParams(window.location.search).get('token')
+      : null
+    if (intakeToken) headers.set('X-Intake-Token', intakeToken)
   }
   return headers
 }
@@ -95,8 +107,9 @@ function getViewboxForCenter([lon, lat]: [number, number]): string {
   ].join(',')
 }
 
-/** Search results retain the configured station's distance ordering. */
-export async function searchAddress(query: string, options?: SearchOptions): Promise<SearchResult[]> {
+/** Search results retain the configured station's distance ordering. Null: the lookup failed
+ *  (refused, unavailable, timed out, cancelled or malformed) – not the same as no address. */
+export async function searchAddress(query: string, options?: SearchOptions): Promise<SearchResult[] | null> {
   const trimmed = query.trim()
   if (trimmed.length < 3 || trimmed.length > 200) return []
   const params = new URLSearchParams({ q: trimmed, countrycodes: options?.countryCodes || DEFAULT_COUNTRY_CODES })
@@ -104,7 +117,7 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
   if (viewbox) params.set('viewbox', viewbox)
   try {
     const parsed = suggestionSchema.array().max(10).safeParse(await lookup('search', params, options?.signal))
-    if (!parsed.success) return []
+    if (!parsed.success) return null
     if (options?.stationCenter) {
       const [lon, lat] = options.stationCenter
       parsed.data.sort((a, b) => haversineKm([a.lat, a.lon], [lat, lon]) - haversineKm([b.lat, b.lon], [lat, lon]))
@@ -112,13 +125,13 @@ export async function searchAddress(query: string, options?: SearchOptions): Pro
     return parsed.data
   } catch {
     // Unavailable providers and cancelled searches leave manual location entry usable.
-    return []
+    return null
   }
 }
 
 export async function geocodeAddress(address: string, options?: SearchOptions): Promise<{ lat: number; lon: number } | null> {
-  const results = await searchAddress(address, options)
-  return results.length > 0 ? { lat: results[0].lat, lon: results[0].lon } : null
+  const [first] = (await searchAddress(address, options)) ?? []
+  return first ? { lat: first.lat, lon: first.lon } : null
 }
 
 export async function reverseGeocode(lat: number, lon: number, signal?: AbortSignal): Promise<string | null> {

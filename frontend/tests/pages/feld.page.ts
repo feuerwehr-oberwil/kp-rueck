@@ -153,29 +153,10 @@ export class FeldPage extends BasePage {
   }
 
   /**
-   * Open one of the rapport's fold blocks — "Kurzbericht", "Fotos", … .
-   *
-   * On `/feld` every block starts CLOSED (`components/feld/feld-section.tsx`),
-   * and its children stay **mounted behind `hidden`** so a half-typed field
-   * survives a fold. That is the shape that bites a test: a locator finds the
-   * field inside a shut block and then waits for a visibility that never
-   * comes. Only the `kp` mount has everything open.
-   *
-   * Idempotent — it reads `aria-expanded` rather than toggling blind, so it is
-   * safe on a block some earlier step already opened.
-   */
-  async openRapportSection(title: string) {
-    const toggle = this.page.getByRole('button', { name: new RegExp(`^${title}\\b`) }).first();
-    await expect(toggle).toBeVisible({ timeout: 15_000 });
-    if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  }
-
-  /**
    * Type the Kurzbericht and file it. Nothing on this form is required.
    *
-   * "Rapport abschliessen" sits below the blocks rather than inside one, so
-   * only the typing needs its block opened first.
+   * The `/feld` rapport is one open card (owner pick 1B, 24.11.2026), so
+   * there is nothing to unfold first.
    *
    * Filing asks only while Kurzbericht or Mannschaft is empty (UX-PHONE-05);
    * empty optional blocks never ask. This helper types the Kurzbericht, so the
@@ -183,7 +164,6 @@ export class FeldPage extends BasePage {
    * «Ohne Mannschaft abschliessen» is part of filing.
    */
   async fileRapport(kurzbericht: string) {
-    await this.openRapportSection('Kurzbericht');
     await this.kurzberichtField.fill(kurzbericht);
     await this.submitRapportButton.click();
     await expect(this.submittedBadge.or(this.confirmGapsButton)).toBeVisible({ timeout: 15_000 });
