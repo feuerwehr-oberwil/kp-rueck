@@ -16,6 +16,7 @@ import type {
   ApiGroupAnnouncement,
   ApiGroupAssignment,
   ApiGroupAssignmentCreate,
+  ApiTransferToAuftragResult,
 } from '../types'
 
 export class GroupsApi {
@@ -125,6 +126,25 @@ export class GroupsApi {
     return httpRequest<ApiIncidentGroup>(`/api/incident-groups/${groupId}/announce`, {
       method: 'POST',
       body: JSON.stringify(data),
+    })
+  }
+
+  /** «Übertragen» onto an Auftrag: the Einsatz becomes its last stop, its resources move
+   *  to the Auftrag (409 when it is a stop already, or a resource may not be assigned). */
+  async transferToAuftrag(groupId: string, incidentId: string): Promise<ApiTransferToAuftragResult> {
+    return httpRequest<ApiTransferToAuftragResult>(`/api/incident-groups/${groupId}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify({ incident_id: incidentId }),
+    })
+  }
+
+  /** «Rückgängig» of `transferToAuftrag` with the ids it answered (204; 409 once anything
+   *  changed – the caller says that in its own toast). */
+  async undoTransferToAuftrag(groupId: string, incidentId: string, moved: ApiTransferToAuftragResult): Promise<void> {
+    return httpRequest<void>(`/api/incident-groups/${groupId}/transfer/undo`, {
+      method: 'POST',
+      body: JSON.stringify({ incident_id: incidentId, ...moved }),
+      skipToast: true,
     })
   }
 

@@ -11,6 +11,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { SubjectLine } from "@/components/ui/subject-line"
+import { incidentSubject } from "@/lib/incident-types"
 import { useOperations, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { formatWhatsAppMessage } from "@/lib/whatsapp-formatter"
 import { getMessageTemplates } from "@/lib/message-template"
@@ -236,8 +238,11 @@ export function DisponierTransitionDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t(repeat ? 'disponiert.repeatTitle' : 'disponiert.title')}</DialogTitle>
-          <DialogDescription>
-            {repeat ? location : t('disponiert.description', { location })}
+          {/* The Einsatz is the window's subject line (#14): the number is what goes over the radio. */}
+          <DialogDescription asChild>
+            <div>
+              <SubjectLine subject={incidentSubject(operation)} />
+            </div>
           </DialogDescription>
         </DialogHeader>
 

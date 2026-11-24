@@ -24,8 +24,9 @@ reorder locked the Auftrag and then its stops – a forced overlap deadlocked
 detach and reorder and Auftrag delete (``groups``), release
 (``assignments.unassign_resource``, ``group_assignments.unassign_group_resource``),
 assignment (``assign_resource``, ``assign_group_resource``, ``transfer_assignments``,
-``auftrag_templates.instantiate_auto_templates``, ``feld/melden._take_over``) and
-the resource lifecycle (archive / purge / personnel delete, which first locks the
+``auftrag_templates.instantiate_auto_templates``, and ``feld/melden.create_field_report``,
+which locks the reporter's Auftrag before its insert key-shares the reporter) and the
+resource lifecycle (archive / purge / personnel delete, which first locks the
 incidents its ``ON DELETE SET NULL`` will write), and the board's Reko draft (its
 first save ``reko.get_or_create_kp_reko_report`` and its PATCH take the card before
 the report). A Reko person's order (``reko_assignment.reorder_reko_assignments``) takes

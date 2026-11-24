@@ -132,19 +132,18 @@ describe("summarizeRoster", () => {
 })
 
 describe("summarizeMaterials", () => {
-  it("counts an out-of-service device as bound and a consumable as free", () => {
+  it("counts an out-of-service device as nicht einsatzbereit, not bound, and a consumable as free", () => {
     const summary = summarizeMaterials([
       { status: "available" },
       { status: "assigned" },
       { status: "available", outOfService: true },
+      { status: "assigned", outOfService: true },
       { status: "assigned", consumable: true },
     ])
-    expect(summary).toEqual({ free: 2, bound: 2, total: 4 })
+    expect(summary).toEqual({ free: 2, bound: 1, notReady: 2, total: 5 })
   })
 
-  it("counts an uneven mix and an empty inventory", () => {
-    expect(summarizeMaterials([{ status: "available" }, { status: "assigned" }, { status: "available", outOfService: true }]))
-      .toEqual({ free: 1, bound: 2, total: 3 })
-    expect(summarizeMaterials([])).toEqual({ free: 0, bound: 0, total: 0 })
+  it("counts an empty inventory", () => {
+    expect(summarizeMaterials([])).toEqual({ free: 0, bound: 0, notReady: 0, total: 0 })
   })
 })

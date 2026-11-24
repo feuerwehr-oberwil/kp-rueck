@@ -63,8 +63,10 @@ import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 import { useTranslations } from "next-intl"
 import { useInitialStationView } from "@/lib/hooks/use-initial-station-view"
 import { useCompactMap } from "@/lib/hooks/use-compact-map"
+import { useSettledAfter } from "@/lib/hooks/use-settled-after"
+import { useMapRelayout } from "@/lib/hooks/use-map-relayout"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
-import { estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, type LabelCandidate, type LabelSide } from "@/lib/map-labels"
+import { cardSide, estimateLabelWidth, focusOffset, labelMode, pickVisibleLabels, placeLabelSides, type LabelCandidate, type LabelSide } from "@/lib/map-labels"
 import { REVEAL_MS, Reveal } from "@/components/ui/reveal"
 import { WeatherRadarLayer } from "./map/weather-radar"
 import { WeatherRadarControls, useRadarPlayback } from "./map/weather-radar-controls"
@@ -112,7 +114,7 @@ function IncidentPin({
 }: {
   incident: Incident
   highlighted: boolean
-  /** Its place in the selected Reko person's order (Reko-Modus): the number replaces the
+  /** Its place in the selected Reko person's order (Reko-Editor): the number replaces the
    *  priority glyph, as the Auftrag pins carry theirs (mock 2a, 19.11.2026). */
   sequence?: number
   /** Phone geometry (`STATUS_RING.phone`): 3px frame, spaced dashes / round dots. */
@@ -184,7 +186,7 @@ function IncidentPin({
       />
 
       {/* Priority glyph: ▲ Hoch, – Mittel, ▼ Niedrig, as on the board's cards – or, in the
-          Reko-Modus, the pin's number in its person's order. */}
+          Reko-Editor, the pin's number in its person's order. */}
       {sequence !== undefined ? (
         <text
           x={rings.r}
@@ -273,7 +275,7 @@ function IncidentMarker({
   /** Phone geometry – see IncidentPin. */
   compact: boolean
   accentColor?: string | null
-  /** Reko-Modus order number – see IncidentPin. */
+  /** Reko-Editor order number – see IncidentPin. */
   sequence?: number
   /** Incidents at this spot: from 2 on the pin wears the count badge. */
   count?: number
@@ -445,6 +447,54 @@ const LABEL_ARROW: Record<LabelSide, CSSProperties> = {
   },
 }
 
+/** What an open incident card needs to keep clear of the map chrome (`useCardSide`). */
+interface CardFit {
+  map: MlMap
+  /** `mapChromeBoxes` under `root`, in the map container's px. */
+  chrome: () => ScreenBox[]
+  root: RefObject<HTMLElement | null>
+}
+
+/** The longest gap a double-click spans (the Windows default) – how long a just-pinned card
+ *  holds still for the second click (`useCardSide`). */
+const DOUBLE_CLICK_MS = 500
+
+/**
+ * The side an open incident card hangs on: `cardSide` at the current view, for the rendered
+ * card (`card`), re-measured whenever that can change (`useMapRelayout`: the map comes to rest,
+ * the card changes size, the chrome under `root` changes – the legend opens). `undefined`
+ * without `fit`, and for DOUBLE_CLICK_MS after the card is pinned: the first click of a
+ * double-click pins it, and a card that flipped sides there would miss the second click (Sol
+ * review H round 2). The caller keeps the side the card had until then.
+ */
+function useCardSide(
+  fit: CardFit | undefined,
+  card: RefObject<HTMLElement | null>,
+  latitude: number,
+  longitude: number,
+): LabelSide | undefined {
+  const [side, setSide] = useState<LabelSide>("right")
+  const map = fit?.map
+  const chrome = fit?.chrome
+  const settled = useSettledAfter(!!map, DOUBLE_CLICK_MS)
+  const measure = useCallback(() => {
+    const element = card.current
+    if (!map || !chrome || !element) return
+    const container = map.getContainer()
+    setSide(
+      cardSide({
+        anchor: map.project([longitude, latitude]),
+        card: { width: element.offsetWidth, height: element.offsetHeight },
+        labelOffsetX: LABEL_OFFSET_X,
+        chrome: chrome(),
+        viewport: { width: container.clientWidth, height: container.clientHeight },
+      }),
+    )
+  }, [map, chrome, card, latitude, longitude])
+  useMapRelayout(map, measure, { root: fit?.root, target: card, settleMs: REVEAL_MS + 50 })
+  return settled ? side : undefined
+}
+
 /**
  * One pin's permanent map label — its own DOM marker at the pin's coordinates.
  *
@@ -472,12 +522,17 @@ function IncidentLabel({
   onHoverEnd,
   below,
   selected = false,
+  fit,
   children,
 }: {
   latitude: number
   longitude: number
   /** Which side of the pin the bubble hangs on (`placeLabelSides`). */
   side: LabelSide
+  /** Desktop, a pinned (selected) incident card: once a double-click can no longer land, hang
+   *  it on the side the map chrome covers least (`useCardSide`) instead of `side`. Never a hover
+   *  card – it must stay under the pointer. */
+  fit?: CardFit
   /** `incidentZ('label', …)`: under every resting pin, in front once pointed at or selected. */
   zIndex: number
   onSelect: () => void
@@ -494,7 +549,8 @@ function IncidentLabel({
   children: ReactNode
 }) {
   const doubleClickRef = useOpenOnDoubleClick(onOpen)
-  const shift = side === "right" ? `${LABEL_OFFSET_X}px` : `calc(-100% - ${LABEL_OFFSET_X}px)`
+  const shown = useCardSide(fit, doubleClickRef, latitude, longitude) ?? side
+  const shift = shown === "right" ? `${LABEL_OFFSET_X}px` : `calc(-100% - ${LABEL_OFFSET_X}px)`
   return (
     <Marker
       longitude={longitude}
@@ -504,7 +560,7 @@ function IncidentLabel({
       onClick={(event) => event.originalEvent.stopPropagation()}
     >
       <div style={{ position: "relative", width: 0, height: 0 }}>
-        {/* The label is as tappable as the dot (selection, Reko-Modus assignment, …). */}
+        {/* The label is as tappable as the dot (selection, Reko-Editor assignment, …). */}
         <div
           ref={doubleClickRef}
           className={LABEL_BUBBLE}
@@ -514,7 +570,7 @@ function IncidentLabel({
           onMouseEnter={onHoverStart}
           onMouseLeave={onHoverEnd}
         >
-          <span style={LABEL_ARROW[side]} />
+          <span style={LABEL_ARROW[shown]} />
           {children}
         </div>
         {below && (
@@ -880,7 +936,7 @@ function priorityName(t: ReturnType<typeof useTranslations<"map">>, priority: st
 /**
  * The list under a same-address label (look 3B): the address, then one row per incident –
  * priority glyph, number, Meldung (else Einsatzart), status. A row click is a click on that incident's pin (select;
- * in Reko-Modus / Routenplanung: assign / add it), a double-click opens it. The selected one is
+ * in Reko-Editor / Auftrags-Editor: assign / add it), a double-click opens it. The selected one is
  * marked. Desktop: hung under the label while the pin or its label is pointed at, after a click
  * on the pin, and while one of its incidents is selected. Phone (`docked`): after a tap on the
  * pin, docked along the map's bottom edge – a 320px list off a pin does not fit a 390px map –
@@ -1291,12 +1347,12 @@ interface MapViewProps {
   focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
   focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
   markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
-  /** Reko-Modus: the selected person's open Rekos in their order – enlarged pins with their
+  /** Reko-Editor: the selected person's open Rekos in their order – enlarged pins with their
    *  number inside, joined by a dotted line in the person's colour (`map/reko-route.tsx`). */
   rekoRoute?: RekoRoute | null
   colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
   colorGroups?: ColorGroup[] // legend entries for the active dimension
-  // Aufträge (incident group) routes — read-only polyline display + Routenplanung.
+  // Aufträge (incident group) routes — read-only polyline display + Auftrags-Editor.
   showGroupRoutes?: boolean // draw the numbered route polylines (off by default)
   groups?: IncidentGroup[] // Aufträge to draw
   /** Resolves a route's own crew/vehicles, so the hover card of any stop can
@@ -1305,7 +1361,7 @@ interface MapViewProps {
   operationsById?: Map<string, Operation> // stop lookup (stops are real incidents)
   focusGroupId?: string | null // emphasize one route, dim the rest (planning)
   highlightGroupStopId?: string | null // highlight one stop marker (focused stop)
-  /** True while a tap-mode (Reko, Routenplanung) runs: hovering must NOT swap
+  /** True while a tap-mode (Reko, Auftrags-Editor) runs: hovering must NOT swap
    *  the label for the detail card. The swap replaced the click target mid-tap
    *  — the first tap died in the DOM churn and «remove» needed two. */
   hoverCardsDisabled?: boolean
@@ -1561,7 +1617,7 @@ export default function MapView({
   // (`lib/map-spots.ts`); the pin's list picks one of them.
   const spots = useMemo(() => groupSpots(mappableIncidents), [mappableIncidents])
   const compactMap = useCompactMap()
-  // The Reko-Modus order: incident id → its number (1-based), and the dotted line's points.
+  // The Reko-Editor order: incident id → its number (1-based), and the dotted line's points.
   const rekoSequence = useMemo(
     () => new Map((rekoRoute?.incidentIds ?? []).map((id, index) => [id, index + 1])),
     [rekoRoute],
@@ -1667,7 +1723,7 @@ export default function MapView({
   usePanToVehicle(map, focusVehicleName, focusVehicleTrigger, mappedVehiclePositions)
   useResetZoom(map, resetZoomTrigger, mappableIncidents, fitPadding)
 
-  // Routenplanung: an empty-map click adds a stop. Every marker stops its own click from
+  // Auftrags-Editor: an empty-map click adds a stop. Every marker stops its own click from
   // reaching the canvas, so only genuinely empty map arrives here.
   const handleMapClick = useCallback(
     (event: MapLayerMouseEvent) => onMapClick?.(event.lngLat.lat, event.lngLat.lng),
@@ -1793,7 +1849,7 @@ export default function MapView({
           vehiclePositions={mappedVehiclePositions}
           visible={showAssignmentLines}
           showDistances={showDistances}
-          // Independent of «Routen anzeigen»: that switch draws the route
+          // Independent of «Aufträge»: that switch draws the route
           // itself, this one answers where the vehicles are — a route vehicle
           // should not need a second switch to get the line every other
           // vehicle has.
@@ -1813,7 +1869,7 @@ export default function MapView({
           groupResourcesFor={groupResourcesFor}
         />
 
-        {/* The Reko-Modus order: a dotted line through the selected person's Rekos. */}
+        {/* The Reko-Editor order: a dotted line through the selected person's Rekos. */}
         <RekoRouteLine color={rekoRoute?.color ?? null} points={rekoRoutePoints} />
 
         {/* Vehicle breadcrumb trails */}
@@ -1999,6 +2055,11 @@ export default function MapView({
                   latitude={spot.latitude}
                   longitude={spot.longitude}
                   side={permanent ? side : "right"}
+                  // The card keeps clear of the open legend (VIS.18). Only a pinned card: a
+                  // hover card that flipped left as it grew slid out from under the pointer,
+                  // whose «leave» closed it (Sol review H). Not on the phone: there the camera
+                  // brings pin + card into view (`usePanToSelected`), card on the right.
+                  fit={pinned && hoverOperation && !compactMap && map ? { map, chrome: chromeBoxes, root: rootRef } : undefined}
                   selected={pinned}
                   zIndex={incidentZ("label", incident.priority, { hovered, highlighted: isHighlighted })}
                   onSelect={select}

@@ -15,11 +15,14 @@ export interface AuftragStopQuestion {
   groupId: string
   groupName: string
   incidentId: string
-  /** The short place label (`getIncidentLocationLabel`) – the title says it, the body does not repeat it. */
+  /** The Einsatz by number and place («14 · Hauptstrasse 4», `getIncidentRefParts().head`). */
   incidentLabel: string
   /** The vehicle that drives the Auftrag – the server checks it still does. */
   vehicleId: string
   vehicleName: string
+  /** The other holders of the vehicle – further Aufträge, then Einsätze: «Nur zusätzlich
+   *  zuweisen» keeps it there too, so they are on this question, not on a second one after it. */
+  alsoOn: { id: string; label: string }[]
   /** «Nur zusätzlich zuweisen»: the vehicle onto the Einsatz as well, the Auftrag untouched. */
   assignOnly: () => Promise<unknown> | unknown
 }

@@ -74,6 +74,8 @@ class ErrorCode(StrEnum):
     REKO_LINK_INVALID = "reko_link_invalid"
     REKO_REPORT_NOT_FOUND = "reko_report_not_found"
     REKO_REPORT_NO_ACCESS = "reko_report_no_access"
+    # A PATCH of the report a merged-away card kept (409; the tab reloads)
+    REKO_REPORT_MERGED = "reko_report_merged"
     # Photos
     PHOTO_NOT_FOUND = "photo_not_found"
     PHOTO_DEMO_TOO_LARGE = "photo_demo_too_large"

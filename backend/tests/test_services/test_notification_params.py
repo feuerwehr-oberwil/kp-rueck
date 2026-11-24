@@ -254,11 +254,6 @@ CASES = [
         {"variant": "escalation", "title": "Wasser im Keller", "text": "Wasser steigt"},
     ),
     (
-        texts.training_reinforcement("Wasser im Keller", "2 Pumpen nötig"),
-        "Feld fordert Verstärkung: 2 Pumpen nötig – Wasser im Keller",
-        {"variant": "reinforcement", "title": "Wasser im Keller", "text": "2 Pumpen nötig"},
-    ),
-    (
         texts.training_vehicle_down("TLF", "Wasser im Keller"),
         "Fahrzeug TLF ausgefallen: Wasser im Keller – Ersatz disponieren",
         {"variant": "vehicle_down", "vehicle": "TLF", "title": "Wasser im Keller"},

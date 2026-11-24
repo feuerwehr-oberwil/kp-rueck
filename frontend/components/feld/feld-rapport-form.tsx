@@ -58,6 +58,8 @@ import { FeldRapportGapsDialog, rapportGaps, type RapportGap } from '@/component
 import { FeldSection, type FeldSectionState } from '@/components/feld/feld-section'
 import { FeldVehicleChecklist } from '@/components/feld/feld-vehicle-checklist'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
+import { usePhotoViewer, useRegisterPhotos } from '@/lib/hooks/use-photo-viewer'
+import { rekoPhotoUrl } from '@/lib/reko-photos'
 import type {
   ApiRapportExtraPersonnel,
   ApiRapportMaterialRow,
@@ -241,6 +243,17 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   // upload's own answer is the newer truth and an autosave that started before
   // it must not roll the list back.
   const [photos, setPhotos] = useState<string[]>([])
+  // The incident's viewer: the board's (these photos join the Reko ones there), or the one
+  // /feld mounts around this form.
+  const openPhoto = usePhotoViewer()
+  const photoUrl = transport.photos?.url
+  useRegisterPhotos('rapport', photos.map(filename => ({
+    group: 'rapport' as const,
+    filename,
+    src: photoUrl ? photoUrl(filename) : rekoPhotoUrl(incidentId, filename),
+    by: rapport?.created_by_name ?? null,
+    at: rapport?.submitted_at ?? rapport?.updated_at ?? null,
+  })))
   const [localStorageLoaded, setLocalStorageLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   // A ref, not state: the interval, the debounce and the unmount flush can all
@@ -805,6 +818,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
             incidentId={incidentId}
             transport={transport.photos}
             disabled={readOnly}
+            onOpenPhoto={openPhoto ? filename => openPhoto('rapport', filename) : undefined}
             onPhotosChange={update => setPhotos(current => update(current))}
           />
         </RapportSection>

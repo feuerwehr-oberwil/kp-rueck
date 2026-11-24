@@ -271,9 +271,9 @@ export function generateChecklistTasks(params: {
     },
 
     // 5. Assign reconnaissance officers — a picker right here, so the step is
-    //    done where it is read. The row used to link into the map's Reko-Modus,
+    //    done where it is read. The row used to link into the map's Reko-Editor,
     //    which marks people too — but it also does dispatching, and the setup
-    //    step is only «wer ist Reko». The Reko-Modus stays reachable from the
+    //    step is only «wer ist Reko». The Reko-Editor stays reachable from the
     //    map for handing out addresses.
     {
       id: 'assign-reko',

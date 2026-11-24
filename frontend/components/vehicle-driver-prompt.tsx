@@ -95,7 +95,7 @@ export function VehicleDriverPrompt() {
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && setDriverless(null)}
-      title={t('driverlessTitle')}
+      title={t('driverlessTitle', { vehicle: driverless.vehicleName })}
       description={
         driverless.groupId
           ? t('driverlessRouteDescription', { vehicle: driverless.vehicleName, auftrag: route?.name ?? '' })

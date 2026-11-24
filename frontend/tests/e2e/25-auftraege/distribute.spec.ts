@@ -39,7 +39,7 @@ test.afterEach(async ({ authenticatedPage: page }) => {
 async function distribute(page: Page, incidentId: string) {
   await page.locator(`[data-incident-id="${incidentId}"]`).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'An Auftrag verteilen' }).click();
-  const picker = page.getByRole('dialog', { name: 'An Auftrag verteilen' });
+  const picker = page.getByRole('dialog', { name: 'In Auftrag aufnehmen' });
   await expect(picker).toBeVisible();
   await picker.getByRole('button', { name: new RegExp(group.name) }).click();
 }
@@ -63,14 +63,14 @@ test('a disponierter card asks first; cancelling leaves it out', async ({ authen
   });
 
   await distribute(page, incidentId);
-  const confirm = page.getByRole('alertdialog', { name: 'In Auftrag aufnehmen?' });
+  const confirm = page.getByRole('alertdialog', { name: `In Auftrag «${group.name}» aufnehmen?` });
   await expect(confirm).toContainText('ist bereits disponiert');
   await confirm.getByRole('button', { name: 'Abbrechen' }).click();
   await expect(confirm).toBeHidden();
   expect(await groupOf(page, incidentId)).toBeNull();
 
   await distribute(page, incidentId);
-  await page.getByRole('alertdialog', { name: 'In Auftrag aufnehmen?' }).getByRole('button', { name: 'In Auftrag aufnehmen' }).click();
+  await page.getByRole('alertdialog', { name: `In Auftrag «${group.name}» aufnehmen?` }).getByRole('button', { name: 'In Auftrag aufnehmen' }).click();
   await expect(page.getByText(`In Auftrag «${group.name}» verteilt`)).toBeVisible();
   await expect.poll(() => groupOf(page, incidentId)).toBe(group.id);
 });

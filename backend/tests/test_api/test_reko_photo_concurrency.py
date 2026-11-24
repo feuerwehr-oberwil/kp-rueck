@@ -1,4 +1,8 @@
-"""Photo prefill and unlink must serialize across actual request transactions."""
+"""Opening the report, adding and unlinking photos must serialize across real request transactions.
+
+One report per incident (23.11.2026): a second link opens the same row, so nothing is copied –
+but the open still takes the card lock, and so must the unlink that may delete the file.
+"""
 
 import asyncio
 import io
@@ -103,7 +107,6 @@ async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatc
                     return client.get("/api/reko/form", params={"incident_id": str(incident_id), "token": draft_token})
                 return client.post(
                     f"/api/reko/{incident_id}/photos",
-                    params={"report_id": str(report_id)},
                     headers={"Cookie": f"access_token={access}"},
                     files={"file": ("photo.jpg", image.getvalue(), "image/jpeg")},
                 )
@@ -143,16 +146,19 @@ async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatc
                 assert response.status_code == 200, response.text
 
             async with sessions() as db:
-                original = await db.scalar(select(RekoReport).where(RekoReport.token == original_token))
+                reports = (
+                    (await db.execute(select(RekoReport).where(RekoReport.incident_id == incident_id))).scalars().all()
+                )
+                assert [report.id for report in reports] == [report_id]
+                original = reports[0]
                 if operation == "draft":
-                    copied = await db.scalar(select(RekoReport).where(RekoReport.token == draft_token))
                     assert original.photos_json == []
-                    assert copied.photos_json == ([filename] if first == "other" else [])
                 else:
                     uploaded = responses[0 if first == "other" else 1].json()["filename"]
                     assert original.photos_json == [uploaded]
                     assert photo_storage.get_photo_path(incident_id, uploaded) is not None
-            assert disk.exists() is (operation == "draft" and first == "other")
+            # No other report lists the file, so the unlink deleted it.
+            assert disk.exists() is False
     finally:
         release_winner.set()
         for task in tasks:

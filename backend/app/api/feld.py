@@ -46,7 +46,7 @@ import math
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -63,6 +63,7 @@ from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import Event, Incident, Personnel, SchadenplatzReport
 from ..services import duplicates, incident_display
+from ..services.audit import log_action
 from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.settings import (
@@ -1175,6 +1176,9 @@ async def serve_feld_photo(
     filename: str,
     claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="Who is looking"),
+    view: Literal["full"] | None = Query(
+        None, description="`full`: the in-app viewer – never cached, so every open is a logged view"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
     """Read a rapport photo back on `/feld` — the crew looking at what it shot.
@@ -1191,8 +1195,12 @@ async def serve_feld_photo(
     incident you may look at, the report says which files belong to it. Neither
     alone is enough — `get_photo_path` only proves a file exists on disk under
     that incident's directory.
+
+    The thumbnail may come from the phone's cache; the viewer asks with ``?view=full``,
+    answered ``no-store`` and logged as ``view_photo`` like the board's route (Sol review G
+    round 2, S3).
     """
-    incident, _person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
+    incident, person = await _authorized_incident(db, claims, personnel_id, incident_id, sources=crud.RAPPORT_SOURCES)
 
     result = await db.execute(select(SchadenplatzReport).where(SchadenplatzReport.incident_id == incident.id))
     report = result.scalar_one_or_none()
@@ -1203,12 +1211,21 @@ async def serve_feld_photo(
     if file_path is None:
         raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, "Foto nicht gefunden")
 
+    if view:
+        await log_action(
+            db=db,
+            action_type="view_photo",
+            resource_type="reko_photo",
+            resource_id=incident.id,
+            changes={"filename": filename, "via": "feld", "personnel_id": str(person.id), "view": view},
+            request=request,
+        )
     return FileResponse(
         file_path,
         media_type="image/jpeg",
         # `private` and short: the URL carries a token, and a shared cache must
         # never hold a photo that a later, tokenless request could be served.
-        headers={"Cache-Control": "private, max-age=3600"},
+        headers={"Cache-Control": "private, no-store" if view else "private, max-age=3600"},
     )
 
 

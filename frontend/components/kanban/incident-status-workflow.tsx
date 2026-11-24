@@ -40,8 +40,9 @@ import { onStatusConflict } from "@/lib/status-conflict"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startableNextStop, statusBadgeClass } from "@/lib/kanban-utils"
-import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { operationVehicleOnSite } from "@/lib/vehicle-on-site"
+import { cn } from "@/lib/utils"
+import { getIncidentRefParts } from "@/lib/incident-types"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { PersonName, usePersonNaming } from "@/components/person-name"
 import { LeaderBadge, LeaderGlyph } from "@/components/kanban/leader-badge"
@@ -52,11 +53,10 @@ import { usePointerFine } from "@/lib/hooks/use-pointer-fine"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 
-// Home-town-free label for dialog texts; falls back to the incident type when
-// the address was only the home town (formatted location is then empty).
+// The Einsatz in every gate's text: «14 · Hauptstrasse 4» – number first, as on the card, in ⌘K
+// and the Doppelbelegung prompt; two Einsätze in one street are told apart (owner pick #14).
 function operationLabel(operation: Operation): string {
-  return (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity()))
-    || getIncidentTypeLabel(operation.incidentType)
+  return getIncidentRefParts(operation).head
 }
 
 type ResourceType = "crew" | "vehicles" | "materials"
@@ -341,12 +341,12 @@ export function useIncidentStatusWorkflow({
     openDispatchGate(base)
   }, [gateFor, openDispatchGate, operationById])
 
-  /** Still «Beendet» without a vehicle — no own vehicle, none on its route, not zu Fuss. */
-  const lacksReturningVehicle = useCallback((operation: Operation) => {
-    const auftrag = findAuftragForStop(groups, operation)
-    const routeVehicleCount = auftrag ? getGroupResources(auftrag.id).vehicles.length : 0
-    return !operation.zuFuss && operation.vehicles.length === 0 && routeVehicleCount === 0
-  }, [getGroupResources, groups])
+  /** Into «Rückfahrt» with no vehicle on site (`vehicleOnSite`: an own vehicle whose
+   *  driver «kehrt zurück» has already left), none on its route, not zu Fuss. */
+  const lacksReturningVehicle = useCallback(
+    (operation: Operation) => !operation.zuFuss && operationVehicleOnSite(operation, groups, getGroupResources) === null,
+    [getGroupResources, groups],
+  )
 
   const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
@@ -373,7 +373,7 @@ export function useIncidentStatusWorkflow({
    *
    * Why the move waits instead of opening after it like the other gates: Abbrechen then has
    * nothing to undo and the card is where the operator left it. The move itself files nothing –
-   * the save that answers «Einsatz relevant?» does (`api/reko._kp_draft_files_now`, owner
+   * the save that answers «Einsatz relevant?» does (`api/reko._board_save_files_now`, owner
    * re-pick 19.11.2026, #30), and the server moves a card in «Reko» on to «Reko abgeschlossen».
    */
   const holdStatusMove = useCallback((operationId: string, targetStatus: OperationStatus) => {
@@ -717,10 +717,8 @@ export function useIncidentStatusWorkflow({
   }, [groups, materialChoice, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
 
   const returningVehicleOperation = gateOperation("returningVehicle")
-  const effectiveReturningVehicleOperation = returningVehicleOperation
-    && !returningVehicleOperation.zuFuss
-    && returningVehicleOperation.vehicles.length === 0
-    && (!returningVehicleOperation.groupId || getGroupResources(returningVehicleOperation.groupId).vehicles.length === 0)
+  // Closes itself once a vehicle is on site after all (assigned meanwhile, or set to «bleibt vor Ort»).
+  const effectiveReturningVehicleOperation = returningVehicleOperation && lacksReturningVehicle(returningVehicleOperation)
     ? returningVehicleOperation
     : null
 

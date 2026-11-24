@@ -34,9 +34,9 @@ import {
   type JournalLine,
 } from "@/lib/journal"
 import { restoreDeletedIncident } from "@/lib/restore-incident"
+import { JournalText } from "@/components/journal/journal-text"
 import { useJournal } from "@/lib/hooks/use-journal"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
-import { isIncidentStatus } from "@/lib/types/incidents"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { FooterSheet } from "@/components/ui/footer-sheet"
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -59,26 +59,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const INPUT_ID = "journal-input"
-
-/** Field facts the drawer has words for (`data.type`); anything else shows its text. */
-const FIELD_TYPES = new Set([
-  "field_arrived",
-  "field_arrived_cleared",
-  "field_complete",
-  "field_complete_cleared",
-  "field_pickup_requested",
-  "field_pickup_cleared",
-  "rapport_submitted",
-  "reko_arrived",
-  "reko_arrived_cleared",
-  // a request from the field (R13) changing state; the text is the request's label
-  "field_request_in_progress",
-  "field_request_done",
-  "field_request_open",
-  // a request that moved with a merge (R2 × R13) — «übernommen von …» / «zurück von …»
-  "field_request_moved",
-  "field_request_returned",
-])
 
 export interface JournalSheetProps {
   open: boolean
@@ -446,87 +426,6 @@ function JournalRow({
       )}
     </li>
   )
-}
-
-/** A row in the reader's language. The automatic rows carry facts, not sentences. */
-export function JournalText({ entry, text }: { entry: ApiJournalEntry; text: string | null }) {
-  const t = useTranslations("journal.rows")
-  const tStatus = useTranslations("kanban")
-  const data = (entry.data ?? {}) as Record<string, unknown>
-  const str = (k: string) => (typeof data[k] === "string" ? (data[k] as string) : "")
-  const status = (s: string) => (isIncidentStatus(s) ? tStatus(`columns.${s}`) : s)
-
-  switch (entry.kind) {
-    case "incident": {
-      const action = str("action")
-      if (action === "deleted") return <span>{t("deleted")}</span>
-      if (action === "restored") return <span>{t("restored")}</span>
-      // The merged card's work moving over (owner decision 10.10.2026): what, from where.
-      if (action === "items_moved" || action === "items_returned") {
-        const other = str("other_title") || t("unknown")
-        return (
-          <span>
-            {t(action === "items_moved" ? "itemsMoved" : "itemsReturned", { other })}
-            {text ? `: ${text}` : ""}
-          </span>
-        )
-      }
-      if (action === "merge" || action === "merged_into" || action === "unmerge") {
-        return <span>{t(action === "merged_into" ? "mergedInto" : action, { other: str("other_title") || t("unknown") })}</span>
-      }
-      return <span>{t("created")}</span>
-    }
-    case "field": {
-      const type = str("type")
-      // `other` only means something to the moved/returned rows; the others ignore it.
-      const label = FIELD_TYPES.has(type) ? t(`field.${type}`, { other: str("other_title") || t("unknown") }) : null
-      if (!label) return <span>{text}</span>
-      const source = str("source")
-      return (
-        <span>
-          {label}
-          {text ? `: ${text}` : ""}
-          {source === "kp" || source === "gps" ? (
-            <span className="text-muted-foreground"> ({t(source === "gps" ? "sourceGps" : "sourceKp")})</span>
-          ) : null}
-        </span>
-      )
-    }
-    case "status":
-      return (
-        <span>
-          <span className="text-muted-foreground">{status(str("from_status"))} → </span>
-          <span className="font-medium">{status(str("to_status"))}</span>
-        </span>
-      )
-    case "assignment":
-      return (
-        <span className={str("action") === "unassigned" ? "text-muted-foreground" : undefined}>
-          {t(str("action") === "unassigned" ? "unassigned" : "assigned", { name: str("resource_name") })}
-        </span>
-      )
-    case "reko":
-      return <span>{text ? t("rekoWith", { text }) : t("reko")}</span>
-    case "alarm":
-      return (
-        <span>
-          {typeof data.recipients === "number" && data.recipients > 0
-            ? t("alarm", { count: data.recipients })
-            : t("alarmPlain")}
-        </span>
-      )
-    case "message":
-      return (
-        <span>
-          <span className="font-medium">
-            {t(str("direction") === "to_field" ? "toField" : "fromField", { name: entry.author_name ?? t("unknown") })}
-          </span>{" "}
-          {text}
-        </span>
-      )
-    default:
-      return <span>{text}</span>
-  }
 }
 
 function JournalComposer({

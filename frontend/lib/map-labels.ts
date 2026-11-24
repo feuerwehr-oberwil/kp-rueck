@@ -160,6 +160,46 @@ export function pickVisibleLabels(candidates: LabelCandidate[], geometry: LabelG
 export type LabelSide = 'right' | 'left'
 
 /**
+ * Desktop: which side of its pin an open incident card (the selected or pointed-at pin's) hangs
+ * on – the right, like every label, unless what floats over the map (`chrome`: the open legend,
+ * the top row, the controls – centre + box px, `mapChromeBoxes`) or the map's edge covers more
+ * of it there than on the left. The open legend used to cover the selected card's status, crew
+ * and notes (sweep VIS.18). `card` is the rendered card's size; it hangs centred on the pin.
+ */
+export function cardSide({
+  anchor,
+  card,
+  labelOffsetX,
+  chrome,
+  viewport,
+}: {
+  anchor: { x: number; y: number }
+  card: { width: number; height: number }
+  labelOffsetX: number
+  chrome: readonly { x: number; y: number; width: number; height: number }[]
+  viewport: Viewport
+}): LabelSide {
+  const top = anchor.y - card.height / 2
+  const shared = (a: Rect, b: Rect) =>
+    Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+    Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+  const map: Rect = { left: 0, top: 0, right: viewport.width, bottom: viewport.height }
+  const covered = (left: number) => {
+    const rect = { left, top, right: left + card.width, bottom: top + card.height }
+    const offMap = card.width * card.height - shared(rect, map)
+    const underChrome = chrome.reduce(
+      (sum, c) =>
+        sum + shared(rect, { left: c.x - c.width / 2, top: c.y - c.height / 2, right: c.x + c.width / 2, bottom: c.y + c.height / 2 }),
+      0,
+    )
+    return offMap + underChrome
+  }
+  const right = covered(anchor.x + labelOffsetX)
+  const left = covered(anchor.x - labelOffsetX - card.width)
+  return left < right ? 'left' : 'right'
+}
+
+/**
  * Desktop (label mode `all`): which side of its pin each label hangs on. Same greedy order as the
  * phone pass – Hoch first, then top to bottom – but nothing is dropped: a label whose right side
  * is taken (another label, another incident's dot, the map's edge) flips left when the left side

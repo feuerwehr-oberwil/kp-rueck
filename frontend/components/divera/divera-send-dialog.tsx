@@ -23,8 +23,8 @@ import { usePersonnel, type Person } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { formatAlarmMessage, formatAlarmTitle } from "@/lib/divera-formatter"
 import { sortCrewByLeader } from "@/lib/crew-order"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
-import { getIncidentTypeLabel } from "@/lib/incident-types"
+import { SubjectLine } from "@/components/ui/subject-line"
+import { incidentSubject } from "@/lib/incident-types"
 import { getMessageTemplates } from "@/lib/message-template"
 import { apiClient } from "@/lib/api-client"
 import { useDeploymentBlock } from "@/lib/hooks/use-deployment"
@@ -217,9 +217,8 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
               <Siren className="h-5 w-5 text-muted-foreground" />
               {t("title")}
             </DialogTitle>
-            <DialogDescription>
-              {t("description", { location: (operation.locationDisplay ?? formatLocationForDisplay(operation.location, getGlobalHomeCity())) || getIncidentTypeLabel(operation.incidentType) })}
-            </DialogDescription>
+            <SubjectLine subject={incidentSubject(operation)} />
+            <DialogDescription>{t("description")}</DialogDescription>
           </DialogHeader>
 
           {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal:

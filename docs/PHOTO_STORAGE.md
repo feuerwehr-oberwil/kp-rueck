@@ -215,7 +215,7 @@ The training simulation (`POST /api/training/events/{event_id}/simulate/reko/{in
 
 ### Performance
 - **Compression**: Reduces storage and bandwidth usage
-- **Caching**: photo responses are `private, max-age=3600` – cacheable by the operator's own browser, never by a shared cache.
+- **Caching**: photo responses are `private, max-age=3600` – cacheable by the operator's own browser, never by a shared cache. The in-app viewer asks with `?view=full`, answered `private, no-store`, so every open reaches the route and its `view_photo` entry (`changes.view = "full"`); a link-door answer (`token`, `reko_token`) is `no-store` too.
 - **Cleanup**: Empty incident directories are automatically removed
 
 ## Troubleshooting

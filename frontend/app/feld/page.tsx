@@ -78,6 +78,7 @@ import { asIncidentType } from '@/lib/types/incidents'
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from '@/lib/utils'
 import { Reveal } from '@/components/ui/reveal'
 import { PersonName, PersonNamingProvider } from "@/components/person-name"
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
 
 /** `code` is the door (plan 26): the link alone opens nothing, so the page asks
  *  for the four digits before it can even show the picker. A device that has
@@ -356,7 +357,7 @@ function FeldSurface() {
   /**
    * What an empty list means for THIS person.
    *
-   * "Noch kein Auftrag" is right for a crew waiting to be sent somewhere and
+   * "Noch kein Einsatz" is right for a crew waiting to be sent somewhere and
    * wrong for everybody with a role: somebody on the phone desk or running the
    * board has not been told nothing, they are doing the thing this page has no
    * rows for. Telling them they have no job reads as the app not knowing what
@@ -1457,55 +1458,59 @@ function FeldSurface() {
             {token && selectedPerson && assignmentRapportApplies(selectedAssignment) && (
               <section className="space-y-3">
                 <h2 className="type-label px-1 text-muted-foreground">{t('detail.rapportTitle')}</h2>
-                <FeldRapportForm
-                  key={selectedAssignment.incident_id}
-                  incidentId={selectedAssignment.incident_id}
-                  focusKurzberichtSignal={rapportFocusSignal}
-                  transport={{
-                    load: () =>
-                      apiClient.getFeldRapport(selectedAssignment.incident_id, selectedPerson.personnel_id, token),
-                    save: update =>
-                      apiClient.saveFeldRapport(
-                        selectedAssignment.incident_id,
-                        selectedPerson.personnel_id,
-                        token,
-                        update,
-                      ),
-                    // Same storage as the Reko form, a different door: the feld
-                    // two-step, never a widened form token.
-                    photos: {
-                      upload: async (file, onProgress) =>
-                        (
-                          await apiClient.uploadFeldPhoto(
+                {/* The Rapport's photos open in a viewer of their own; it loads them
+                    through the feld door below (`photos.url`, logged with `view=full`). */}
+                <PhotoViewerProvider incidentLabel={headline}>
+                  <FeldRapportForm
+                    key={selectedAssignment.incident_id}
+                    incidentId={selectedAssignment.incident_id}
+                    focusKurzberichtSignal={rapportFocusSignal}
+                    transport={{
+                      load: () =>
+                        apiClient.getFeldRapport(selectedAssignment.incident_id, selectedPerson.personnel_id, token),
+                      save: update =>
+                        apiClient.saveFeldRapport(
+                          selectedAssignment.incident_id,
+                          selectedPerson.personnel_id,
+                          token,
+                          update,
+                        ),
+                      // Same storage as the Reko form, a different door: the feld
+                      // two-step, never a widened form token.
+                      photos: {
+                        upload: async (file, onProgress) =>
+                          (
+                            await apiClient.uploadFeldPhoto(
+                              selectedAssignment.incident_id,
+                              selectedPerson.personnel_id,
+                              token,
+                              file,
+                              onProgress,
+                            )
+                          ).filename ?? '',
+                        remove: async filename => {
+                          await apiClient.deleteFeldPhoto(
                             selectedAssignment.incident_id,
                             selectedPerson.personnel_id,
                             token,
-                            file,
-                            onProgress,
+                            filename,
                           )
-                        ).filename ?? '',
-                      remove: async filename => {
-                        await apiClient.deleteFeldPhoto(
-                          selectedAssignment.incident_id,
-                          selectedPerson.personnel_id,
-                          token,
-                          filename,
-                        )
+                        },
+                        // Reading is a door too. The board's photo endpoint wants
+                        // a session and this page has none, so its `<img>` came
+                        // back 401 — one crew, its own photo, a broken icon.
+                        url: filename =>
+                          apiClient.feldPhotoUrl(
+                            selectedAssignment.incident_id,
+                            selectedPerson.personnel_id,
+                            token,
+                            filename,
+                          ),
                       },
-                      // Reading is a door too. The board's photo endpoint wants
-                      // a session and this page has none, so its `<img>` came
-                      // back 401 — one crew, its own photo, a broken icon.
-                      url: filename =>
-                        apiClient.feldPhotoUrl(
-                          selectedAssignment.incident_id,
-                          selectedPerson.personnel_id,
-                          token,
-                          filename,
-                        ),
-                    },
-                  }}
-                  onSaved={applyRapportState}
-                />
+                    }}
+                    onSaved={applyRapportState}
+                  />
+                </PhotoViewerProvider>
               </section>
             )}
           </div>
@@ -1548,7 +1553,7 @@ function FeldSurface() {
             out on a Schadenplatz gets it after their own work — see below. */}
         {!hasOwnWork && materialSection}
 
-        {/* "Noch kein Auftrag" is for somebody whose page is otherwise empty.
+        {/* "Noch kein Einsatz" is for somebody whose page is otherwise empty.
             A Materialwart reading a full table of material has not been told
             nothing — telling them they have no job would contradict the screen
             they are looking at. */}

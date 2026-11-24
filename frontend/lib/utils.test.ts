@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { formatLocationForDisplay } from './utils'
+import { footerCollisionPadding, formatLocationForDisplay } from './utils'
 
 /**
  * The address formatter exists twice – here and as `format_location_for_display`
@@ -45,5 +45,21 @@ describe('formatLocationForDisplay', () => {
       if (!city) continue
       expect(city, `${address} → ${output}`).not.toBe(street.replace(/ \d+$/, ''))
     }
+  })
+})
+
+// A menu near the foot of a phone page must end above the bottom nav, not over it (sweep VIS.5).
+describe('footerCollisionPadding', () => {
+  afterEach(() => {
+    document.documentElement.style.removeProperty('--nav-reserve')
+  })
+
+  it('keeps 8px off the bottom when nothing is docked there', () => {
+    expect(footerCollisionPadding().bottom).toBe(8)
+  })
+
+  it('reserves the phone bottom nav that --nav-reserve measures', () => {
+    document.documentElement.style.setProperty('--nav-reserve', '65px')
+    expect(footerCollisionPadding().bottom).toBe(69)
   })
 })

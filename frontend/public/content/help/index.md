@@ -13,6 +13,10 @@ Hauptansicht beim Laden der App. Zeigt alle Einsätze in sieben Status-Spalten (
 
 **«3 Geräte vor Ort» am Kopf der Material-Leiste.** Material, das ein Trupp irgendwo stehen liess, ist auf dem Board sonst unsichtbar – es ist weder frei noch erkennbar im Gebrauch. Die Aufklappliste nennt Gerät, Adresse und seit wann, das Älteste zuoberst; ein Klick öffnet den zugehörigen Einsatz. Sie erscheint nur, wenn wirklich etwas draussen steht.
 
+**«Filter & Sortierung» neben der Personal-Suche.** Ein Knopf mit der Zahl der gewählten Filter öffnet zuerst die **Sortierung** – *Grad* (Reihenfolge der Einstellungen), *Name* (beide als eine Liste) oder *Frei zuerst* (Standard, Gruppen Frei · Gebunden) –, darunter die Filter **Status** (Alle · Frei · Gebunden), **Grad** (einer davon) und **Tags** (alle gewählten). Die Filter wirken zusätzlich zur Suche; eine Zeile unter dem Suchfeld nennt sie, ihr ✕ setzt alles zurück. Pro Gerät gemerkt.
+
+**Dasselbe neben der Material-Suche.** **Sortierung**: *Standort* (Standard, die Depots wie bisher) oder *Typ* (Gruppen nach Typ, darin die Depots). Filter: **Status** (Alle · Frei · Gebunden · Nicht einsatzbereit), **Standort** und **Typ** (je einer davon). Zusammenfassung, ✕ und Gedächtnis wie bei den Personen.
+
 **«Dienstzeiten» am Fuss der Personen-Leiste.** Wer da ist, seit wann und wie viel er schon gemacht hat – alle Anwesenden, wer am längsten da ist zuoberst. Spalten: **Name · Seit · Anwesend · Eingesetzt · Pause · Einsätze · Jetzt**. *Anwesend* zählt ab dem Check-in (gelb ab der Einstellung «Personalermüdung», standardmässig 4 h, rot ab dem Anderthalbfachen), *Eingesetzt* die Zeit auf einem Einsatz oder Auftrag, *Pause* die Zeit anwesend, aber auf keinem Einsatz und keinem Auftrag; *Einsätze* zählt die Einsätze dieses Ereignisses (ein Auftrag einmal, ein innert zwei Minuten zurückgenommenes Ziehen gar nicht). Ein Klick auf einen Spaltenkopf sortiert danach, nochmals umgekehrt – «wer hat am meisten, wer am wenigsten» ist ein Klick. **Alle · Frei · Im Einsatz** und eine Suche nach Name oder Ort grenzen ein. Auch über `Cmd/Ctrl+K` und auf dem Handy im Personal-Sheet (dort Suchfeld und ein Trichter-Menü, das auch die Sortierung enthält). Eine Ansicht, kein Dienstplan – von hier aus wird niemand eingeteilt oder alarmiert.
 
 **«Rapporte» in der Fusszeile (`O`).** Zählt die abgeschlossenen Schadenplätze, zu denen noch kein Schadenplatz-Rapport erfasst ist, und öffnet die Liste – **Offen** (das Älteste zuoberst, denn daran erinnert sich am Ende niemand mehr) und **Erfasst**. Ein Klick auf eine Zeile springt zum Einsatz.
@@ -41,7 +45,7 @@ Geografische Übersicht aller Einsatzorte. Die Marker zeigen die Priorität (Gra
 
 **Tastatur:** `L` Labels, `I` Linien, `1-5` Fahrzeug anzeigen – siehe [Tastaturkürzel](#tastaturkürzel).
 
-**Wetter.** Der Schalter «Wetter» im Menü «Ansicht» (auf `/map` und auf der Wandkarte `/display/map`) legt das Niederschlagsradar von MeteoSchweiz unter alle Marker und Routen. Das Feld unten links spielt mit ▶ die letzte Stunde in 5-Minuten-Schritten ab; der Regler wählt ein Bild und sagt, wie alt es ist («vor 40'»), dazu Deckkraft und Farbskala. Amtliche Warnungen für den Standort der Feuerwehr – von MeteoSchweiz und von Alertswiss, z. B. ein kantonales Feuerverbot – stehen als Chip oben rechts auf der Karte, auch wenn das Radar aus ist; ein Tipp darauf zeigt den Originaltext mit Gebiet, Gültigkeit und Quelle. Daten, die nicht mehr nachkommen, erscheinen grau mit ihrer Zeit («Veraltet – Stand 17:05»), statt als aktuell durchzugehen. Grundlage sind die Koordinaten unter Einstellungen → Allgemein; der Server braucht dafür Internet.
+**Wetter.** Der Schalter «Wetter» im Menü «Ansicht» (auf `/map` und auf der Wandkarte `/display/map`) legt das Niederschlagsradar von MeteoSchweiz unter alle Marker und Auftragslinien. Das Feld unten links spielt mit ▶ die letzte Stunde in 5-Minuten-Schritten ab; der Regler wählt ein Bild und sagt, wie alt es ist («vor 40'»), dazu Deckkraft und Farbskala. Amtliche Warnungen für den Standort der Feuerwehr – von MeteoSchweiz und von Alertswiss, z. B. ein kantonales Feuerverbot – stehen als Chip oben rechts auf der Karte, auch wenn das Radar aus ist; ein Tipp darauf zeigt den Originaltext mit Gebiet, Gültigkeit und Quelle. Daten, die nicht mehr nachkommen, erscheinen grau mit ihrer Zeit («Veraltet – Stand 17:05»), statt als aktuell durchzugehen. Grundlage sind die Koordinaten unter Einstellungen → Allgemein; der Server braucht dafür Internet.
 
 ### Seitenpanel (Kanban)
 Auf breiten Bildschirmen (>1280px) erscheint rechts ein Seitenpanel mit den **Details** des ausgewählten Einsatzes (Einsatzbearbeitung). Mit `I` bzw. `\` ein- und ausklappen. Eine Mini-Karte im Panel gibt es nicht mehr – die Karte ist eine eigene Seite (`G M`), und `K` öffnet den ausgewählten Einsatz dort.
@@ -137,7 +141,7 @@ Auf der Kommandozeile beantwortet `just tiles-status` dieselbe Frage: es untersc
 
 ## Suche
 
-Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach der Route sucht, findet ihre Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
+Die Suchleiste (`S` oder `/`) durchsucht alle Einsätze nach Adresse, Typ, Priorität und Status (so wie sie auf der Karte stehen, z. B. «hoch», «Im Einsatz»), Meldungstext und **Auftragsname**; «reko» findet die Einsätze mit abgeschlossener Reko – wer nach dem Auftrag sucht, findet seine Stopps. Ideal um bei vielen Einsätzen schnell die richtige Karte zu finden.
 
 Auf den Anzeige-Seiten [Board](#board-displayboard) und [Status](#status-displaystatus) liegt dieselbe Suche in der Kopfzeile, mit denselben zwei Tasten – wer vom KP zum Wandschirm geht, muss sich nichts Zweites merken. Sie reagiert nicht, während ein Feld den Cursor hat oder ein Dialog offen ist. Nach 10 Sekunden ohne Maus und Taste blenden Suchfeld und Zurück-Pfeil an Ort und Stelle aus (nichts verschiebt sich); die erste Mausbewegung oder `S` holt sie zurück. Eine laufende Suche bleibt stehen.
 
@@ -558,21 +562,21 @@ Ein «Archiv» für einzelne Einsätze gibt es nicht – archiviert wird das **E
 
 ---
 
-## Aufträge (Mehrstopp-Routen)
+## Aufträge (mehrere Stopps)
 
-Bei einer **Flächenlage** (z. B. Sturm- oder Hochwasserschäden mit vielen kleinen Einsätzen) fährt oft **ein Trupp** mehrere Schadenplätze nacheinander ab. Ein **Auftrag** bündelt dazu mehrere Einsätze zu einer **geordneten Route** für genau diesen Trupp – statt jeden Einsatz einzeln zu disponieren, planst du die ganze Abfahrt als eine Einheit.
+Bei einer **Flächenlage** (z. B. Sturm- oder Hochwasserschäden mit vielen kleinen Einsätzen) fährt oft **ein Trupp** mehrere Schadenplätze nacheinander ab. Ein **Auftrag** bündelt dazu mehrere Einsätze zu **geordneten Stopps** für genau diesen Trupp – statt jeden Einsatz einzeln zu disponieren, planst du die ganze Abfahrt als eine Einheit.
 
 Öffnen mit der Taste `A` oder über die **Aufträge**-Leiste am unteren Bildschirmrand.
 
 ### Auftrag erstellen & Stopps hinzufügen
 
-1. **Neuer Auftrag** in der Aufträge-Leiste (Name + Farbe wählen – die Farbe kennzeichnet die Route auf Board und Karte).
+1. **Neuer Auftrag** in der Aufträge-Leiste (Name + Farbe wählen – die Farbe kennzeichnet den Auftrag auf Board und Karte).
 2. **Stopps (Einsätze) hinzufügen** – drei Wege:
    - **Einsatz-Auswahl** («+ Stopp»): bestehende Einsätze aus einer Liste auswählen. Umschalten auf **Karte** zeigt die Einsätze geografisch – Marker anklicken wählt sie aus.
-   - **Karte** (`/map` → Routenplanung): auf einen Einsatz-Marker oder eine freie Stelle klicken.
+   - **Karte** (`/map` → Auftrags-Editor): auf einen Einsatz-Marker oder eine freie Stelle klicken.
    - **Drag & Drop**: eine Einsatzkarte direkt auf den Auftrag ziehen.
 
-Ein Einsatz, der bereits in einem anderen Auftrag liegt, wird beim Hinzufügen **verschoben** (ein Einsatz gehört zu höchstens einer Route).
+Ein Einsatz, der bereits in einem anderen Auftrag liegt, wird beim Hinzufügen **verschoben** (ein Einsatz gehört zu höchstens einem Auftrag).
 
 ### Standard-Aufträge
 
@@ -587,9 +591,9 @@ Zwei Dinge, die bewusst so sind: Ein hinterlegtes Fahrzeug wird **auch dann zuge
 
 Ein aus einer Vorlage entstandener Auftrag ist danach ein ganz normaler Auftrag – die Vorlage später zu ändern oder zu löschen wirkt **nicht** in laufende Lagen zurück.
 
-### Route-eigene Ressourcen
+### Ressourcen des Auftrags
 
-Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die die ganze Route selbstständig abarbeitet** – wir leiten diesen einen Trupp nur von Stopp zu Stopp.
+Das Grundmodell: **Ein Auftrag ist eine einzige Einheit, die alle Stopps selbstständig abarbeitet** – wir leiten diesen einen Trupp nur von Stopp zu Stopp.
 
 Daraus folgt:
 
@@ -597,11 +601,11 @@ Daraus folgt:
 - Ein Einsatz ist **ganz im Auftrag oder gar nicht** – es gibt kein «halb drin». Zusätzliche Ressourcen nur für einen einzelnen Stopp (halb-im-Auftrag) werden **nicht** unterstützt. Braucht ein Schadenplatz einen eigenen Trupp mit eigenem Material, gehört er nicht in diesen Auftrag, sondern bleibt ein eigenständiger Einsatz (oder kommt in einen zweiten Auftrag).
 - Die Ressourcen werden **automatisch freigegeben, wenn der letzte Stopp abgeschlossen** ist.
 
-### Route planen & optimieren
+### Auftrag planen & optimieren
 
-- **Routen-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Routenlinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren oder über das **⋮** am Stopp (**Nach oben**, **Nach unten**, **An den Anfang** – dasselbe in der Aufträge-Leiste), per Kartenklick neue Stopps anhängen. Der **Status eines Stopps** steht ausgeschrieben auf einem Knopf; ein Klick öffnet die Auswahl aller Status und ändert von sich aus nichts.
-- **Routenplanung** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte. Die Leiste rechts zeigt die Reihenfolge als **Zeitleiste**: zuoberst der Start mit seiner Herkunft («Start · Magazin» – Standort aus den Einstellungen oder, wenn keiner eingerichtet ist, «Ersatzstandort»; nach einer Optimierung der Start, den sie tatsächlich benutzt hat, etwa Fahrzeug-GPS mit Zeit der letzten Meldung), darunter die Stopps mit **denselben Nummern wie ihre Pins auf der Karte**, zuletzt «Stopp hinzufügen». Lange Adressen brechen um, statt abgeschnitten zu werden.
-- **Breite der Leiste:** Seitenleisten lassen sich an ihrer Kante breiter oder schmaler ziehen – auch die der Routenplanung. Ein Doppelklick auf die Kante setzt die Standardbreite zurück; die Breite wird pro Gerät gemerkt.
+- **Auftrags-Editor** (in der Aufträge-Leiste): grosse Karte mit nummerierten Stopps + Auftragslinie neben der geordneten Stopp-Liste. Stopps per Drag & Drop umsortieren oder über das **⋮** am Stopp (**Nach oben**, **Nach unten**, **An den Anfang** – dasselbe in der Aufträge-Leiste), per Kartenklick neue Stopps anhängen. Der **Status eines Stopps** steht ausgeschrieben auf einem Knopf; ein Klick öffnet die Auswahl aller Status und ändert von sich aus nichts.
+- **Auftrags-Editor** auf `/map`: dieselbe Planung auf der grossen Vollbild-Karte. Die Leiste rechts zeigt die Reihenfolge als **Zeitleiste**: zuoberst der Start mit seiner Herkunft («Start · Magazin» – Standort aus den Einstellungen oder, wenn keiner eingerichtet ist, «Ersatzstandort»; nach einer Optimierung der Start, den sie tatsächlich benutzt hat, etwa Fahrzeug-GPS mit Zeit der letzten Meldung), darunter die Stopps mit **denselben Nummern wie ihre Pins auf der Karte**, zuletzt «Stopp hinzufügen». Lange Adressen brechen um, statt abgeschnitten zu werden.
+- **Breite der Leiste:** Seitenleisten lassen sich an ihrer Kante breiter oder schmaler ziehen – auch die des Auftrags-Editors. Ein Doppelklick auf die Kante setzt die Standardbreite zurück; die Breite wird pro Gerät gemerkt.
 - **Reihenfolge optimieren**: schlägt per Nächster-Nachbar-Heuristik **nach Luftlinie** eine kurze Reihenfolge ab einem Startpunkt vor (**Magazin**, **Fahrzeug-GPS** oder **erster Stopp**) – das Menü nennt vorher bei jedem Startpunkt, woher er kommt und wie alt er ist. Der Vorschlag gilt sofort; **Rückgängig** in der Meldung stellt die alte Reihenfolge wieder her, solange niemand den Auftrag inzwischen geändert hat. Es braucht mindestens zwei Stopps mit Koordinaten. Eine Planungshilfe, keine Strassenroute.
 
 ### Funkdurchsage für einen Auftrag
@@ -610,17 +614,17 @@ Ein Auftrag wird **einmal vergeben, nicht bei jedem Stopp neu**. Die App erkennt
 
 - **Der erste Stopp, der auf «Disponiert» geht, ist die Auftragsvergabe.** Die Durchsage nennt den ganzen Auftrag: Mannschaft, Fahrzeuge und Material zuerst, danach die nummerierte Liste aller Stopps.
 - **Jeder weitere Stopp ist eine Fortsetzung** und wird nur noch kurz angesagt: «Auftrag ‹Sturmholz Oberwil› weiter mit Stopp 3: Mühlemattstrasse 12.» Die Mannschaft wird nicht ein zweites Mal vorgelesen.
-- **Bekommt die Route zwischendurch Mannschaft, ein Fahrzeug oder Material dazu**, gibt es wieder die volle Durchsage – wer neu dabei ist, hat den Auftrag noch nie gehört.
+- **Bekommt der Auftrag zwischendurch Mannschaft, ein Fahrzeug oder Material dazu**, gibt es wieder die volle Durchsage – wer neu dabei ist, hat den Auftrag noch nie gehört.
 
 **Erledigte Stopps fallen aus der Liste, behalten aber ihre Nummer.** Ist Stopp 1 abgearbeitet, heisst es «2 Stopps: 2. …, 3. …». So meint «Stopp 3» über die ganze Lebensdauer des Auftrags dieselbe Adresse.
 
 **Besonderes** (Reko-Gefahren, Nachbarhilfe) steht gesammelt am Schluss, jeweils mit der Adresse dazu – nicht verstreut zwischen den Stopps.
 
-**Durchsage wiederholen:** Funkverkehr geht verloren. In der Aufträge-Leiste hat jeder Auftrag den Knopf **Durchsage wiederholen** (im aufgeklappten Auftrag neben «Routen-Editor», ausserdem im ⋮-Menü und per Rechtsklick). Er zeigt die zuletzt gemachte Durchsage im selben Wortlaut noch einmal an – ohne einen Stopp-Dialog wieder aufmachen zu müssen und ohne sie neu zu zählen.
+**Durchsage wiederholen:** Funkverkehr geht verloren. In der Aufträge-Leiste hat jeder Auftrag den Knopf **Durchsage wiederholen** (im aufgeklappten Auftrag neben «Auftrags-Editor», ausserdem im ⋮-Menü und per Rechtsklick). Er zeigt die zuletzt gemachte Durchsage im selben Wortlaut noch einmal an – ohne einen Stopp-Dialog wieder aufmachen zu müssen und ohne sie neu zu zählen.
 
 ### Auf der Karte anzeigen
 
-**Aufträge anzeigen** auf `/map` zeichnet alle Routen als farbige Linien mit nummerierten Stopps. Dabei wird die Marker-Einfärbung automatisch auf **Färben nach: Auftrag** umgestellt, sodass jeder Einsatz die Farbe seiner Route trägt (Einsätze ohne Auftrag = «Kein Auftrag»).
+**Aufträge anzeigen** auf `/map` zeichnet alle Aufträge als farbige Linien mit nummerierten Stopps. Dabei wird die Marker-Einfärbung automatisch auf **Färben nach: Auftrag** umgestellt, sodass jeder Einsatz die Farbe seines Auftrags trägt (Einsätze ohne Auftrag = «Kein Auftrag»).
 
 ---
 
@@ -634,7 +638,7 @@ Ein Auftrag wird **einmal vergeben, nicht bei jedem Stopp neu**. Die App erkennt
 
 Nur verfügbare Ressourcen (grüner Punkt) können zugewiesen werden. Ein **leerer Ring** heisst gebunden (auf einem Einsatz, Auftrag, Reko oder in einer Funktion), ein **blassgrauer Punkt** nicht verfügbar. Gelb ist kein Zustand, sondern heisst «schau hin» – Mittel, Am Warten, zu lange offen, doppelt zugewiesen.
 
-**Rückgängig nach dem Freigeben.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stopp oder eine Routen-Ressource freigegeben, erscheint «… freigegeben · Rückgängig». Rückgängig weist sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo zugewiesen, bleibt sie dort, und die Meldung sagt wo.
+**Rückgängig nach dem Freigeben.** Wird eine Person, ein Fahrzeug, Material, ein Auftrags-Stopp oder eine Ressource eines Auftrags freigegeben, erscheint «… freigegeben · Rückgängig». Rückgängig weist sie auf dem normalen Weg wieder zu (mit denselben Rückfragen); hat sie inzwischen jemand anderswo zugewiesen, bleibt sie dort, und die Meldung sagt wo.
 
 **Auf dem Touchscreen** öffnet ein Tipp auf einen Personen- oder Fahrzeug-Chip ein kleines Menü: «Details öffnen», wo es passt «Als Einsatzleiter markieren», und abgesetzt das rote «Vom Einsatz freigeben». Mit der Maus ändert sich nichts.
 
@@ -657,7 +661,7 @@ Damit in hektischen Momenten kein Schritt vergessen geht, blendet das System bei
 | Situation | Abfrage |
 |-----------|---------|
 | **Fahrzeug ohne Fahrer zuweisen** | Direkt beim Zuweisen erscheint die Fahrer-Auswahl – auch bei einem Auftrag. Eine Person antippen setzt das Häkchen, «Übernehmen» macht sie zum Fahrer; der bisherige Fahrer steht mit «aktuell» da, und wer ihn abwählt, bekommt «Ohne Fahrer». «Abbrechen» lässt das Fahrzeug bewusst ohne Fahrer; der Auftrag zeigt dann «Kein Fahrer · Fahrer wählen», und Disponiert-Text, WhatsApp-Text und A4-Druck sagen «ohne Fahrer». |
-| **Fahrzeug bereits im Einsatz** (Doppelbuchung) | Ein Fahrzeug ist nur einmal physisch vorhanden – beim erneuten Zuweisen: **Hierher verschieben** (von den anderen Einsätzen entfernen) oder **Mehrfach zuweisen** (Doppelbuchung bewusst behalten). |
+| **Bereits im Einsatz** (Doppelbelegung) | Eine Person, ein Fahrzeug oder ein Gerät ist nur einmal vorhanden – beim erneuten Zuweisen eine Karte von Hand wählen: **Hierher verschieben** (`V`, von den anderen Einsätzen entfernen) oder **Auf beiden führen** (`B`, Doppelbelegung bewusst behalten). Enter und Esc ändern nichts. |
 | **In die Reko-Spalte ohne Reko-Person** | Wird ein Einsatz nach «Reko» verschoben, ohne dass eine Reko-Person zugewiesen ist, öffnet sich gleich die Reko-Auswahl «Reko-Person für …»: eine Person wählen und **Zuweisen** – die Karte bleibt in «Reko», die Person erhält das Reko-Formular. Die gestrichelte Zeile «Ohne Reko-Person verschieben» lässt die Karte ohne Zuweisung dort; «Abbrechen» oder `Esc` stellt sie zurück. |
 | **Nach «Reko abgeschlossen» ohne Reko-Bericht** | Die Karte wartet, und das Reko-Formular «Reko-Bericht · …» öffnet sich; jedes Feld wird sofort gespeichert. Eingereicht wird der Bericht mit der Antwort auf «Einsatz relevant?» – erst dann geht **Reko abschliessen**, das die Karte nach «Reko abgeschlossen» schiebt. Solange die Frage offen ist, schiebt «Ohne Bericht abschliessen» sie ohne Bericht; Erfasstes bleibt Entwurf. «Abbrechen» oder `Esc` lässt die Karte, wo sie war. |
 | **Disponieren ohne Ressourcen** | Fehlen beim Verschieben nach «Disponiert» **Personal, Fahrzeuge oder Material** (Fahrzeuge entfallen bei «zu Fuss»), erscheint «Ressourcen fehlen». Jede Zeile nennt, was schon da ist: die Mannschaft mit dem EL zuerst, jedes Fahrzeug mit seinem Fahrer und «bleibt vor Ort | kehrt zurück» zum Umstellen, das Material mit Namen; «Hinzufügen» öffnet die Zuweisung. Wo etwas fehlt, ist **Zuweisen** empfohlen – das öffnet die Zuweisung und führt danach direkt zum Funk-/Alarm-Dialog weiter. Ohne Fahrzeug bietet die Zeile auch **Zu Fuss** an: das markiert den Einsatz «zu Fuss» und gilt als Antwort. Fehlt Mannschaft oder Fahrzeug weiterhin, fragt der erste Klick auf **Disponieren** nach («Kein Fahrzeug – wirklich so ausrücken?», die Zeile wird gelb) und der Knopf heisst «Ohne Fahrzeug disponieren»; erst der zweite Klick (oder `Enter`) disponiert unterbestückt. **Zurück** oder `Esc` nimmt die Rückfrage zurück. |
@@ -728,7 +732,7 @@ Handy-Formularen (Feld, Reko, Check-in) gibt es sie bewusst nicht.
 |----------|--------|
 | `N` | Neuer Einsatz |
 | `Ctrl ↵` | Im Dialog «Neuer Einsatz»: erstellen und gleich den nächsten erfassen |
-| `A` | Aufträge (Routen) öffnen/schliessen |
+| `A` | Aufträge öffnen/schliessen |
 | `S` / `/` | Suche fokussieren |
 | `D` | Drucken & Export öffnen/schliessen |
 | `T` | Links & QR öffnen/schliessen |
@@ -968,4 +972,4 @@ Um unnötige Abfragen zu vermeiden, verwendet der Agent **adaptives Polling**:
 - **Ruhezustand**: Abfrage alle **60 Sekunden**
 - **Nach einem Druckauftrag**: Wechsel auf **5 Sekunden** für **15 Minuten**, danach zurück auf 60s
 
-So werden im Normalbetrieb nur ca. 60 Anfragen pro Stunde gesendet, während bei aktiven Einsätzen Folgeaufträge fast sofort verarbeitet werden.
+So werden im Normalbetrieb nur ca. 60 Anfragen pro Stunde gesendet, während bei aktiven Einsätzen weitere Druckaufträge fast sofort verarbeitet werden.

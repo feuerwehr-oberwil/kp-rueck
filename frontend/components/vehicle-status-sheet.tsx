@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { RESOURCE_STATE_BADGE_CLASSES } from "@/lib/resource-status"
+import { ACCENT_BAR } from "@/lib/kanban-utils"
 import { formatDuration } from "@/lib/duration"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
@@ -153,20 +154,14 @@ function DeploymentLinks({ targets, idleLabel, statusLabel, onOpen }: {
   )
 }
 
-function getStatusBorderColor(status: string, hasIncident: boolean): string {
-  // Refactoring UI: Use subtle visual cues, not heavy color blocks
-  // Only highlight assigned vehicles, available is the default state
+/** Colour of the card's left bar (`ACCENT_BAR`). Refactoring UI: a subtle cue, not a
+ *  heavy colour block – only bound and unavailable vehicles get one; available is the
+ *  default state and draws none. */
+function getStatusBarColor(status: string, hasIncident: boolean): string {
   if (hasIncident) {
-    return "border-l-foreground/40" // gebunden: ink, not amber (VISUAL-03)
+    return "before:bg-foreground/40" // gebunden: ink, not amber (VISUAL-03)
   }
-  switch (status) {
-    case "available":
-      return "border-l-transparent" // No border for default state
-    case "unavailable":
-      return "border-l-muted-foreground/30"
-    default:
-      return "border-l-transparent"
-  }
+  return status === "unavailable" ? "before:bg-muted-foreground/30" : "before:bg-transparent"
 }
 
 export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatusSheetProps) {
@@ -426,8 +421,9 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId }: VehicleStatu
                     onClick={() => rowTarget && openIncident(rowTarget)}
                     className={cn(
                       "border rounded-lg px-3 py-2.5 bg-card transition-all",
-                      "border-l-4",
-                      getStatusBorderColor(vehicle.status, isBound),
+                      ACCENT_BAR,
+                      "before:w-1",
+                      getStatusBarColor(vehicle.status, isBound),
                       isClickable && "cursor-pointer hover:bg-muted/50 hover:border-border",
                       isSelected && "ring-2 ring-sel-line ring-offset-2 ring-offset-background",
                       !isBound && "opacity-75"

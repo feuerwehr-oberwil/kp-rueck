@@ -18,7 +18,9 @@ import { formatClockTime } from "@/lib/incident-time"
 import { formatDurationHours } from "@/lib/duration"
 import { telHref } from "@/lib/phone"
 import { rekoPhotoUrl } from "@/lib/reko-photos"
-import { getIncidentTypeLabel, getIncidentLocationLabel } from "@/lib/incident-types"
+import { getIncidentTypeLabel, getIncidentLocationLabel, getIncidentRefParts } from "@/lib/incident-types"
+import { PhotoViewerProvider } from "@/components/photos/photo-viewer"
+import { usePhotoViewer } from "@/lib/hooks/use-photo-viewer"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import {
   Truck, Users, Siren, Package, AlertTriangle, FileText, Phone, Axe,
@@ -155,6 +157,20 @@ export function IncidentDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
+        <PhotoViewerProvider
+          incidentLabel={getIncidentRefParts(operation).head}
+          // The share board's Reko photos, with its own token; a logged-in editor's open
+          // Reko section registers its own below.
+          fallback={{
+            reko: (operation.rekoSummary?.photos ?? []).map(filename => ({
+              group: 'reko' as const,
+              filename,
+              src: rekoPhotoUrl(operation.id, filename, viewerToken),
+              by: null,
+              at: null,
+            })),
+          }}
+        >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PriorityGlyph priority={operation.priority} size="wall" />
@@ -422,30 +438,7 @@ export function IncidentDetailModal({
                       useful part of a Reko result; it belongs where the result
                       is read. */}
                   {rekoSummary.photos.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-4">
-                      {rekoSummary.photos.map((filename, index) => (
-                        <a
-                          key={filename}
-                          href={rekoPhotoUrl(operation.id, filename, viewerToken)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block aspect-square overflow-hidden rounded-md border border-border bg-muted transition-opacity hover:opacity-80"
-                          title={t('board.rekoPhotoOpen')}
-                        >
-                          {/* Plain <img>: the endpoint needs a credential the
-                              browser carries itself — the session cookie, or the
-                              share token in the query — and next/image's
-                              optimiser (fetching server-side) carries neither. */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={rekoPhotoUrl(operation.id, filename, viewerToken)}
-                            alt={t('board.rekoPhotoAlt', { index: index + 1 })}
-                            loading="lazy"
-                            className="h-full w-full object-cover"
-                          />
-                        </a>
-                      ))}
-                    </div>
+                    <DisplayRekoPhotos incidentId={operation.id} photos={rekoSummary.photos} viewerToken={viewerToken} />
                   )}
                 </div>
               )}
@@ -614,6 +607,7 @@ export function IncidentDetailModal({
             </div>
           )}
         </div>
+        </PhotoViewerProvider>
       </DialogContent>
     </Dialog>
   )
@@ -677,6 +671,36 @@ function IncidentHistory({ incidentId, timeline }: { incidentId: string; timelin
         onRetry={timeline.reload}
       />
       <IncidentParticipants incidentId={incidentId} />
+    </div>
+  )
+}
+
+/** The Reko photos on the wall's detail: a tap opens the viewer (share token URLs included). */
+function DisplayRekoPhotos({ incidentId, photos, viewerToken }: { incidentId: string; photos: string[]; viewerToken?: string }) {
+  const t = useTranslations('display')
+  const open = usePhotoViewer()
+  return (
+    <div className="grid grid-cols-3 gap-2 pt-1 sm:grid-cols-4">
+      {photos.map((filename, index) => (
+        <button
+          key={filename}
+          type="button"
+          onClick={() => open?.('reko', filename)}
+          className="block aspect-square cursor-zoom-in overflow-hidden rounded-md border border-border bg-muted transition-opacity hover:opacity-80"
+          title={t('board.rekoPhotoOpen')}
+        >
+          {/* Plain <img>: the endpoint needs a credential the browser carries itself —
+              the session cookie, or the share token in the query — and next/image's
+              optimiser (fetching server-side) carries neither. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={rekoPhotoUrl(incidentId, filename, viewerToken)}
+            alt={t('board.rekoPhotoAlt', { index: index + 1 })}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        </button>
+      ))}
     </div>
   )
 }

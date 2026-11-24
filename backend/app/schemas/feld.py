@@ -147,7 +147,7 @@ class FeldVehicleLine(BaseModel):
 
       **None when nobody can answer.** A route-level vehicle's ``driver_stay``
       can be set in the dispatch gate since 19.11.2026, but a row nobody touched
-      there is whatever ``_mirror`` copied or the DB default, and nothing tells
+      there is whatever ``mirror_to_auftrag`` copied or the DB default, and nothing tells
       the two apart. Sending `False` there would print «fährt zurück» on a phone
       as if somebody had decided it. An absent flag is not
       the same statement as "he is coming back" — the same rule the board's own
@@ -721,6 +721,9 @@ class RapportPersonnelCandidate(BaseModel):
     personnel_id: UUID
     name: str
     kennung: str | None = None  # tells two people of the same name apart
+    # Grad and tags, so the add-picker finds «Gfr» or «Atemschutz» like every person picker.
+    role: str | None = None
+    tags: list[str] = []
     checked_in: bool = False
 
 

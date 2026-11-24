@@ -329,7 +329,7 @@ export function PersonContextMenu({
       <ConfirmDialog
         open={conflictDialog.open}
         onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}
-        title={t('personMenu.conflictTitle')}
+        title={t('personMenu.conflictTitle', { name: personLabel })}
         description={t.rich('personMenu.conflictDescription', {
           strong: (chunks) => <strong>{chunks}</strong>,
           name: personLabel,
@@ -345,6 +345,8 @@ export function PersonContextMenu({
         })}
         cancelText={t('common.cancel')}
         confirmText={t('personMenu.confirmAction')}
+        // A double booking is chosen by hand, never by Enter (owner pick #3, 23.11.2026).
+        initialFocus="cancel"
         onConfirm={handleConflictConfirm}
       />
 

@@ -48,11 +48,18 @@ class ResourceNotAssignableError(ValueError):
     """
 
 
-def ensure_assignable(resource: AssignableResource, *, event: Event, incident: Incident | None = None) -> None:
+def ensure_assignable(
+    resource: AssignableResource,
+    *,
+    event: Event,
+    incident: Incident | None = None,
+    auftrag_closed: bool = False,
+) -> None:
     """The one place that decides whether a resource may go onto an Einsatz or an Auftrag.
 
     Called by ``assign_resource`` (``incident`` given) and
-    ``group_assignments.assign_group_resource`` (Auftrag: ``incident`` None) with the
+    ``group_assignments.assign_group_resource`` (Auftrag: ``incident`` None,
+    ``auftrag_closed`` from ``group_assignments.auftrag_is_closed``) with the
     target and the resource row locked (``crud/locking.py``) – the resource lock is
     the one archive and purge take, so nothing changes between this check and the
     insert. ``event`` is the target's Ereignis, read without a lock: archiving one is
@@ -65,8 +72,9 @@ def ensure_assignable(resource: AssignableResource, *, event: Event, incident: I
     * a vehicle or material marked «Nicht einsatzbereit» (``out_of_service_since``),
     * anything onto an archived Ereignis,
     * a guest of another Ereignis (``Personnel.guest_event_id``) – nobody this one lists,
-    * personnel or a vehicle onto a closed Einsatz. Material may still go onto one:
-      equipment is left on site after the crew drives off and tracked until it is back.
+    * anything onto a closed Einsatz, or onto an Auftrag whose stops are all closed
+      (owner feedback 23.11.2026 #7). Material left on site at the close keeps its
+      row – that is the close, not a new assignment.
 
     Only new assignments pass through here (also the Reko assignment, a template's
     equipment, a `/feld` take-over and a transfer). Rows already assigned stay as they
@@ -83,9 +91,11 @@ def ensure_assignable(resource: AssignableResource, *, event: Event, incident: I
         raise ResourceNotAssignableError("Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden.")
     if isinstance(resource, Personnel) and resource.guest_event_id not in (None, event.id):
         raise ResourceNotAssignableError(f"«{resource.name}» ist Gast eines anderen Ereignisses.")
-    if incident is not None and incident.status == "complete" and not isinstance(resource, Material):
+    if incident is not None and incident.status == "complete":
+        raise ResourceNotAssignableError("Der Einsatz ist abgeschlossen – es kann nichts mehr zugewiesen werden.")
+    if auftrag_closed:
         raise ResourceNotAssignableError(
-            "Der Einsatz ist abgeschlossen – Personal und Fahrzeuge können nicht mehr zugewiesen werden."
+            "Alle Stopps des Auftrags sind abgeschlossen – es kann nichts mehr zugewiesen werden."
         )
 
 
@@ -705,6 +715,15 @@ class TransferChangedError(ValueError):
     """An undo named assignments that are no longer all active on the incident."""
 
 
+class TransferRefusedError(ValueError):
+    """«Übertragen» cannot start from this Einsatz or onto this target (→ 409). ``str()`` is German."""
+
+
+# Lead's call on review B (24.11.2026): a closed Einsatz is no transfer source. Its material
+# left on site would move, and «Rückgängig» could not put it back onto the closed Einsatz.
+CLOSED_SOURCE_REFUSED = "Der Einsatz ist abgeschlossen – seine Ressourcen werden nicht übertragen."
+
+
 async def transfer_assignments(
     db: AsyncSession,
     source_incident_id: uuid.UUID,
@@ -737,7 +756,8 @@ async def transfer_assignments(
 
     The rows are NEW assignments on the target, so ``ensure_assignable`` applies to
     each resource (a closed or archived target, a vehicle now «nicht einsatzbereit»)
-    and refuses the whole transfer. Lock order (``crud/locking.py``): both Einsätze
+    and refuses the whole transfer. A closed source is refused too (``CLOSED_SOURCE_REFUSED``).
+    Lock order (``crud/locking.py``): both Einsätze
     with their Aufträge, then all resource rows (``lock_resources``).
 
     ``only_assignment_ids`` is the undo of a transfer: exactly those rows move, and only
@@ -747,12 +767,15 @@ async def transfer_assignments(
     Raises:
         ValueError: If source has no assignments or if conflicts exist
         TransferChangedError: (a ``ValueError``) the undo's rows are no longer all there
+        TransferRefusedError: (a ``ValueError``) the source is closed
         ResourceNotAssignableError: (a ``ValueError``) the policy refused a resource
     """
     locked = await lock_incidents_with_groups(db, [source_incident_id, target_incident_id])
     source_incident = locked.get(source_incident_id)
     if source_incident is None:
         raise ValueError("Quell-Einsatz nicht gefunden")
+    if source_incident.status == "complete":
+        raise TransferRefusedError(CLOSED_SOURCE_REFUSED)
 
     target_incident = locked.get(target_incident_id)
     if target_incident is None or target_incident.deleted_at is not None or target_incident.merged_into_id is not None:

@@ -21,7 +21,7 @@
         "canTitle": "Das kannst du ausprobieren",
         "canIncidents": "Einsätze erfassen, priorisieren und durch die Einsatzphasen bewegen",
         "canResources": "Personal, Fahrzeuge und Material disponieren",
-        "canMap": "Standorte, Aufträge und Routen auf der Karte planen",
+        "canMap": "Standorte und Aufträge auf der Karte planen",
         "canWorkflows": "Reko-Berichte und weitere Einsatzabläufe testen",
         "knowTitle": "Gut zu wissen",
         "knowDescription": "Alle Daten sind synthetisch und haben keinen Bezug zu echten Einsätzen. Externe Alarmierung und angebundene Systeme sind in der Demo deaktiviert.",
@@ -106,6 +106,7 @@
       "vehicleStatus": "Fahrzeugstatus",
       "auftraege": "Aufträge öffnen",
       "print": "Drucken",
+      "groupPersons": "Personal",
       "groupAuftraege": "Aufträge",
       "refreshData": "Daten aktualisieren",
       "groupView": "Ansicht",
@@ -164,6 +165,7 @@
         "nothingToDo": "schon so",
         "pickBelow": "unten wählen",
         "unknownIncident": "Kein Einsatz {number}",
+        "closedIncident": "abgeschlossen – nimmt nichts mehr auf",
         "needsIncident": "Einsatz voranstellen – Nummer oder Adresse, z. B. «14 tlf meier» oder «bachweg 3 tlf»",
         "choiceFor": "für «{text}»",
         "toastTitle": "Einsatz {number} · {name}",
@@ -248,6 +250,11 @@
       "hintKp": "Die Auswahllisten zeigen «bis …». 15 Minuten vorher kommt eine Meldung in die Glocke.",
       "hintSelf": "Der KP sieht, bis wann du da bist. Eine Uhrzeit, kein Versprechen.",
       "saveFailed": "Zeit nicht gespeichert"
+    },
+    "choiceDialog": {
+      "cancel": "Abbrechen",
+      "cancelHint": "Esc oder Enter: nichts ändern",
+      "enterKey": "Enter"
     }
   },
   "nav": {
@@ -505,7 +512,7 @@
       "onlyAssignedVehicles": "Nur zugewiesene",
       "transferResources": "Ressourcen übertragen",
       "distributeToAuftrag": "An Auftrag verteilen",
-      "openRoutenEditor": "Routen-Editor öffnen",
+      "openRoutenEditor": "Auftrags-Editor öffnen",
       "newIncident": "Neuer Einsatz",
       "telefondienst": "Telefondienst",
       "kommandoposten": "Kommandoposten",
@@ -513,6 +520,8 @@
       "statusMovedToast": "{name} → {status}",
       "vehicleAssignedToast": "{vehicle} zu {name} zugewiesen",
       "vehicleRemovedToast": "{vehicle} von {name} freigegeben",
+      "closedTakesNoAssignment": "{name} ist abgeschlossen – nichts mehr zuweisen",
+      "closedTransfersNothing": "{name} ist abgeschlossen – nichts zu übertragen",
       "priorityChangedToast": "{name}: Priorität {priority}",
       "zuFussOnToast": "{name}: zu Fuss unterwegs",
       "zuFussOffToast": "{name}: nicht mehr zu Fuss",
@@ -533,16 +542,18 @@
       "rosterFree": "{count} frei",
       "rosterOf": "von {total}",
       "rosterBound": "{count} gebunden",
+      "rosterNotReady": "{count} nicht einsatzbereit",
       "bindingsNone": "Keine Zuweisung – nichts zum Anspringen.",
       "transferredToast": "Ressourcen nach «{target}» übertragen",
       "transferredToastCount": "{count, plural, one {# Zuweisung} other {# Zuweisungen}} von «{source}»",
       "transferUndone": "Übertragung zurückgenommen",
+      "transferredToAuftragToast": "«{source}» ist jetzt Stopp von «{target}»",
       "transferUndoFailed": "Nicht zurückgenommen",
       "transferUndoFailedDescription": "Die Zuweisungen bleiben, wo sie sind."
     },
     "dashboard": {
       "loading": "Wird geladen …",
-      "stopsAddedToast": "{count, plural, one {# Stopp zur Route hinzugefügt} other {# Stopps zur Route hinzugefügt}}",
+      "stopsAddedToast": "{count, plural, one {# Stopp zum Auftrag hinzugefügt} other {# Stopps zum Auftrag hinzugefügt}}",
       "distributedToast": "In Auftrag «{name}» verteilt",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "training": "Übung",
@@ -551,11 +562,49 @@
       "toggleRightSidebar": "Rechte Seitenleiste ein-/ausblenden",
       "newEvent": "Neues Ereignis",
       "allEvents": "Alle Ereignisse",
-      "personnelSearch": "Personal suchen …",
+      "personnelSearch": "Person suchen …",
       "materialSearch": "Material suchen …",
-      "showAvailableOnly": "Nur Verfügbare zeigen",
       "showAll": "Alle zeigen",
-      "noneAvailableFiltered": "Nichts verfügbar",
+      "sidebarFilter": {
+        "title": "Filter & Sortierung",
+        "buttonActive": "Filter & Sortierung – {count} aktiv",
+        "reset": "Zurücksetzen",
+        "resetAll": "Filter zurücksetzen",
+        "sort": "Sortierung",
+        "status": "Status",
+        "statusAll": "Alle",
+        "statusFree": "Frei",
+        "statusBound": "Gebunden"
+      },
+      "personnelFilter": {
+        "grade": "Grad",
+        "gradeHint": "einer davon",
+        "noGrade": "Ohne Grad",
+        "tags": "Tags",
+        "tagsHint": "alle gewählten",
+        "sortRank": "Grad",
+        "sortName": "Name",
+        "sortFreeFirst": "Frei zuerst",
+        "summaryRank": "nach Grad",
+        "summaryName": "nach Name",
+        "shown": "{shown} von {total} Personen",
+        "none": "Niemand passt zu diesen Filtern",
+        "groupFiltered": "Gefiltert · {count}",
+        "groupAll": "Alle · {count}"
+      },
+      "materialFilter": {
+        "statusNotReady": "Nicht einsatzbereit",
+        "location": "Standort",
+        "type": "Typ",
+        "oneOfHint": "einer davon",
+        "noLocation": "Sonstige",
+        "noType": "Ohne Typ",
+        "sortLocation": "Standort",
+        "sortType": "Typ",
+        "summaryType": "nach Typ",
+        "shown": "{shown} von {total} Geräten",
+        "none": "Kein Gerät passt zu diesen Filtern"
+      },
       "sort": {
         "button": "Sortieren",
         "label": "Spalte sortieren",
@@ -612,8 +661,8 @@
         "unknownAddress": "Ohne Adresse"
       },
       "linksAndQr": "Links & QR",
-      "distributeConfirmTitle": "In Auftrag aufnehmen?",
-      "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird dorthin verschoben. Das lässt sich nicht rückgängig machen.",
+      "distributeConfirmTitle": "In Auftrag «{auftrag}» aufnehmen?",
+      "distributeConfirmTransfer": "«{incident}» gehört bereits zu Auftrag «{from}» und wird in Auftrag «{to}» verschoben. Das lässt sich nicht rückgängig machen.",
       "distributeConfirmDispatched": "«{incident}» ist bereits disponiert. Die Aufnahme in den Auftrag lässt sich nicht rückgängig machen.",
       "distributeConfirmAction": "In Auftrag aufnehmen",
       "journal": "Verlauf"
@@ -637,8 +686,8 @@
       "armedHint": "Nochmals klicken oder Enter bestätigt · Esc geht zurück"
     },
     "returningVehicle": {
-      "title": "Kein Fahrzeug zugewiesen",
-      "description": "<hl>{location}</hl> wird beendet – aber es ist kein Fahrzeug zugewiesen. Die Mannschaft müsste zu Fuss zurück.",
+      "title": "Kein Fahrzeug vor Ort",
+      "description": "<hl>{location}</hl> wird beendet – aber kein Fahrzeug bleibt vor Ort. Die Mannschaft müsste zu Fuss zurück.",
       "assignVehicle": "Fahrzeug zuweisen",
       "endAnyway": "Trotzdem beenden"
     },
@@ -648,7 +697,7 @@
       "confirm": "Nächsten Stopp auf «Im Einsatz»"
     },
     "rekoGate": {
-      "pickerTitle": "Reko-Person für {location}",
+      "pickerTitle": "Reko zuweisen",
       "pickerLine": "Die Karte wandert mit der Zuweisung nach «Reko».",
       "moveWithout": "Ohne Reko-Person verschieben",
       "reportTitle": "Reko-Bericht · {location}",
@@ -662,7 +711,7 @@
       "retry": "Erneut versuchen"
     },
     "driverPrompt": {
-      "driverlessTitle": "Fahrzeug ohne Fahrer?",
+      "driverlessTitle": "{vehicle} ohne Fahrer?",
       "driverlessDescription": "«{vehicle}» ist {incident} zugewiesen, aber niemand fährt. Das Fahrzeug steht so auf der Funkdurchsage. Fahrzeug wieder freigeben?",
       "driverlessRemove": "Fahrzeug freigeben",
       "driverlessKeep": "Ohne Fahrer lassen",
@@ -688,9 +737,8 @@
     },
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
-      "title": "Einsatz disponiert",
+      "title": "Einsatz disponiert – Funkdurchsage",
       "repeatTitle": "Funkdurchsage wiederholen",
-      "description": "{location} → Disponiert",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "bleibt vor Ort",
       "returns": "kehrt zurück",
@@ -774,10 +822,15 @@
       "unknown": "(unbekannt)",
       "kpMessageVerb": "an Trupp",
       "stale": "stand schon auf «{statusLabel}» ({ago})",
-      "staleComplete": "war schon abgeschlossen ({ago})"
+      "staleComplete": "war schon abgeschlossen ({ago})",
+      "rekoFeld": "Feld",
+      "rekoKp": "KP",
+      "rekoEmpty": "leer",
+      "rekoPhotosAdded": "+{count, plural, one {# Foto} other {# Fotos}}",
+      "rekoPhotosRemoved": "−{count, plural, one {# Foto} other {# Fotos}}"
     },
     "statusConflict": {
-      "title": "Gerade geändert",
+      "title": "Status wurde gerade geändert",
       "byWho": "<b>{who}</b> hat <b>{label}</b> {ago} auf «{statusLabel}» gesetzt.",
       "byWhoComplete": "<b>{who}</b> hat <b>{label}</b> {ago} abgeschlossen.",
       "byNobody": "<b>{label}</b> wurde {ago} auf «{statusLabel}» gesetzt.",
@@ -811,7 +864,7 @@
       "moreActions": "Weitere Aktionen"
     },
     "detail": {
-      "rekoAuftrag": "Reko-Zuweisung",
+      "rekoAuftrag": "Reko",
       "groups": {
         "kraefte": "Kräfte"
       },
@@ -863,7 +916,7 @@
       "assignFailed": "Funktion konnte nicht zugewiesen werden",
       "unassignFailed": "Funktion konnte nicht entfernt werden",
       "driver": "Fahrer",
-      "conflictTitle": "Person ist einem Einsatz zugewiesen",
+      "conflictTitle": "{name} ist schon im Einsatz",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {assignment}. Als {function} kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictAssignedOne": "dem Einsatz «{location}» zugewiesen",
       "conflictAssignedMany": "{count} Einsätzen zugewiesen",
@@ -894,13 +947,13 @@
       "quickSelectByType": "Nach Typ:",
       "vehicleOnSceneHint": "{name} ist bereits diesem Einsatz zugewiesen",
       "driverBadge": "Fahrer",
-      "specialFnConfirmTitle": "Doppelbelegung?",
+      "specialFnConfirmTitle": "{name} ist schon {func}",
       "specialFnConfirmBody": "{name} ist bereits im Einsatz ({func}). Trotzdem der Mannschaft zuweisen?",
       "specialFnConfirmAction": "Trotzdem zuweisen",
       "occupiedElsewhere": "Im Einsatz",
       "sectionFree": "Verfügbar · {count}",
       "sectionBusy": "Bereits im Einsatz · {count}",
-      "occupiedConfirmTitle": "Doppelbelegung?",
+      "occupiedConfirmTitle": "{name} ist schon zugewiesen",
       "occupiedConfirmBody": "{name} ist bereits zugewiesen: {label}. Trotzdem zuweisen?",
       "occupiedConfirmAction": "Trotzdem zuweisen",
       "all": "Alle",
@@ -969,14 +1022,14 @@
     },
     "auftraege": {
       "title": "Aufträge",
-      "description": "Mehrere Einsätze zu einer geordneten Route bündeln und einem Trupp übergeben.",
+      "description": "Mehrere Einsätze als geordnete Stopps zu einem Auftrag bündeln und einem Trupp übergeben.",
       "newAuftrag": "Neuer Auftrag",
       "templatesLabel": "Vorlagen:",
       "defaultName": "Auftrag {n}",
       "namePlaceholder": "Auftragsname",
       "create": "Erstellen",
       "cancel": "Abbrechen",
-      "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze zu einer Route zu bündeln.",
+      "empty": "Noch keine Aufträge. Erstelle einen, um Einsätze als Stopps zu bündeln.",
       "noStops": "Noch keine Stopps. Zieh Karten hierher oder füge einen Stopp hinzu.",
       "noSquad": "kein Trupp",
       "persLabel": "{count} Pers",
@@ -986,10 +1039,10 @@
       "rename": "Umbenennen",
       "delete": "Auftrag löschen",
       "addStop": "Stopp hinzufügen",
-      "routenEditor": "Routen-Editor",
+      "routenEditor": "Auftrags-Editor",
       "stopsCount": "Zugewiesene Einsätze ({count})",
-      "deleteTitle": "Auftrag löschen?",
-      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur die Route wird gelöscht.",
+      "deleteTitle": "Auftrag «{name}» löschen?",
+      "deleteDescription": "Die Einsätze bleiben auf dem Board. Nur der Auftrag wird gelöscht.",
       "deleteConfirm": "Löschen",
       "map": "Karte",
       "dragStop": "Stopp verschieben",
@@ -998,8 +1051,8 @@
       "changeColor": "Farbe ändern",
       "optimizeOrder": "Optimieren",
       "repeatRadio": "Durchsage wiederholen",
-      "repeatRadioTitle": "Funkdurchsage wiederholen",
-      "repeatRadioTitlePreview": "Funkdurchsage",
+      "repeatRadioTitle": "Funkdurchsage wiederholen · {name}",
+      "repeatRadioTitlePreview": "Funkdurchsage · {name}",
       "repeatRadioDescription": "Zuletzt durchgegeben um {time} – Wortlaut unverändert.",
       "repeatRadioPreview": "Noch nicht durchgegeben – so würde sie jetzt lauten.",
       "repeatRadioNoStop": "Dieser Auftrag hat noch keinen Stopp. Die Durchsage entsteht mit dem ersten.",
@@ -1024,7 +1077,7 @@
       "change": "Status: {label} – ändern"
     },
     "routenEditorModal": {
-      "title": "Routen-Editor",
+      "title": "Auftrags-Editor",
       "description": "Stopps auf der Karte anordnen: klicken zum Hinzufügen, ziehen zum Umsortieren, optimieren.",
       "mapHeading": "Karte",
       "emptyState": "Noch keine Stopps – klicke auf die Karte oder nutze «Stopp hinzufügen».",
@@ -1036,12 +1089,13 @@
       "noStops": "Noch keine Stopps in diesem Auftrag.",
       "mapLoading": "Karte wird geladen …",
       "dragStop": "Stopp verschieben",
-      "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Route.",
+      "noCoords": "Dieser Stopp hat keine Koordinaten und liegt nicht auf der Linie.",
       "noCoordsBadge": "kein Ort",
       "removeStop": "Aus Auftrag entfernen",
       "contextOpen": "Offen",
       "contextInRoute": "In Auftrag «{name}»",
       "contextClickToAdd": "Klicken, um als Stopp hinzuzufügen",
+      "contextClickToMove": "Klicken, um in diesen Auftrag zu verschieben",
       "contextStopAdded": "Einsatz als Stopp hinzugefügt.",
       "stopActions": "Reihenfolge und Aktionen für {name}"
     },
@@ -1059,15 +1113,17 @@
       "viewMap": "Karte",
       "mapLoading": "Karte wird geladen …",
       "mapEmpty": "Keine verorteten Einsätze auf der Karte.",
-      "legendSelected": "Ring = ausgewählt",
+      "legendStops": "Nummer = Stopp dieses Auftrags, in Reihenfolge",
+      "legendPending": "Ring = wird hinzugefügt",
       "legendOtherRoute": "farbig = schon in einem anderen Auftrag (wird verschoben)",
       "legendUnassigned": "grau = in keinem Auftrag",
       "hiddenCount": "{count} ausgeblendet",
+      "moveConfirm": "{count, plural, one {Dieser Einsatz gehört schon zu einem anderen Auftrag und wird} other {Diese # Einsätze gehören schon zu anderen Aufträgen und werden}} in Auftrag «{to}» verschoben: {names}. Das lässt sich nicht rückgängig machen.",
       "showCompleted": "Abgeschlossene"
     },
     "auftragPicker": {
-      "title": "An Auftrag verteilen",
-      "description": "Einsatz einem Auftrag zuordnen. Er wird als Stopp in die Route verschoben.",
+      "title": "In Auftrag aufnehmen",
+      "description": "Er wird als Stopp in den Auftrag verschoben.",
       "empty": "Noch keine Aufträge. Erstelle einen neuen.",
       "alreadyHere": "bereits hier",
       "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
@@ -1090,7 +1146,7 @@
       "leftAt": "gegangen {time}",
       "assignedChip": "zugewiesen",
       "assignedTo": "zugewiesen: {where}",
-      "assignedTitle": "Person ist noch zugewiesen",
+      "assignedTitle": "{name} ist noch zugewiesen",
       "assignedDescription": "{name} ist noch «{where}» zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.",
       "checkOutAnyway": "Trotzdem auschecken",
       "checkOutAll": "Alle auschecken",
@@ -1287,15 +1343,14 @@
       "high": "Hoch"
     },
     "assignReko": {
-      "title": "Reko-Personal zuweisen",
-      "incidentLabel": "Einsatz: {title}",
+      "title": "Reko zuweisen",
       "loadError": "Reko-Personen konnten nicht geladen werden",
       "assignErrorTitle": "Zuweisen fehlgeschlagen",
       "assignErrorDescription": "Die Person ist nicht zugewiesen – die Reko bleibt, wie sie war.",
       "loading": "Wird geladen …",
       "retry": "Erneut versuchen",
       "emptyTitle": "Keine Reko-Personen verfügbar",
-      "emptyHint": "Oder: Rechtsklick auf eine Person in der Seitenleiste → «Als Reko zuweisen».",
+      "emptyHint": "Oder: Rechtsklick auf eine Person in der Seitenleiste → «Reko».",
       "markExisting": "Person als Reko markieren",
       "markSearchPlaceholder": "Person suchen …",
       "markAllReko": "Alle anwesenden Personen sind bereits als Reko markiert.",
@@ -1310,7 +1365,8 @@
       "distanceLastTooltip": "Luftlinie zum zuletzt zugewiesenen Einsatz",
       "distanceLastSuffix": "(zuletzt)",
       "sectionReko": "Reko-Personen",
-      "sectionOthers": "Andere Anwesende"
+      "sectionOthers": "Andere Anwesende",
+      "pickLine": "Wer macht die Reko?"
     },
     "card": {
       "rekoCompleted": "Reko-Bericht ausgefüllt",
@@ -1321,14 +1377,18 @@
     },
     "transfer": {
       "title": "Ressourcen übertragen",
-      "description": "Alle Zuweisungen von «{title}» zu einem anderen Einsatz übertragen",
-      "searchPlaceholder": "Einsatz suchen (Titel, Adresse, Art) …",
+      "description": "Alle Zuweisungen von «{title}» zu einem anderen Einsatz oder an einen Auftrag übertragen",
+      "searchPlaceholder": "Einsatz oder Auftrag suchen (Titel, Adresse, Art, Name) …",
       "noOtherIncidents": "Keine anderen Einsätze verfügbar",
-      "needTwoIncidents": "Es müssen mindestens zwei Einsätze vorhanden sein",
+      "needTwoIncidents": "Es braucht einen zweiten offenen Einsatz oder einen Auftrag",
+      "incidentsHeading": "Einsätze",
+      "auftraegeHeading": "Aufträge",
+      "stopCount": "{count, plural, =0 {noch kein Stopp} one {# Stopp} other {# Stopps}}",
       "vehicleCount": "{count, plural, one {# Fahrzeug} other {# Fahrzeuge}}",
       "transferring": "Wird übertragen …",
       "transfer": "Übertragen",
-      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {materials} Material."
+      "confirmCounts": "Es werden verschoben: {crew, plural, one {# Person} other {# Personen}}, {vehicles, plural, one {# Fahrzeug} other {# Fahrzeuge}}, {materials} Material.",
+      "confirmAuftrag": "«{title}» wird Stopp von «{auftrag}». Mannschaft, Fahrzeuge und Material gehen an den Auftrag."
     },
     "driver": {
       "assignErrorTitle": "Fahrer zuweisen fehlgeschlagen",
@@ -1343,7 +1403,7 @@
       "othersSection": "Andere",
       "noAvailablePersons": "Keine verfügbaren Personen",
       "allAssignedHint": "Alle Personen sind bereits als Fahrer zugewiesen oder nicht anwesend",
-      "conflictTitle": "Person ist einem Einsatz zugewiesen",
+      "conflictTitle": "{name} ist schon im Einsatz",
       "conflictDescription": "<strong>{name}</strong> ist aktuell {count, plural, one {dem Einsatz «{location}» zugewiesen} other {# Einsätzen zugewiesen}}. Als Fahrer kann die Person nicht gleichzeitig einem Einsatz zugewiesen sein.",
       "conflictConfirm": "Vom Einsatz freigeben & zuweisen",
       "drivesVehicle": "Fährt {vehicle}",
@@ -1367,21 +1427,30 @@
     "resourceConflict": {
       "moveHere": "Hierher verschieben",
       "keepBoth": "Auf beiden führen",
-      "titleNamed": "{name} ist schon im Einsatz",
-      "prompt": "Was soll gelten?",
-      "currentLabel": "Bisher",
-      "newLabel": "Neu",
+      "titleNamed": "{count, plural, one {{name} ist schon im Einsatz} other {{name} sind schon im Einsatz}}",
       "drives": "fährt {vehicle}",
-      "moveReleasesDriver": "«Hierher verschieben» gibt auch die Fahrer-Rolle für {vehicle} frei."
+      "description": "Bisher auf <strong>{from}</strong>, neu auf <strong>{to}</strong>. Was soll gelten?",
+      "moveKey": "V",
+      "keepKey": "B",
+      "moveConsequence": "{count, plural, one {{name} verlässt <strong>{from}</strong> und ist danach nur noch auf {to}.} other {{name} verlassen <strong>{from}</strong> und sind danach nur noch auf {to}.}}",
+      "moveConsequenceDriver": "{name} verlässt <strong>{from}</strong>, gibt die Fahrer-Rolle für {vehicle} ab und ist danach nur noch auf {to}.",
+      "keepConsequence": "{count, plural, one {{name} bleibt auf <strong>{from}</strong> und wird zusätzlich {to} zugewiesen.} other {{name} bleiben auf <strong>{from}</strong> und werden zusätzlich {to} zugewiesen.}}",
+      "keepCards": "{cards, plural, =2 {Beide Karten zeigen 2×.} other {Alle # Karten zeigen #×.}}"
     },
     "auftragStop": {
-      "title": "{incident} als Stopp in Auftrag {auftrag} aufnehmen?",
-      "description": "{vehicle} fährt schon den Auftrag «{auftrag}». Der Einsatz wird dort als letzter Stopp aufgenommen.",
+      "title": "{vehicle} fährt schon den Auftrag «{auftrag}»",
+      "description": "Neu: <strong>{incident}</strong>. Was soll gelten?",
       "addAsStop": "In Auftrag aufnehmen",
       "assignOnly": "Nur zusätzlich zuweisen",
       "added": "{incident} ist jetzt Stopp im Auftrag «{auftrag}»",
       "changedTitle": "{incident} nicht aufgenommen",
-      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert oder gelöscht. Auf dem Board prüfen."
+      "changedDescription": "Der Einsatz oder der Auftrag «{auftrag}» wurde inzwischen geändert oder gelöscht. Auf dem Board prüfen.",
+      "addAsStopKey": "A",
+      "assignOnlyKey": "Z",
+      "stopChip": "+ Stopp {incident}",
+      "addAsStopConsequence": "<strong>{incident}</strong> wird letzter Stopp im Auftrag «{auftrag}», {vehicle} fährt ihn dort an.",
+      "assignOnlyConsequence": "{vehicle} bleibt auf dem Auftrag «{auftrag}» und wird zusätzlich <strong>{incident}</strong> zugewiesen. Beide Karten zeigen 2×.",
+      "assignOnlyConsequenceAlso": "{vehicle} bleibt auf dem Auftrag «{auftrag}» sowie auf {others} und wird zusätzlich <strong>{incident}</strong> zugewiesen. Alle {cards} Karten zeigen {cards}×."
     },
     "vehicleStatus": {
       "bound": "Gebunden",
@@ -1405,8 +1474,8 @@
       "fallbackIncident": "Einsatz",
       "movedToActive": "{label} auf «Im Einsatz» gesetzt",
       "statusChangeFailed": "Statusänderung fehlgeschlagen",
-      "title": "Fahrzeug am Einsatzort",
-      "description": "<strong>{vehicle}</strong> ist beim Einsatz «{label}» angekommen. Auf Einsatz setzen?",
+      "title": "{vehicle} am Einsatzort",
+      "description": "Einsatz auf «Im Einsatz» setzen?",
       "decline": "Nicht verschieben",
       "confirm": "Auf «Im Einsatz» setzen"
     },
@@ -1415,13 +1484,17 @@
       "fallbackIncident": "Einsatz",
       "released": "{vehicle} freigegeben",
       "releaseFailed": "Freigabe fehlgeschlagen",
-      "completed": "{label} abgeschlossen",
-      "completeFailed": "Abschliessen fehlgeschlagen",
       "title": "Fahrzeug zurück im Magazin – freigeben?",
-      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Nur die Zuweisung zu «{label}» freigeben – oder den Einsatz gleich ganz abschliessen (gibt alle Ressourcen frei)?",
+      "description": "<strong>{vehicle}</strong> ist laut GPS wieder im Magazin. Den Einsatz «{label}» abschliessen? Mannschaft und Fahrzeuge werden frei, beim Material wird gefragt, was vor Ort bleibt.",
       "decline": "Nicht freigeben",
       "releaseOnly": "Nur {vehicle} freigeben",
-      "completeIncident": "Einsatz abschliessen"
+      "completeIncident": "Einsatz abschliessen",
+      "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen",
+      "openEvent": "Ereignis öffnen",
+      "openEventFailed": "Ereignis nicht geöffnet – erneut versuchen",
+      "notOnBoard": "Einsatz nicht gefunden – im Board öffnen",
+      "loadFailed": "Laden fehlgeschlagen – erneut versuchen",
+      "retryLoad": "Erneut laden"
     },
     "quickAdd": {
       "networkErrorTitle": "Netzwerkfehler",
@@ -1521,13 +1594,13 @@
       "groupRoutes": "Aufträge",
       "groupRoutesColorHint": "Färbt die Karte nach Auftrag",
       "colorByRoutesOverride": "Von «Aufträge» gesetzt – beim Ausschalten wird die vorherige Färbung wiederhergestellt.",
-      "routePlanning": "Routenplanung",
+      "routePlanning": "Auftrags-Editor",
       "view": "Ansicht",
       "viewMenuLabel": "Kartenansicht",
       "modes": "Modus"
     },
     "planning": {
-      "title": "Routenplanung",
+      "title": "Auftrags-Editor",
       "exit": "Beenden",
       "selectGroupPlaceholder": "Auftrag wählen …",
       "newAuftrag": "Neuer Auftrag",
@@ -1541,13 +1614,13 @@
       "addStopHint": "Klick auf die Karte platziert einen neuen Stopp.",
       "addingStop": "Stopp wird hinzugefügt …",
       "noStops": "Noch keine Stopps in diesem Auftrag.",
-      "stopAdded": "Stopp zur Route hinzugefügt.",
-      "stopAlreadyOnRoute": "Dieser Einsatz ist bereits auf der Route.",
+      "stopAdded": "Stopp zum Auftrag hinzugefügt.",
+      "stopAlreadyOnRoute": "Dieser Einsatz ist bereits im Auftrag.",
       "noGroups": "Noch keine Aufträge vorhanden",
       "stopCount": "{count, plural, one {# Stopp} other {# Stopps}}",
       "startLabel": "Start · {start}",
       "addStopMapHint": "Klick auf die Karte",
-      "exitLabel": "Routenplanung beenden"
+      "exitLabel": "Auftrags-Editor beenden"
     },
     "view": {
       "markerAria": "Einsatz: {label}",
@@ -1650,9 +1723,14 @@
       "type": "Einsatzart",
       "auftrag": "Auftrag"
     },
-    "rekoMode": {
-      "title": "Reko-Modus",
+    "rail": {
       "exit": "Fertig",
+      "exitName": "Fertig – {mode}"
+    },
+    "rekoMode": {
+      "title": "Reko-Editor",
+      "exit": "Fertig",
+      "exitLabel": "Reko-Editor beenden",
       "hintSelect": "Reko-Person wählen, dann Einsätze auf der Karte antippen.",
       "hintAssign": "Einsatz antippen: {name} zuweisen, als nächste Nummer. Bereits zugewiesenen Einsatz antippen: Zuweisung entfernen.",
       "hintOrder": "Ziehen: Reihenfolge ändern – so sieht {name} sie auch auf dem Handy.",
@@ -2136,7 +2214,7 @@
           "repairableBadge": "Später aufräumbar",
           "orphanedLabel": "Zuweisungen zeigen danach ins Leere",
           "orphanedActiveLabel": "davon aktiv auf laufenden Einsätzen",
-          "groupOrphanedLabel": "Auftrags-Zuweisungen zeigen danach ins Leere",
+          "groupOrphanedLabel": "Auftrags-Ressourcen zeigen danach ins Leere",
           "groupOrphanedActiveLabel": "davon aktiv auf laufenden Aufträgen",
           "consequencesHint": "Zuweisungen verweisen ohne Fremdschlüssel auf ihre Ressource: gelöschtes Personal, Fahrzeuge und Material lassen die Zuweisung stehen – auf einem Einsatz, der weiterläuft.",
           "consequencesBlockedHint": "Zuweisungen freigeben, Einsätze und Aufträge abschliessen – oder mit «Anhängen» importieren. Abgeschlossene Einsätze blockieren nicht.",
@@ -2264,7 +2342,7 @@
       "tabList": "Materialliste",
       "thresholdsLink": "Warnschwellen für Materialbestand festlegen",
       "addButton": "Material erstellen",
-      "dialogEditTitle": "Material bearbeiten",
+      "dialogEditTitle": "{name} bearbeiten",
       "dialogCreateTitle": "Neues Material erstellen",
       "namePlaceholder": "z. B. Tauchpumpe Gr.",
       "typePlaceholder": "z. B. Pumpe, Schlauch",
@@ -2323,7 +2401,7 @@
       "empty": "Kein Personal konfiguriert.",
       "sortTitle": "Grad-Sortierung",
       "sortDescription": "Ziehe die Grade, um deren Reihenfolge in der Anzeige zu ändern. Personal wird nach dieser Sortierung gruppiert.",
-      "dialogEditTitle": "Personal bearbeiten",
+      "dialogEditTitle": "{name} bearbeiten",
       "dialogCreateTitle": "Neue Person erstellen",
       "namePlaceholder": "Nachname Vorname",
       "roleLabel": "Grad",
@@ -2363,7 +2441,7 @@
         "testSuccess": "Testdruck erfolgreich gedruckt – das System ist bereit.",
         "printerError": "Drucker-Fehler: {error}",
         "printerUnreachable": "Drucker nicht erreichbar",
-        "serviceOfflineJob": "Print-Service (Raspberry Pi) ist offline – der Auftrag wird nicht abgeholt.",
+        "serviceOfflineJob": "Print-Service (Raspberry Pi) ist offline – der Druckauftrag wird nicht abgeholt.",
         "testStillQueued": "Testdruck noch in der Warteschlange – der Agent verarbeitet ihn in Kürze.",
         "testStartFailed": "Testdruck konnte nicht gestartet werden"
       },
@@ -2397,7 +2475,7 @@
       "jobEinsatzzettel": "<strong>Einsatzzettel</strong> – wird automatisch gedruckt wenn ein Einsatz auf «Disponiert / Anfahrt» oder «Im Einsatz» gesetzt wird, oder manuell über das Kontextmenü",
       "jobBoardSnapshot": "<strong>Board-Snapshot</strong> – über den «Thermo»-Button in der Fussleiste, mit Optionen für abgeschlossene Einsätze, Fahrzeuge und Personal",
       "pollingTitle": "Polling-Verhalten",
-      "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit Folgeaufträge schneller verarbeitet werden.",
+      "pollingText": "Im Ruhezustand fragt der Agent alle 60 Sekunden ab. Nach einem Druckauftrag wechselt er für 15 Minuten auf 5-Sekunden-Intervalle, damit weitere Druckaufträge schneller verarbeitet werden.",
       "networkTitle": "Netzwerk",
       "networkText": "Der Raspberry Pi benötigt Internetzugang (Backend) und LAN-Zugang zum Drucker. Nur ausgehende Verbindungen – keine Portfreigaben nötig.",
       "unavailableDisabled": "Der Drucker ist auf dieser Karte noch nicht aktiviert – solange er aus ist, wird nichts gedruckt.",
@@ -2442,8 +2520,7 @@
       "roleLabel": "Rolle",
       "roleAdmin": "Admin",
       "creating": "Wird erstellt …",
-      "editDialogTitle": "Benutzer bearbeiten",
-      "editDialogDescription": "Ändere die Benutzerdaten.",
+      "editDialogTitle": "{name} bearbeiten",
       "ownRoleHint": "Du kannst deine eigene Rolle nicht ändern.",
       "saving": "Wird gespeichert …",
       "resetPasswordDescription": "Setze ein neues Passwort für {name}.",
@@ -2474,7 +2551,7 @@
       "deleteError": "Fahrzeug nicht gelöscht",
       "deleteErrorDescription": "Das Fahrzeug ist noch da.",
       "addButton": "Fahrzeug erstellen",
-      "dialogEditTitle": "Fahrzeug bearbeiten",
+      "dialogEditTitle": "{name} bearbeiten",
       "dialogCreateTitle": "Neues Fahrzeug erstellen",
       "namePlaceholder": "z. B. TLF, Pio, Mowa",
       "orderLabel": "Reihenfolge (Tastaturkürzel)",
@@ -2924,7 +3001,6 @@
     },
     "reportSection": {
       "noReport": "Noch kein Reko-Bericht",
-      "previousReports": "{count, plural, one {# früherer Reko-Bericht} other {# frühere Reko-Berichte}}",
       "relevant": "Einsatz relevant",
       "notNeeded": "Kein Einsatz nötig",
       "completeIncident": "Einsatz abschliessen",
@@ -2955,27 +3031,15 @@
       "notRelevantShort": "Nicht relevant",
       "relevanceOpen": "Relevanz nicht beantwortet",
       "relevanceOpenShort": "Relevanz offen",
-      "photoCount": "{count, plural, one {# Foto} other {# Fotos}}",
-      "create": "Reko-Bericht erfassen",
-      "createTitle": "Reko-Bericht erfassen",
-      "amend": "Reko-Bericht ergänzen",
-      "amendTitle": "Reko-Bericht ergänzen",
-      "close": "Schliessen",
       "radioHint": "Was der Trupp über Funk meldet, hier erfassen. Wird als KP-Erfassung vermerkt.",
       "draftHint": "Wird laufend synchronisiert. Wird eingereicht, sobald «Einsatz relevant?» beantwortet ist – wie ein Bericht des Trupps, der Einsatz kommt dann auf «Reko abgeschlossen».",
-      "amendHint": "Jede Änderung wird sofort synchronisiert.",
       "submittedShort": "Übermittelt {time}",
       "updatedShort": "aktualisiert {time}",
       "findingLabel": "Befund",
       "notesShort": "Notizen",
       "reportLabel": "Reko-Bericht",
       "noReportShort": "noch keiner",
-      "createShort": "erfassen",
-      "draftShort": "Entwurf – noch nicht eingereicht",
-      "continueShort": "weiter erfassen",
-      "ownDraftLabel": "Eigener Entwurf",
-      "expand": "öffnen",
-      "collapse": "schliessen"
+      "draftShort": "Entwurf – noch nicht eingereicht"
     },
     "dummyGenerator": {
       "title": "Übungsmodus",
@@ -2991,11 +3055,11 @@
       "failedRetry": "Druck fehlgeschlagen – neuer Versuch läuft",
       "unknownError": "Grund unbekannt",
       "notPickedUp": "Druckdienst antwortet nicht",
-      "notPickedUpHint": "Der Auftrag wartet in der Warteschlange – läuft der Print-Agent?",
+      "notPickedUpHint": "Der Druckauftrag wartet in der Warteschlange – läuft der Print-Agent?",
       "offline": "Druckergebnis unbekannt",
       "offlineHint": "Keine Echtzeitverbindung zum Server – bitte am Drucker nachsehen.",
       "noResult": "Keine Rückmeldung vom Drucker",
-      "noResultHint": "Der Auftrag wurde abgeholt, aber nicht bestätigt – bitte am Drucker nachsehen.",
+      "noResultHint": "Der Druckauftrag wurde abgeholt, aber nicht bestätigt – bitte am Drucker nachsehen.",
       "checkPrinter": "Drucker prüfen",
       "subjectSlip": "Einsatzzettel",
       "subjectBoard": "Board-Snapshot",
@@ -3209,7 +3273,7 @@
       "simulatedDescription": "In der Übung wird kein echtes Aufgebot gesendet.",
       "sendError": "Aufgebot konnte nicht gesendet werden",
       "title": "Aufgebot senden",
-      "description": "{location} – nur ausgewählte, mit der Alarmierung verknüpfte Personen werden aufgeboten.",
+      "description": "Nur ausgewählte, mit der Alarmierung verknüpfte Personen werden aufgeboten.",
       "recipients": "Empfänger ({count})",
       "noAssigned": "Diesem Einsatz ist keine Person zugewiesen.",
       "driverBadge": "Fahrer",
@@ -3350,7 +3414,7 @@
       "copyFailed": "Nicht kopiert",
       "noEventSelected": "Kein Ereignis ausgewählt",
       "dashboardCopiedTitle": "Dashboard-Link kopiert",
-      "dashboardCopiedDescription": "Reko-Personal kann ihre Zuweisungen sehen"
+      "dashboardCopiedDescription": "Die Reko-Personen sehen ihre Rekos"
     },
     "whatsapp": {
       "copiedTitle": "In Zwischenablage kopiert",
@@ -3582,6 +3646,7 @@
       "reko_link_invalid": "Dieser Reko-Link ist ungültig oder abgelaufen.",
       "reko_report_not_found": "Bericht nicht gefunden",
       "reko_report_no_access": "Kein Zugriff auf diesen Bericht.",
+      "reko_report_merged": "Dieser Einsatz wurde zusammengeführt. Bitte neu laden und den Reko-Bericht dort bearbeiten.",
       "incident_status_changed": "Status inzwischen geändert – der Einsatz wurde neu geladen.",
       "text_conflict": "Inzwischen anderswo geändert – nicht gespeichert.",
       "assignment_race": "Ressource bereits zugewiesen",
@@ -3836,13 +3901,13 @@
       },
       "share-feld-link": {
         "title": "Feld-Link teilen",
-        "description": "Trupps melden vom Schadenplatz, füllen den Rapport aus und sehen ihre Aufträge",
+        "description": "Trupps melden vom Schadenplatz, füllen den Rapport aus und sehen ihre Einsätze",
         "note": "Für jeden Trupp, der ausrückt · 1 Ausdruck pro Fahrzeug · Feld-Code gehört aufs gleiche Plakat"
       },
       "assign-reko": {
-        "title": "Reko-Offiziere bestimmen",
-        "details": "{count, plural, one {# Reko-Offizier} other {# Reko-Offiziere}} zugewiesen",
-        "description": "Mindestens 1 Person für Rekognoszierung"
+        "title": "Reko-Personen bestimmen",
+        "details": "{count, plural, one {# Reko-Person} other {# Reko-Personen}} bestimmt",
+        "description": "Mindestens 1 Person für die Reko"
       },
       "assign-drivers": {
         "title": "Fahrzeug-Fahrer zuweisen",
@@ -3876,7 +3941,7 @@
       "copyLink": "Link kopieren",
       "openVehicles": "Fahrzeuge öffnen",
       "openAttendance": "Appell öffnen",
-      "chooseReko": "Reko-Offiziere wählen"
+      "chooseReko": "Reko-Personen wählen"
     },
     "setup": {
       "title": "Setup-Checkliste",
@@ -3885,7 +3950,7 @@
       "linkCopied": "{label} kopiert",
       "linkCopiedDescription": "Der Link wurde in die Zwischenablage kopiert.",
       "qrPrinting": "QR-Code wird gedruckt …",
-      "qrPrintingDescription": "Der Auftrag wurde an den Drucker gesendet.",
+      "qrPrintingDescription": "Der Druckauftrag wurde an den Drucker gesendet.",
       "copyFailed": "Link konnte nicht kopiert werden",
       "printFailed": "Druck fehlgeschlagen",
       "checkInCopyLabel": "Check-in-Link",
@@ -3913,8 +3978,8 @@
       "optional": "Optional"
     },
     "rekoPicker": {
-      "title": "Reko-Offiziere wählen",
-      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Modus auf der Karte.",
+      "title": "Reko-Personen wählen",
+      "description": "Anwesende Person wählen und als Reko markieren – auch mehrere nacheinander. Adressen verteilt der Reko-Editor auf der Karte.",
       "marked": "{name} als Reko markiert",
       "failed": "Hat nicht geklappt. Erneut versuchen.",
       "done": "Fertig"
@@ -4271,6 +4336,8 @@
       "unknownPerson": "unbekannt",
       "timeLabel": "Zeit für «{what}»",
       "pickupNotePlaceholder": "Notiz: wie viele, wo genau",
+      "pickupVehicleOnSite": "{vehicle} steht vor Ort",
+      "pickupDespiteVehicle": "trotz {vehicle} vor Ort – prüfen",
       "waiting": "Wartet seit {duration}",
       "saveFailed": "Speichern fehlgeschlagen",
       "messagesTitle": "Meldungen vom Feld",
@@ -4510,7 +4577,7 @@
       "checkIn": "Einchecken",
       "checkOut": "Ich rücke ab",
       "here": "Anwesend",
-      "hereNoJob": "Noch kein Auftrag"
+      "hereNoJob": "Noch kein Einsatz"
     },
     "material": {
       "title": "Material",
@@ -4569,6 +4636,7 @@
       "seen": "gesehen",
       "doneBy": "erledigt {time} · {name}",
       "doneAt": "erledigt {time}",
+      "selfDriveBy": "fährt selbst {time} · {name}",
       "inProgressBy": "in Arbeit · {name}",
       "fromField": "{name} · {time}",
       "fromKp": "im KP erfasst · {time}",
@@ -4713,6 +4781,7 @@
       "unmerge": "Zusammenführung mit «{other}» aufgehoben",
       "sourceKp": "im KP erfasst",
       "sourceGps": "GPS",
+      "sourceTraining": "Übung",
       "field": {
         "field_arrived": "Vor Ort gemeldet",
         "field_arrived_cleared": "Meldung «vor Ort» zurückgenommen",
@@ -4727,7 +4796,13 @@
         "field_request_done": "Anfrage erledigt",
         "field_request_open": "Anfrage wieder offen",
         "field_request_moved": "Anfrage übernommen von {other}",
-        "field_request_returned": "Anfrage zurück von {other}"
+        "field_request_returned": "Anfrage zurück von {other}",
+        "field_pickup_self": "Fährt selbst zurück",
+        "field_reported": "Vom Feld gemeldet",
+        "vehicle_on_site": "Fahrzeug am Einsatzort",
+        "vehicle_returned": "Fahrzeug zurück im Magazin",
+        "vehicle_down": "Fahrzeug ausgefallen",
+        "situation_escalated": "Lage verschärft"
       },
       "itemsMoved": "Übernommen von {other}",
       "itemsReturned": "Zurück von {other}"
@@ -4787,7 +4862,7 @@
       "count": "{count, plural, one {# Konflikt} other {# Konflikte}}",
       "viewerText": "Die Bearbeiter prüfen die Änderungen von KP Rück Offline.",
       "open": "{count, plural, one {# Konflikt} other {# Konflikte}} ›",
-      "title": "Konflikte",
+      "title": "Konflikte mit {other}",
       "intro": "Hier und auf dem anderen System wurde dasselbe geändert. Bis ihr wählt, gilt die Fassung von {leader}.",
       "introReadOnly": "Hier und auf dem anderen System wurde dasselbe geändert. Es gilt die Fassung von {leader}; entschieden wird dort.",
       "side": {
@@ -4876,5 +4951,19 @@
       "alarmInbox": "Breite des Alarmeingangs",
       "mapRail": "Breite der Seitenleiste"
     }
+  },
+  "photoViewer": {
+    "title": "Fotos · {incident}",
+    "close": "Schliessen",
+    "closeHint": "Schliessen (Esc)",
+    "counter": "{index} / {count}",
+    "previous": "Vorheriges Foto",
+    "next": "Nächstes Foto",
+    "alt": "Foto {index} von {count}",
+    "groupReko": "Reko",
+    "groupRapport": "Rapport",
+    "hintDesktop": "← → blättern · Esc schliessen",
+    "hintPhone": "Wischen: blättern · nach unten ziehen: schliessen",
+    "open": "Foto {number} öffnen"
   }
 }

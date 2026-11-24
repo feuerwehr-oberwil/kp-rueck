@@ -18,7 +18,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import Event, Incident, IncidentGroup, IncidentGroupAssignment, Material, Personnel, User, Vehicle
+from ..models import (
+    Event,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    IncidentGroupAssignment,
+    Material,
+    Personnel,
+    User,
+    Vehicle,
+)
 from ..services.audit import log_action
 from .assignments import AssignmentReleasedError, _reko_personnel_ids, ensure_assignable, leader_rank
 from .locking import lock_groups, lock_resource
@@ -30,6 +40,105 @@ class ResourceNotFoundError(ValueError):
 
 class ResourceTypeMismatchError(ValueError):
     """Requested id exists, but not as the declared resource type."""
+
+
+async def mirror_to_auftrag(
+    db: AsyncSession, group_id: uuid.UUID, *incident_ids: uuid.UUID
+) -> list[IncidentGroupAssignment]:
+    """Give the route everything its Schadenplätze already have; returns the new rows.
+
+    Used by `/feld` «Wir übernehmen» (``crud/feld/melden.py``), which leaves the stop
+    rows in place, and by «Übertragen» onto an Auftrag (``groups.transfer_to_auftrag``),
+    which then releases them. A resource the Auftrag already holds is skipped. The
+    caller holds the Auftrag lock and flushes.
+
+    **Mirrored, not moved.** Releasing the incident-level rows would be the
+    tidier data model and is what "lift to the route" sounds like, but it means
+    releasing a crew from a job they are standing on — which runs the completion
+    cascade, re-derives the Einsatzleiter and briefly frees the resource in the
+    board's conflict model, all while somebody is holding a hose. The payload
+    builder already expects a resource to exist at both levels and resolves it
+    ("a direct incident assignment wins"), so the safe direction is to add.
+
+    **Everything, not just the crew.** `purpose == 'crew'` is not a filter on
+    people: vehicles and material carry that default too (see `models.py`), and
+    only a Reko auftrag is excluded — it belongs to the Schadenplatz it was
+    given for, not to a route somebody later built around it. So a squad that
+    takes a second job on arrives there with the pump and the TLF as well.
+
+    Takes several incidents because a route's resources can sit on any of its
+    stops: appending a stop to an existing Auftrag mirrors from all of them, so
+    the new stop inherits the whole squad rather than whichever stop the
+    reporter happened to be standing on.
+
+    **At most one Einsatzleiter survives the copy.** A route allows exactly one
+    (`uq_group_assignments_single_leader`), while each stop has its own — so
+    mirroring two stops that each name a leader would otherwise raise on the
+    index. The first one seen in assignment order keeps the badge; the others
+    come along as ordinary crew, which is what a squad merging two jobs looks
+    like anyway.
+    """
+    if not incident_ids:
+        return []
+    existing = await db.execute(
+        select(
+            IncidentGroupAssignment.resource_type,
+            IncidentGroupAssignment.resource_id,
+            IncidentGroupAssignment.is_leader,
+        ).where(
+            IncidentGroupAssignment.incident_group_id == group_id,
+            IncidentGroupAssignment.unassigned_at.is_(None),
+        )
+    )
+    already: set[tuple[str, uuid.UUID]] = set()
+    has_leader = False
+    for resource_type, resource_id, is_leader in existing.all():
+        already.add((resource_type, resource_id))
+        has_leader = has_leader or is_leader
+
+    rows = await db.execute(
+        select(IncidentAssignment)
+        .where(
+            IncidentAssignment.incident_id.in_(incident_ids),
+            IncidentAssignment.unassigned_at.is_(None),
+            IncidentAssignment.purpose == "crew",
+        )
+        .order_by(IncidentAssignment.assigned_at)
+    )
+    created: list[IncidentGroupAssignment] = []
+    for assignment in rows.scalars().all():
+        key = (assignment.resource_type, assignment.resource_id)
+        if key in already:
+            continue
+        # Within this batch too: two stops of one route can each carry the same
+        # pump, and the partial unique index would refuse the second copy.
+        already.add(key)
+        leads = assignment.is_leader and not has_leader
+        has_leader = has_leader or leads
+        # No `ensure_assignable`: the resource is already on the stop, this only
+        # mirrors it up – refusing a now out-of-service pump would split the squad.
+        mirrored = IncidentGroupAssignment(
+            incident_group_id=group_id,
+            resource_type=assignment.resource_type,
+            resource_id=assignment.resource_id,
+            is_leader=leads,
+            driver_stay=assignment.driver_stay,
+        )
+        db.add(mirrored)
+        created.append(mirrored)
+    return created
+
+
+async def auftrag_is_closed(db: AsyncSession, group_id: uuid.UUID) -> bool:
+    """Whether every stop of this Auftrag is closed – then it takes no new assignment.
+
+    An Auftrag has no closed state of its own (progress is derived from its stops). One
+    with no stop yet is open: a squad is often put on a route before it has a stop.
+    """
+    statuses = (
+        await db.scalars(select(Incident.status).where(Incident.group_id == group_id, Incident.deleted_at.is_(None)))
+    ).all()
+    return bool(statuses) and all(status == "complete" for status in statuses)
 
 
 async def assign_group_resource(
@@ -75,9 +184,9 @@ async def assign_group_resource(
     event = await db.get(Event, group.event_id)
     if event is None:
         raise LookupError(f"event {group.event_id} does not exist")
-    # An Auftrag has no closed state of its own (progress is derived from its stops),
-    # so only the resource and Ereignis rules apply.
-    ensure_assignable(resource, event=event)
+    # The Auftrag row is locked, and every stop add/remove takes that lock first, so
+    # its stop list holds still until the commit.
+    ensure_assignable(resource, event=event, auftrag_closed=await auftrag_is_closed(db, group_id))
 
     existing = await db.execute(
         select(IncidentGroupAssignment)
