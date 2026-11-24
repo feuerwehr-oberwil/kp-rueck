@@ -25,7 +25,7 @@ import type { SyncMessageType } from "@/lib/hooks/use-cross-window-sync"
 import { PRIORITY_LABEL_KEYS } from "./use-board-card-actions"
 
 export interface UseBoardDispatchInput {
-  removeReko: (operationId: string) => void
+  removeReko: (operationId: string, expectedAssignmentId?: string) => void
   operations: Operation[]
   outOfServiceVehicleIds: Set<string>
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>

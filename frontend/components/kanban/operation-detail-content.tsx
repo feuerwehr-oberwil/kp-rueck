@@ -1702,13 +1702,15 @@ export function OperationDetailContent({
                         )}
                         {/* The card chip's ✕ (`removeReko`), so the detail need not be
                             closed to find the card. Releasing stays possible on a closed
-                            Einsatz; assigning does not (`canAssignReko`). */}
+                            Einsatz; assigning does not (`canAssignReko`). Greyed out until
+                            the row's id is known (its assign POST still in flight). */}
                         {operation.assignedReko && (
                           <button
                             type="button"
                             className={ROW_ACTION}
+                            disabled={!operation.assignedReko.assignmentId}
                             onClick={() => removeReko(operation.id)}
-                            title={t('common.removeNamed', { name: operation.assignedReko.name })}
+                            title={t(operation.assignedReko.assignmentId ? 'common.removeNamed' : 'common.rekoStillSaving', { name: operation.assignedReko.name })}
                           >
                             <UserMinus className="size-3" />
                             {t('chipMenu.remove')}

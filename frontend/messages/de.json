@@ -461,6 +461,7 @@
       "transferFailedDescription": "Die Ressourcen konnten nicht übertragen werden.",
       "noEventSelected": "Kein Ereignis ausgewählt.",
       "removeNamed": "{name} freigeben",
+      "rekoStillSaving": "{name} wird noch als Reko gespeichert – gleich nochmals versuchen",
       "available": "Verfügbar",
       "inUse": "Im Einsatz",
       "counterLoading": "–/– verfügbar",

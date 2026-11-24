@@ -255,7 +255,8 @@ export interface OperationsContextType {
   removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
   /** Same result contract as removeCrew. */
   removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
-  removeReko: (operationId: string) => void
+  /** `expectedAssignmentId`: release only while the card still shows that row. */
+  removeReko: (operationId: string, expectedAssignmentId?: string) => void
   /** The one funnel for incident edits. A status edit is sent with the status this board
    *  showed (`from_status`); `confirm` is only for «Trotzdem …» in «Gerade geändert»
    *  (lib/status-conflict.ts): the stale view it was made from and the server's status
@@ -364,7 +365,8 @@ export interface OperationsContextType {
   /**
    * Assignment work whose questions may still come: a vehicle assign until its
    * driver check answered (two round trips after the vehicle landed), a
-   * resolved Doppelbelegung until its removals and the re-assign are done.
+   * resolved Doppelbelegung until its removals and the re-assign are done, a
+   * Reko assign until its POST answered (its row id, which ⌘K's undo needs).
    * `begin` returns the matching `end` (idempotent). ⌘K's dispatch runner reads
    * `isAssignmentSettling` so the next resource is not handed over while a
    * question is still on its way.

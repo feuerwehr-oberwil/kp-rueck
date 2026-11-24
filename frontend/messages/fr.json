@@ -1778,6 +1778,7 @@
       "transferFailedDescription": "Les ressources n’ont pas pu être transférées.",
       "noEventSelected": "Aucun événement sélectionné.",
       "removeNamed": "Libérer {name}",
+      "rekoStillSaving": "{name} est encore en cours d’enregistrement comme reconnaissance – réessayez dans un instant",
       "available": "Disponible",
       "inUse": "En intervention",
       "counterLoading": "–/– disponibles",

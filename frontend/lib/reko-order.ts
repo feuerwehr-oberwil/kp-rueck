@@ -16,6 +16,21 @@ export function isOpenReko(op: Operation): boolean {
   return !!op.assignedReko && !op.hasCompletedReko && op.status !== "complete"
 }
 
+/**
+ * What a tap on an Einsatz marker does in the Reko-Editor with `personId` selected: release
+ * their Reko there, say it is still saving (no release before the row's id is known – its
+ * assign POST may still be refused, `removeReko`), ask before replacing somebody else's, or
+ * assign them.
+ */
+export function rekoEditorTap(
+  op: Operation,
+  personId: string,
+): { kind: "release" | "saving" | "assign" } | { kind: "replace"; current: NonNullable<Operation["assignedReko"]> } {
+  const current = op.assignedReko
+  if (current?.id === personId) return { kind: current.assignmentId ? "release" : "saving" }
+  return current ? { kind: "replace", current } : { kind: "assign" }
+}
+
 /** Every Einsatz a Reko person holds, in their order (unnumbered ones last, as they came). */
 export function rekosOf(operations: readonly Operation[], personId: string): Operation[] {
   return operations
