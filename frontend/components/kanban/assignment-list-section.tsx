@@ -192,7 +192,7 @@ export const TILE_HOVER = "hover:border-border hover:bg-muted/40"
 
 /**
  * THE person tile of every «pick a person» surface: the assignment dialog's crew grid, and the
- * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Modus – ENT-10 A). Tick box
+ * single-choice pickers (Fahrer, Reko zuweisen / übertragen, Reko-Editor – ENT-10 A). Tick box
  * where several may be chosen; `single` = a radio dot and radio semantics (`role="radio"`,
  * `aria-checked` – the host's list is the `radiogroup`, `PickerDialog`'s `radioGroupLabel`).
  * The where · roles line comes from `usePersonTileFacts`. Name through `PersonName` (namesakes get their Kennung), the one `PersonTileLine` under it

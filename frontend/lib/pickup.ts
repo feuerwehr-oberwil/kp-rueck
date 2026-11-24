@@ -74,5 +74,5 @@ export const DEFAULT_FELD_DRIVER_MESSAGE_CHIPS = [
   'Bin vor Ort',
   'Fahrzeug parkiert',
   'Fahre zurück ins Magazin',
-  'Warte auf Auftrag',
+  'Warte auf Einsatz',
 ].join('\n')

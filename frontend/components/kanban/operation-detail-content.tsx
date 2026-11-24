@@ -2,7 +2,7 @@
 
 import { vehicleLabel } from "@/lib/vehicle-label"
 import { IncidentNumber } from "@/components/ui/incident-number"
-import { useState, useEffect, useCallback, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
@@ -39,7 +39,7 @@ import { columns } from "@/lib/kanban-utils"
 import { IncidentTime, useIncidentTimeVisible } from "@/components/ui/incident-time"
 import { formatClockTime } from "@/lib/incident-time"
 import { telHref } from "@/lib/phone"
-import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
+import { incidentTypeKeys, getIncidentRefParts, getIncidentTypeLabel } from "@/lib/incident-types"
 import { AddressText } from "@/components/kanban/address-text"
 import { useVehicleDriverState } from "@/lib/hooks/use-vehicle-drivers"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
@@ -77,13 +77,16 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { ShellLoader } from '@/components/ui/shell-loader'
+import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
+import { rekoPhotoUrl } from '@/lib/reko-photos'
+import { isResourceDrag, takesAssignments } from '@/lib/assignable'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
  *
  * Grey and underlined, never blue: on this board colour carries status and
  * priority, and a row of four blue words would read as four warnings. Used by
- * the Reko-Zuweisung rows, where four `xs` buttons used to wrap over three lines
+ * the Reko rows, where four `xs` buttons used to wrap over three lines
  * in the 420px panel.
  */
 const ROW_ACTION =
@@ -274,6 +277,9 @@ export function OperationDetailContent({
   // `ownResourceSections` below.
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  // A closed Einsatz takes nothing new (lib/assignable.ts): no «Zuweisen», no Reko, no drop target.
+  const acceptsAssignments = takesAssignments(operation)
+  const canAssignReko = canEdit && acceptsAssignments
 
   // Promote a crew member to Einsatzleiter — shared with the card's chip menu.
   const promoteToLeader = usePromoteToLeader()
@@ -421,20 +427,16 @@ export function OperationDetailContent({
   const [isPanelDropOver, setIsPanelDropOver] = useState(false)
   useEffect(() => {
     const root = rootRef.current
-    if (!root || layout !== 'panel' || !canEdit) return
+    // A closed Einsatz takes no new assignment (lib/assignable.ts): no target, no ring.
+    if (!root || layout !== 'panel' || !canEdit || !acceptsAssignments) return
 
-    const takesResources = (data: Record<string | symbol, unknown>) =>
-      data.type === 'person' ||
-      data.type === 'material' ||
-      data.type === 'material-group' ||
-      data.type === 'driver-vehicle'
     const dropData = () => ({ type: 'operation-drop', operationId: operation.id })
 
     const block = resourcesRef.current
     return combine(
       dropTargetForElements({
         element: root,
-        canDrop: ({ source }) => takesResources(source.data),
+        canDrop: ({ source }) => isResourceDrag(source.data),
         getData: dropData,
         onDragEnter: () => setIsPanelDropOver(true),
         onDragLeave: () => setIsPanelDropOver(false),
@@ -444,7 +446,7 @@ export function OperationDetailContent({
         ? [
             dropTargetForElements({
               element: block,
-              canDrop: ({ source }) => takesResources(source.data),
+              canDrop: ({ source }) => isResourceDrag(source.data),
               getData: dropData,
               onDragEnter: () => setIsResourceDropOver(true),
               onDragLeave: () => setIsResourceDropOver(false),
@@ -453,7 +455,7 @@ export function OperationDetailContent({
           ]
         : []),
     )
-  }, [layout, canEdit, operation.id, tab])
+  }, [layout, canEdit, acceptsAssignments, operation.id, tab])
 
   // Shortcut targets that are not on screen: Shift+1/2/3 sets the priority,
   // `0` and `1`..`5` touch "zu Fuss" / the quick-assign fleet — all on
@@ -662,7 +664,7 @@ export function OperationDetailContent({
    * dialog does not ask today.
    */
   const showEmptyOwnSections = !auftrag
-  const ownAddAction = canEdit && onAssignResource && !auftrag
+  const ownAddAction = canEdit && onAssignResource && !auftrag && acceptsAssignments
   // The own crew's leader slot (`CrewChipSlot`): only where it can hold something –
   // never on a stop inside an Auftrag (the route leads), and on a read-only view only
   // while somebody actually leads.
@@ -922,7 +924,24 @@ export function OperationDetailContent({
       ? auftragResources.personnel.length + auftragResources.vehicles.length + auftragResources.materials.length
       : 0)
 
+  // The incident's photo viewer (#5): its head names the Einsatz; the board's Reko summary
+  // stands in for the Reko photos while the Reko tab (which registers the live ones) is closed.
+  const photoLabel = getIncidentRefParts(operation).head
+  const photoFallback = useMemo(
+    () => ({
+      reko: (operation.rekoSummary?.photos ?? []).map(filename => ({
+        group: 'reko' as const,
+        filename,
+        src: rekoPhotoUrl(operation.id, filename),
+        by: null,
+        at: null,
+      })),
+    }),
+    [operation.id, operation.rekoSummary?.photos],
+  )
+
   return (
+    <PhotoViewerProvider incidentLabel={photoLabel} fallback={photoFallback}>
     <div
       ref={rootRef}
       // A focus sink, and only in the panel: the modal traps focus, so "inside
@@ -1511,17 +1530,17 @@ export function OperationDetailContent({
               // Unassigned, this line reads «Reko zuweisen» — so it does that,
               // rather than dropping the operator on a tab where they have to
               // find the button again. It still switches tabs first, so the
-              // dialog closes onto the Reko-Zuweisung block that now owns the
+              // dialog closes onto the Reko block that now owns the
               // assignment and not onto the Übersicht they came from.
               onClick={() => {
                 selectTab('reko')
-                if (canEdit && !assignedRekoPersonnel) setRekoDialogOpen(true)
+                if (canAssignReko && !assignedRekoPersonnel) setRekoDialogOpen(true)
               }}
               // The same hover tint and the same rhythm as the empty
               // `ResourceRow`s below it: one target, one highlight.
               className="-mx-1 flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors duration-150 hover:bg-muted/40"
-              title={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
-              aria-label={canEdit && !assignedRekoPersonnel ? t('card.assignReko') : undefined}
+              title={canAssignReko && !assignedRekoPersonnel ? t('card.assignReko') : t('detail.tabs.reko')}
+              aria-label={canAssignReko && !assignedRekoPersonnel ? t('card.assignReko') : undefined}
             >
               {/* The SAME gutter as the three `ResourceRow`s below, so the
                   four values of the group start on one edge. It used to be an
@@ -1582,7 +1601,7 @@ export function OperationDetailContent({
                 // Same map the incident's own chips use: an Auftrag's vehicle is
                 // no more self-explanatory than an incident's.
                 vehicleDrivers={vehicleDrivers}
-                onAssign={(resourceType) => onAssignResource?.(resourceType, operation.id)}
+                onAssign={acceptsAssignments ? (resourceType) => onAssignResource?.(resourceType, operation.id) : undefined}
                 onUnassign={(assignmentId) => void release.releaseRouteResource(auftrag.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteRouteLeader(auftrag.id, assignmentId)}
                 onPickDriver={(v) => requestVehicleDriver({ vehicleId: v.resourceId, vehicleName: v.name })}
@@ -1640,21 +1659,13 @@ export function OperationDetailContent({
                 // component the Feld tab puts «Abholung nötig» in. The two are
                 // built as twins and now sit as twins.
                 dataSlot={<FieldReportsRow operation={operation} canEdit={canEdit} only={['rekoArrived']} />}
-                // Stacked in both mounts now: this column is half the modal —
-                // the tab's own grid took over the side-by-side reading, with
-                // everything reported on the left and the Auftrag on the right.
-                layout="stacked"
-                // Deep-linked with the entry form open. «Reko-Details öffnen»
-                // in the completion gate answers "no Reko report was filled in",
-                // so it has to land on the form, not on a tab with a button.
-                openEditorNonce={
-                  openOnTab?.tab === 'reko' && openOnTab.section === 'newReport' ? openOnTab.nonce : undefined
-                }
+                // «Reko-Details öffnen» in the completion gate lands on this tab,
+                // and the form is always open at its top.
                 onRequestComplete={canEdit && onRequestComplete ? () => onRequestComplete(operation.id) : undefined}
               />
               </div>
 
-              {/* Die Reko-Zuweisung: wer schaut es an, und alles, was daran
+              {/* Die Reko: wer schaut es an, und alles, was daran
                   geändert wird. Moved here off Übersicht — Reko was split
                   across two tabs, with the tab NAMED Reko holding only the
                   report while every dispatch control sat in a column that also
@@ -1677,7 +1688,7 @@ export function OperationDetailContent({
                 <div>
                   <DetailField
                     label={t('common.reko')}
-                    action={canEdit ? (
+                    action={canAssignReko ? (
                       <button
                         type="button"
                         className={ROW_ACTION}
@@ -1789,7 +1800,7 @@ export function OperationDetailContent({
                 operation={operation}
                 canEdit={canEdit}
                 onAssign={
-                  canEdit && onAssignResource
+                  canEdit && onAssignResource && acceptsAssignments
                     ? (incidentId, resourceType, search) => onAssignResource(resourceType, incidentId, search)
                     : undefined
                 }
@@ -1914,7 +1925,9 @@ export function OperationDetailContent({
             onClick={handleCopyWhatsApp}
           />
 
-          {canEdit && onTransferResources && (
+          {/* Not on a stop: its resources belong to the Auftrag («Aus Auftrag lösen» stays).
+              Not on a closed Einsatz: it is no transfer source. */}
+          {canEdit && onTransferResources && !operation.groupId && acceptsAssignments && (
             <ActionBarButton
               icon={ArrowRightLeft}
               label={t('common.transferResources')}
@@ -1960,7 +1973,7 @@ export function OperationDetailContent({
 
       {/* Assign Reko Dialog */}
       <AssignRekoDialog
-        open={rekoDialogOpen}
+        open={rekoDialogOpen && acceptsAssignments}
         onOpenChange={setRekoDialogOpen}
         incidentId={operation.id}
         incidentTitle={formatLocation(operation.location ?? '') || getIncidentTypeLabel(operation.incidentType)}
@@ -1981,5 +1994,6 @@ export function OperationDetailContent({
         />
       )}
     </div>
+    </PhotoViewerProvider>
   )
 }

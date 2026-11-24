@@ -183,6 +183,9 @@ interface PhotoUploadProps {
    * KP — dragged in, or pasted out of WhatsApp Web — are wired up.
    */
   dense?: boolean
+  /** Open a stored photo in the incident's viewer (`components/photos/photo-viewer.tsx`).
+   *  Absent where no viewer is mounted: the thumbnails stay pictures. */
+  onOpenPhoto?: (filename: string) => void
 }
 
 export default function PhotoUpload({
@@ -191,9 +194,11 @@ export default function PhotoUpload({
   transport,
   onPhotosChange,
   disabled = false,
-  dense = false
+  dense = false,
+  onOpenPhoto,
 }: PhotoUploadProps) {
   const t = useTranslations('reko.photoUpload')
+  const tViewer = useTranslations('photoViewer')
   /** Converting and downscaling, before anything is queued. Short, but it is
    *  the one moment a second tap on «Kamera» would lose the first pick. */
   const [preparing, setPreparing] = useState(false)
@@ -623,12 +628,27 @@ export default function PhotoUpload({
                 unoptimized
                 className="object-cover"
               />
+              {/* The picture opens the viewer; the corner ✕ removes it. Removing used to be
+                  the whole tile on hover, which left no way to look at a photo. */}
+              {onOpenPhoto && (
+                <button
+                  type="button"
+                  onClick={() => onOpenPhoto(filename)}
+                  aria-label={tViewer('open', { number: index + 1 })}
+                  className="absolute inset-0 cursor-zoom-in"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => handleRemovePhoto(filename)}
                 disabled={disabled}
                 aria-label={t('removePhoto', { number: index + 1 })}
-                className="absolute inset-0 flex cursor-pointer items-center justify-center bg-background/70 text-destructive opacity-0 transition-opacity group-hover:opacity-100 disabled:hidden"
+                className={cn(
+                  "flex cursor-pointer items-center justify-center text-destructive transition-opacity disabled:hidden",
+                  onOpenPhoto
+                    ? "absolute right-1 top-1 size-6 rounded-full bg-background/90 opacity-0 shadow-sm group-hover:opacity-100 focus-visible:opacity-100"
+                    : "absolute inset-0 bg-background/70 opacity-0 group-hover:opacity-100",
+                )}
               >
                 <X className="size-4" />
               </button>
@@ -665,6 +685,14 @@ export default function PhotoUpload({
                     unoptimized
                     className="object-cover"
                   />
+                  {onOpenPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenPhoto(filename)}
+                      aria-label={tViewer('open', { number: index + 1 })}
+                      className="absolute inset-0 cursor-zoom-in"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => handleRemovePhoto(filename)}

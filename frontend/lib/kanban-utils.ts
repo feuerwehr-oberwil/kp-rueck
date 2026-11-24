@@ -275,7 +275,7 @@ export function rekoColorOrder(
 }
 
 /** A Reko person's map colour: their turn in `rekoColorOrder` (without it: a hashed tone).
- *  The pins, the Reko-Modus dropdown and the dotted order line all take it from here. */
+ *  The pins, the Reko-Editor dropdown and the dotted order line all take it from here. */
 export function rekoPersonColor(personId: string, rekoOrder?: ReadonlyMap<string, number>): string {
   const turn = rekoOrder?.get(personId) ?? hashString(personId)
   return REKO_PALETTE[turn % REKO_PALETTE.length]

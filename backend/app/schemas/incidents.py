@@ -4,7 +4,7 @@ import math
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_serializer, field_validator
@@ -438,6 +438,12 @@ class StatusTransitionCreate(BaseModel):
 
 
 # Timeline
+
+#: A Reko field's value in the Chronik: a yes/no, a number, a text, or a list
+#: (ticked Gefahren keys, vehicles, equipment, photo filenames).
+RekoChangeValue = bool | int | float | str | list[str] | None
+
+
 class IncidentTimelineEvent(BaseModel):
     """A single event on the incident timeline.
 
@@ -450,9 +456,18 @@ class IncidentTimelineEvent(BaseModel):
                       operator typing what came over the radio)
     - kp_message    → message, actor_name (the KP's own «Meldung an den Trupp»,
                       going the OTHER way — sweep 27 §P3.2)
+    - journal       → journal_kind ('field' | 'reko'), journal_data (the journal row's
+                      `data`: `type` + `source` for a field fact, `relevant` for a
+                      Reko report), message (its text), actor_name (who reported it).
+                      A fact a notification announced (`services/journal`).
+    - reko_change   → reko_field, old_value, new_value, source ('feld' | 'kp'),
+                      actor_name: one saved change of the Reko report
+                      (`services/reko_history.py`)
     """
 
-    event_type: str  # 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
+    # 'status_change' | 'assignment' | 'field_message' | 'kp_message' | 'merge' | 'unmerge'
+    # | 'journal' | 'reko_change'
+    event_type: str
     timestamp: datetime
     actor_name: str | None = None
 
@@ -482,6 +497,16 @@ class IncidentTimelineEvent(BaseModel):
     # still stands offers «Trennen».
     merged_incident_id: UUID | None = None
     merge_active: bool | None = None
+
+    # journal fields — the same shape the journal drawer renders (`JournalText`)
+    journal_kind: str | None = None
+    journal_data: dict[str, Any] | None = None
+
+    # reko_change fields — the field's key (`reko_history.TRACKED_FIELDS`) and its raw
+    # values before and after; the client words them.
+    reko_field: str | None = None
+    old_value: RekoChangeValue = None
+    new_value: RekoChangeValue = None
 
 
 class DuplicateCandidate(BaseModel):

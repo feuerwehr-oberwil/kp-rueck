@@ -4,7 +4,7 @@
  * RoutenplanungPanel — editor-only route-building panel for the `/map` page; on a phone it only
  * shows the route (no optimise, no reorder, no add/remove – the phone board is read-only).
  *
- * The full-screen counterpart to the Routen-Editor modal: it drives the same
+ * The full-screen counterpart to the Auftrags-Editor modal: it drives the same
  * `useRoutePlanning` hook and reuses the shared `RouteStopList`, but leaves the
  * map itself to the page (which mounts `<GroupRoutes>` via map-view and forwards
  * map clicks / marker clicks here through page state).

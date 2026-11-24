@@ -16,7 +16,6 @@ from app.models import (
     EmergencyTemplate,
     Incident,
     IncidentAssignment,
-    IncidentGroupAssignment,
     Material,
     Notification,
     Personnel,
@@ -442,38 +441,6 @@ async def generate_training_divera_emergency(
 # ---------------------------------------------------------------------------
 # Simulated field work, for the Übungssteuerung's injects (api/training_simulate.py)
 # ---------------------------------------------------------------------------
-
-
-async def has_vehicle(db: AsyncSession, incident: Incident) -> bool:
-    """Is a vehicle actually with this crew — directly or through its Auftrag?
-
-    An Auftrag owns its resources for every stop, so a stop with no assignment
-    row of its own can still have a vehicle standing in front of it. Getting
-    this wrong would strand a squad that has its Pio parked next to it.
-    """
-    direct = await db.execute(
-        select(IncidentAssignment.id)
-        .where(
-            IncidentAssignment.incident_id == incident.id,
-            IncidentAssignment.resource_type == "vehicle",
-            IncidentAssignment.unassigned_at.is_(None),
-        )
-        .limit(1)
-    )
-    if direct.first() is not None:
-        return True
-    if incident.group_id is None:
-        return False
-    grouped = await db.execute(
-        select(IncidentGroupAssignment.id)
-        .where(
-            IncidentGroupAssignment.incident_group_id == incident.group_id,
-            IncidentGroupAssignment.resource_type == "vehicle",
-            IncidentGroupAssignment.unassigned_at.is_(None),
-        )
-        .limit(1)
-    )
-    return grouped.first() is not None
 
 
 def stranded_pickup_note(incident: Incident) -> str:

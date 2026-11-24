@@ -1,7 +1,8 @@
 import { getApiUrl } from "@/lib/env"
 
 /**
- * URL of a photo uploaded through the Reko form.
+ * URL of a stored incident photo – the Reko report's, and on the board the Rapport's too
+ * (same endpoint, same folder).
  *
  * Two callers, two credentials. A logged-in board sends the session cookie and
  * passes no token. A share-token display has no cookie, so it appends its own

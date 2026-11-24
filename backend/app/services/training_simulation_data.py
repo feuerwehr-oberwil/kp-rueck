@@ -1278,11 +1278,6 @@ class RapportSimProfile:
     # **rounded down**, so a gap always remains. Those gaps are why the
     # Restliste exists, and finding them is the exercise.
     bulk_coverage: float = 0.80
-    # "Abholung nötig" after "Einsatz beendet" (decision 24), preselected by the
-    # situation: a crew that walked there or whose vehicle drove on is usually
-    # stranded, everyone else usually is not.
-    pickup_when_stranded: float = 0.70
-    pickup_otherwise: float = 0.15
 
 
 RAPPORT_SIM_PROFILE = RapportSimProfile()

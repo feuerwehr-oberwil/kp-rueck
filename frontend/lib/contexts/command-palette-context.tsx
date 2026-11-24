@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { DispatchPlan, DispatchResource, DispatchVocabulary } from '@/lib/command-dispatch'
+import { takesAssignments } from '@/lib/assignable'
 
 /**
  * What the commands can do to the selected Einsatz beyond the shortcut keys – the
@@ -20,6 +21,26 @@ export const INCIDENT_COMMANDS = [
   'print',
 ] as const
 export type IncidentCommand = (typeof INCIDENT_COMMANDS)[number]
+
+const ASSIGN_COMMANDS: ReadonlySet<IncidentCommand> = new Set(['assignCrew', 'assignVehicle', 'assignMaterial', 'assignReko'])
+
+/**
+ * The selected Einsatz's commands for ⌘K – the card menu's rows: a viewer gets only the
+ * print (with a printer), a closed Einsatz no «Zuweisen» and no «Übertragen»
+ * (lib/assignable.ts), a stop no «Übertragen» (its resources belong to the Auftrag).
+ */
+export function incidentCommandsFor(
+  operation: { status: string; groupId: string | null } | undefined,
+  { isEditor, printerEnabled }: { isEditor: boolean; printerEnabled: boolean },
+): IncidentCommand[] {
+  return INCIDENT_COMMANDS.filter((command) => {
+    if (command === 'print') return printerEnabled
+    if (!isEditor) return false
+    if (ASSIGN_COMMANDS.has(command)) return !operation || takesAssignments(operation)
+    if (command === 'transfer') return !operation || (!operation.groupId && takesAssignments(operation))
+    return true
+  })
+}
 
 export interface CommandPaletteHandlers {
   // Actions

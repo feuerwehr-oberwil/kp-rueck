@@ -114,7 +114,7 @@ function IncidentPin({
 }: {
   incident: Incident
   highlighted: boolean
-  /** Its place in the selected Reko person's order (Reko-Modus): the number replaces the
+  /** Its place in the selected Reko person's order (Reko-Editor): the number replaces the
    *  priority glyph, as the Auftrag pins carry theirs (mock 2a, 19.11.2026). */
   sequence?: number
   /** Phone geometry (`STATUS_RING.phone`): 3px frame, spaced dashes / round dots. */
@@ -186,7 +186,7 @@ function IncidentPin({
       />
 
       {/* Priority glyph: ▲ Hoch, – Mittel, ▼ Niedrig, as on the board's cards – or, in the
-          Reko-Modus, the pin's number in its person's order. */}
+          Reko-Editor, the pin's number in its person's order. */}
       {sequence !== undefined ? (
         <text
           x={rings.r}
@@ -275,7 +275,7 @@ function IncidentMarker({
   /** Phone geometry – see IncidentPin. */
   compact: boolean
   accentColor?: string | null
-  /** Reko-Modus order number – see IncidentPin. */
+  /** Reko-Editor order number – see IncidentPin. */
   sequence?: number
   /** Incidents at this spot: from 2 on the pin wears the count badge. */
   count?: number
@@ -560,7 +560,7 @@ function IncidentLabel({
       onClick={(event) => event.originalEvent.stopPropagation()}
     >
       <div style={{ position: "relative", width: 0, height: 0 }}>
-        {/* The label is as tappable as the dot (selection, Reko-Modus assignment, …). */}
+        {/* The label is as tappable as the dot (selection, Reko-Editor assignment, …). */}
         <div
           ref={doubleClickRef}
           className={LABEL_BUBBLE}
@@ -936,7 +936,7 @@ function priorityName(t: ReturnType<typeof useTranslations<"map">>, priority: st
 /**
  * The list under a same-address label (look 3B): the address, then one row per incident –
  * priority glyph, number, Meldung (else Einsatzart), status. A row click is a click on that incident's pin (select;
- * in Reko-Modus / Routenplanung: assign / add it), a double-click opens it. The selected one is
+ * in Reko-Editor / Auftrags-Editor: assign / add it), a double-click opens it. The selected one is
  * marked. Desktop: hung under the label while the pin or its label is pointed at, after a click
  * on the pin, and while one of its incidents is selected. Phone (`docked`): after a tap on the
  * pin, docked along the map's bottom edge – a 320px list off a pin does not fit a 390px map –
@@ -1347,12 +1347,12 @@ interface MapViewProps {
   focusVehicleName?: string | null // Vehicle name to zoom to (keys 1-5)
   focusVehicleTrigger?: number // Counter to re-trigger zoom to the same vehicle
   markerAccents?: Map<string, string> // incidentId -> fill colour ("Färben nach")
-  /** Reko-Modus: the selected person's open Rekos in their order – enlarged pins with their
+  /** Reko-Editor: the selected person's open Rekos in their order – enlarged pins with their
    *  number inside, joined by a dotted line in the person's colour (`map/reko-route.tsx`). */
   rekoRoute?: RekoRoute | null
   colorBy?: ColorByDimension // active "Färben nach" dimension (for the legend)
   colorGroups?: ColorGroup[] // legend entries for the active dimension
-  // Aufträge (incident group) routes — read-only polyline display + Routenplanung.
+  // Aufträge (incident group) routes — read-only polyline display + Auftrags-Editor.
   showGroupRoutes?: boolean // draw the numbered route polylines (off by default)
   groups?: IncidentGroup[] // Aufträge to draw
   /** Resolves a route's own crew/vehicles, so the hover card of any stop can
@@ -1361,7 +1361,7 @@ interface MapViewProps {
   operationsById?: Map<string, Operation> // stop lookup (stops are real incidents)
   focusGroupId?: string | null // emphasize one route, dim the rest (planning)
   highlightGroupStopId?: string | null // highlight one stop marker (focused stop)
-  /** True while a tap-mode (Reko, Routenplanung) runs: hovering must NOT swap
+  /** True while a tap-mode (Reko, Auftrags-Editor) runs: hovering must NOT swap
    *  the label for the detail card. The swap replaced the click target mid-tap
    *  — the first tap died in the DOM churn and «remove» needed two. */
   hoverCardsDisabled?: boolean
@@ -1617,7 +1617,7 @@ export default function MapView({
   // (`lib/map-spots.ts`); the pin's list picks one of them.
   const spots = useMemo(() => groupSpots(mappableIncidents), [mappableIncidents])
   const compactMap = useCompactMap()
-  // The Reko-Modus order: incident id → its number (1-based), and the dotted line's points.
+  // The Reko-Editor order: incident id → its number (1-based), and the dotted line's points.
   const rekoSequence = useMemo(
     () => new Map((rekoRoute?.incidentIds ?? []).map((id, index) => [id, index + 1])),
     [rekoRoute],
@@ -1723,7 +1723,7 @@ export default function MapView({
   usePanToVehicle(map, focusVehicleName, focusVehicleTrigger, mappedVehiclePositions)
   useResetZoom(map, resetZoomTrigger, mappableIncidents, fitPadding)
 
-  // Routenplanung: an empty-map click adds a stop. Every marker stops its own click from
+  // Auftrags-Editor: an empty-map click adds a stop. Every marker stops its own click from
   // reaching the canvas, so only genuinely empty map arrives here.
   const handleMapClick = useCallback(
     (event: MapLayerMouseEvent) => onMapClick?.(event.lngLat.lat, event.lngLat.lng),
@@ -1849,7 +1849,7 @@ export default function MapView({
           vehiclePositions={mappedVehiclePositions}
           visible={showAssignmentLines}
           showDistances={showDistances}
-          // Independent of «Routen anzeigen»: that switch draws the route
+          // Independent of «Aufträge»: that switch draws the route
           // itself, this one answers where the vehicles are — a route vehicle
           // should not need a second switch to get the line every other
           // vehicle has.
@@ -1869,7 +1869,7 @@ export default function MapView({
           groupResourcesFor={groupResourcesFor}
         />
 
-        {/* The Reko-Modus order: a dotted line through the selected person's Rekos. */}
+        {/* The Reko-Editor order: a dotted line through the selected person's Rekos. */}
         <RekoRouteLine color={rekoRoute?.color ?? null} points={rekoRoutePoints} />
 
         {/* Vehicle breadcrumb trails */}

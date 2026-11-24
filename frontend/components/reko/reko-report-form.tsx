@@ -27,6 +27,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useEffect, useId, useState } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
+import { usePhotoViewer } from '@/lib/hooks/use-photo-viewer'
 import { useTranslations } from 'next-intl'
 import { Check, Send } from 'lucide-react'
 
@@ -151,6 +152,10 @@ export function RekoReportForm({
   footer,
 }: RekoReportFormProps) {
   const t = useTranslations('reko.form')
+  // A thumbnail opens the viewer its mount provides (`PhotoViewerProvider`): the board
+  // detail's, or the own one of the /reko form and the KP's Reko gate.
+  const viewPhoto = usePhotoViewer()
+  const onOpenPhoto = viewPhoto ? (filename: string) => viewPhoto('reko', filename) : undefined
   const isKp = mount === 'kp'
   // The phone gets thumb-sized controls in the rain; the KP gets a column in a
   // tab and a mouse. Same fields, same order, same component — only the shape
@@ -410,6 +415,7 @@ export function RekoReportForm({
               transport={photos}
               disabled={disabled}
               dense
+              onOpenPhoto={onOpenPhoto}
               onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
             />
           </DetailField>
@@ -628,6 +634,7 @@ export function RekoReportForm({
               incidentId={incidentId}
               transport={photos}
               disabled={disabled}
+              onOpenPhoto={onOpenPhoto}
               onPhotosChange={updater => onChange(prev => ({ ...prev, photos_json: updater(prev.photos_json) }))}
             />
           </div>

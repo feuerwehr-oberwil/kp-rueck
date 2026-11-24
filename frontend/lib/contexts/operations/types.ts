@@ -283,7 +283,7 @@ export interface OperationsContextType {
   assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => Promise<boolean>
   assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
   assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => Promise<boolean>
-  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
+  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string, force?: boolean) => Promise<boolean>
   /** The vehicle the driver prompt is asking about: set when a vehicle is assigned
    * to an incident and nobody is driving it. Exactly one at a time — the setup
    * checklist used to queue a run through every driverless vehicle here, and that
@@ -314,12 +314,18 @@ export interface OperationsContextType {
         resourceId: string
         /** Display name only – the resource is `resourceId`. */
         resourceName: string
+        /** How many resources `resourceName` names – one drop of a Modul-Block asks once for
+         *  all its devices («Motorsäge, Spreizer»). Default 1; the copy agrees with it. */
+        resourceCount?: number
         targetOperationId: string
-        /** Where it is going, by name — the dialog's «Neu:» line. The question
-         *  «wovon wird abgezogen» has two halves and the prompt used to name
-         *  only one of them, in running text. */
-        targetOperationLabel?: string
-        conflicts: { operationId: string; operationLabel: string }[]
+        /** Where it is going, by name («14 · Hauptstrasse 4», an Auftrag's name) — the
+         *  target card of the prompt. The question «wovon wird abgezogen» has two halves
+         *  and the prompt used to name only one of them, in running text. */
+        targetOperationLabel: string
+        /** Where it stands now, one card each («13 · Schulstrasse 9», an Auftrag's name).
+         *  `held`: which of the asked-about resources stand on that holder, when one drop
+         *  asks for several (a Modul-Block); absent = the one resource. */
+        conflicts: { operationId: string; operationLabel: string; held?: { id: string; name: string }[] }[]
         customResolve?: (action: "move" | "keep") => Promise<void> | void
       }
     | null

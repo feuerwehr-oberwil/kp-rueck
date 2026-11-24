@@ -276,6 +276,7 @@ class TestLageblattRekoProvenance:
         report = self._report(
             test_incident,
             created_by_user_id=test_editor.id,
+            submitted_by_user_id=test_editor.id,
             # The KP files and submits in one act — both columns, one line.
             updated_by_user_id=test_editor.id,
         )

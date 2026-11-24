@@ -2,11 +2,11 @@
 
 /**
  * RouteStopList — shared ordered, drag-reorderable stop list for one Auftrag – or, with
- * `kind="reko"`, for one Reko person's Rekos (the `/map` Reko-Modus): the two behave the
+ * `kind="reko"`, for one Reko person's Rekos (the `/map` Reko-Editor): the two behave the
  * same and only say different things (owner, 19.11.2026).
  *
- * Extracted from the Routen-Editor modal so both the modal (Phase 2) and the
- * `/map` Routenplanung panel (Phase 3) render an identical list without
+ * Extracted from the Auftrags-Editor modal so both the modal (Phase 2) and the
+ * `/map` Auftrags-Editor panel (Phase 3) render an identical list without
  * duplicating the row UI or the reorder monitor.
  *
  * The list renders `displayOrder` (which may be a pending optimize preview) while
@@ -17,7 +17,7 @@
  * monitors never collide.
  *
  * Two looks over the same rows: the dense list (the modal) and, with
- * `timelineColor`, the timeline of the `/map` Routenplanung panel – both share the
+ * `timelineColor`, the timeline of the `/map` Auftrags-Editor panel – both share the
  * drag/drop wiring (`useStopRowDnd`) and the right-click menu (`StopRowMenu`).
  */
 
@@ -64,8 +64,8 @@ import type { RouteStartMode } from "@/lib/route-start"
 export type StopState = "erledigt" | "laeuft" | "offen"
 
 // ── Optimize-from wand ───────────────────────────────────────────────────────
-// A single wand icon button (shared by the Routen-Editor modal, the /map
-// Routenplanung panel and the Aufträge sheet) that, on click, opens a dropdown of
+// A single wand icon button (shared by the Auftrags-Editor modal, the /map
+// Auftrags-Editor panel and the Aufträge sheet) that, on click, opens a dropdown of
 // start anchors. Picking one runs `onOptimize(start)` immediately — there is no
 // preselected "Start ab" select anymore. Callers pass their own translated labels
 // + availability so the component stays i18n-namespace agnostic.
@@ -302,7 +302,7 @@ interface RouteStopListProps {
   /** When provided, each row shows a ✕ that detaches the stop from the route. */
   onRemoveStop?: (incidentId: string) => void
   /** Show the advance/jump status control (false → plain status marker, e.g. the
-   *  `/map` Routenplanung panel where status isn't advanced from the planner). */
+   *  `/map` Auftrags-Editor panel where status isn't advanced from the planner). */
   showStatusControl?: boolean
   /** Offer "Abgeschlossen" in the row context menu. Default true. Set false on
    *  surfaces whose `onSetStopStatus` doesn't route through the completion flow
@@ -311,7 +311,7 @@ interface RouteStopListProps {
   readOnly?: boolean
   /** The Auftrag's colour: renders the stops as `<li>` timeline items (numbered
    *  nodes in the route-pin look, on a line in this colour) for the caller's
-   *  `<ol>` instead of the dense rows. The `/map` Routenplanung panel uses it. */
+   *  `<ol>` instead of the dense rows. The `/map` Auftrags-Editor panel uses it. */
   timelineColor?: string
 }
 
@@ -686,7 +686,7 @@ export function StopListRow({
 }
 
 // ── Timeline ─────────────────────────────────────────────────────────────────
-// The `/map` Routenplanung list: every row hangs off a node on one vertical line
+// The `/map` Auftrags-Editor list: every row hangs off a node on one vertical line
 // (start → stops → «Stopp hinzufügen»). The caller owns the `<ol>`; these are its
 // items. A row is `TIMELINE_ROW` with a `TimelineNode` inside it.
 

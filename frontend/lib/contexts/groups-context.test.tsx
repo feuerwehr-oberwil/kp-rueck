@@ -232,6 +232,33 @@ describe("GroupsProvider — createGroup optimistic + reconcile", () => {
   })
 })
 
+// Sol review B round 3: `isLoaded` turns true after a failed load too, so the GPS prompt
+// read an Auftrag that never arrived as «not on the board».
+describe("GroupsProvider — loadFailed", () => {
+  it("is set while no load got through, and cleared by a refresh that does", async () => {
+    getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
+    const { result } = await renderLoaded()
+    expect(result.current.loadFailed).toBe(true)
+
+    getIncidentGroups.mockResolvedValueOnce([apiGroup()])
+    await act(async () => {
+      await result.current.refreshGroups()
+    })
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.groups).toHaveLength(1)
+  })
+
+  it("stays clear when a later reload fails – the loaded Aufträge still stand", async () => {
+    getIncidentGroups.mockResolvedValueOnce([apiGroup()])
+    const { result } = await renderLoaded()
+    getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
+    await act(async () => {
+      await result.current.refreshGroups()
+    })
+    expect(result.current.loadFailed).toBe(false)
+  })
+})
+
 describe("GroupsProvider — group_update WS event", () => {
   it("refreshes the list when a group_update broadcast arrives", async () => {
     const { result } = await renderLoaded()
@@ -535,6 +562,29 @@ describe("GroupsProvider — assign / unassign route resources", () => {
     })
 
     expect(unassignGroupResource).toHaveBeenCalledWith(GROUP_ID, "a1")
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
+  })
+
+  // Sol review E round 3: a staged «Hierher verschieben» whose Auftrag holder was released
+  // elsewhere meanwhile goes on with the assign – the 404 says the resource is free already.
+  it("counts a 404 on unassign as released, without a toast", async () => {
+    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
+    getIncidentGroups.mockResolvedValue([
+      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "personnel", resource_id: "p1" })] }),
+    ])
+    unassignGroupResource.mockRejectedValueOnce(new ApiError("Zuweisung nicht gefunden", 404, true))
+
+    const { result } = await renderLoaded()
+    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
+
+    getIncidentGroups.mockResolvedValueOnce([apiGroup({ assignments: [] })])
+    let ok: boolean | undefined
+    await act(async () => {
+      ok = await result.current.unassignResource(GROUP_ID, "a1")
+    })
+
+    expect(ok).toBe(true)
+    expect(toastError).not.toHaveBeenCalled()
     await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
   })
 

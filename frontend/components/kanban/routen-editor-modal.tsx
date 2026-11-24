@@ -16,7 +16,8 @@
  * Besides the route's own numbered stops, the map shows every OTHER located,
  * non-completed incident of the event as a small context pin — labelled, not
  * hidden: grey = «Offen» (click adds it as a stop), route-coloured + muted =
- * already on another Auftrag (passive, the tooltip names the route).
+ * already on another Auftrag (click asks, then moves it here). The click rule is
+ * the stop picker's too: `components/map/route-stop-pick.tsx`.
  *
  * The map is the shared `<BaseMap>`, which owns the basemap, the offline fallback
  * and the dialog-resize handling — so nothing here re-measures the container.
@@ -27,13 +28,13 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { MapPin, MousePointerClick, MapPinned } from "lucide-react"
 import type { Map as MlMap } from "maplibre-gl"
-import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
+import { NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn, formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { BaseMap } from "@/components/map/base-map"
-import { MapTooltip } from "@/components/map/map-tooltip"
 import { GroupRoutes } from "@/components/map/group-routes"
+import { RouteContextPin, stopPinClick, useMoveStopConfirm } from "@/components/map/route-stop-pick"
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RouteOptimizeButton, RouteOptimizeNote, useRouteOptimizeAction } from "@/components/map/route-optimize"
 import { useGroups } from "@/lib/contexts/groups-context"
@@ -55,82 +56,6 @@ const EMPTY_CHANGED: Set<string> = new Set()
 
 /** How this dialog frames its stops — a lone stop gets a fixed scale instead of a zero-size box. */
 const FIT_OPTIONS = { padding: 48, maxZoom: 16, duration: 0, singleZoom: 15 } as const
-
-/**
- * One context pin: an incident of the event that is NOT a stop of this route.
- *
- * Its own component because it owns its hover state — hovering one pin must not
- * re-render the other few dozen. Small dot, deliberately unlike the 26px numbered
- * sequence markers: solid grey = «Offen» (nobody's yet), dashed + muted route
- * colour = already on another Auftrag (mirrors the incident picker's pin language).
- */
-function ContextPin({
-  op,
-  fill,
-  dashed = false,
-  dimmed = false,
-  clickable,
-  title,
-  subtitle,
-  hint,
-  onSelect,
-}: {
-  op: LocatedOperation
-  fill: string
-  dashed?: boolean
-  dimmed?: boolean
-  clickable: boolean
-  title: string
-  subtitle: string
-  hint?: string
-  onSelect: () => void
-}) {
-  const [hovered, setHovered] = useState(false)
-  const [lat, lng] = op.coordinates
-
-  return (
-    <Marker
-      longitude={lng}
-      latitude={lat}
-      // Below the numbered stops (100/300), so a route's own pins always win.
-      style={{ zIndex: hovered ? 90 : 50 }}
-      // The click would otherwise bubble on to the map and add a second, geocoded
-      // stop at the same spot while "Stop hinzufügen" is armed.
-      onClick={(event) => {
-        event.originalEvent.stopPropagation()
-        if (clickable) onSelect()
-      }}
-    >
-      <div
-        style={{ position: "relative" }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <div
-          style={{
-            width: 16,
-            height: 16,
-            borderRadius: "50%",
-            background: fill,
-            border: `2px ${dashed ? "dashed" : "solid"} white`,
-            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.3)",
-            opacity: dimmed ? 0.45 : 0.9,
-            cursor: "pointer",
-          }}
-        />
-        {hovered && (
-          <MapTooltip side="top" gap={16}>
-            <div className="text-xs leading-tight">
-              <div className="font-medium">{title}</div>
-              <div className="text-muted-foreground">{subtitle}</div>
-              {hint && <div className="text-muted-foreground">{hint}</div>}
-            </div>
-          </MapTooltip>
-        )}
-      </div>
-    </Marker>
-  )
-}
 
 // -----------------------------------------------------------------------------
 
@@ -246,15 +171,23 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
     return pins
   }, [group, groups, operationsById])
 
-  // Clicking an OPEN context pin adds that incident as a stop (same `addStops`
-  // path the "+ Stop" picker persists through). Dispatched pins stay passive.
-  const handleOpenPinClick = useCallback(
-    async (incidentId: string) => {
+  // Clicking a context pin adds that incident as a stop (same `addStops` path the
+  // "+ Stop" picker persists through); one on another Auftrag asks first, then
+  // `addStops` moves it here.
+  const { ask: askMove, dialog: moveDialog } = useMoveStopConfirm()
+  const handleContextPinClick = useCallback(
+    (op: LocatedOperation, otherRoute: IncidentGroup | undefined, label: string) => {
       if (!canEdit || !group) return
-      const ok = await addStops(group.id, [incidentId])
-      if (ok) toast.success(t("contextStopAdded"))
+      const add = async () => {
+        const ok = await addStops(group.id, [op.id])
+        if (ok) toast.success(t("contextStopAdded"))
+      }
+      // The pins are this route's non-members, so the rule never answers «drop» here.
+      const click = stopPinClick(op.id, new Set(group.stopIds), () => otherRoute)
+      if (click.kind === "move") askMove({ incidentLabel: label, fromName: click.from.name, toName: group.name, run: add })
+      else if (click.kind === "add") void add()
     },
-    [canEdit, group, addStops, t],
+    [canEdit, group, addStops, t, askMove],
   )
 
   // Optimize applies immediately (no preview / Übernehmen step) — the shared
@@ -286,19 +219,18 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
           own stops always sit on top. */}
       {contextPins.map(({ op, otherRoute }) => {
         const location = op.locationDisplay ?? formatLocationForDisplay(op.location, getGlobalHomeCity())
-        const clickable = !otherRoute && canEdit
+        const label = location || getIncidentTypeLabel(op.incidentType)
         return (
-          <ContextPin
+          <RouteContextPin
             key={op.id}
             op={op}
             fill={otherRoute ? colorAccent(otherRoute.id, "auftrag", groups) : MAP_NONE}
-            dashed={!!otherRoute}
-            dimmed={!!otherRoute}
-            clickable={clickable}
-            title={location || getIncidentTypeLabel(op.incidentType)}
+            otherRoute={!!otherRoute}
+            clickable={canEdit}
+            title={label}
             subtitle={otherRoute ? t("contextInRoute", { name: otherRoute.name }) : t("contextOpen")}
-            hint={clickable ? t("contextClickToAdd") : undefined}
-            onSelect={() => void handleOpenPinClick(op.id)}
+            hint={canEdit ? (otherRoute ? t("contextClickToMove") : t("contextClickToAdd")) : undefined}
+            onSelect={() => handleContextPinClick(op, otherRoute, label)}
           />
         )
       })}
@@ -417,6 +349,8 @@ export function RoutenEditorModal({ open, onOpenChange, groupId, focusIncidentId
             </div>
           </div>
         </div>
+
+        {moveDialog}
 
         {/* Footer — optimize controls now live above the stop list (out of the
             bottom-right toast zone); only the close action remains here. */}

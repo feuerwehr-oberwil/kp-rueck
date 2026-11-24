@@ -15,7 +15,8 @@ import { toast } from "sonner"
 import { FormMessage, fieldMessageProps, focusFirstBlockingField, formMessageId } from "@/components/ui/form-message"
 import { apiClient, type ApiEventSpecialFunctionResponse } from "@/lib/api-client"
 import { type Person, type Operation, useOperations } from "@/lib/contexts/operations-context"
-import { personMatchesQuery } from "@/lib/resource-status"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { usePersonMatcher } from "@/lib/hooks/use-person-matcher"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { useTranslations } from "next-intl"
 import { ShellLoader } from "@/components/ui/shell-loader"
@@ -68,6 +69,8 @@ export function DriverAssignmentDialog({
   const tPick = useTranslations('common.personPick')
   const isMobile = useIsMobile()
   const { refreshOperations } = useOperations()
+  const { groups } = useGroups()
+  const matchesPerson = usePersonMatcher()
   const [searchQuery, setSearchQuery] = useState("")
   const [isAssigning, setIsAssigning] = useState(false)
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
@@ -195,11 +198,11 @@ export function DriverAssignmentDialog({
   }
 
   // Filter by search query — shared matcher (name / rank / tags / special
-  // functions), same behaviour as the sidebar and the assignment dialog.
+  // functions / current place), same behaviour as the sidebar and the assignment dialog.
   const filteredPersonnel = useMemo(() => {
     if (!searchQuery.trim()) return availablePersonnel
-    return availablePersonnel.filter(p => personMatchesQuery(p, searchQuery))
-  }, [availablePersonnel, searchQuery])
+    return availablePersonnel.filter(p => matchesPerson(p, searchQuery))
+  }, [availablePersonnel, searchQuery, matchesPerson])
 
   // Split into F-tagged (Fahrer) and others
   const { driversGroup, othersGroup } = useMemo(() => {
@@ -438,7 +441,7 @@ export function DriverAssignmentDialog({
   }
 
   const renderTile = (person: Person) => {
-    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations), driverFor: vehicleId })
+    const { where, roles, plan } = factsOf(person, { elsewhere: einsatzWhere(person.id, operations, groups), driverFor: vehicleId })
     return (
       <PersonPickTile
         name={person.name}
@@ -573,7 +576,7 @@ export function DriverAssignmentDialog({
       <ConfirmDialog
         open={conflictDialog.open}
         onOpenChange={(open) => setConflictDialog(prev => ({ ...prev, open }))}
-        title={t('conflictTitle')}
+        title={t('conflictTitle', { name: conflictDialog.person?.name ?? '' })}
         description={t.rich('conflictDescription', {
           name: conflictDialog.person?.name ?? '',
           count: conflictDialog.conflictingOperations.length,
@@ -582,6 +585,8 @@ export function DriverAssignmentDialog({
         })}
         cancelText={tCommon('cancel')}
         confirmText={t('conflictConfirm')}
+        // A double booking is chosen by hand, never by Enter (owner pick #3, 23.11.2026).
+        initialFocus="cancel"
         onConfirm={handleConflictConfirm}
       />
 

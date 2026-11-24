@@ -14,6 +14,9 @@ vi.mock('@/lib/contexts/personnel-context', () => ({
   usePersonnel: () => ({ personnel: [crew] }),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: { setIncidentFieldReport: vi.fn() } }))
+vi.mock('@/lib/contexts/groups-context', () => ({
+  useGroups: () => ({ groups: [], getGroupResources: () => ({ vehicles: [], personnel: [], materials: [] }) }),
+}))
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 import { FieldMessageThread, FieldReportsRow } from '@/components/kanban/field-reports-row'
@@ -147,6 +150,32 @@ describe('the whole labelled row toggles (§P2.9)', () => {
       pickup_needed: true,
       pickup_note: null,
     })
+  })
+
+  it('names a vehicle on site next to the pickup switch, and still lets the KP turn it on', async () => {
+    const { apiClient } = await import('@/lib/api-client')
+    vi.mocked(apiClient.setIncidentFieldReport).mockClear()
+    const vehicles = [{ vehicleId: 'v-1', assignmentId: 'a-1', name: 'TLF 1', callsign: null, driverStay: true }]
+    renderWithIntl(<FieldReportsRow operation={operation({ vehicles })} only={['pickup']} />)
+
+    expect(screen.getByText('TLF 1 steht vor Ort')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('switch', { name: 'Abholung nötig' }))
+    expect(apiClient.setIncidentFieldReport).toHaveBeenCalledWith('incident-1', {
+      pickup_needed: true,
+      pickup_note: null,
+    })
+  })
+
+  it('flags an open pickup while the pill says a vehicle stays on site', () => {
+    const vehicles = [{ vehicleId: 'v-1', assignmentId: 'a-1', name: 'TLF 1', callsign: null, driverStay: true }]
+    renderWithIntl(
+      <FieldReportsRow
+        operation={operation({ vehicles, pickupNeeded: true, pickupRequestedAt: new Date('2026-11-23T20:00:00Z') })}
+        only={['pickup']}
+      />,
+    )
+
+    expect(screen.getByText(/trotz TLF 1 vor Ort – prüfen/)).toBeInTheDocument()
   })
 
   it('does nothing for a viewer', async () => {

@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { toast } from 'sonner'
 import type { SyncState } from '@/components/kanban/field-save-status'
 import { toRekoFormData, type RekoFormData } from '@/components/reko/reko-report-form'
-import { apiClient, type ApiRekoReportResponse } from '@/lib/api-client'
+import { apiClient, ApiError, type ApiRekoReportResponse } from '@/lib/api-client'
 import { classifySaveFailure } from '@/lib/field-save'
 
 /** How long the form waits after the last edit before it saves – one request per pause,
@@ -11,9 +12,9 @@ import { classifySaveFailure } from '@/lib/field-save'
 export const REKO_SAVE_DELAY_MS = 600
 
 /**
- * One operator's auto-save of ONE report of an Einsatz – the own draft and an amendment of a
- * filed report are two sessions, so a save in flight for one never lands on the other (Sol
- * review pass 4, S3). It lives at module level, not in the component: closing the incident
+ * One operator's auto-save of the Einsatz's Reko report – one report per Einsatz since
+ * 23.11.2026, so in practice one session per `user:incident`, found under `#new` until the
+ * first save named the row and under its id after (Sol review pass 4, S3). It lives at module level, not in the component: closing the incident
  * detail or switching tabs unmounts the form while a save may still be waiting or in flight,
  * and the next mount must see that save – its row, its newest form – or it opens from a list
  * read that raced the save and writes the old text back with the next field (pass 2, S1).
@@ -159,17 +160,22 @@ async function sendSession(session: AutosaveSession, incidentId: string): Promis
   } catch (error) {
     session.inFlight = false
     setState(session, { status: 'failed', reason: classifySaveFailure(error) })
+    // The card was merged away and its report hidden (409 `reko_report_merged`, Sol review G
+    // S5): the 409 raises no toast of its own, and «inzwischen geändert» alone would not say where.
+    if (error instanceof ApiError && error.code === 'reko_report_merged') toast.error(error.message)
   }
 }
 
 /**
  * The board's Reko form saves as it goes (owner pick 19.11.2026, #30) – no save button.
  *
- * `resume(source)` on opening names the row the edits go to: the filed report being amended,
- * the operator's own KP draft, or null – then the first save creates the draft
- * (`POST /api/reko/?submit=false`) and every later one PATCHes it (`submit=false`). The draft
+ * `resume(source)` on opening names the row the edits go to: the Einsatz's one report (draft
+ * or filed), or null – then the first save creates it (`POST /api/reko/?submit=false`, which
+ * finds the report another board or the field created meanwhile) and every later one PATCHes
+ * it (`submit=false`). `refresh(source)` takes a newer read of that report into the open form
+ * (the field typed, another board saved) while this operator has nothing unsent. The draft
  * is filed on the server, not here: by the save that answers «Einsatz relevant?», like the
- * crew's submit (`api/reko._kp_draft_files_now`, owner pick #30). A status move files nothing.
+ * crew's submit (`api/reko._board_save_files_now`, owner pick #30). A status move files nothing.
  *
  * `schedule(data)` after every change; one request at a time, the newest form always last,
  * so the server sees the edits in order. «Synchronisiert» only once the save carrying the
@@ -268,6 +274,25 @@ export function useRekoAutosave({ incidentId, userId, onSettled, onAdopt }: {
     return opened
   }, [base])
 
+  /**
+   * A newer read of the report, for the open form: the server's word becomes the baseline and
+   * the form, unless this operator has an edit waiting, on its way or failed – then it waits
+   * for the save's own answer (`onAdopt`). Keeps the sync line as it is. Null: not taken.
+   */
+  const refresh = useCallback((source: ApiRekoReportResponse | null): RekoFormData | null => {
+    if (!source || session.timer || session.inFlight || session.state.status === 'failed'
+      || session.confirmed.version !== session.version) return null
+    if (session.target && session.target !== source.id) return null
+    if (!session.target) {
+      session.target = source.id
+      sessions.set(sessionKey(session.base, source.id), session)
+    }
+    const fresh = toRekoFormData(source)
+    session.baseline = fresh
+    session.latest = null
+    return fresh
+  }, [session])
+
   const schedule = useCallback((data: RekoFormData) => {
     session.latest = data
     session.version += 1
@@ -285,10 +310,9 @@ export function useRekoAutosave({ incidentId, userId, onSettled, onAdopt }: {
   return {
     state,
     resume,
+    refresh,
     schedule,
     flush,
     retry: send,
-    /** The row the edits go to – the photo door attaches to it. */
-    reportId: useCallback(() => session.target, [session]),
   }
 }

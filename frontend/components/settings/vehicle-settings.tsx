@@ -144,7 +144,7 @@ export function VehicleSettings() {
           <DialogContent aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>
-                {dialog.editing ? t('vehicles.dialogEditTitle') : t('vehicles.dialogCreateTitle')}
+                {dialog.editing ? t('vehicles.dialogEditTitle', { name: dialog.editing.name }) : t('vehicles.dialogCreateTitle')}
               </DialogTitle>
             </DialogHeader>
             {/* `DetailField` rows, boxed controls — the grammar of the new-Einsatz modal.

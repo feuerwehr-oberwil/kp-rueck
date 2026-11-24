@@ -75,7 +75,8 @@ export function StandbyConflictsSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle>{t('title')}</SheetTitle>
+          {/* Between what: the other system by name (#14) – «Konflikte mit KP Rück Offline». */}
+          <SheetTitle>{t('title', { other: t(`side.${here === 'standby' ? 'hosted' : 'standby'}`) })}</SheetTitle>
           <SheetDescription>
             {t(data?.decidable === false ? 'introReadOnly' : 'intro', { leader: t(`side.${leader}`) })}
           </SheetDescription>

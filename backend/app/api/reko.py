@@ -7,7 +7,8 @@ rewriting other incidents' recon reports.
 """
 
 import uuid
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -47,10 +48,11 @@ from ..websocket_manager import (
 )
 
 logger = get_logger(__name__)
-from ..services import share_links
+from ..services import reko_history, share_links
 from ..services.audit import log_action
 from ..services.merge_links import live_incident_id, merged_into_ids
 from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
+from ..services.reko_history import RekoAuthor
 from ..services.tokens import (
     decode_form_token,
     generate_feld_token,
@@ -135,18 +137,60 @@ async def _token_door_id(db: AsyncSession, token: str | None, incident_id: uuid.
     return incident_id
 
 
-def _kp_draft_files_now(report: RekoReport, update: schemas.RekoReportUpdate) -> bool:
-    """Whether this board save files the operator's KP draft (owner pick 19.11.2026, #30).
+def _board_save_files_now(report: RekoReport, update: schemas.RekoReportUpdate) -> bool:
+    """Whether this board save files the incident's report (owner picks 19.11.2026 #30, 23.11.2026 #6).
 
     One rule: the moment «Einsatz relevant?» is answered (Ja or Nein) – in this save or an
-    earlier one – wherever the card is. Filing is then exactly the crew's submit
-    (`crud.process_reko_submission`: «Reko» → «Reko abgeschlossen», priority bump, bell). A
-    status move files nothing. The caller holds the card lock.
+    earlier one – on a report that is still a draft, whoever opened it (the KP, or a crew
+    still typing in the field: the KP heard the answer over the radio). Filing is then
+    exactly the crew's submit (`crud.process_reko_submission`: «Reko» → «Reko
+    abgeschlossen», priority bump, bell). A status move files nothing. The caller holds the
+    card lock.
     """
-    if not crud.is_kp_draft(report):
+    if not report.is_draft:
         return False
     relevant = update.is_relevant if "is_relevant" in update.model_fields_set else report.is_relevant
     return relevant is not None
+
+
+async def _after_save(
+    db: AsyncSession,
+    background_tasks: BackgroundTasks,
+    incident: Incident | None,
+    report: RekoReport,
+    filed_now: bool,
+) -> None:
+    """What every save of the report sets off, whichever door it came through.
+
+    The first filing is the one «Reko-Meldung» (`process_reko_submission`: status, priority,
+    bell). A later edit of a filed report rings nothing (owner pick 23.11.2026) but still
+    escalates on a danger it adds (pass 5, S4). Every save – drafts too – tells the other
+    boards: they show the one live report, form and all.
+    """
+    if incident is not None and filed_now:
+        await crud.process_reko_submission(db, incident, report)
+        background_tasks.add_task(
+            broadcast_incident_update, {"id": str(incident.id), "has_completed_reko": True}, "update"
+        )
+    elif incident is not None and not report.is_draft and await crud.escalate_for_dangers(db, incident, report):
+        background_tasks.add_task(
+            broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
+        )
+    background_tasks.add_task(
+        broadcast_reko_update, {"incident_id": str(report.incident_id)}, "submit" if filed_now else "update"
+    )
+
+
+def _response(report: RekoReport, incident: Incident | None) -> schemas.RekoReportResponse:
+    """The report with the incident's details the form header shows."""
+    response_data = schemas.RekoReportResponse.model_validate(report)
+    if incident:
+        response_data.incident_title = incident.title
+        response_data.incident_location = incident.location_address
+        response_data.incident_type = incident.type
+        response_data.incident_description = incident.description
+        response_data.incident_contact = incident.contact
+    return response_data
 
 
 @router.get("/form", response_model=schemas.RekoReportResponse)
@@ -157,16 +201,15 @@ async def get_reko_form(
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RekoReportResponse:
     """
-    Load Reko form (existing draft or new).
+    Load THE incident's Reko report for the form (created as a draft when there is none).
 
-    No authentication required - uses token validation.
+    No authentication required - uses token validation. Every valid link of the incident
+    opens the same report (one per Einsatz, owner pick 23.11.2026).
 
     Query params:
         incident_id: UUID of incident
         token: Form access token
         personnel_id: Optional personnel who is doing the reko
-
-    Returns existing draft or creates new one.
     """
     personnel_id = await _require_form_token(db, token, incident_id, personnel_id)
     try:
@@ -248,15 +291,17 @@ async def submit_reko_report(
         write=True,
     )
 
-    # Get or create report. The token resolves the reporting *person*; the board
-    # has no such person to resolve, so `submitted_by_personnel_id` stays NULL and
-    # the operator lands in `created_by_user_id` instead (decision 6).
+    # THE report of the incident. The token resolves the reporting *person*; the board has
+    # no such person to resolve, so a report it creates carries the operator in
+    # `created_by_user_id` instead (decision 6).
     try:
         if user is not None:
             report = await crud.get_or_create_kp_reko_report(db, report_data.incident_id, user)
+            author = RekoAuthor.kp(user)
         elif field_token is not None:
             personnel_id = await _require_form_token(db, field_token, report_data.incident_id)
             report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token, personnel_id)
+            author = RekoAuthor.feld(personnel_id)
         else:
             # Unreachable — the helper returns None only when a token opened the
             # door — but it is what narrows the token for the type checker.
@@ -269,14 +314,10 @@ async def submit_reko_report(
     update_data = schemas.RekoReportUpdate(
         **report_data.model_dump(exclude={"incident_id", "token"}, exclude_unset=True)
     )
-    # The board's report is a draft until it is filed (`_kp_draft_files_now`).
-    if user is not None and not submit and _kp_draft_files_now(report, update_data):
-        submit = True
-    # A board save that resolved to the report it filed before (`get_or_create_kp_reko_report`)
-    # amends it: no second filing, no second bell.
-    amends_filed = user is not None and not report.is_draft
-    if amends_filed:
-        submit = False
+    # A board save files a draft once «Einsatz relevant?» is answered (`_board_save_files_now`).
+    if user is not None and not submit:
+        submit = _board_save_files_now(report, update_data)
+    filed_now = False
     if (
         field_token
         and not submit
@@ -285,46 +326,13 @@ async def submit_reko_report(
     ):
         updated = report
     else:
-        updated = await crud.update_reko_report(db, report.id, update_data, submit=submit, user=user)
+        updated, filed_now = await crud.update_reko_report(db, report.id, update_data, author=author, submit=submit)
 
-    # Fetch incident details — the LIVE card the report is on: status, bell and
-    # release below must happen there, not on a card merged away (R2 review).
-    incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))
-    incident = incident_result.scalar_one_or_none()
-
-    # Convert to response schema with incident details
-    response_data = schemas.RekoReportResponse.model_validate(updated)
-    if incident:
-        response_data.incident_title = incident.title
-        response_data.incident_location = incident.location_address
-        response_data.incident_type = incident.type
-        response_data.incident_description = incident.description
-        response_data.incident_contact = incident.contact
-
-    # Handle post-submission side effects (status transition, priority bump, notification)
-    if submit and incident:
-        await crud.process_reko_submission(db, incident, updated)
-        # Broadcast incident update so other clients see reko completion and status change
-        background_tasks.add_task(
-            broadcast_incident_update,
-            {"id": str(incident.id), "has_completed_reko": True},
-            "update",
-        )
-        # Broadcast reko update for reko-specific listeners
-        background_tasks.add_task(
-            broadcast_reko_update,
-            {"incident_id": str(incident.id)},
-            "submit",
-        )
-    elif amends_filed:
-        # Other boards show filed reports only; an amendment changes one – and a danger it adds
-        # escalates as one in the filing would (pass 5, S4).
-        background_tasks.add_task(broadcast_reko_update, {"incident_id": str(updated.incident_id)}, "update")
-        if incident and await crud.escalate_for_dangers(db, incident, updated):
-            background_tasks.add_task(
-                broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
-            )
-
+    # The LIVE card the report is on: status, bell and release happen there, not on a card
+    # merged away (R2 review).
+    incident = await db.get(Incident, updated.incident_id)
+    response_data = _response(updated, incident)
+    await _after_save(db, background_tasks, incident, updated, filed_now)
     return response_data
 
 
@@ -339,20 +347,18 @@ async def update_report(
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> schemas.RekoReportResponse:
-    """Update existing Reko report (e.g., add more photos after submission).
+    """Edit THE incident's Reko report – the field's later answers, the KP's in place.
 
-    Requires either the incident's form token (X-Reko-Token header) or a
-    logged-in user — recon reports feed operator decisions and the printed
-    slip, so they must not be rewritable by anyone who can reach the API.
+    Requires either a form token of the report's incident (X-Reko-Token header) or a
+    logged-in editor — recon reports feed operator decisions and the printed slip, so they
+    must not be rewritable by anyone who can reach the API. Since one report serves the
+    whole incident (owner pick 23.11.2026), any valid link of that incident may edit it,
+    not only the link that created the row.
 
-    This is how the KP amends a crew-filed report (plan 26 §5.1): what came in
-    over the radio afterwards is added to the same row instead of filing a second
-    one, and the report then carries **both** provenance sides —
-    ``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the
-    operator — which is what a mixed report has to be able to print.
+    A KP edit of a crew-filed report keeps both provenance sides (plan 26 §5.1):
+    ``submitted_by_personnel_id`` from the crew, ``updated_by_user_id`` from the operator.
     """
-    result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
-    existing = result.scalar_one_or_none()
+    existing = await db.get(RekoReport, report_id)
     if not existing:
         raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
 
@@ -365,88 +371,45 @@ async def update_report(
         db,
         write=True,
     )
-
-    if user is None:
-        # Form links resume their own report; only operators can amend another
-        # crew's row. Incident scope alone does not establish report ownership.
-        claims = decode_form_token(x_reko_token, str(door_id)) if x_reko_token else None
-        if (
-            claims is None
-            or existing.token != x_reko_token
-            or (
-                claims.field_binding is not None
-                and existing.submitted_by_personnel_id != claims.field_binding.personnel_id
-            )
-        ):
-            raise CodedHTTPException(403, ErrorCode.REKO_REPORT_NO_ACCESS, "Kein Zugriff auf diesen Bericht.")
-
-    if user is not None:
-        # The card (with its Auftrag) before the report row (`crud/locking.py`): the status
-        # move files drafts under the same card lock, so whether this save files the draft
-        # is decided on the row as it is once that move is done (Sol review S2).
-        await lock_incident_with_group(db, existing.incident_id)
-        existing = await db.scalar(
-            select(RekoReport)
-            .where(RekoReport.id == report_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
+    # The card (with its Auftrag) before the report row (`crud/locking.py`), for both doors:
+    # the field and the KP write the same row, and a filing then writes the card – a door
+    # that took the row first would deadlock against the other. The status move files
+    # drafts under the same card lock, so whether this save files is decided on the row as
+    # it is once that move is done (Sol review S2).
+    card = await lock_incident_with_group(db, existing.incident_id)
+    if card is not None and card.merged_into_id is not None:
+        # Both cards had a report: this one stays hidden on the merged-away card, and a tab
+        # still open on that card must not edit it (Sol review G, S5). The form and the photo
+        # routes resolve the card it went into; this route names the row.
+        raise CodedHTTPException(
+            409,
+            ErrorCode.REKO_REPORT_MERGED,
+            "Dieser Einsatz wurde zusammengeführt. Bitte neu laden und den Reko-Bericht dort bearbeiten.",
         )
-        if existing is None:
-            raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
-
-    # The board's draft may be filed by this save (`_kp_draft_files_now`), with the side
-    # effects a filing has – only on the actual draft → filed step, read under the lock.
-    files_kp_draft = user is not None and crud.is_kp_draft(existing)
-    if files_kp_draft and not submit:
-        submit = _kp_draft_files_now(existing, update_data)
+    existing = await db.scalar(
+        select(RekoReport).where(RekoReport.id == report_id).with_for_update().execution_options(populate_existing=True)
+    )
+    if existing is None:
+        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND)
+    if user is not None:
+        author = RekoAuthor.kp(user)
+        if not submit:
+            submit = _board_save_files_now(existing, update_data)
+    else:
+        claims = decode_form_token(x_reko_token, str(door_id)) if x_reko_token else None
+        binding = claims.field_binding if claims else None
+        author = RekoAuthor.feld(binding.personnel_id if binding else None)
 
     try:
-        updated = await crud.update_reko_report(db, report_id, update_data, submit=submit, user=user)
-
-        # Fetch incident title
-        incident_result = await db.execute(select(Incident).where(Incident.id == updated.incident_id))
-        incident = incident_result.scalar_one_or_none()
-        filed_now = incident is not None and files_kp_draft and not updated.is_draft
-        if filed_now and incident is not None:
-            # The crew's submit, step for step (`submit_reko_report`).
-            await crud.process_reko_submission(db, incident, updated)
-            background_tasks.add_task(
-                broadcast_incident_update, {"id": str(incident.id), "has_completed_reko": True}, "update"
-            )
-        elif (
-            user is not None
-            and incident is not None
-            and not updated.is_draft
-            # A board amendment of a filed report (under the card lock): a danger added now
-            # escalates as one in the filing would (pass 5, S4).
-            and await crud.escalate_for_dangers(db, incident, updated)
-        ):
-            background_tasks.add_task(
-                broadcast_incident_update, {"id": str(incident.id), "priority": incident.priority}, "update"
-            )
-
-        # Convert to response schema with incident details
-        response_data = schemas.RekoReportResponse.model_validate(updated)
-        if incident:
-            response_data.incident_title = incident.title
-            response_data.incident_location = incident.location_address
-            response_data.incident_type = incident.type
-            response_data.incident_description = incident.description
-            response_data.incident_contact = incident.contact
-
-        # Broadcast reko update – also for an amendment of a filed report (the board's
-        # Reko form saves every field at once): other boards show filed reports only.
-        if submit or not updated.is_draft:
-            background_tasks.add_task(
-                broadcast_reko_update,
-                {"incident_id": str(updated.incident_id)},
-                "submit" if filed_now else "update",
-            )
-
-        return response_data
+        updated, filed_now = await crud.update_reko_report(db, report_id, update_data, author=author, submit=submit)
     except ValueError as e:
         logger.warning("Reko report update failed: %s", e)
         raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND) from e
+
+    incident = await db.get(Incident, updated.incident_id)
+    response_data = _response(updated, incident)
+    await _after_save(db, background_tasks, incident, updated, filed_now)
+    return response_data
 
 
 @router.get("/{report_id}", response_model=schemas.RekoReportResponse)
@@ -492,7 +455,7 @@ async def get_incident_reports(
     _current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ) -> list[schemas.RekoReportResponse]:
-    """Get all Reko reports for an incident (for incident detail view).
+    """The incident's Reko report, as a list: empty, or THE one (one per Einsatz since 23.11.2026).
 
     Requires authentication — only called from the logged-in board UI.
     """
@@ -539,9 +502,9 @@ async def mark_reko_arrived(
 
     Returns the updated reko report with arrived_at timestamp.
     """
-    await _require_form_token(db, token, incident_id)
+    personnel_id = await _require_form_token(db, token, incident_id)
     try:
-        report = await crud.mark_reko_arrived(db, incident_id, token)
+        report = await crud.mark_reko_arrived(db, incident_id, token, personnel_id)
 
         # The «Reko vor Ort» notification is raised inside `crud.mark_reko_arrived`
         # (first arrival only), so the Übungssteuerung's simulate path — which
@@ -694,40 +657,32 @@ async def _photo_report(
     incident_id: uuid.UUID,
     user: User | None,
     field_token: str | None,
-    report_id: uuid.UUID | None,
-) -> RekoReport:
-    """Which report a photo attaches to, for whichever door it came through.
+) -> tuple[RekoReport, RekoAuthor]:
+    """THE report of the incident a photo attaches to, and who is attaching it.
 
-    * **Field crew** (token): the report that token owns, as before.
-    * **KP, amending** (session + ``report_id``): straight onto that report — the
-      operator is adding to a report that already exists, and parking the photo
-      in a side draft would leave it invisible in the one place it belongs.
-    * **KP, creating** (session, no ``report_id``): the operator's own draft, the
-      same row ``POST /api/reko/`` submits a moment later. So a photo dropped in
-      while the form is still open survives the save.
+    One report per Einsatz, so both doors land on the same row: the field crew through its
+    form token, the KP through its session (the WhatsApp case – the picture reached the KP
+    on another channel). The row is created as a draft when there is none yet. The card
+    lock it is found under serializes the photo list with every other write of the report.
     """
     if user is not None:
-        if report_id is not None:
-            result = await db.execute(select(RekoReport).where(RekoReport.id == report_id))
-            report = result.scalar_one_or_none()
-            # A report id from another incident must not become a way to write
-            # into that incident's report.
-            if not report or report.incident_id != await live_incident_id(db, incident_id):
-                raise HTTPException(status_code=404, detail=ErrorMessages.REPORT_NOT_FOUND)
-            return report
-        return await crud.get_or_create_kp_reko_report(db, incident_id, user)
+        return await crud.get_or_create_kp_reko_report(db, incident_id, user), RekoAuthor.kp(user)
     if field_token is None:
         # Unreachable: the door helper returns None only for a valid token.
         raise HTTPException(status_code=401, detail=ErrorMessages.INVALID_REQUEST)
     personnel_id = await _require_form_token(db, field_token, incident_id)
-    return await crud.get_or_create_reko_report(db, incident_id, field_token, personnel_id)
+    report = await crud.get_or_create_reko_report(db, incident_id, field_token, personnel_id)
+    return report, RekoAuthor.feld(personnel_id)
 
 
-async def _lock_photo_report(db: AsyncSession, report: RekoReport) -> None:
-    """Serialize photo list changes with incident prefill and refresh stale rows."""
-    # Resolving a new draft may have committed, so always reacquire the lock.
-    await db.execute(select(Incident.id).where(Incident.id == report.incident_id).with_for_update())
-    await db.refresh(report)
+async def _record_photo_change(
+    db: AsyncSession, report: RekoReport, before: dict[str, Any], author: RekoAuthor
+) -> None:
+    """The photo list moved: its Chronik row, and the KP's amendment stamp."""
+    if author.user_id is not None:
+        report.updated_by_user_id = author.user_id
+        report.updated_by_user_at = datetime.now(UTC)
+    await reko_history.record_changes(db, report, before, author)
 
 
 @router.post("/{incident_id}/photos", response_model=None)
@@ -735,12 +690,9 @@ async def _lock_photo_report(db: AsyncSession, report: RekoReport) -> None:
 async def upload_photo(
     request: Request,
     incident_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     x_reko_token: str | None = Header(None),
-    report_id: uuid.UUID | None = Query(
-        None,
-        description="Session door only: attach to this existing report instead of the operator's draft.",
-    ),
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
@@ -759,7 +711,6 @@ async def upload_photo(
         incident_id: Incident UUID
         file: Uploaded image file
         x_reko_token: Form access token (from header), for the field door
-        report_id: The report to attach to, for the board door when amending
         db: Database session
 
     Returns:
@@ -775,12 +726,11 @@ async def upload_photo(
     await enforce_demo_photo_limits(db, file, RekoReport.photos_json)
 
     try:
-        report = await _photo_report(db, incident_id, user, x_reko_token, report_id)
+        report, author = await _photo_report(db, incident_id, user, x_reko_token)
     except ValueError as e:
         logger.warning("Reko photo upload failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
-
-    await _lock_photo_report(db, report)
+    before = reko_history.snapshot(report)
 
     # Save photo
     filename = await photo_storage.save_photo(
@@ -793,6 +743,8 @@ async def upload_photo(
     # Update report with new photo
     current_photos = report.photos_json if report.photos_json else []
     report.photos_json = [*current_photos, filename]
+    await _record_photo_change(db, report, before, author)
+    background_tasks.add_task(broadcast_reko_update, {"incident_id": str(report.incident_id)}, "update")
 
     return {"filename": filename}
 
@@ -802,11 +754,8 @@ async def delete_photo(
     request: Request,
     incident_id: uuid.UUID,
     filename: str,
+    background_tasks: BackgroundTasks,
     x_reko_token: str | None = Header(None),
-    report_id: uuid.UUID | None = Query(
-        None,
-        description="Session door only: the report the photo hangs on, when amending an existing one.",
-    ),
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, bool]:
@@ -819,7 +768,6 @@ async def delete_photo(
         incident_id: Incident UUID
         filename: Photo filename to delete
         x_reko_token: Form access token (from header), for the field door
-        report_id: The report the photo hangs on, for the board door when amending
         db: Database session
 
     Returns:
@@ -831,22 +779,21 @@ async def delete_photo(
     user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, db, write=True)
 
     try:
-        report = await _photo_report(db, incident_id, user, x_reko_token, report_id)
+        report, author = await _photo_report(db, incident_id, user, x_reko_token)
     except ValueError as e:
         logger.warning("Reko photo delete failed: %s", e)
         raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
-
-    await _lock_photo_report(db, report)
+    before = reko_history.snapshot(report)
 
     # Check if photo exists in report
     current_photos = report.photos_json if report.photos_json else []
     if filename not in current_photos:
         raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
 
-    # Follow-up drafts inherit photos from earlier submissions. Unlinking one
-    # report must preserve the file while any other report still references it.
+    # A card merged away keeps its own report when the surviving card had one, and photos
+    # are copied, not moved, between cards: the file stays while any report still lists it.
     report.photos_json = [p for p in current_photos if p != filename]
-    await db.flush()
+    await _record_photo_change(db, report, before, author)
     referenced = await db.scalar(
         select(RekoReport.id)
         .where(
@@ -855,9 +802,13 @@ async def delete_photo(
         )
         .limit(1)
     )
+    incident_key = str(report.incident_id)
+    # Committed before the file goes: a rollback after the unlink would list a photo that no
+    # longer exists.
     await db.commit()
     if referenced is None:
         photo_storage.delete_photo(report.incident_id, filename)
+    background_tasks.add_task(broadcast_reko_update, {"incident_id": incident_key}, "update")
 
     return {"success": True}
 
@@ -913,6 +864,9 @@ async def serve_photo(
     request: Request,
     token: str | None = Query(None, description="Viewer share token, when there is no session"),
     reko_token: str | None = Query(None, description="Reko form token, restricted to its report's photos"),
+    view: Literal["full"] | None = Query(
+        None, description="`full`: the in-app viewer – never cached, so every open is a logged view"
+    ),
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> FileResponse:
@@ -931,11 +885,15 @@ async def serve_photo(
       link has always carried for everything else on the display, and the
       narrowing above is what keeps it to that.
 
-    * A **Reko form token** (`?reko_token=`) reads only photos listed by its
-      exact report, including its draft and prefilled photos. Field-derived
+    * A **Reko form token** (`?reko_token=`) reads only photos the incident's
+      Reko report lists, draft included – the report the link edits. Field-derived
       tokens also require their device claim to remain live.
 
     Files outside a valid token's scope return 404 so links cannot probe them.
+
+    A thumbnail may come from the operator's browser cache; the in-app viewer asks with
+    `?view=full`, answered `no-store`, so opening a photo always reaches this route and
+    its `view_photo` entry (Sol review G, S8).
 
     Args:
         incident_id: Incident UUID
@@ -960,14 +918,12 @@ async def serve_photo(
     # that names the merged card keeps working — R2 review).
     live_id = await live_incident_id(db, incident_id)
     if reko_token is not None:
-        personnel_id = await _require_form_token(db, reko_token, incident_id)
+        await _require_form_token(db, reko_token, incident_id)
+        # The incident's one report (a merged link: the surviving card's) must list the file.
         report_query = select(RekoReport.id).where(
             RekoReport.incident_id.in_({incident_id, live_id}),
-            RekoReport.token == reko_token,
             RekoReport.photos_json.contains([filename]),
         )
-        if personnel_id is not None:
-            report_query = report_query.where(RekoReport.submitted_by_personnel_id == personnel_id)
         if await db.scalar(report_query) is None:
             raise CodedHTTPException(404, ErrorCode.PHOTO_NOT_FOUND, ErrorMessages.PHOTO_NOT_FOUND)
     else:
@@ -1003,6 +959,7 @@ async def serve_photo(
         changes={
             "filename": filename,
             "via": "reko_token" if reko_token is not None else "viewer_token" if viewer_event_id else "session",
+            **({"view": view} if view else {}),
         },
         request=request,
     )
@@ -1013,7 +970,7 @@ async def serve_photo(
         file_path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "private, no-store" if by_link else "private, max-age=3600",
+            "Cache-Control": "private, no-store" if by_link or view else "private, max-age=3600",
             "Referrer-Policy": "no-referrer",
         },
     )

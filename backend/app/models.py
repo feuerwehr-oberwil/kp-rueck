@@ -1227,7 +1227,14 @@ class IncidentGroupAssignment(Base):
 
 
 class RekoReport(Base):
-    """Reko field reconnaissance report."""
+    """THE Reko report of an incident – one live row per Einsatz (owner pick 23.11.2026, #6).
+
+    The field (any valid form link of the incident) and the KP edit the same row; every
+    saved change of a field is a `RekoReportChange` row, shown in the incident's Chronik.
+    The first draft → filed step is the one «Reko-Meldung» (bell, Reko → Reko abgeschlossen).
+    ``incident_id`` is unique: a merge keeps the loser's report on the loser when the
+    surviving card has one (`services/merge_work.py`).
+    """
 
     __tablename__ = "reko_reports"
 
@@ -1235,6 +1242,8 @@ class RekoReport(Base):
     incident_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
     )
+    # The form token the row was created with. Kept because it is NOT NULL and the old
+    # tokens are still in the field; a lookup goes by incident, never by token.
     token: Mapped[str] = mapped_column(String(1024), nullable=False)
     arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -1272,6 +1281,15 @@ class RekoReport(Base):
     updated_by_user_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # When `updated_by_user_id` last wrote. `updated_at` moves with every write, the
+    # field's too, so «Ergänzt im KP durch … um …» needs the KP's own time.
+    updated_by_user_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The operator whose save filed the report (draft → filed), NULL when a form link filed
+    # it. Whoever opened the draft is not who filed it: one report serves the incident, so
+    # «Erfasst im KP durch …» names this one (Sol review G round 2, S4).
+    submitted_by_user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     # The arrival's OWN author, for the same reason the Schadenplatz-Rapport keeps
     # `arrived_by_user_id` apart from its created_by pair: the KP can now create a
     # report before anybody is on site, so reading the arrival off the creator
@@ -1286,9 +1304,62 @@ class RekoReport(Base):
     submitted_by_personnel: Mapped[Optional["Personnel"]] = relationship("Personnel")
 
     __table_args__ = (
-        Index("idx_reko_incident", "incident_id"),
+        Index("uq_reko_reports_incident", "incident_id", unique=True),
         Index("idx_reko_token", "token"),
     )
+
+
+class RekoReportChange(Base):
+    """One saved change of one Reko field – a row of the incident's Chronik (#6, 23.11.2026).
+
+    Written by `services/reko_history.record_changes` only. An autosave burst of one author
+    on one field is ONE row: within `reko_history.COALESCE_WINDOW` the newest row is moved
+    on (`new_value`, `changed_at`) instead of adding another, and dropped when the field is
+    back where it started. Values are the raw ones (`reko_history.TRACKED_FIELDS`); the
+    client words them in the operator's language.
+    """
+
+    __tablename__ = "reko_report_changes"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    report_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("reko_reports.id", ondelete="CASCADE"), nullable=False
+    )
+    field: Mapped[str] = mapped_column(String(40), nullable=False)
+    old_value: Mapped[Any] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    new_value: Mapped[Any] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    # 'feld' (a form link) or 'kp' (the board's session). The person or user behind it,
+    # when known – a plain /reko link names nobody.
+    source: Mapped[str] = mapped_column(String(10), nullable=False)
+    personnel_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("personnel.id", ondelete="SET NULL"), nullable=True
+    )
+    user_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("idx_reko_changes_report_field", "report_id", "field", "changed_at"),)
+
+
+class RekoReportFolded(Base):
+    """The Reko rows the one-report migration (`c4f1a7e2d9b3`) folded – nothing reads it.
+
+    Before 23.11.2026 every form link filed its own report. The migration kept the newest
+    filed one per incident and parked the full rows of every incident it touched here
+    (`row_json`, the kept one with `kept=True` and its values before the fold), so its
+    downgrade can put them back and a fold can be checked after the fact.
+    """
+
+    __tablename__ = "reko_reports_folded"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    incident_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kept: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    row_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    folded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 # ============================================
@@ -1569,6 +1640,10 @@ class FieldRequest(Base):
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     done_by_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # How an Abholung was answered: the crew's «Wir fahren selbst» (True) or a lift (False).
+    # Stored, because who closed it does not say: the Übung simulates the crew's answer under
+    # the KP user, and a lift under a simulated crew member (Sol review A2 round 2, S2).
+    self_drive: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # The phone's own id for this request. «Nochmals senden» after a lost answer
     # repeats it, and a repeat is a no-op instead of a second work item.
     client_request_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True, unique=True)
@@ -1582,6 +1657,11 @@ class FieldRequest(Base):
     def from_field(self) -> bool:
         """A crew tapped it (True) or the KP took it over the radio (False)."""
         return self.created_by_user_id is None
+
+    @property
+    def done_in_field(self) -> bool:
+        """An Abholung the crew answered with «Wir fahren selbst» (``self_drive``), not a lift."""
+        return self.status == "done" and self.self_drive
 
     __table_args__ = (
         CheckConstraint("kind IN ('message', 'material', 'personnel', 'pickup')", name="valid_field_request_kind"),

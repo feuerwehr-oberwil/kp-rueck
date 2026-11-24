@@ -701,10 +701,11 @@ async def _watch_unassigned_returns(
 
 async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicle) -> None:
     """Create the "vehicle back home" info notification, attributed to the event
-    of its most recent released assignment (that's whose dispatchers care)."""
+    of its most recent released assignment (that's whose dispatchers care). The bell
+    also leaves «zurück im Magazin» in that incident's Chronik, once per assignment."""
     row = (
         await db.execute(
-            select(Incident.id, Incident.event_id)
+            select(Incident.id, Incident.event_id, IncidentAssignment.id)
             .join(IncidentAssignment, IncidentAssignment.incident_id == Incident.id)
             .join(Event, Incident.event_id == Event.id)
             .where(IncidentAssignment.resource_type == "vehicle")
@@ -721,7 +722,9 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
     from .notification_service import create_vehicle_returned_notification
 
     logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
-    await create_vehicle_returned_notification(db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name)
+    await create_vehicle_returned_notification(
+        db, event_id=row[1], incident_id=row[0], vehicle_name=vehicle.name, returned_from=row[2]
+    )
     await db.commit()
 
 

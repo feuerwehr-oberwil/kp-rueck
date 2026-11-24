@@ -477,7 +477,7 @@ export function DetailFlags({
 
 /**
  * The small grey heading over a run of detail rows — «Lage», «Meldung»,
- * «Kräfte», «Reko-Zuweisung», «Meldungen vom Feld». Since the rows lost their
+ * «Kräfte», «Reko», «Meldungen vom Feld». Since the rows lost their
  * hairlines (the «Nur Abstand» pick), whitespace separates and these headings
  * group; the same decision the settings made, and the same idiom as their
  * `SettingGroup` heading.

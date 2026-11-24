@@ -169,12 +169,15 @@ async def open_pickup_requests(db: AsyncSession, incident_id: uuid.UUID) -> list
     return list(result.scalars().all())
 
 
-def close_request(row: FieldRequest, *, user: User | None, name: str | None, now: datetime) -> None:
-    """Stamp ``done`` with who/when — the fields only, the caller commits."""
+def close_request(
+    row: FieldRequest, *, user: User | None, name: str | None, now: datetime, self_drive: bool = False
+) -> None:
+    """Stamp ``done`` with who/when and, for an Abholung, which answer — the fields only, the caller commits."""
     row.status = "done"
     row.done_at = now
     row.done_by_user_id = user.id if user else None
     row.done_by_name = name
+    row.self_drive = self_drive
     row.seen_at = row.seen_at or now
 
 
@@ -216,6 +219,7 @@ async def set_request_status(
         row.done_at = None
         row.done_by_user_id = None
         row.done_by_name = None
+        row.self_drive = False
     elif status == "done":
         close_request(row, user=user, name=user_display(user), now=now)
         dismissed = await dismiss_linked_notification(db, row, user, now)
@@ -226,6 +230,7 @@ async def set_request_status(
         row.done_at = None
         row.done_by_user_id = None
         row.done_by_name = None
+        row.self_drive = False
 
     await log_action(
         db=db,

@@ -24,12 +24,12 @@
       },
       "share-feld-link": {
         "title": "Partager le lien Terrain",
-        "description": "Les équipes signalent depuis le lieu, remplissent le rapport et voient leurs missions",
+        "description": "Les équipes signalent depuis le lieu, remplissent le rapport et voient leurs interventions",
         "note": "Pour chaque équipe qui part · 1 impression par véhicule · le code Terrain va sur la même affiche"
       },
       "assign-reko": {
-        "title": "Désigner les officiers de reconnaissance",
-        "details": "{count, plural, one {# officier de reconnaissance attribué} other {# officiers de reconnaissance attribués}}",
+        "title": "Désigner les personnes de reconnaissance",
+        "details": "{count, plural, one {# personne de reconnaissance désignée} other {# personnes de reconnaissance désignées}}",
         "description": "Au moins 1 personne pour la reconnaissance"
       },
       "assign-drivers": {
@@ -64,7 +64,7 @@
       "copyLink": "Copier le lien",
       "openVehicles": "Ouvrir les véhicules",
       "openAttendance": "Ouvrir l’appel",
-      "chooseReko": "Choisir les officiers de reconnaissance"
+      "chooseReko": "Choisir les personnes de reconnaissance"
     },
     "setup": {
       "title": "Liste de contrôle de mise en place",
@@ -101,8 +101,8 @@
       "optional": "Facultatif"
     },
     "rekoPicker": {
-      "title": "Choisir les officiers de reconnaissance",
-      "description": "Choisis une personne présente et marque-la comme reconnaissance – plusieurs à la suite si besoin. Les adresses s'attribuent via le mode reconnaissance sur la carte.",
+      "title": "Choisir les personnes de reconnaissance",
+      "description": "Choisis une personne présente et marque-la comme reconnaissance – plusieurs à la suite si besoin. Les adresses s'attribuent via l’éditeur de reconnaissance sur la carte.",
       "marked": "{name} marqué comme reconnaissance",
       "failed": "Échec. Réessaie.",
       "done": "Terminé"
@@ -130,7 +130,7 @@
         "canTitle": "Ce que tu peux essayer",
         "canIncidents": "Saisir des interventions, les prioriser et les faire avancer dans les phases d’engagement",
         "canResources": "Engager du personnel, des véhicules et du matériel",
-        "canMap": "Planifier des lieux, des missions et des itinéraires sur la carte",
+        "canMap": "Planifier des lieux et des missions sur la carte",
         "canWorkflows": "Tester les rapports de reconnaissance et d’autres déroulements d’intervention",
         "knowTitle": "Bon à savoir",
         "knowDescription": "Toutes les données sont synthétiques et sans rapport avec de vraies interventions. L’alarmement externe et les systèmes raccordés sont désactivés dans la démo.",
@@ -215,6 +215,7 @@
       "vehicleStatus": "État des véhicules",
       "auftraege": "Ouvrir les missions",
       "print": "Imprimer et exporter",
+      "groupPersons": "Personnel",
       "groupAuftraege": "Missions",
       "refreshData": "Actualiser les données",
       "groupView": "Vue",
@@ -273,6 +274,7 @@
         "nothingToDo": "déjà fait",
         "pickBelow": "choisir ci-dessous",
         "unknownIncident": "Aucune intervention {number}",
+        "closedIncident": "terminée – plus rien à attribuer",
         "needsIncident": "Commencer par l’intervention – numéro ou adresse, p. ex. « 14 tlf meier » ou « bachweg 3 tlf »",
         "choiceFor": "pour « {text} »",
         "toastTitle": "Intervention {number} · {name}",
@@ -357,6 +359,11 @@
       "hintKp": "Les listes de sélection affichent « jusqu’à … ». 15 minutes avant, une notification arrive dans la cloche.",
       "hintSelf": "Le PC voit jusqu’à quand tu es là. Une heure, pas une promesse.",
       "saveFailed": "Heure non enregistrée"
+    },
+    "choiceDialog": {
+      "cancel": "Annuler",
+      "cancelHint": "Échap ou Entrée : ne rien changer",
+      "enterKey": "Entrée"
     }
   },
   "display": {
@@ -570,7 +577,7 @@
       "simulatedDescription": "En exercice, aucune convocation réelle n’est envoyée.",
       "sendError": "La convocation n’a pas pu être envoyée",
       "title": "Envoyer la convocation",
-      "description": "{location} – seules les personnes sélectionnées et liées à l’alarmement sont convoquées.",
+      "description": "Seules les personnes sélectionnées et liées à l’alarmement sont convoquées.",
       "recipients": "Destinataires ({count})",
       "noAssigned": "Aucune personne n’est attribuée à cette intervention.",
       "driverBadge": "Conducteur",
@@ -690,6 +697,7 @@
       "reko_link_invalid": "Ce lien de reconnaissance n’est pas valable ou a expiré.",
       "reko_report_not_found": "Rapport introuvable",
       "reko_report_no_access": "Pas d’accès à ce rapport.",
+      "reko_report_merged": "Cette intervention a été fusionnée. Recharge la page et modifie le rapport de reconnaissance là-bas.",
       "incident_status_changed": "Statut modifié entre-temps – l’intervention a été rechargée.",
       "text_conflict": "Modifié ailleurs entre-temps – non enregistré.",
       "assignment_race": "Ressource déjà attribuée",
@@ -977,6 +985,8 @@
       "unknownPerson": "inconnue",
       "timeLabel": "Heure de « {what} »",
       "pickupNotePlaceholder": "Note : combien, où exactement",
+      "pickupVehicleOnSite": "{vehicle} est sur place",
+      "pickupDespiteVehicle": "malgré {vehicle} sur place – à vérifier",
       "waiting": "Attend depuis {duration}",
       "saveFailed": "Échec de l’enregistrement",
       "messagesTitle": "Annonces du terrain",
@@ -1173,8 +1183,8 @@
       "failed": "L'annonce n'a pas pu être envoyée.",
       "confirm": {
         "none": "Annonce transmise au PC",
-        "stop": "Ajouté comme étape à votre mandat",
-        "auftrag": "Mandat ouvert – vous avez deux étapes",
+        "stop": "Ajouté comme étape à votre mission",
+        "auftrag": "Mission ouverte – vous avez deux étapes",
         "solo": "Annonce transmise – vous êtes assignés"
       },
       "titlePhone": "Annonce téléphonique",
@@ -1214,7 +1224,7 @@
       "checkIn": "S'enregistrer",
       "checkOut": "Je rentre",
       "here": "Présent",
-      "hereNoJob": "Pas encore de mandat"
+      "hereNoJob": "Pas encore d’intervention"
     },
     "material": {
       "title": "Matériel",
@@ -1273,6 +1283,7 @@
       "seen": "vu",
       "doneBy": "réglé {time} · {name}",
       "doneAt": "réglé {time}",
+      "selfDriveBy": "rentre seul {time} · {name}",
       "inProgressBy": "en cours · {name}",
       "fromField": "{name} · {time}",
       "fromKp": "saisi au PC · {time}",
@@ -1353,15 +1364,14 @@
       "high": "Haute"
     },
     "assignReko": {
-      "title": "Attribuer le personnel de reconnaissance",
-      "incidentLabel": "Intervention : {title}",
+      "title": "Attribuer la reconnaissance",
       "loadError": "Échec du chargement des personnes de reconnaissance",
       "assignErrorTitle": "Échec de l’attribution",
       "assignErrorDescription": "La personne n’est pas attribuée – la reconnaissance reste inchangée.",
       "loading": "Chargement …",
       "retry": "Réessayer",
       "emptyTitle": "Aucune personne de reconnaissance disponible",
-      "emptyHint": "Ou : clic droit sur une personne dans la barre latérale → « Attribuer à la reconnaissance ».",
+      "emptyHint": "Ou : clic droit sur une personne dans la barre latérale → « Reconnaissance ».",
       "markExisting": "Marquer une personne comme reconnaissance",
       "markSearchPlaceholder": "Rechercher une personne …",
       "markAllReko": "Toutes les personnes présentes sont déjà marquées comme reconnaissance.",
@@ -1376,7 +1386,8 @@
       "distanceLastTooltip": "Distance à vol d’oiseau jusqu’à la dernière intervention attribuée",
       "distanceLastSuffix": "(dernière)",
       "sectionReko": "Personnes de reconnaissance",
-      "sectionOthers": "Autres présents"
+      "sectionOthers": "Autres présents",
+      "pickLine": "Qui fait la reconnaissance ?"
     },
     "card": {
       "rekoCompleted": "Rapport de reconnaissance rempli",
@@ -1387,14 +1398,18 @@
     },
     "transfer": {
       "title": "Transférer les ressources",
-      "description": "Transférer toutes les attributions de « {title} » vers une autre intervention",
-      "searchPlaceholder": "Rechercher une intervention (titre, adresse, genre) …",
+      "description": "Transférer toutes les attributions de « {title} » vers une autre intervention ou une mission",
+      "searchPlaceholder": "Rechercher une intervention ou une mission (titre, adresse, genre, nom) …",
       "noOtherIncidents": "Aucune autre intervention disponible",
-      "needTwoIncidents": "Il faut au moins deux interventions",
+      "needTwoIncidents": "Il faut une deuxième intervention ouverte ou une mission",
+      "incidentsHeading": "Interventions",
+      "auftraegeHeading": "Missions",
+      "stopCount": "{count, plural, =0 {pas encore d’étape} one {# étape} other {# étapes}}",
       "vehicleCount": "{count, plural, one {# véhicule} other {# véhicules}}",
       "transferring": "Transfert …",
       "transfer": "Transférer",
-      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles, plural, one {# véhicule} other {# véhicules}}, {materials} matériel."
+      "confirmCounts": "Seront déplacés : {crew, plural, one {# personne} other {# personnes}}, {vehicles, plural, one {# véhicule} other {# véhicules}}, {materials} matériel.",
+      "confirmAuftrag": "« {title} » devient une étape de « {auftrag} ». Effectif, véhicules et matériel passent à la mission."
     },
     "driver": {
       "assignErrorTitle": "Échec de l’attribution du conducteur",
@@ -1409,7 +1424,7 @@
       "othersSection": "Autres",
       "noAvailablePersons": "Aucune personne disponible",
       "allAssignedHint": "Toutes les personnes sont déjà attribuées comme conducteur ou ne sont pas présentes",
-      "conflictTitle": "La personne est attribuée à une intervention",
+      "conflictTitle": "{name} est déjà engagé",
       "conflictDescription": "<strong>{name}</strong> est actuellement {count, plural, one {attribuée à l’intervention « {location} »} other {attribuée à # interventions}}. Comme conducteur, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictConfirm": "Libérer de l’intervention et attribuer",
       "drivesVehicle": "Conduit {vehicle}",
@@ -1433,21 +1448,30 @@
     "resourceConflict": {
       "moveHere": "Déplacer ici",
       "keepBoth": "Tenir sur les deux",
-      "titleNamed": "{name} est déjà engagé",
-      "prompt": "Que faut-il retenir ?",
-      "currentLabel": "Jusqu'ici",
-      "newLabel": "Nouveau",
+      "titleNamed": "{count, plural, one {{name} est déjà engagé} other {{name} sont déjà engagés}}",
       "drives": "conduit {vehicle}",
-      "moveReleasesDriver": "« Déplacer ici » libère aussi le rôle de conducteur pour {vehicle}."
+      "description": "Jusqu’ici sur <strong>{from}</strong>, nouveau sur <strong>{to}</strong>. Que faut-il retenir ?",
+      "moveKey": "D",
+      "keepKey": "T",
+      "moveConsequence": "{count, plural, one {{name} quitte <strong>{from}</strong> et n’est plus que sur {to}.} other {{name} quittent <strong>{from}</strong> et ne sont plus que sur {to}.}}",
+      "moveConsequenceDriver": "{name} quitte <strong>{from}</strong>, rend le rôle de conducteur pour {vehicle} et n’est plus que sur {to}.",
+      "keepConsequence": "{count, plural, one {{name} reste sur <strong>{from}</strong> et est attribué en plus à {to}.} other {{name} restent sur <strong>{from}</strong> et sont attribués en plus à {to}.}}",
+      "keepCards": "{cards, plural, =2 {Les deux cartes affichent 2×.} other {Les # cartes affichent #×.}}"
     },
     "auftragStop": {
-      "title": "Ajouter {incident} comme étape à la mission {auftrag} ?",
-      "description": "{vehicle} roule déjà pour la mission « {auftrag} ». L’intervention y sera ajoutée comme dernière étape.",
+      "title": "{vehicle} roule déjà pour la mission « {auftrag} »",
+      "description": "Nouveau : <strong>{incident}</strong>. Que faut-il retenir ?",
       "addAsStop": "Ajouter à la mission",
       "assignOnly": "Attribuer seulement en plus",
       "added": "{incident} est maintenant une étape de la mission « {auftrag} »",
       "changedTitle": "{incident} non ajoutée",
-      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau."
+      "changedDescription": "L’intervention ou la mission « {auftrag} » a été modifiée ou supprimée entre-temps. Vérifiez sur le tableau.",
+      "addAsStopKey": "A",
+      "assignOnlyKey": "E",
+      "stopChip": "+ étape {incident}",
+      "addAsStopConsequence": "<strong>{incident}</strong> devient la dernière étape de la mission « {auftrag} », {vehicle} s’y rend.",
+      "assignOnlyConsequence": "{vehicle} reste sur la mission « {auftrag} » et est attribué en plus à <strong>{incident}</strong>. Les deux cartes affichent 2×.",
+      "assignOnlyConsequenceAlso": "{vehicle} reste sur la mission « {auftrag} » ainsi que sur {others} et est attribué en plus à <strong>{incident}</strong>. Les {cards} cartes affichent {cards}×."
     },
     "vehicleStatus": {
       "bound": "Engagé",
@@ -1471,8 +1495,8 @@
       "fallbackIncident": "Intervention",
       "movedToActive": "{label} passée en intervention",
       "statusChangeFailed": "Échec du changement de statut",
-      "title": "Véhicule sur le lieu d’intervention",
-      "description": "<strong>{vehicle}</strong> est arrivé à l’intervention « {label} ». Passer en intervention ?",
+      "title": "{vehicle} sur le lieu d’intervention",
+      "description": "Passer l’intervention « En intervention » ?",
       "decline": "Ne pas déplacer",
       "confirm": "Passer en intervention"
     },
@@ -1481,13 +1505,17 @@
       "fallbackIncident": "Intervention",
       "released": "{vehicle} libéré",
       "releaseFailed": "Échec de la libération",
-      "completed": "{label} clôturée",
-      "completeFailed": "Échec de la clôture",
       "title": "Véhicule de retour à la caserne – le libérer ?",
-      "description": "<strong>{vehicle}</strong> est de retour à la caserne selon le GPS. Libérer uniquement l’attribution à « {label} » – ou clôturer directement l’intervention (ce qui libère toutes les ressources) ?",
+      "description": "<strong>{vehicle}</strong> est de retour à la caserne selon le GPS. Clôturer l’intervention « {label} » ? L’effectif et les véhicules sont libérés, pour le matériel on demande ce qui reste sur place.",
       "decline": "Ne pas libérer",
       "releaseOnly": "Libérer uniquement {vehicle}",
-      "completeIncident": "Clôturer l’intervention"
+      "completeIncident": "Clôturer l’intervention",
+      "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là",
+      "openEvent": "Ouvrir l’événement",
+      "openEventFailed": "Événement non ouvert – réessayer",
+      "notOnBoard": "Intervention introuvable – l’ouvrir sur le tableau",
+      "loadFailed": "Échec du chargement – réessayer",
+      "retryLoad": "Recharger"
     },
     "quickAdd": {
       "networkErrorTitle": "Erreur de réseau",
@@ -1801,7 +1829,7 @@
       "onlyAssignedVehicles": "Attribués uniquement",
       "transferResources": "Transférer les ressources",
       "distributeToAuftrag": "Répartir sur une mission",
-      "openRoutenEditor": "Ouvrir l’éditeur d’itinéraire",
+      "openRoutenEditor": "Ouvrir l’éditeur de mission",
       "newIncident": "Nouvelle intervention",
       "telefondienst": "Service téléphonique",
       "kommandoposten": "Poste de commandement",
@@ -1809,6 +1837,8 @@
       "statusMovedToast": "{name} → {status}",
       "vehicleAssignedToast": "{vehicle} attribué à {name}",
       "vehicleRemovedToast": "{vehicle} libéré de {name}",
+      "closedTakesNoAssignment": "{name} est terminée – plus rien à attribuer",
+      "closedTransfersNothing": "{name} est terminée – rien à transférer",
       "priorityChangedToast": "{name} : priorité {priority}",
       "zuFussOnToast": "{name} : engagement à pied",
       "zuFussOffToast": "{name} : plus à pied",
@@ -1833,12 +1863,13 @@
       "transferredToast": "Ressources transférées vers « {target} »",
       "transferredToastCount": "{count, plural, one {# attribution} other {# attributions}} depuis « {source} »",
       "transferUndone": "Transfert annulé",
+      "transferredToAuftragToast": "« {source} » est maintenant une étape de « {target} »",
       "transferUndoFailed": "Non annulé",
       "transferUndoFailedDescription": "Les attributions restent où elles sont."
     },
     "dashboard": {
       "loading": "Chargement …",
-      "stopsAddedToast": "{count, plural, one {# étape ajoutée à l’itinéraire} other {# étapes ajoutées à l’itinéraire}}",
+      "stopsAddedToast": "{count, plural, one {# étape ajoutée à la mission} other {# étapes ajoutées à la mission}}",
       "distributedToast": "Réparti dans la mission « {name} »",
       "noEventSelected": "Aucun événement sélectionné",
       "training": "Exercice",
@@ -1852,6 +1883,31 @@
       "showAvailableOnly": "N’afficher que les disponibles",
       "showAll": "Tout afficher",
       "noneAvailableFiltered": "Rien de disponible",
+      "personnelFilter": {
+        "title": "Filtre et tri",
+        "buttonActive": "Filtre et tri – {count} actifs",
+        "reset": "Réinitialiser",
+        "resetAll": "Réinitialiser les filtres",
+        "status": "Statut",
+        "statusAll": "Tous",
+        "statusFree": "Libre",
+        "statusBound": "Engagé",
+        "grade": "Grade",
+        "gradeHint": "l’un d’eux",
+        "noGrade": "Sans grade",
+        "tags": "Tags",
+        "tagsHint": "tous ceux choisis",
+        "sort": "Tri",
+        "sortRank": "Grade",
+        "sortName": "Nom",
+        "sortFreeFirst": "Libres d’abord",
+        "summaryRank": "par grade",
+        "summaryName": "par nom",
+        "shown": "{shown} sur {total} personnes",
+        "none": "Personne ne correspond à ces filtres",
+        "groupFiltered": "Filtré · {count}",
+        "groupAll": "Tous · {count}"
+      },
       "sort": {
         "button": "Trier",
         "label": "Trier la colonne",
@@ -1908,8 +1964,8 @@
         "unknownAddress": "Sans adresse"
       },
       "linksAndQr": "Liens & QR",
-      "distributeConfirmTitle": "Ajouter à la mission ?",
-      "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et y sera déplacé. Cette action est irréversible.",
+      "distributeConfirmTitle": "Ajouter à la mission « {auftrag} » ?",
+      "distributeConfirmTransfer": "« {incident} » appartient déjà à la mission « {from} » et sera déplacé dans la mission « {to} ». Cette action est irréversible.",
       "distributeConfirmDispatched": "« {incident} » est déjà engagé. L’ajout à la mission est irréversible.",
       "distributeConfirmAction": "Ajouter à la mission",
       "journal": "Journal"
@@ -1933,8 +1989,8 @@
       "armedHint": "Cliquer encore ou Entrée confirme · Échap revient en arrière"
     },
     "returningVehicle": {
-      "title": "Aucun véhicule attribué",
-      "description": "<hl>{location}</hl> se termine – mais aucun véhicule n’est attribué. L’effectif devrait rentrer à pied.",
+      "title": "Aucun véhicule sur place",
+      "description": "<hl>{location}</hl> se termine – mais aucun véhicule ne reste sur place. L’effectif devrait rentrer à pied.",
       "assignVehicle": "Attribuer un véhicule",
       "endAnyway": "Terminer quand même"
     },
@@ -1944,7 +2000,7 @@
       "confirm": "Prochaine étape en intervention"
     },
     "rekoGate": {
-      "pickerTitle": "Personne de reconnaissance pour {location}",
+      "pickerTitle": "Attribuer la reconnaissance",
       "pickerLine": "La carte passe en « Reconnaissance » avec l’attribution.",
       "moveWithout": "Déplacer sans personne de reconnaissance",
       "reportTitle": "Rapport de reconnaissance · {location}",
@@ -1958,7 +2014,7 @@
       "retry": "Réessayer"
     },
     "driverPrompt": {
-      "driverlessTitle": "Véhicule sans conducteur ?",
+      "driverlessTitle": "{vehicle} sans conducteur ?",
       "driverlessDescription": "« {vehicle} » est attribué à {incident}, mais personne ne le conduit. Le véhicule figure ainsi sur le message radio. Libérer le véhicule ?",
       "driverlessRemove": "Libérer le véhicule",
       "driverlessKeep": "Laisser sans conducteur",
@@ -1984,9 +2040,8 @@
     },
     "disponiert": {
       "whatsappCopied": "Message WhatsApp copié",
-      "title": "Intervention engagée",
+      "title": "Intervention engagée – message radio",
       "repeatTitle": "Répéter le message radio",
-      "description": "{location} → Engagé",
       "addressPlaceholder": "[Adresse]",
       "staysOnSite": "reste sur place",
       "returns": "rentre",
@@ -2007,7 +2062,7 @@
       "auftragContext": "Mission « {name} » · étape {pos}/{total}",
       "copyWhatsapp": "Copier le message WhatsApp",
       "sendDivera": "Envoyer la convocation",
-      "auftragBatchQuestion": "Le mandat « {name} » compte {count} autres étapes que personne n’a encore prises.",
+      "auftragBatchQuestion": "La mission « {name} » compte {count} autres étapes que personne n’a encore prises.",
       "auftragBatchAction": "{count, plural, one {Engager aussi l’autre étape} other {Engager aussi les # autres étapes}}",
       "auftragBatchDone": "{count, plural, one {# étape supplémentaire engagée} other {# étapes supplémentaires engagées}}"
     },
@@ -2070,10 +2125,15 @@
       "unknown": "(inconnu)",
       "kpMessageVerb": "à l’effectif",
       "stale": "était déjà sur « {statusLabel} » ({ago})",
-      "staleComplete": "était déjà clôturé ({ago})"
+      "staleComplete": "était déjà clôturé ({ago})",
+      "rekoFeld": "Terrain",
+      "rekoKp": "PC",
+      "rekoEmpty": "vide",
+      "rekoPhotosAdded": "+{count, plural, one {# photo} other {# photos}}",
+      "rekoPhotosRemoved": "−{count, plural, one {# photo} other {# photos}}"
     },
     "statusConflict": {
-      "title": "Modifié à l’instant",
+      "title": "Le statut vient d’être modifié",
       "byWho": "<b>{who}</b> a mis <b>{label}</b> sur « {statusLabel} » {ago}.",
       "byWhoComplete": "<b>{who}</b> a clôturé <b>{label}</b> {ago}.",
       "byNobody": "<b>{label}</b> a été mis sur « {statusLabel} » {ago}.",
@@ -2107,7 +2167,7 @@
       "moreActions": "Autres actions"
     },
     "detail": {
-      "rekoAuftrag": "Attribution de la reco",
+      "rekoAuftrag": "Reconnaissance",
       "groups": {
         "kraefte": "Moyens"
       },
@@ -2159,7 +2219,7 @@
       "assignFailed": "La fonction n’a pas pu être attribuée",
       "unassignFailed": "La fonction n’a pas pu être retirée",
       "driver": "Conducteur",
-      "conflictTitle": "La personne est attribuée à une intervention",
+      "conflictTitle": "{name} est déjà engagé",
       "conflictDescription": "<strong>{name}</strong> est actuellement {assignment}. Comme {function}, la personne ne peut pas être attribuée à une intervention en même temps.",
       "conflictAssignedOne": "attribuée à l’intervention « {location} »",
       "conflictAssignedMany": "attribuée à {count} interventions",
@@ -2190,13 +2250,13 @@
       "quickSelectByType": "Par genre :",
       "vehicleOnSceneHint": "{name} est déjà attribué à cette intervention",
       "driverBadge": "Conducteur",
-      "specialFnConfirmTitle": "Double attribution ?",
+      "specialFnConfirmTitle": "{name} est déjà {func}",
       "specialFnConfirmBody": "{name} est déjà en intervention ({func}). L’attribuer quand même à l’effectif ?",
       "specialFnConfirmAction": "Attribuer quand même",
       "occupiedElsewhere": "En intervention",
       "sectionFree": "Disponibles · {count}",
       "sectionBusy": "Déjà en intervention · {count}",
-      "occupiedConfirmTitle": "Double attribution ?",
+      "occupiedConfirmTitle": "{name} est déjà attribué",
       "occupiedConfirmBody": "{name} est déjà attribué : {label}. L’attribuer quand même ?",
       "occupiedConfirmAction": "Attribuer quand même",
       "all": "Tous",
@@ -2265,14 +2325,14 @@
     },
     "auftraege": {
       "title": "Missions",
-      "description": "Regrouper plusieurs interventions en un itinéraire ordonné et le confier à une équipe.",
+      "description": "Regrouper plusieurs interventions en étapes ordonnées d’une mission et la confier à une équipe.",
       "newAuftrag": "Nouvelle mission",
       "templatesLabel": "Modèles :",
       "defaultName": "Mission {n}",
       "namePlaceholder": "Nom de la mission",
       "create": "Créer",
       "cancel": "Annuler",
-      "empty": "Aucune mission pour l’instant. Crées-en une pour regrouper des interventions en itinéraire.",
+      "empty": "Aucune mission pour l’instant. Crées-en une pour regrouper des interventions en étapes.",
       "noStops": "Aucune étape pour l’instant. Fais glisser des cartes ici ou ajoute une étape.",
       "noSquad": "aucune équipe",
       "persLabel": "{count} pers",
@@ -2282,10 +2342,10 @@
       "rename": "Renommer",
       "delete": "Supprimer la mission",
       "addStop": "Ajouter une étape",
-      "routenEditor": "Éditeur d’itinéraire",
+      "routenEditor": "Éditeur de mission",
       "stopsCount": "Interventions attribuées ({count})",
-      "deleteTitle": "Supprimer la mission ?",
-      "deleteDescription": "Les interventions restent sur le tableau. Seul l’itinéraire est supprimé.",
+      "deleteTitle": "Supprimer la mission « {name} » ?",
+      "deleteDescription": "Les interventions restent sur le tableau. Seule la mission est supprimée.",
       "deleteConfirm": "Supprimer",
       "map": "Carte",
       "dragStop": "Déplacer l’étape",
@@ -2294,8 +2354,8 @@
       "changeColor": "Changer de couleur",
       "optimizeOrder": "Optimiser",
       "repeatRadio": "Répéter le message",
-      "repeatRadioTitle": "Répéter le message radio",
-      "repeatRadioTitlePreview": "Message radio",
+      "repeatRadioTitle": "Répéter le message radio · {name}",
+      "repeatRadioTitlePreview": "Message radio · {name}",
       "repeatRadioDescription": "Dernière diffusion à {time} – texte inchangé.",
       "repeatRadioPreview": "Pas encore diffusé – voici ce qu’il dirait maintenant.",
       "repeatRadioNoStop": "Cette mission n’a encore aucune étape. Le message naîtra avec la première.",
@@ -2320,7 +2380,7 @@
       "change": "Statut : {label} – modifier"
     },
     "routenEditorModal": {
-      "title": "Éditeur d’itinéraire",
+      "title": "Éditeur de mission",
       "description": "Ordonner les étapes sur la carte : cliquer pour ajouter, glisser pour réordonner, optimiser.",
       "mapHeading": "Carte",
       "emptyState": "Aucune étape pour l’instant – clique sur la carte ou utilise « Ajouter une étape ».",
@@ -2332,12 +2392,13 @@
       "noStops": "Aucune étape dans cette mission pour l’instant.",
       "mapLoading": "Chargement de la carte …",
       "dragStop": "Déplacer l’étape",
-      "noCoords": "Cette étape n’a pas de coordonnées et ne figure pas sur l’itinéraire.",
+      "noCoords": "Cette étape n’a pas de coordonnées et ne figure pas sur la ligne.",
       "noCoordsBadge": "sans lieu",
       "removeStop": "Retirer de la mission",
       "contextOpen": "Ouvert",
       "contextInRoute": "Dans la mission « {name} »",
       "contextClickToAdd": "Cliquer pour l’ajouter comme étape",
+      "contextClickToMove": "Cliquer pour la déplacer dans cette mission",
       "contextStopAdded": "Intervention ajoutée comme étape.",
       "stopActions": "Ordre et actions pour {name}"
     },
@@ -2355,15 +2416,17 @@
       "viewMap": "Carte",
       "mapLoading": "Chargement de la carte …",
       "mapEmpty": "Aucune intervention localisée sur la carte.",
-      "legendSelected": "anneau = sélectionnée",
+      "legendStops": "numéro = étape de cette mission, dans l’ordre",
+      "legendPending": "anneau = sera ajoutée",
       "legendOtherRoute": "coloré = déjà dans une autre mission (sera déplacée)",
       "legendUnassigned": "gris = dans aucune mission",
       "hiddenCount": "{count} masqué(s)",
+      "moveConfirm": "{count, plural, one {Cette intervention appartient déjà à une autre mission et sera déplacée} other {Ces # interventions appartiennent déjà à d’autres missions et seront déplacées}} dans la mission « {to} » : {names}. Cette action est irréversible.",
       "showCompleted": "Clôturées"
     },
     "auftragPicker": {
-      "title": "Répartir sur une mission",
-      "description": "Rattacher l’intervention à une mission. Elle sera déplacée comme étape dans l’itinéraire.",
+      "title": "Ajouter à une mission",
+      "description": "Elle sera déplacée comme étape dans la mission.",
       "empty": "Aucune mission pour l’instant. Crées-en une nouvelle.",
       "alreadyHere": "déjà ici",
       "stopCount": "{count, plural, one {# étape} other {# étapes}}",
@@ -2386,7 +2449,7 @@
       "leftAt": "départ {time}",
       "assignedChip": "attribuée",
       "assignedTo": "attribuée : {where}",
-      "assignedTitle": "La personne est encore attribuée",
+      "assignedTitle": "{name} est encore attribué",
       "assignedDescription": "{name} est encore attribué à {where} – l’annoncer partant quand même ? L’attribution est conservée.",
       "checkOutAnyway": "Annoncer partant quand même",
       "checkOutAll": "Annoncer tous partants",
@@ -2618,14 +2681,14 @@
       "groupRoutes": "Missions",
       "groupRoutesColorHint": "Colore la carte par mission",
       "colorByRoutesOverride": "Défini par « Missions » – la coloration précédente est rétablie à la désactivation.",
-      "routePlanning": "Planification d’itinéraire",
+      "routePlanning": "Éditeur de mission",
       "view": "Vue",
       "viewMenuLabel": "Vue de la carte",
       "modesMenuLabel": "Mode",
       "modes": "Mode"
     },
     "planning": {
-      "title": "Planification d’itinéraire",
+      "title": "Éditeur de mission",
       "exit": "Terminer",
       "selectGroupPlaceholder": "Choisir une mission …",
       "newAuftrag": "Nouvelle mission",
@@ -2639,13 +2702,13 @@
       "addStopHint": "Un clic sur la carte place une nouvelle étape.",
       "addingStop": "Ajout de l’étape …",
       "noStops": "Aucune étape dans cette mission pour l’instant.",
-      "stopAdded": "Étape ajoutée à l’itinéraire.",
-      "stopAlreadyOnRoute": "Cette intervention est déjà sur l’itinéraire.",
+      "stopAdded": "Étape ajoutée à la mission.",
+      "stopAlreadyOnRoute": "Cette intervention est déjà dans la mission.",
       "noGroups": "Aucune mission pour l’instant",
       "stopCount": "{count, plural, one {# étape} other {# étapes}}",
       "startLabel": "Départ · {start}",
       "addStopMapHint": "Clic sur la carte",
-      "exitLabel": "Terminer la planification d’itinéraire"
+      "exitLabel": "Quitter l’éditeur de mission"
     },
     "view": {
       "markerAria": "Intervention : {label}",
@@ -2751,9 +2814,9 @@
       "exitName": "Terminé – {mode}"
     },
     "rekoMode": {
-      "title": "Mode reconnaissance",
+      "title": "Éditeur de reconnaissance",
       "exit": "Terminé",
-      "exitLabel": "Terminer le mode reconnaissance",
+      "exitLabel": "Quitter l’éditeur de reconnaissance",
       "hintSelect": "Choisis une personne de reconnaissance, puis touche les interventions sur la carte.",
       "hintAssign": "Toucher une intervention : attribuer {name}, comme numéro suivant. Toucher une intervention déjà attribuée : retirer l’attribution.",
       "hintOrder": "Glisser : changer l’ordre – {name} le voit aussi sur son téléphone.",
@@ -3038,7 +3101,7 @@
       "copyFailed": "Non copié",
       "noEventSelected": "Aucun événement sélectionné",
       "dashboardCopiedTitle": "Lien du tableau copié",
-      "dashboardCopiedDescription": "Le personnel de reconnaissance peut voir ses attributions"
+      "dashboardCopiedDescription": "Les personnes de reconnaissance voient leurs reconnaissances"
     },
     "whatsapp": {
       "copiedTitle": "Copié dans le presse-papiers",
@@ -3461,7 +3524,6 @@
     },
     "reportSection": {
       "noReport": "Aucun rapport de reconnaissance pour l’instant",
-      "previousReports": "{count, plural, one {# rapport de reconnaissance précédent} other {# rapports de reconnaissance précédents}}",
       "relevant": "Intervention pertinente",
       "notNeeded": "Aucune intervention nécessaire",
       "completeIncident": "Clôturer l’intervention",
@@ -3492,27 +3554,15 @@
       "notRelevantShort": "Non pertinente",
       "relevanceOpen": "Pertinence sans réponse",
       "relevanceOpenShort": "Pertinence ouverte",
-      "photoCount": "{count, plural, one {# photo} other {# photos}}",
-      "create": "Saisir le rapport de reconnaissance",
-      "createTitle": "Saisir le rapport de reconnaissance",
-      "amend": "Compléter le rapport de reconnaissance",
-      "amendTitle": "Compléter le rapport de reconnaissance",
-      "close": "Fermer",
       "radioHint": "Saisis ici ce que le groupe annonce par radio. Sera noté comme saisie du PC.",
       "draftHint": "Synchronisé au fur et à mesure. Transmis dès que « Intervention pertinente ? » a une réponse – comme un rapport de l’équipe, l’intervention passe alors à « Reconnaissance terminée ».",
-      "amendHint": "Chaque modification est synchronisée immédiatement.",
       "submittedShort": "Transmis {time}",
       "updatedShort": "mis à jour {time}",
       "findingLabel": "Constat",
       "notesShort": "Remarques",
       "reportLabel": "Rapport de reco",
       "noReportShort": "aucun pour l’instant",
-      "createShort": "saisir",
-      "draftShort": "Brouillon – pas encore transmis",
-      "continueShort": "continuer la saisie",
-      "ownDraftLabel": "Mon brouillon",
-      "expand": "ouvrir",
-      "collapse": "fermer"
+      "draftShort": "Brouillon – pas encore transmis"
     },
     "dummyGenerator": {
       "title": "Mode exercice",
@@ -3902,7 +3952,7 @@
           "repairableBadge": "Réparable ensuite",
           "orphanedLabel": "Attributions pointant ensuite dans le vide",
           "orphanedActiveLabel": "dont actives sur des interventions en cours",
-          "groupOrphanedLabel": "Attributions de missions pointant ensuite dans le vide",
+          "groupOrphanedLabel": "Ressources de missions pointant ensuite dans le vide",
           "groupOrphanedActiveLabel": "dont actives sur des missions en cours",
           "consequencesHint": "Les attributions renvoient à leur ressource sans clé étrangère : supprimer du personnel, des véhicules ou du matériel laisse l'attribution en place – sur une intervention qui continue.",
           "consequencesBlockedHint": "Libérer les attributions, clore les interventions et les missions – ou importer en mode « Ajouter ». Les interventions closes ne bloquent pas.",
@@ -4030,7 +4080,7 @@
       "tabList": "Liste du matériel",
       "thresholdsLink": "Définir les seuils d’alerte pour le stock de matériel",
       "addButton": "Ajouter du matériel",
-      "dialogEditTitle": "Modifier le matériel",
+      "dialogEditTitle": "Modifier {name}",
       "dialogCreateTitle": "Ajouter du nouveau matériel",
       "namePlaceholder": "p. ex. pompe immergée gr.",
       "typePlaceholder": "p. ex. pompe, tuyau",
@@ -4089,7 +4139,7 @@
       "empty": "Aucun personnel.",
       "sortTitle": "Tri des grades",
       "sortDescription": "Fais glisser les grades pour changer leur ordre d’affichage. Le personnel est groupé selon ce tri.",
-      "dialogEditTitle": "Modifier le personnel",
+      "dialogEditTitle": "Modifier {name}",
       "dialogCreateTitle": "Ajouter une nouvelle personne",
       "namePlaceholder": "Nom Prénom",
       "roleLabel": "Grade",
@@ -4208,8 +4258,7 @@
       "roleLabel": "Rôle",
       "roleAdmin": "Admin",
       "creating": "Création …",
-      "editDialogTitle": "Modifier l’utilisateur",
-      "editDialogDescription": "Modifie les données de l’utilisateur.",
+      "editDialogTitle": "Modifier {name}",
       "ownRoleHint": "Tu ne peux pas modifier ton propre rôle.",
       "saving": "Enregistrement …",
       "resetPasswordDescription": "Définis un nouveau mot de passe pour {name}.",
@@ -4240,7 +4289,7 @@
       "deleteError": "Véhicule non supprimé",
       "deleteErrorDescription": "Le véhicule est toujours là.",
       "addButton": "Ajouter un véhicule",
-      "dialogEditTitle": "Modifier le véhicule",
+      "dialogEditTitle": "Modifier {name}",
       "dialogCreateTitle": "Ajouter un nouveau véhicule",
       "namePlaceholder": "p. ex. TLF, Pio, Mowa",
       "orderLabel": "Ordre (raccourci clavier)",
@@ -4657,6 +4706,7 @@
       "unmerge": "Fusion avec « {other} » annulée",
       "sourceKp": "saisi au PC",
       "sourceGps": "GPS",
+      "sourceTraining": "Exercice",
       "field": {
         "field_arrived": "Arrivée sur place signalée",
         "field_arrived_cleared": "Arrivée sur place retirée",
@@ -4671,7 +4721,13 @@
         "field_request_done": "Demande traitée",
         "field_request_open": "Demande rouverte",
         "field_request_moved": "Demande reprise de {other}",
-        "field_request_returned": "Demande revenue de {other}"
+        "field_request_returned": "Demande revenue de {other}",
+        "field_pickup_self": "Rentre par ses propres moyens",
+        "field_reported": "Signalé depuis le terrain",
+        "vehicle_on_site": "Véhicule sur le lieu d’intervention",
+        "vehicle_returned": "Véhicule de retour à la caserne",
+        "vehicle_down": "Véhicule en panne",
+        "situation_escalated": "La situation s’aggrave"
       },
       "itemsMoved": "Repris de {other}",
       "itemsReturned": "Revenu de {other}"
@@ -4731,7 +4787,7 @@
       "count": "{count, plural, one {# conflit} other {# conflits}}",
       "viewerText": "Les personnes autorisées vérifient les modifications de KP Rück hors ligne.",
       "open": "{count, plural, one {# conflit} other {# conflits}} ›",
-      "title": "Conflits",
+      "title": "Conflits avec {other}",
       "intro": "La même chose a été modifiée ici et sur l’autre système. Tant que vous ne choisissez pas, la version de {leader} s’applique.",
       "introReadOnly": "La même chose a été modifiée ici et sur l’autre système. La version de {leader} s’applique ; c’est là-bas qu’on décide.",
       "side": {
@@ -4820,5 +4876,19 @@
       "alarmInbox": "Largeur de la réception des alarmes",
       "mapRail": "Largeur de la barre latérale"
     }
+  },
+  "photoViewer": {
+    "title": "Photos · {incident}",
+    "close": "Fermer",
+    "closeHint": "Fermer (Échap)",
+    "counter": "{index} / {count}",
+    "previous": "Photo précédente",
+    "next": "Photo suivante",
+    "alt": "Photo {index} sur {count}",
+    "groupReko": "Reco",
+    "groupRapport": "Rapport",
+    "hintDesktop": "← → parcourir · Échap fermer",
+    "hintPhone": "Balayer : parcourir · tirer vers le bas : fermer",
+    "open": "Ouvrir la photo {number}"
   }
 }
