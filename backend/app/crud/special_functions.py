@@ -7,8 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..models import EventSpecialFunction, Personnel, SpecialFunctionType, User
+from ..models import EventSpecialFunction, SpecialFunctionType, User
 from ..services.audit import log_action
+from .locking import lock_resource
 
 
 async def get_event_special_functions(db: AsyncSession, event_id: uuid.UUID) -> list[EventSpecialFunction]:
@@ -65,12 +66,17 @@ async def create_special_function(
 ) -> EventSpecialFunction:
     """Assign a special function to personnel for an event.
 
+    Idempotent: a function the person already holds (the same vehicle, for a driver) answers
+    with the row that is there. The board ticks off its own sync, so a stale unticked box can
+    send the assign twice – and the unique constraint lets NULL ``vehicle_id`` rows repeat.
+    The person's row lock (``crud/locking.py`` step 3) serialises two such assigns.
+
     Raises:
         PersonnelNotInEventError: unknown person, or a guest of another Ereignis
             (``Personnel.in_scope``) – nobody this Ereignis lists.
         ValueError: unknown function, a driver without a vehicle, a vehicle with a driver.
     """
-    person = (await db.execute(select(Personnel.guest_event_id).where(Personnel.id == assignment.personnel_id))).first()
+    person = await lock_resource(db, "personnel", assignment.personnel_id)
     if person is None or person.guest_event_id not in (None, event_id):
         raise PersonnelNotInEventError(assignment.personnel_id)
     # The lookup table is the authority since plan 26 (decision 5) — a role the
@@ -84,6 +90,22 @@ async def create_special_function(
     # Validate driver assignment has a vehicle
     if assignment.function_type == "driver" and not assignment.vehicle_id:
         raise ValueError("Driver assignments must include a vehicle_id")
+
+    held = await db.scalar(
+        select(EventSpecialFunction)
+        .where(
+            EventSpecialFunction.event_id == event_id,
+            EventSpecialFunction.personnel_id == assignment.personnel_id,
+            EventSpecialFunction.function_type == assignment.function_type,
+            EventSpecialFunction.vehicle_id.is_(None)
+            if assignment.vehicle_id is None
+            else EventSpecialFunction.vehicle_id == assignment.vehicle_id,
+        )
+        .order_by(EventSpecialFunction.assigned_at.asc(), EventSpecialFunction.id.asc())
+        .limit(1)
+    )
+    if held is not None:
+        return held
 
     # Check if vehicle already has a driver (for driver assignments)
     if assignment.function_type == "driver" and assignment.vehicle_id:
@@ -132,7 +154,7 @@ async def delete_special_function(
     current_user: User,
     request: Request,
 ) -> bool:
-    """Remove a special function assignment."""
+    """Remove a special function assignment (every copy of it, should there be two)."""
     query = select(EventSpecialFunction).where(
         EventSpecialFunction.event_id == event_id,
         EventSpecialFunction.personnel_id == personnel_id,
@@ -143,10 +165,10 @@ async def delete_special_function(
     if function_type == "driver" and vehicle_id:
         query = query.where(EventSpecialFunction.vehicle_id == vehicle_id)
 
-    result = await db.execute(query)
-    db_assignment = result.scalar_one_or_none()
+    # All of them: rows doubled before assignment was idempotent go together.
+    rows = list((await db.execute(query)).scalars().all())
 
-    if not db_assignment:
+    if not rows:
         return False
 
     # Log the removal
@@ -154,7 +176,7 @@ async def delete_special_function(
         db=db,
         action_type="delete",
         resource_type="special_function",
-        resource_id=db_assignment.id,
+        resource_id=rows[0].id,
         user=current_user,
         changes={
             "event_id": str(event_id),
@@ -165,6 +187,7 @@ async def delete_special_function(
         request=request,
     )
 
-    await db.delete(db_assignment)
+    for row in rows:
+        await db.delete(row)
     await db.flush()
     return True

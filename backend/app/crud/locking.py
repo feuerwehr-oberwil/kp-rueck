@@ -31,7 +31,9 @@ incidents its ``ON DELETE SET NULL`` will write), and the board's Reko draft (it
 first save ``reko.get_or_create_kp_reko_report`` and its PATCH take the card before
 the report). A Reko person's order (``reko_assignment.reorder_reko_assignments``) takes
 only step 3, the person's row – the lock every writer of their Reko rows already holds –
-and writes the leaf rows under it. A merge locks only incidents, in id order
+and writes the leaf rows under it. Assigning a special function
+(``special_functions.create_special_function``) takes only step 3 too, so two assigns of
+the same function cannot both insert. A merge locks only incidents, in id order
 (``services/duplicates.lock_pair``).
 """
 
