@@ -151,6 +151,16 @@ class AttendancePlanUpdate(BaseModel):
         return self
 
 
+class CheckInGuest(BaseModel):
+    """«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.
+
+    Same rule as a roster name (`PersonName`: stripped, inner whitespace collapsed, 1–100
+    characters), so a blank or a 5 kB name is a 422 before anything is written.
+    """
+
+    name: PersonName
+
+
 class PersonnelListItem(BaseModel):
     """Simplified personnel info for check-in list."""
 

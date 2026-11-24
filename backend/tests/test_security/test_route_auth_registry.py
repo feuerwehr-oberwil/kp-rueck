@@ -53,6 +53,7 @@ STANDBY_BOX = Gate(
     "404 while the token is unset, and always on a standby node"
 )
 CHECKIN_READ = Gate("check-in link token, or any session with `event_id` (`_resolve_event_and_actor`)")
+CHECKIN_TOKEN = Gate("check-in link token only (`share_links.event_of`), rate-limited per address")
 CHECKIN_WRITE = Gate("check-in link token, or an editor/admin session with `event_id` (`_resolve_event_and_actor`)")
 REKO_TOKEN = Gate("Reko form token only (`_require_form_token`)")
 REKO_READ = Gate("Reko form token, or any session (`_require_user_or_form_token`)")
@@ -95,6 +96,7 @@ OPEN_ROUTES: dict[tuple[str, str], Gate] = {
     ("POST", "/api/personnel/check-in/{personnel_id}/in"): CHECKIN_WRITE,
     ("POST", "/api/personnel/check-in/{personnel_id}/out"): CHECKIN_WRITE,
     ("PUT", "/api/personnel/check-in/{personnel_id}/plan"): CHECKIN_WRITE,
+    ("POST", "/api/personnel/check-in/guest"): CHECKIN_TOKEN,
     ("GET", "/api/intake/context"): INTAKE,
     ("POST", "/api/intake/alarm"): INTAKE,
     ("GET", "/api/intake/alarm/{incident_id}"): INTAKE_RECEIPT,

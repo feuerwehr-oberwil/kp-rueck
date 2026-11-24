@@ -22,8 +22,10 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, get_current_user
 from ..crud import personnel_checkin as crud
 from ..database import get_db
+from ..middleware.rate_limit import RateLimits, limiter
 from ..models import User
 from ..services import share_links
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_personnel_update
 
@@ -144,6 +146,51 @@ async def list_personnel_for_checkin(
         event_id=event.id,
         event_name=event.name,
     )
+
+
+@router.post("/guest", response_model=schemas.PersonnelCheckInResponse)
+@limiter.limit(RateLimits.CHECKIN_GUEST)
+async def check_in_guest(
+    guest: schemas.CheckInGuest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    token: str = Query(..., description="Access token from the check-in link"),
+    db: AsyncSession = Depends(get_db),
+) -> schemas.PersonnelCheckInResponse:
+    """«‹Name› als Gast einchecken» – somebody at the door who is not on the list.
+
+    The link's door only (no editor twin on this route: the board adds a guest with
+    `POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is
+    already listed at this Ereignis checks that person in instead of making a second one;
+    a name the door cannot settle (two people of that name, somebody unavailable, the
+    Ereignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per address.
+    """
+    event_id = await share_links.event_of(db, "checkin", token)
+    if not event_id:
+        raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
+
+    try:
+        person, created = await crud.check_in_guest(db=db, event_id=event_id, name=guest.name, request=request)
+    except crud.GuestCheckInRefusedError as e:
+        logger.info("Guest check-in refused: %s", e.reason)
+        raise CodedHTTPException(
+            status_code=409, code=ErrorCode.CHECKIN_GUEST_ASK_KP, detail="Bitte beim KP melden."
+        ) from None
+
+    background_tasks.add_task(
+        broadcast_personnel_update,
+        {
+            "id": str(person.id),
+            "name": person.name,
+            "role": person.role,
+            "status": person.status,
+            "checked_in": person.checked_in,
+            "event_id": str(event_id),
+        },
+        "create" if created else "update",
+    )
+
+    return person
 
 
 @router.post("/{personnel_id}/in", response_model=schemas.PersonnelCheckInResponse)

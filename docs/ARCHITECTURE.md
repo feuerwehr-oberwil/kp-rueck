@@ -605,7 +605,7 @@ count apart, and the other system follows at the next sync (`standby_sync.LINK_G
 | JWT (access) | Login form, or the loopback local login | **8 hours** (`ACCESS_TOKEN_EXPIRE_MINUTES=480`) | Full editor or admin |
 | JWT (refresh) | Login form | **7 days** (`REFRESH_TOKEN_EXPIRE_DAYS`) | Mints a new access token |
 | Viewer Token | Generated in UI (QR code) | **24 hours** | Read-only board for one Ereignis – incl. the Reko result and its photos |
-| Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis |
+| Check-In Token | Generated in UI (QR code) | **24 hours** | Personnel check-in form for one Ereignis – **write**: checks anyone listed in or out, and «‹Name› als Gast einchecken» creates a guest of that Ereignis (tag «Gast», rate-limited, at most 100 per Ereignis) |
 | Reko Form Token | Generated per incident (link/QR) | **24 hours** | One Reko form, for one incident |
 | Alarm Token | Generated in UI (QR code) | **30 days** (720 h) | Public alarm intake – **write**: creates incidents in one Ereignis, rate-limited and flagged `source='intake'` |
 | Feld Token (link) | Generated in UI (QR/poster) and printed on every Einsatzzettel | **30 days** (720 h) | Nothing on its own – the right to be asked for the Feld-Code |

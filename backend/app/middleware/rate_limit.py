@@ -164,6 +164,11 @@ class RateLimits:
     # Public alarm intake - token-gated write endpoint, keep tight against abuse
     INTAKE = "10/minute"
 
+    # «als Gast einchecken» on the check-in link: a token-gated write that creates a person.
+    # A door tablet adds a guest every few minutes at most; this blunts a script, the per-
+    # Ereignis ceiling (`crud.personnel_checkin.DOOR_GUESTS_PER_EVENT`) bounds the rest.
+    CHECKIN_GUEST = "20/minute"
+
     # /feld field surface - token-gated and public, but the page polls and
     # autosaves a draft, so it needs more headroom than INTAKE. Still capped:
     # anyone with the event link reaches it. Photo upload keeps PHOTO_UPLOAD.
