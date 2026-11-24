@@ -104,8 +104,6 @@ describe('AlarmPage', () => {
 
     await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
     await user.type(screen.getByLabelText(/Meldung/), 'Wasser im Keller')
-    // Hinweise live behind the «Details ergänzen» fold now.
-    await user.click(screen.getByRole('button', { name: 'Details ergänzen' }))
     await user.type(screen.getByLabelText('Weitere Hinweise'), 'Anwohner wartet vor dem Haus')
     await user.click(screen.getByRole('button', { name: 'Weiter' }))
     await user.click(screen.getByRole('button', { name: 'Alarm absenden' }))
@@ -123,18 +121,31 @@ describe('AlarmPage', () => {
     })
   })
 
-  it('defaults the priority to Niedrig', async () => {
+  // Owner, 24.11.2026: no «Details ergänzen» fold and no Priorität – Einsatzart and Hinweise
+  // are plain fields, and the KP sets the priority on the board.
+  it('shows Einsatzart and Hinweise without a fold and asks no Priorität', async () => {
+    await renderForm()
+    expect(screen.getByLabelText('Weitere Hinweise')).toBeVisible()
+    expect(screen.getByText('Einsatzart')).toBeVisible()
+    expect(screen.queryByRole('button', { expanded: false, name: /Details/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Priorität/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Niedrig' })).not.toBeInTheDocument()
+  })
+
+  it('files a new alarm as Niedrig, and a correction leaves the KP\'s priority alone', async () => {
     const user = userEvent.setup()
     await renderForm()
-
-    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
-    await user.type(screen.getByLabelText(/Meldung/), 'Ölspur')
-    await user.click(screen.getByRole('button', { name: 'Weiter' }))
-
-    expect(screen.getByText('Niedrig')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Alarm absenden' }))
-    await waitFor(() => expect(createIntakeAlarm).toHaveBeenCalledTimes(1))
+    await sendAlarm(user, 'Ölspur')
     expect(createIntakeAlarm.mock.calls[0][1]).toMatchObject({ priority: 'low' })
+
+    await waitFor(() => expect(screen.getAllByRole('button')).toHaveLength(2))
+    await user.click(screen.getAllByRole('button')[0])
+    await user.click(await screen.findByRole('button', { name: 'Weiter' }))
+    expect(screen.queryByText(/Priorität/)).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button')[0])
+    await waitFor(() => expect(fetchMock.mock.calls.some(call => call[1]?.method === 'PUT')).toBe(true))
+    const putCall = fetchMock.mock.calls.find(call => call[1]?.method === 'PUT')
+    expect(JSON.parse(putCall?.[1]?.body as string)).not.toHaveProperty('priority')
   })
 
   it('cannot reach the review step without a Meldung — and says so under the field (#120)', async () => {
@@ -178,6 +189,14 @@ describe('AlarmPage', () => {
     const header = document.querySelector('[data-slot="link-page-header"]')!
     expect(header).toHaveTextContent('Alarm erfassen')
     expect(screen.getByRole('heading', { name: 'Alarm erfassen' })).toBeInTheDocument()
+  })
+
+  it('wears the ÜBUNGSMODUS badge in the header row, not in a row of its own (owner, 24.11.2026)', async () => {
+    getIntakeContext.mockResolvedValue({ event: { id: 'e-1', name: 'Einsatz Heute', training_flag: true } })
+    await renderForm()
+    const header = document.querySelector('[data-slot="link-page-header"]')!
+    expect(header).toHaveTextContent('Übungsmodus')
+    expect(screen.getAllByText('Übungsmodus')).toHaveLength(1)
   })
 
   it('offers the number pad for the phone number', async () => {
@@ -310,7 +329,6 @@ describe('AlarmPage', () => {
   it('sends the Hinweis along only when the reporter actually changed it', async () => {
     const user = userEvent.setup()
     await renderForm()
-    await user.click(screen.getByRole('button', { name: 'Details ergänzen' }))
     await user.type(screen.getByLabelText('Weitere Hinweise'), 'Zufahrt gesperrt')
     await sendAlarm(user, 'Wasser im Keller')
 
