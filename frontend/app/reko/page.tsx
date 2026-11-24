@@ -31,7 +31,8 @@ export default function RekoPage() {
   ) : null
 
   return (
-    <div className="min-h-dvh bg-background pb-24">
+    // `pb-nav-reserve`: the form's fixed footer (status + «übermitteln») publishes its height.
+    <div className="min-h-dvh bg-background pb-nav-reserve">
       {/* A Reko auftrag opened from `/feld` navigates out of it, and the form
           used to arrive with nothing but a back button — a different app as far
           as the crew could tell. The same bar rides along when the device knows

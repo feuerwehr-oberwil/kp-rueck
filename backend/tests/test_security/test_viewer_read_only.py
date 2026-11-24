@@ -51,6 +51,7 @@ OWN_DOOR: dict[str, list[str]] = {
         "POST /api/personnel/check-in/{personnel_id}/in",
         "POST /api/personnel/check-in/{personnel_id}/out",
         "PUT /api/personnel/check-in/{personnel_id}/plan",
+        "POST /api/personnel/check-in/guest",
         "POST /api/intake/alarm",
         "PUT /api/intake/alarm/{incident_id}",
     ],

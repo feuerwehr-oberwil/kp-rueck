@@ -67,6 +67,9 @@ class ErrorCode(StrEnum):
     INCIDENT_RESTORE_CONFLICT = "incident_restore_conflict"
     INCIDENT_RESTORE_RESOURCE_CONFLICT = "incident_restore_resource_conflict"
     INCIDENT_NOT_MERGED = "incident_not_merged"
+    # «‹Name› als Gast einchecken» at the door: a name the link cannot settle alone (several
+    # people of that name, somebody marked unavailable, the Ereignis's guest limit) – 409.
+    CHECKIN_GUEST_ASK_KP = "checkin_guest_ask_kp"
     # The Reko form (`/reko`, opened from a board link or from /feld)
     REKO_LINK_INVALID = "reko_link_invalid"
     REKO_REPORT_NOT_FOUND = "reko_report_not_found"

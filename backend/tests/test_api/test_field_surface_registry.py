@@ -72,6 +72,8 @@ FIELD_SURFACES: dict[str, dict[str, str]] = {
         "POST /{personnel_id}/out": "both",
         # «kommt um» / «geht um» (#3): the Appell's chip, or the person at the door tablet.
         "PUT /{personnel_id}/plan": "both",
+        # «‹Name› als Gast einchecken» (phone sweep 24.11., 7A): the walk-in at the door.
+        "POST /guest": "token",
         "POST /event/{event_id}/out-all": "session",
         # The roll-call cycle's third click, built after §4.2 was answered on
         # 2026-08-10 — and it landed as "session", exactly as predicted there. A
@@ -153,6 +155,11 @@ EXTERNAL_TWINS: dict[str, str] = {
         "written through the same CRUD. The board twin is the door tablet's own route, "
         "which is `both` (token or editor session); this one is the individual saying "
         "it from the vehicle instead of queueing at the tablet."
+    ),
+    "POST /api/personnel/check-in/guest": (
+        "POST /api/personnel/ with guest_event_id, then POST /api/personnel/check-in/{personnel_id}/in "
+        "— the board's «Person hinzufügen» makes the same guest row and attendance row. The door "
+        "adds the «Gast» tag, which is its provenance."
     ),
     "PUT /api/feld/attendance/{personnel_id}/plan": (
         "PUT /api/personnel/check-in/{personnel_id}/plan — the same plan columns through the "

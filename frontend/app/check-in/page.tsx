@@ -8,8 +8,10 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
 import { SearchInput } from '@/components/ui/search-input'
+import { FormMessage, fieldMessageProps, formMessageId } from '@/components/ui/form-message'
 import { LoadingStatus } from '@/components/ui/shell-loader'
-import { CheckCircle, Circle } from 'lucide-react'
+import { Check, UserPlus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { undoToast } from '@/lib/toast-undo'
 import { QuickAddPersonnel } from '@/components/quick-add-personnel'
@@ -20,6 +22,9 @@ import { sortByName } from '@/lib/roster-order'
 import { PlannedTimeChip, PlannedTimePicker } from '@/components/attendance/planned-time'
 import { cn } from '@/lib/utils'
 
+
+/** The name search, which is also the guest door's name field. */
+const SEARCH_ID = 'check-in-search'
 export default function CheckInPage() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
@@ -29,6 +34,7 @@ export default function CheckInPage() {
 function CheckInKiosk({ token }: { token: string | null }) {
   const t = useTranslations('intake.checkin')
   const tPlan = useTranslations('common.attendancePlan')
+  const tEmpty = useTranslations('common.emptyState')
   const { isEditor } = useAuth()
 
   const [personnel, setPersonnel] = useState<ApiPersonnelListItem[]>([])
@@ -45,6 +51,13 @@ function CheckInKiosk({ token }: { token: string | null }) {
   // toggle is in flight (plus a short cooldown), further taps are ignored so a
   // fast double-press can't check in and immediately check out again.
   const togglingRef = useRef<Set<string>>(new Set())
+  // The guest row's own double-tap guard: state for the disabled look, a ref for the
+  // second tap that lands before React re-renders.
+  const [addingGuest, setAddingGuest] = useState(false)
+  // A name the guest door refused (422): said under the search field, not as a toast; it goes
+  // when the name is edited or the row is tapped again.
+  const [guestNameError, setGuestNameError] = useState<string | null>(null)
+  const addingGuestRef = useRef(false)
 
   const loadPersonnel = useCallback(async () => {
     if (!token) return
@@ -144,6 +157,31 @@ function CheckInKiosk({ token }: { token: string | null }) {
     setPersonnel(prev => prev.map(p => (p.id === person.id ? { ...p, planned_until: updated.planned_until ?? null } : p)))
   }
 
+  /** «‹Name› als Gast einchecken»: one tap, then the next person starts from the whole list. */
+  const checkInGuest = async (name: string) => {
+    if (!token || addingGuestRef.current) return
+    addingGuestRef.current = true
+    setAddingGuest(true)
+    setGuestNameError(null)
+    try {
+      const person = await apiClient.checkInGuest(token, name)
+      rosterRevision.current++
+      setPersonnel(prev => [...prev.filter(p => p.id !== person.id), person])
+      setSearchTerm('')
+      // Neutral: a name the server matches to somebody listed checks THEM in, not a guest.
+      toast(t('guestCheckedIn', { name: person.name }))
+    } catch (error) {
+      // 409 («Bitte beim KP melden») and 429 («Zu viele Anfragen …») carry their own sentence;
+      // 422 is a name the door does not take (invisible characters); anything else is the toggle's.
+      if (error instanceof ApiError && (error.status === 409 || error.status === 429)) toast.error(error.message)
+      else if (error instanceof ApiError && error.status === 422) setGuestNameError(t('guestNameRefused'))
+      else toast.error(t('statusError'), { description: t('statusErrorDescription') })
+    } finally {
+      addingGuestRef.current = false
+      setAddingGuest(false)
+    }
+  }
+
   // Always alphabetical, and by the SAME comparator the Anwesenheit modal and the
   // /feld picker use (`lib/roster-order.ts`) — three lists of the same roster that
   // disagree on where the second Müller sits is three lists nobody can read.
@@ -153,6 +191,11 @@ function CheckInKiosk({ token }: { token: string | null }) {
       (p.role && p.role.toLowerCase().includes(searchTerm.toLowerCase()))
     )
   )
+
+  // The name the guest row would check in: what the server stores (`PersonName`: trimmed,
+  // inner whitespace collapsed, ≤100 characters). Anything else gets the plain empty state.
+  const typedName = searchTerm.trim().split(/\s+/).join(' ')
+  const guestName = typedName.length > 0 && typedName.length <= 100 ? typedName : ''
 
   const stats = {
     total: personnel.length,
@@ -179,7 +222,8 @@ function CheckInKiosk({ token }: { token: string | null }) {
       <LinkPageHeader title={t('title')} subtitle={eventName || undefined} />
       {retrying && <p role="status" className="bg-warning/15 px-4 py-2 text-center text-warning-foreground">{t('lastKnown')}</p>}
       <div className="max-w-md mx-auto px-4 pt-4 mb-4">
-        <div className="flex gap-4 text-sm text-muted-foreground">
+        {/* Each count stays on its line: «Gesamt: / 69» broke apart at 375px. */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 whitespace-nowrap text-sm text-muted-foreground">
           <span>{t('statsTotal', { count: stats.total })}</span>
           <span className="text-sel-foreground font-semibold">
             {t('statsPresent', { count: stats.checkedIn })}
@@ -193,10 +237,16 @@ function CheckInKiosk({ token }: { token: string | null }) {
         <SearchInput
           size="lg"
           placeholder={t('searchPlaceholder')}
+          id={SEARCH_ID}
           value={searchTerm}
-          onValueChange={setSearchTerm}
+          onValueChange={(value) => {
+            setSearchTerm(value)
+            setGuestNameError(null)
+          }}
           className="h-12 text-lg"
+          {...fieldMessageProps(SEARCH_ID, guestNameError ? 'error' : null)}
         />
+        <FormMessage id={formMessageId(SEARCH_ID)}>{guestNameError}</FormMessage>
 
         {/* Quick Add Personnel Component */}
         {isEditor && !loading && eventId && <QuickAddPersonnel
@@ -225,10 +275,31 @@ function CheckInKiosk({ token }: { token: string | null }) {
       </div>
 
       {/* Personnel List */}
-      <div className="max-w-md mx-auto px-4 space-y-2">
+      <div className="max-w-md mx-auto px-4 space-y-1.5">
         {loading ? (
           <div className="flex justify-center py-8">
             <LoadingStatus>{t('loading')}</LoadingStatus>
+          </div>
+        ) : filteredPersonnel.length === 0 && guestName ? (
+          // Nobody of that name (7A, phone sweep 24.11.2026): the typed name checks in as a
+          // guest of this Ereignis in one tap – KP Front's «‹Name› als Gast hinzufügen».
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">{t('guestNotListed', { name: guestName })}</p>
+            <button
+              type="button"
+              onClick={() => void checkInGuest(guestName)}
+              disabled={addingGuest || retrying}
+              className="flex min-h-14 w-full items-center gap-3 rounded-xl border-[1.5px] border-dashed border-sel-edge bg-card px-3.5 py-2.5 text-left font-semibold text-sel-foreground disabled:opacity-60"
+            >
+              <UserPlus className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="min-w-0 break-words">
+                {t('guestAdd', { name: guestName })}
+                <span className="block text-sm font-normal text-muted-foreground">{t('guestAddHint')}</span>
+              </span>
+            </button>
+            <Button variant="link" className="w-full text-muted-foreground" onClick={() => setSearchTerm('')}>
+              {tEmpty('clearSearch')}
+            </Button>
           </div>
         ) : filteredPersonnel.length === 0 && searchTerm.trim() ? (
           <SearchEmptyState query={searchTerm} onClear={() => setSearchTerm('')} />
@@ -238,83 +309,84 @@ function CheckInKiosk({ token }: { token: string | null }) {
           </div>
         ) : (
           filteredPersonnel.map(person => {
-            const isDisabled = person.checked_in && person.is_assigned
+            // 8A (phone sweep 24.11.2026): one line per person, the glyph carries the state –
+            // ○ nicht anwesend, blue ✓ anwesend, grey ✓ + «Im Einsatz» for somebody who cannot
+            // check out here. The word is the row's accessible description, said once.
+            const isDisabled = person.checked_in && !!person.is_assigned
             const stateId = `checkin-state-${person.id}`
-            // One card, one toggle: the button is the name, stretched over the whole card
+            const state = person.is_assigned ? t('badgeAssigned') : person.checked_in ? t('badgeCheckedIn') : t('badgeNotCheckedIn')
+            // One row, one toggle: the button is the name, stretched over the whole row
             // (`after:inset-0`), so a tap anywhere checks in or out. The «bis» chip is the only
-            // thing above it – inside the card, right of the state pill. It used to hang under
-            // the card, between two people (owner, 24.11.2026).
+            // thing above it, on the same line (owner, 24.11.2026). A long name wraps to a
+            // second line beside the chips; nothing is cut.
             return (
               <div
                 key={person.id}
                 data-testid="checkin-card"
                 className={cn(
-                  'relative flex items-center gap-4 rounded-lg border-2 p-4 transition-all',
+                  'relative flex min-h-[52px] items-center gap-3 rounded-xl border px-3 py-1',
                   isDisabled
-                    ? 'border-border bg-muted/40 opacity-75'
+                    ? 'border-border bg-muted opacity-85'
                     : person.checked_in
                       ? 'border-sel-edge bg-sel-wash'
-                      : 'border-border bg-card hover:border-muted-foreground',
+                      : 'border-border bg-card',
                 )}
               >
-                {/* Check Icon */}
-                <div className="flex-shrink-0">
-                  {person.checked_in ? (
-                    <CheckCircle className="h-8 w-8 text-sel-foreground" />
-                  ) : (
-                    <Circle className="h-8 w-8 text-muted-foreground" />
-                  )}
-                </div>
-
-                {/* Name, then the state pill – under the name on a phone, beside it from `sm`.
-                    Beside it on a 393px row the pill kept its width and «Bendik-Dimitrijević
-                    Alexandra» broke over three lines (phone sweep 14.11.2026). */}
-                <div className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleCheckIn(person)}
-                    disabled={isDisabled || retrying}
-                    aria-describedby={stateId}
-                    className="min-w-0 break-words text-left text-lg font-semibold after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"
-                  >
-                    <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
-                  </button>
-                  <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-                    {person.is_assigned ? (
-                      <span id={stateId} className="bg-foreground/10 text-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                        {t('badgeAssigned')}
-                      </span>
-                    ) : person.checked_in ? (
-                      <span id={stateId} className="bg-sel-wash text-sel-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                        {t('badgeCheckedIn')}
-                      </span>
-                    ) : (
-                      <span id={stateId} className="bg-muted text-muted-foreground px-3 py-1 rounded-full text-sm">
-                        {t('badgeNotCheckedIn')}
-                      </span>
-                    )}
-                    {/* Somebody here can say until when (#3): a bottom sheet sets it – the KP's
-                        pickers then show «bis 22:00». Not for anybody not in yet: at the door,
-                        they are arriving now. `relative` lifts it above the stretched toggle. */}
-                    {person.checked_in && (
-                      <PlannedTimePicker
-                        kind="until"
-                        value={person.planned_until}
-                        other={person.planned_from}
-                        title={tPlan('titleUntil', { name: person.name })}
-                        hint={tPlan('hintSelf')}
-                        fieldLabel={tPlan('selfUntil')}
-                        onSave={(iso) => setUntil(person, iso)}
-                        trigger={<PlannedTimeChip at={person.planned_until} disabled={retrying} className="relative" />}
-                      />
-                    )}
-                  </div>
-                </div>
+                <StateGlyph present={person.checked_in} locked={isDisabled} />
+                <button
+                  type="button"
+                  onClick={() => toggleCheckIn(person)}
+                  disabled={isDisabled || retrying}
+                  aria-describedby={stateId}
+                  className="min-w-0 flex-1 break-words text-left font-semibold leading-tight after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"
+                >
+                  <PersonName name={person.name} personnelId={person.id} kennung={person.kennung} />
+                </button>
+                {person.is_assigned ? (
+                  <span id={stateId} className="shrink-0 whitespace-nowrap rounded-full bg-foreground/10 px-2.5 py-0.5 text-sm font-semibold text-foreground">
+                    {state}
+                  </span>
+                ) : (
+                  <span id={stateId} className="sr-only">{state}</span>
+                )}
+                {/* Somebody here can say until when (#3): a bottom sheet sets it – the KP's
+                    pickers then show «bis 22:00». Not for anybody not in yet: at the door,
+                    they are arriving now. `relative` lifts it above the stretched toggle. */}
+                {person.checked_in && (
+                  <PlannedTimePicker
+                    kind="until"
+                    value={person.planned_until}
+                    other={person.planned_from}
+                    title={tPlan('titleUntil', { name: person.name })}
+                    hint={tPlan('hintSelf')}
+                    fieldLabel={tPlan('selfUntil')}
+                    onSave={(iso) => setUntil(person, iso)}
+                    trigger={<PlannedTimeChip at={person.planned_until} disabled={retrying} className="relative shrink-0" />}
+                  />
+                )}
               </div>
             )
           })
         )}
       </div>
     </div>
+  )
+}
+
+/** The row's state as a glyph: ○ nicht anwesend, ✓ on the blue wash anwesend, grey ✓ when
+ *  the person is present but cannot check out here (assigned). Decorative – the row says the
+ *  word through `aria-describedby`. */
+function StateGlyph({ present, locked }: { present: boolean; locked: boolean }) {
+  if (!present) return <span aria-hidden className="h-[26px] w-[26px] shrink-0 rounded-full border-2 border-muted-foreground" />
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full',
+        locked ? 'bg-foreground/10 text-muted-foreground' : 'bg-sel-wash text-sel-foreground ring-1 ring-sel-edge',
+      )}
+    >
+      <Check className="h-4 w-4" strokeWidth={3} />
+    </span>
   )
 }

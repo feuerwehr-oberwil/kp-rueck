@@ -8133,6 +8133,61 @@
         }
       }
     },
+    "/api/personnel/check-in/guest": {
+      "post": {
+        "tags": [
+          "personnel-checkin"
+        ],
+        "summary": "Check In Guest",
+        "description": "«‹Name› als Gast einchecken» – somebody at the door who is not on the list.\n\nThe link's door only (no editor twin on this route: the board adds a guest with\n`POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is\nalready listed at this Ereignis checks that person in instead of making a second one;\na name the door cannot settle (two people of that name, somebody unavailable, the\nEreignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a\nlooser per-address backstop. The link is checked under a share lock on the Ereignis row\n(`share_links.event_of(lock=True)`), so a revoke or a delete cannot slip in before the write.",
+        "operationId": "check_in_guest_api_personnel_check_in_guest_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Access token from the check-in link",
+              "title": "Token"
+            },
+            "description": "Access token from the check-in link"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckInGuest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonnelCheckInResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/personnel/check-in/{personnel_id}/in": {
       "post": {
         "tags": [
@@ -19304,6 +19359,22 @@
         ],
         "title": "CategorySortOrder",
         "description": "Schema for updating category sort orders."
+      },
+      "CheckInGuest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CheckInGuest",
+        "description": "«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.\n\nSame rule as a roster name (`PersonName`: stripped, inner whitespace collapsed, 1–100\ncharacters), so a blank or a 5 kB name is a 422 before anything is written. Stricter than\nthe editor's create, because nobody vouches for this text: no control characters (NUL\nbreaks the insert) and no invisible format characters (a bidi override or a zero-width\nspace makes a name on the board read as somebody else's)."
       },
       "CheckInListResponse": {
         "properties": {

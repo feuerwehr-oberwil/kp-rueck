@@ -77,7 +77,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'addStopsToGroup', 'appendJournal', 'applyRapportMaterialDecisions', 'archiveEvent',
     'archiveMaterialResource', 'archiveVehicle', 'assignGroupResource', 'assignRekoPersonnel',
     'assignResource', 'assignSpecialFunction', 'attachEmergencyToEvent', 'bulkAttachEmergencies',
-    'checkInPersonnel', 'checkInPersonnelForEvent', 'checkOutAllPersonnel', 'checkOutPersonnel',
+    'checkInGuest', 'checkInPersonnel', 'checkInPersonnelForEvent', 'checkOutAllPersonnel', 'checkOutPersonnel',
     'checkOutPersonnelForEvent', 'claimFeldPerson', 'claimSetup', 'clearPersonnelAttendance', 'collectMaterial', 'correctJournal',
     'createAuftragTemplate', 'createDemoSandbox', 'createEvent', 'createFeldIncident', 'createIncident',
     'createIncidentGroup', 'createIntakeAlarm', 'createMaterialGroup', 'createMaterialResource',

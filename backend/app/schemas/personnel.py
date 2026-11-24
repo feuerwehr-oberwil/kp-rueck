@@ -1,5 +1,6 @@
 """Personnel + check-in schemas."""
 
+import unicodedata
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
@@ -152,6 +153,32 @@ class AttendancePlanUpdate(BaseModel):
         if self.planned_from and self.planned_until and self.planned_until <= self.planned_from:
             raise ValueError("planned_until must be after planned_from")
         return self
+
+
+# ZWNJ and ZWJ are format characters too, but some scripts need them inside a name.
+_JOINERS = frozenset({"\u200c", "\u200d"})
+
+
+class CheckInGuest(BaseModel):
+    """«‹Name› als Gast einchecken» at the door (`crud.check_in_guest`): the typed name only.
+
+    Same rule as a roster name (`PersonName`: stripped, inner whitespace collapsed, 1–100
+    characters), so a blank or a 5 kB name is a 422 before anything is written. Stricter than
+    the editor's create, because nobody vouches for this text: no control characters (NUL
+    breaks the insert) and no invisible format characters (a bidi override or a zero-width
+    space makes a name on the board read as somebody else's).
+    """
+
+    name: PersonName
+
+    @field_validator("name")
+    @classmethod
+    def _visible_characters_only(cls, value: str) -> str:
+        if any(unicodedata.category(char) in {"Cc", "Cf", "Cs", "Co", "Cn"} and char not in _JOINERS for char in value):
+            raise ValueError("Der Name enthält unsichtbare Zeichen.")
+        if all(char in _JOINERS or char.isspace() for char in value):
+            raise ValueError("Der Name ist leer.")
+        return value
 
 
 class PersonnelListItem(BaseModel):

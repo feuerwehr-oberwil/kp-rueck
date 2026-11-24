@@ -120,14 +120,20 @@ function JourneyChip({ assignment }: { assignment: ApiFeldAssignment }) {
 }
 
 /**
- * The EL briefing (decision 22): every `/feld` surface names the Einsatzleiter
- * of that Schadenplatz BEFORE the form opens, so a crew knows who is normally
- * expected to file. Briefed, never enforced — anybody assigned may still file.
+ * The EL briefing (decision 22): the list row names the Einsatzleiter of that
+ * Schadenplatz BEFORE the form opens, so a crew knows who is normally expected
+ * to file. The detail repeats it only when its «Mannschaft» does not mark the
+ * EL already (`leaderInCrew`, 6C, phone sweep 24.11.2026). Briefed, never enforced — anybody assigned may still file.
  * The empty case reads "kein EL erfasst"; it is never a blank line. Marked with
  * the board's «EL» sign (LeaderGlyph), never a star – leader-badge.tsx says why.
  * 13px, under the 18px address: the briefing must not outweigh where to go
  * (hill climb r8); yours = 500 in ink, somebody else's = muted.
  */
+/** Whether the briefing's «Mannschaft» already marks the EL (`FeldBriefing` matches by name). */
+function leaderInCrew(assignment: ApiFeldAssignment): boolean {
+  return !!assignment.leader_name && assignment.crew.includes(assignment.leader_name)
+}
+
 function LeaderLine({
   assignment,
   selfId,
@@ -271,16 +277,12 @@ function FeldSurface() {
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
   const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
-  // «Rapport erfassen» on the journey: each increment scrolls to the Kurzbericht
-  // and focuses it. Reset on incident switch so a remounted form does not
-  // steal focus from somebody who merely opened another Schadenplatz.
-  const [rapportFocusSignal, setRapportFocusSignal] = useState(0)
+  // The fixed footer's slot for the Rapport form's «Rapport abschliessen» (FeldActions hands
+  // it over on the Rapport step; null while the footer shows another step or none).
+  const [rapportSubmitSlot, setRapportSubmitSlot] = useState<HTMLDivElement | null>(null)
   // The detail's address heading — when it has scrolled under the top bar,
   // `FeldPlaceLine` takes its place (owner pick 2A, 24.11.2026).
   const placeHeaderRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    setRapportFocusSignal(0)
-  }, [selectedIncidentId])
   const [eventName, setEventName] = useState<string>('')
   const [eventStartedAt, setEventStartedAt] = useState<string | null>(null)
   const intlLocale = useIntlLocale()
@@ -1225,7 +1227,9 @@ function FeldSurface() {
     // The house number stays with its street: «Mühlemattstrasse / 18» never.
     const headline = keepHouseNumber(address || selectedAssignment.incident_title)
     return (
-      <div className="min-h-dvh bg-background pb-[env(safe-area-inset-bottom)]">
+      // `pb-nav-reserve`: the fixed status footer (`LinkPageFooter` in FeldActions) publishes
+      // its height, so the page's last section scrolls out from under it.
+      <div className="min-h-dvh bg-background pb-nav-reserve">
         {/* The header is meta only — the way back, who this phone is, the
             Ereignis and its day, «＋». Somebody four taps deep in a Rapport, on
             a phone that gets handed around a vehicle, must be able to answer
@@ -1266,7 +1270,7 @@ function FeldSurface() {
               the Rapport form, the material checklist and the photos as further
               sections rather than a rewrite. */}
           <div className="space-y-4">
-            {/* Section: header — what and where, plus the EL briefing */}
+            {/* Section: header — what and where, then the briefing */}
             <section className="rounded-xl bg-secondary/50 p-4">
               {/* The headline has the card's full width: the rapport chip beside it
                   squeezed «Mühlemattstrasse 18» onto two lines and wrapped
@@ -1331,7 +1335,11 @@ function FeldSurface() {
                   <RapportStateChip state={selectedAssignment.rapport_state} />
                 )}
               </div>
-              {selectedAssignment.source !== 'reko' && (
+              {/* The EL line only when the briefing below does not name the EL already (6C,
+                  phone sweep 24.11.2026): «Mannschaft» marks them with the board's sign, and
+                  the header said it a second time. A finished Schadenplatz has released its
+                  crew, and «kein EL erfasst» is said nowhere else – those keep the line. */}
+              {selectedAssignment.source !== 'reko' && !leaderInCrew(selectedAssignment) && (
                 <LeaderLine assignment={selectedAssignment} selfId={selectedPerson?.personnel_id} className="mb-2" />
               )}
               {/* The crew's own timestamps. The board's status («KP: Im Einsatz»,
@@ -1391,15 +1399,10 @@ function FeldSurface() {
                 // A sent request shows up in «Angefordert» at once, not on the next poll.
                 onSent={() => loadAssignments(selectedPerson.personnel_id, { silent: true })}
                 onReported={applyFieldReport}
-                // The journey's third step: carries the eye to the form below
-                // — only when that form is actually mounted on this page.
-                // The form scrolls to its Kurzbericht, rings it and puts the
-                // caret in it (`focusKurzberichtSignal`).
-                onOpenRapport={
-                  assignmentRapportApplies(selectedAssignment)
-                    ? () => setRapportFocusSignal(signal => signal + 1)
-                    : undefined
-                }
+                // The journey's third step: the footer holds the form's own
+                // «Rapport abschliessen» – only when that form is actually
+                // mounted on this page.
+                rapportSubmitSlot={assignmentRapportApplies(selectedAssignment) ? setRapportSubmitSlot : undefined}
               />
             )}
 
@@ -1452,7 +1455,7 @@ function FeldSurface() {
                   <FeldRapportForm
                     key={selectedAssignment.incident_id}
                     incidentId={selectedAssignment.incident_id}
-                    focusKurzberichtSignal={rapportFocusSignal}
+                    submitSlot={rapportSubmitSlot}
                     transport={{
                       load: () =>
                         apiClient.getFeldRapport(selectedAssignment.incident_id, selectedPerson.personnel_id, token),

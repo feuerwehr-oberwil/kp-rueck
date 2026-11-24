@@ -254,9 +254,11 @@ test.describe('Schadenplatz-Rapport: das Feld und der KP', { tag: '@smoke' }, ()
       // The crew is off the finished Schadenplatz but can still file for it.
       await expect(finishedRow.getByText('Nicht mehr zugewiesen')).toBeVisible();
 
-      // …and it is still there in the detail header, where the form opens.
+      // …and the detail, where the form opens, still names the EL: «Mannschaft» marks
+      // them, so the header does not repeat the line (6C, phone sweep 24.11.2026).
       await feld.openAssignment(street(finished));
-      await expect(feld.leaderLine(leader.name).first()).toBeVisible();
+      await expect(phone.getByRole('listitem').filter({ hasText: `Einsatzleiter: ${leader.name}` })).toBeVisible();
+      await expect(feld.leaderLine(leader.name)).toHaveCount(0);
       // The field keeps its explicit "I am done" (§18.17) — a crew on a phone
       // needs a definite moment, and this is where draft-vs-filed earns it.
       await expect(feld.submitRapportButton).toBeVisible({ timeout: SMOKE_TIMEOUT });
