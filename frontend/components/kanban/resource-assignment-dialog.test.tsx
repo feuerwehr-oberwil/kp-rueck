@@ -458,6 +458,22 @@ describe("special functions in the crew list", () => {
     expect(screen.getByRole("button", { name: /Egger Olivier/ })).toBeDefined()
     expect(screen.queryByRole("button", { name: /Frei Anna/ })).toBeNull()
   })
+
+  // Sign-off 24.11.2026: «Niemand ist frei» under a search that only matched busy people,
+  // although Frei Anna is free.
+  it("says the search found no free one, not that nobody is free", async () => {
+    const user = userEvent.setup()
+    renderCrew([
+      person({ name: "Egger Olivier", status: "assigned", isMagazin: true }),
+      person({ name: "Frei Anna" }),
+    ])
+
+    await user.type(screen.getByPlaceholderText("Person suchen …"), "egger")
+
+    expect(screen.getByText(/Verfügbar · 0/)).toBeDefined()
+    expect(screen.getByText("Keine Treffer für «egger»")).toBeDefined()
+    expect(screen.queryByText(/Niemand ist frei/)).toBeNull()
+  })
 })
 
 describe("readiness from the operations context", () => {

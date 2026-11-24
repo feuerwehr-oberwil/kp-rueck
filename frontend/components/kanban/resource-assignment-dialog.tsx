@@ -828,8 +828,11 @@ export function ResourceAssignmentDialog({
             ungroupedMaterialSections.free.length === 0 &&
             ungroupedMaterialSections.busy.length > 0
           : false)
+  // With a search, «Niemand ist frei» is wrong when free ones only do not match it (sign-off
+  // 24.11.2026): the line says the search found no free one.
   const allBusyText =
-    resourceType === 'crew' ? t('assignmentDialog.allBusyCrew')
+    query ? tEmpty('noHitsFor', { query })
+    : resourceType === 'crew' ? t('assignmentDialog.allBusyCrew')
       : resourceType === 'vehicles' ? t('assignmentDialog.allBusyVehicles')
         : t('assignmentDialog.allBusyMaterials')
 
@@ -1488,7 +1491,7 @@ export function ResourceAssignmentDialog({
           groups={groupedFilteredMaterials.groups}
           ungroupedFree={ungroupedMaterialSections.free}
           ungroupedBusy={ungroupedMaterialSections.busy}
-          allBusy={allBusy}
+          allBusyText={allBusy ? allBusyText : null}
           selectedMaterials={selectedMaterials}
           occupiedElsewhereMaterialIds={occupiedElsewhereMaterialIds}
           materialElsewhereLabel={materialElsewhereLabel}
