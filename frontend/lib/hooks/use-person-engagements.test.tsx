@@ -22,10 +22,22 @@ const board = vi.hoisted(() => ({
     { id: 'p-2', name: 'Anna Crew', isDriver: true, driverVehicleId: 'v-mowa', driverVehicleName: 'Mowa' },
     { id: 'p-3', name: 'Depot Fahrer', isDriver: true, driverVehicleId: 'v-tlf', driverVehicleName: 'TLF' },
   ],
+  // An Auftrag holds Anna too – her crew incident still comes first.
+  groups: [
+    {
+      id: 'auftrag-1',
+      name: 'Sturmholz',
+      assignments: [
+        { resourceType: 'personnel', resourceId: 'p-2' },
+        { resourceType: 'personnel', resourceId: 'p-4' },
+      ],
+    },
+  ],
 }))
 vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => board }))
-vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [], getGroupResources: () => ({ personnel: [] }) }) }))
+vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: board.groups }) }))
 
+import { RESOURCES_TARGET } from '@/lib/detail-target'
 import { usePersonEngagements } from './use-person-engagements'
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -46,5 +58,14 @@ describe('usePersonEngagements', () => {
   it('keeps the where-line to the place and the Einsatzart for the title', () => {
     const { result } = renderHook(() => usePersonEngagements(), { wrapper })
     expect(result.current.get('p-2')?.full).toBe('12 · Ringstrasse 11 (Elementarereignis: Wasser im Keller)')
+  })
+
+  // Sol review I round 2: Dienstzeiten «Jetzt» opens what the line names, from the same entry.
+  it('gives each line the place it opens', () => {
+    const { result } = renderHook(() => usePersonEngagements(), { wrapper })
+    const onOp12 = { kind: 'incident', targetId: 'op-12', target: RESOURCES_TARGET }
+    expect(result.current.get('p-1')?.link).toEqual(onOp12)
+    expect(result.current.get('p-2')?.link).toEqual(onOp12)
+    expect(result.current.get('p-4')).toEqual({ short: 'Sturmholz', full: 'Sturmholz', link: { kind: 'route', targetId: 'auftrag-1' } })
   })
 })

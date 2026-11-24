@@ -37,6 +37,7 @@ import type { useEvent } from "@/lib/contexts/event-context"
 import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import type { useGroups } from "@/lib/contexts/groups-context"
 import type { Material, Operation, OperationStatus, Person, useOperations } from "@/lib/contexts/operations-context"
+import { personNowLink, type PersonNowLink } from "@/lib/detail-target"
 import type { usePersonnel } from "@/lib/contexts/personnel-context"
 import type { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
@@ -108,7 +109,7 @@ export interface BoardDialogsProps {
   /** The Dienstzeiten overview (footer sheet `'crew'`). */
   crewDutySheetOpen: boolean
   /** Dienstzeiten «Jetzt»: follow where this person is now. */
-  followPersonNow: (person: Person) => void
+  followPersonNow: (link: PersonNowLink) => void
   fatigueHours: number
   personEngagements: Map<string, PersonEngagement>
   printSheetOpen: boolean
@@ -303,9 +304,12 @@ export function BoardDialogs({
         personnel={personnel}
         personEngagements={personEngagements}
         fatigueHours={fatigueHours}
-        // Only a place opens: an incident or Auftrag (`personEngagements`), not a station
-        // function like «Magazin».
-        openNowFor={(person) => (personEngagements.has(person.id) ? () => followPersonNow(person) : undefined)}
+        // The place the line names opens (an incident, an Auftrag, or the Reko incident behind
+        // «Reko»), never a station function like «Magazin».
+        openNowFor={(person) => {
+          const link = personNowLink(person, personEngagements.get(person.id), operations)
+          return link ? () => followPersonNow(link) : undefined
+        }}
       />
 
       {/* Offene Schadenplatz-Rapporte — the rolling backlog, oldest first */}

@@ -5,8 +5,8 @@ import { useTranslations } from "next-intl"
 import { type Person, type Operation, type Material } from "@/lib/contexts/operations-context"
 import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentRefLabel } from "@/lib/incident-types"
-import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
-import { REKO_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
+import { soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import { REKO_TARGET, RESOURCES_TARGET, type PersonNowLink } from "@/lib/detail-target"
 import { type FooterSheet } from "@/components/board/board-footer"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Dispatch, SetStateAction } from "react"
@@ -164,7 +164,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
    * is cleared first. The rest of the "nothing happens" cases are gone at the
    * source: a binding that cannot be followed is not offered as a button.
    */
-  const followBinding = useCallback((binding: ResourceBinding, { allowModal = false }: { allowModal?: boolean } = {}) => {
+  const followBinding = useCallback((binding: Pick<ResourceBinding, "kind" | "targetId" | "target">, { allowModal = false }: { allowModal?: boolean } = {}) => {
     if (binding.kind === "incident" && binding.targetId) {
       if (!filteredOperations.some((op) => op.id === binding.targetId)) setSearchQuery('')
       scrollToCard(binding.targetId)
@@ -205,22 +205,13 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
   }
 
   /**
-   * Dienstzeiten «Jetzt» (UX.14): follow the place that line names. The same order as
-   * `usePersonEngagements` builds the line in – the crew incident, the driven vehicle's
-   * incident, the Auftrag – then a Reko incident. The sheet closes, so the modal may open on a
-   * narrow desktop: there is no list left to cover.
+   * Dienstzeiten «Jetzt» (UX.14): follow the place that line names (`personNowLink`). The sheet
+   * closes, so the modal may open on a narrow desktop: there is no list left to cover.
    */
-  const followPersonNow = useCallback((person: Person) => {
-    const reachable = collectPersonBindings(person).filter(isNavigableBinding)
-    const now =
-      reachable.find((b) => b.key.startsWith("incident-")) ??
-      reachable.find((b) => b.key === "fn-driver") ??
-      reachable.find((b) => b.kind === "route") ??
-      reachable[0]
-    if (!now) return
+  const followPersonNow = useCallback((link: PersonNowLink) => {
     setActiveFooterSheet(null)
-    followBinding(now, { allowModal: true })
-  }, [collectPersonBindings, followBinding, setActiveFooterSheet])
+    followBinding(link, { allowModal: true })
+  }, [followBinding, setActiveFooterSheet])
 
   return {
     collectPersonBindings,

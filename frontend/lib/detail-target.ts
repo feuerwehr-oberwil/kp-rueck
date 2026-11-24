@@ -81,20 +81,27 @@ export function phoneSheetBlock(target: DetailTarget | undefined | null): PhoneS
 }
 
 /**
- * The Einsatz Dienstzeiten «Jetzt» opens for a person on the phone, in the order
- * `usePersonEngagements` builds that line: the crew incident, the driven vehicle's incident, then
- * a Reko incident. An Auftrag has no phone surface, so a person held only by one gets `null` and
- * «Jetzt» stays text. The desk follows its sidebar bindings instead (`followPersonNow`).
+ * Where a Dienstzeiten «Jetzt» line leads: an Einsatz on the tab that shows the person, or an
+ * Auftrag. The fields are a sidebar binding's, so the desk follows it like one (`followBinding`).
  */
-export function personNowTarget(
-  person: Pick<Person, "id" | "isDriver" | "driverVehicleId">,
-  operations: readonly Pick<Operation, "id" | "crew" | "vehicles" | "assignedReko">[],
-): { incidentId: string; target: DetailTarget } | null {
-  const crewOf = operations.find((op) => op.crew.some((m) => m.personnelId === person.id))
-  if (crewOf) return { incidentId: crewOf.id, target: RESOURCES_TARGET }
-  const vehicleId = person.isDriver ? person.driverVehicleId : undefined
-  const driven = vehicleId ? operations.find((op) => op.vehicles.some((v) => v.vehicleId === vehicleId)) : undefined
-  if (driven) return { incidentId: driven.id, target: RESOURCES_TARGET }
-  const reko = operations.find((op) => op.assignedReko?.id === person.id)
-  return reko ? { incidentId: reko.id, target: REKO_TARGET } : null
+export type PersonNowLink =
+  | { kind: "incident"; targetId: string; target: DetailTarget }
+  | { kind: "route"; targetId: string }
+
+/**
+ * Where «Jetzt» opens for a person: the place its line names (`engagement`, from
+ * `usePersonEngagements`, which carries its own link), else – when the line falls back to the
+ * function «Reko» – the incident the person is Reko on. Desk and phone both take the link from the
+ * line they show, so the text and the place it opens cannot disagree (Sol review I round 2).
+ * `null` = nothing to open (a station function like «Magazin»). The phone has no Auftrag surface
+ * and keeps a route link as text.
+ */
+export function personNowLink(
+  person: Pick<Person, "id" | "isReko">,
+  engagement: { link: PersonNowLink } | undefined,
+  operations: readonly Pick<Operation, "id" | "assignedReko">[],
+): PersonNowLink | null {
+  if (engagement) return engagement.link
+  const reko = person.isReko ? operations.find((op) => op.assignedReko?.id === person.id) : undefined
+  return reko ? { kind: "incident", targetId: reko.id, target: REKO_TARGET } : null
 }

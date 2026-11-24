@@ -11,9 +11,31 @@ import type { Material, Operation } from '@/lib/contexts/operations-context'
 
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
-vi.mock('@/components/reko/reko-report-section', () => ({ default: () => null }))
+const sheet = vi.hoisted(() => ({ pending: new Set<string>(), scrolls: [] as { ready?: boolean }[] }))
+vi.mock('@/components/reko/reko-report-section', async () => {
+  const { useEffect, useState } = await import('react')
+  return {
+    // Like the real one: the first read answers once per mount, for the incident it was mounted
+    // with – a new `incidentId` alone does not read again. `sheet.pending` = not answered yet.
+    default: function RekoReportSection({ incidentId, onLoadedChange }: { incidentId: string; onLoadedChange?: (loaded: boolean) => void }) {
+      const [read] = useState(incidentId)
+      useEffect(() => {
+        if (sheet.pending.has(read) || !onLoadedChange) return
+        onLoadedChange(true)
+        return () => onLoadedChange(false)
+      }, [read, onLoadedChange])
+      return null
+    },
+  }
+})
+vi.mock('@/lib/hooks/use-scroll-block-into-view', () => ({
+  useScrollBlockIntoView: (_scroller: unknown, _block: unknown, _trigger: unknown, options: { ready?: boolean }) => {
+    sheet.scrolls.push(options)
+  },
+}))
 
 import { MobileIncidentDetailSheet } from '@/components/mobile/mobile-incident-detail-sheet'
+import { REKO_TARGET } from '@/lib/detail-target'
 
 const OPERATION = {
   id: 'incident-1',
@@ -80,5 +102,28 @@ describe('the phone Einsatz sheet has a Reko block before a Bericht is filed', (
     )
     expect(screen.getByText('Keller Lea')).toBeInTheDocument()
     expect(screen.getByText(/vor Ort 18:12/)).toBeInTheDocument()
+  })
+})
+
+// Sol review I round 2: the sheet stays open while it switches incidents.
+describe('the phone Einsatz sheet scrolls to a Reko-Bericht only once THAT one is drawn', () => {
+  it('does not take the last incident\'s loaded Bericht for the next one', () => {
+    const withReko = (id: string) => ({ ...OPERATION, id, hasCompletedReko: true }) as Operation
+    const sheetFor = (id: string) => (
+      <MobileIncidentDetailSheet
+        operation={withReko(id)}
+        open
+        onOpenChange={vi.fn()}
+        target={{ ...REKO_TARGET }}
+        materials={[] as Material[]}
+        formatLocation={(a) => a}
+      />
+    )
+    sheet.pending.add('incident-b')
+    const { rerender } = renderWithIntl(sheetFor('incident-a'))
+    expect(sheet.scrolls.at(-1)?.ready).toBe(true)
+
+    rerender(sheetFor('incident-b'))
+    expect(sheet.scrolls.at(-1)?.ready).toBe(false)
   })
 })

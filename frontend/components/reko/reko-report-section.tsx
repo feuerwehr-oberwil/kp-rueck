@@ -111,7 +111,7 @@ interface RekoReportSectionProps {
   dense?: boolean
   /** Told `true` once the first read answered and the reports are drawn, `false` on unmount.
    *  The phone sheet waits for it before it scrolls to this block (TAB.8). Pass a stable
-   *  function (a state setter): a new one each render reports again. */
+   *  function (a state setter, a `useCallback`): a new one each render reports again. */
   onLoadedChange?: (loaded: boolean) => void
 }
 

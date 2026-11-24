@@ -12,7 +12,7 @@
  * scrolled to the matching block (`target`, `phoneSheetBlock` in lib/detail-target.ts).
  */
 
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useScrollBlockIntoView } from "@/lib/hooks/use-scroll-block-into-view"
 import { vehicleLabel } from "@/lib/vehicle-label"
 import { phoneSheetBlock, type DetailTarget } from "@/lib/detail-target"
@@ -86,9 +86,20 @@ export function MobileIncidentDetailSheet({
   const bodyRef = useRef<HTMLDivElement>(null)
   const rekoRef = useRef<HTMLDivElement>(null)
   const resourcesRef = useRef<HTMLDivElement>(null)
-  const [rekoReportLoaded, setRekoReportLoaded] = useState(false)
+  // WHICH incident's Bericht is drawn: the sheet can switch incidents while it stays open, and the
+  // first one's «loaded» must not let the scroll land on the next one's loading line.
+  const [rekoReportLoadedFor, setRekoReportLoadedFor] = useState<string | null>(null)
+  const operationId = operation?.id
+  const onRekoReportLoaded = useCallback(
+    (loaded: boolean) => {
+      if (!operationId) return
+      setRekoReportLoadedFor((current) => (loaded ? operationId : current === operationId ? null : current))
+    },
+    [operationId],
+  )
   const block = open ? phoneSheetBlock(target) : null
-  const blockReady = !!operation && (block !== "reko" || !operation.hasCompletedReko || rekoReportLoaded)
+  const blockReady =
+    !!operation && (block !== "reko" || !operation.hasCompletedReko || rekoReportLoadedFor === operation.id)
   useScrollBlockIntoView(
     bodyRef,
     block === "reko" ? rekoRef : block === "resources" ? resourcesRef : null,
@@ -366,7 +377,8 @@ export function MobileIncidentDetailSheet({
                   </div>
                 )}
                 {operation.hasCompletedReko && (
-                  <RekoReportSection incidentId={operation.id} onLoadedChange={setRekoReportLoaded} />
+                  // Keyed: another incident gets a fresh report, not the last one's data.
+                  <RekoReportSection key={operation.id} incidentId={operation.id} onLoadedChange={onRekoReportLoaded} />
                 )}
               </div>
             </>
