@@ -71,14 +71,16 @@ export function cn(...inputs: ClassValue[]) {
  * /training opened over the tab bar (sweep VIS.5, 23.11.2026). The nav is a
  * `<nav>`, not a `<footer>`; its height is already measured into
  * `--nav-reserve` on `<html>` (lib/viewport-insets.ts, 0 on the desktop), so the
- * bottom reserves the taller of the two.
+ * bottom reserves the taller of the two. The nav can measure itself AFTER a
+ * menu rendered, so the shared wrappers read this through
+ * `useFooterCollisionPadding` (lib/hooks), which re-reads on every change.
  *
  * The footer reservation only helps placements Radix can move: a popper with
  * `side="top"` is pinned to its trigger and is not shifted along that axis, so
  * one anchored to a button INSIDE the toolbar needs a `sideOffset` that clears
  * it instead (see CardViewMenu and the Bereitschaft checklist).
  */
-const EDGE_PADDING = 8
+export const EDGE_PADDING = 8
 
 export function footerCollisionPadding(): {
   top: number

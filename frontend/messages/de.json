@@ -1648,9 +1648,13 @@
       "type": "Einsatzart",
       "auftrag": "Auftrag"
     },
+    "rail": {
+      "exit": "Fertig"
+    },
     "rekoMode": {
       "title": "Reko-Modus",
       "exit": "Fertig",
+      "exitLabel": "Reko-Modus beenden",
       "hintSelect": "Reko-Person wählen, dann Einsätze auf der Karte antippen.",
       "hintAssign": "Einsatz antippen: {name} zuweisen, als nächste Nummer. Bereits zugewiesenen Einsatz antippen: Zuweisung entfernen.",
       "hintOrder": "Ziehen: Reihenfolge ändern – so sieht {name} sie auch auf dem Handy.",

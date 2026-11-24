@@ -111,7 +111,7 @@ export function RekoModusPanel({
   // below the list (and the mark mode's button) sat behind the nav (VIS.7).
   return (
     <div className="flex flex-col h-full max-md:pb-nav-reserve">
-      <RailHeader icon={Binoculars} title={t("title")} exit={t("exit")} onExit={onExit} />
+      <RailHeader icon={Binoculars} title={t("title")} exitLabel={t("exitLabel")} onExit={onExit} />
 
       {markMode ? (
         <>

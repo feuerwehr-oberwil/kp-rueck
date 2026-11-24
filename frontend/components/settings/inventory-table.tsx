@@ -96,11 +96,14 @@ export function LifecycleCells<T extends ArchivableRow>({
           <span className="text-muted-foreground">–</span>
         ) : (
           <span className="flex items-center gap-2">
-            <Checkbox
-              checked={row.out_of_service}
-              onCheckedChange={(checked) => { void actions.setOutOfService(row, checked === true); }}
-              aria-label={t('lifecycle.notReadyAria', { name: row.name })}
-            />
+            {/* The label is the box's 44px phone target (globals.css): no row text to tap here. */}
+            <label className="flex cursor-pointer items-center max-md:min-w-11">
+              <Checkbox
+                checked={row.out_of_service}
+                onCheckedChange={(checked) => { void actions.setOutOfService(row, checked === true); }}
+                aria-label={t('lifecycle.notReadyAria', { name: row.name })}
+              />
+            </label>
             {row.out_of_service && row.out_of_service_since && (
               <span className="text-xs text-muted-foreground">
                 {t('lifecycle.notReadySince', { date: shortDate(row.out_of_service_since) })}

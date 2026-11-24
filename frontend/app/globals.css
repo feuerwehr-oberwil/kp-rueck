@@ -712,16 +712,13 @@
       min-width: 44px;
     }
 
-    /* …but a checkbox keeps its 44px TARGET: an invisible box around the 16px
-       one. A table column of checkboxes (Einstellungen → Fahrzeuge, «Nicht
-       einsatzbereit») has no label row to tap instead. */
-    [data-slot="checkbox"] {
-      position: relative;
-    }
-    [data-slot="checkbox"]::after {
-      content: "";
-      position: absolute;
-      inset: -14px;
+    /* …and its 44px TARGET is the label around it, a real box in the layout.
+       A grouped option (print sheet, Divera recipients) is a label row; a lone
+       table checkbox (Einstellungen → Fahrzeuge, «Nicht einsatzbereit») gets
+       a label of its own. An invisible overhang around the 16px box overlapped
+       the next option in a dense list, so the target takes up its space. */
+    label:has([data-slot="checkbox"]) {
+      min-height: 44px;
     }
 
     /* Improve tap targets for small UI elements */

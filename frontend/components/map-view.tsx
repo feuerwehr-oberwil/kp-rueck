@@ -521,8 +521,8 @@ function IncidentLabel({
   longitude: number
   /** Which side of the pin the bubble hangs on (`placeLabelSides`). */
   side: LabelSide
-  /** Desktop, an open incident card: hang it on the side the map chrome covers least
-   *  (`useCardSide`) instead of `side`. */
+  /** Desktop, a pinned (selected) incident card: hang it on the side the map chrome covers
+   *  least (`useCardSide`) instead of `side`. Never a hover card – it must stay under the pointer. */
   fit?: CardFit
   /** `incidentZ('label', …)`: under every resting pin, in front once pointed at or selected. */
   zIndex: number
@@ -2047,9 +2047,11 @@ export default function MapView({
                   latitude={spot.latitude}
                   longitude={spot.longitude}
                   side={permanent ? side : "right"}
-                  // The card keeps clear of the open legend (VIS.18). Not on the phone: there
-                  // the camera brings pin + card into view (`usePanToSelected`), card on the right.
-                  fit={hoverOperation && !compactMap && map ? { map, chrome: chromeBoxes, root: rootRef } : undefined}
+                  // The card keeps clear of the open legend (VIS.18). Only a pinned card: a
+                  // hover card that flipped left as it grew slid out from under the pointer,
+                  // whose «leave» closed it (Sol review H). Not on the phone: there the camera
+                  // brings pin + card into view (`usePanToSelected`), card on the right.
+                  fit={pinned && hoverOperation && !compactMap && map ? { map, chrome: chromeBoxes, root: rootRef } : undefined}
                   selected={pinned}
                   zIndex={incidentZ("label", incident.priority, { hovered, highlighted: isHighlighted })}
                   onSelect={select}

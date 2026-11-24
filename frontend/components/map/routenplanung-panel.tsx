@@ -121,7 +121,7 @@ export function RoutenplanungPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <RailHeader icon={RouteIcon} title={t("title")} exit={t("exit")} exitLabel={t("exitLabel")} onExit={onExit} />
+      <RailHeader icon={RouteIcon} title={t("title")} exitLabel={t("exitLabel")} onExit={onExit} />
 
       {/* Group picker + inline create */}
       <div className="mb-4 space-y-2">

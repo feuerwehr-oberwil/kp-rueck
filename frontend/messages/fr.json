@@ -2746,9 +2746,13 @@
       "type": "Genre d’intervention",
       "auftrag": "Mission"
     },
+    "rail": {
+      "exit": "Terminé"
+    },
     "rekoMode": {
       "title": "Mode reconnaissance",
       "exit": "Terminé",
+      "exitLabel": "Terminer le mode reconnaissance",
       "hintSelect": "Choisis une personne de reconnaissance, puis touche les interventions sur la carte.",
       "hintAssign": "Toucher une intervention : attribuer {name}, comme numéro suivant. Toucher une intervention déjà attribuée : retirer l’attribution.",
       "hintOrder": "Glisser : changer l’ordre – {name} le voit aussi sur son téléphone.",
