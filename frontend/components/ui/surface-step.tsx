@@ -232,7 +232,8 @@ export function SurfaceStep({
           <h2 className="min-w-0 truncate text-lg leading-none font-semibold">{title}</h2>
         </div>
         {description && (
-          <p className="mt-1.5 truncate text-sm text-muted-foreground" title={fullDescription}>{description}</p>
+          // A phone has no hover to read a cut line by: there it wraps.
+          <p className="mt-1.5 truncate text-sm text-muted-foreground max-md:whitespace-normal" title={fullDescription}>{description}</p>
         )}
       </header>
       {children}

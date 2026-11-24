@@ -233,13 +233,14 @@ export function MapPickerModal({
         the LEFT and its confirm FIRST, so the one button an operator aims at
         sat where every other dialog in the app puts «Abbrechen». Cancel
         left, confirm right, right-aligned — the primitive's order. */}
-    {/* In the phone sheet the foot is the sheet's own (new-emergency-modal.tsx): two equal
-        44px buttons in one row, above the home indicator. */}
+    {/* In the phone sheet the foot is the sheet's own (new-emergency-modal.tsx): 44px buttons
+        in one row above the home indicator. «Standort übernehmen» takes the rest: two equal
+        halves cut it off at 390px. */}
     <DialogFooter
       className={cn(
         "flex-shrink-0 border-t",
         surface
-          ? "px-5 py-3 max-md:flex-row max-md:px-4 max-md:pb-sheet-safe max-md:[&>button]:min-h-11 max-md:[&>button]:flex-1"
+          ? "px-5 py-3 max-md:flex-row max-md:px-4 max-md:pb-sheet-safe max-md:[&>button]:min-h-11 max-md:[&>button:last-child]:flex-1"
           : "pt-4",
       )}
     >
