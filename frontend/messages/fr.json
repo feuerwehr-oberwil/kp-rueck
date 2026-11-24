@@ -997,7 +997,7 @@
       "notDispatched": "Un rapport ne se saisit qu’une fois la place sinistrée engagée.",
       "sections": {
         "kurzbericht": "Rapport succinct",
-        "owner": "Données du propriétaire / détenteur",
+        "owner": "Propriétaire / lésés",
         "photos": "Photos",
         "personnel": "Effectif",
         "vehicles": "Véhicules"
@@ -1005,31 +1005,30 @@
       "material": {
         "title": "Matériel",
         "empty": "Aucun matériel saisi.",
-        "noLongerAssigned": "Plus attribué",
-        "consumable": "Consommation",
-        "used": "utilisé",
-        "usedAria": "Utilisé : {name}",
         "leftOnSite": "resté sur place",
-        "leftOnSiteAria": "Resté sur place : {name}",
-        "extraLabel": "Autre matériel utilisé",
-        "extraSearchPlaceholder": "Rechercher du matériel …",
-        "extraRemove": "Retirer {name}",
         "extraLeftOnSiteHint": "Passe sur la liste de récupération. Pas dans « Matériel de retour – libérer » : ce sont des noms, pas du matériel saisi.",
         "add": "Ajouter du matériel",
-        "addTyped": "Ajouter « {name} »"
+        "addTyped": "Ajouter « {name} »",
+        "listLabel": "Matériel",
+        "addChip": "Matériel",
+        "groupAssigned": "Attribué",
+        "groupCatalogue": "Autre matériel",
+        "leftOnSiteShort": "sur place",
+        "removeAria": "Retirer {name}",
+        "searchPlaceholder": "Rechercher du matériel …"
       },
       "vehicles": {
-        "present": "était là",
-        "presentAria": "Était là : {name}",
-        "empty": "Aucun véhicule engagé.",
+        "empty": "Aucun véhicule saisi.",
         "searchPlaceholder": "Rechercher un véhicule …",
-        "dispatchedLabel": "Engagés sur cette place sinistrée",
-        "addLabel": "Également présents",
         "removeAria": "Retirer {name}",
-        "add": "Ajouter un véhicule"
+        "add": "Ajouter un véhicule",
+        "listLabel": "Véhicules",
+        "addChip": "Véhicule",
+        "groupDispatched": "Engagés",
+        "groupFleet": "Autres véhicules"
       },
       "kurzberichtPlaceholder": "Situation, activité, matériel",
-      "handedOverTo": "Place sinistrée remise à",
+      "handedOverTo": "Remis à (facultatif)",
       "handedOverToPlaceholder": "p. ex. propriétaire, police",
       "ownerName": "Propriétaire / détenteur",
       "ownerNamePlaceholder": "Nom",
@@ -1074,18 +1073,19 @@
       "loadError": "Le rapport n’a pas pu être chargé.",
       "loadRetry": "Réessayer",
       "personnel": {
-        "present": "était là",
-        "presentAria": "Était là : {name}",
-        "empty": "Le tableau n’a attribué personne ici.",
+        "empty": "Personne n’est encore saisi.",
         "searchPlaceholder": "Rechercher une personne …",
         "removeAria": "Retirer {name}",
-        "dispatchedLabel": "Convoqués sur cette place sinistrée",
-        "addLabel": "Également présents",
         "add": "Ajouter une personne",
         "addGuest": "Ajouter « {name} » comme invité",
         "guest": "Invité",
         "groupCheckedIn": "Présents aujourd’hui",
-        "groupAll": "Tous"
+        "groupAll": "Tous",
+        "listLabel": "Effectif",
+        "addChip": "Personne",
+        "groupDispatched": "Mobilisés",
+        "leader": "CI",
+        "leaderTitle": "Chef d’intervention"
       },
       "summary": {
         "material": "{count, plural, one {# position} other {# positions}}",
@@ -1568,7 +1568,6 @@
       "trainingMode": "Mode exercice",
       "messageLabel": "Annonce",
       "messagePlaceholder": "p. ex. feu à la cave",
-      "priorityLabel": "Priorité",
       "typeLabel": "Genre d’intervention",
       "typeSearchPlaceholder": "Rechercher un genre d’intervention …",
       "typeNotFound": "Aucun genre d’intervention trouvé.",
@@ -1600,8 +1599,7 @@
       "correctError": "La correction n’a pas été transmise – les données restent dans le formulaire.",
       "receiptTitle": "L'alarme est au PC",
       "receiptMeta": "{eventName} · {time}",
-      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel.",
-      "detailsToggle": "Compléter les détails"
+      "hintsCorrectionHelp": "Les compléments s'ajoutent – ce qui est déjà au PC reste tel quel."
     },
     "checkin": {
       "retrying": "Connexion interrompue",
@@ -2699,6 +2697,7 @@
       "searchPlaceholder": "Adresse …",
       "searching": "Recherche en cours …",
       "noResults": "Aucune adresse trouvée.",
+      "searchUnavailable": "Recherche d'adresse indisponible.",
       "useFreetext": "Reprendre « {query} »",
       "freetextNote": "Comme texte libre, sans coordonnées",
       "minChars": "Saisis au moins 3 caractères",

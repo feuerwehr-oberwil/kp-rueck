@@ -6,14 +6,19 @@ import { cn } from '@/lib/utils'
  * The pages a phone opens from «Links & QR» — /feld, /check-in, /reko, /alarm — share one frame
  * so they feel like one app, installed or not (owner, 03.10.):
  *
- * - `LinkPageHeader`: ONE header — sticky, opaque (no frosted bar under the status bar), 56px,
+ * - `LinkPageHeader`: ONE header — sticky, opaque (no frosted bar under the status bar), 61px,
  *   the column width of the page, a 44px leading control (back) and a title + context line.
- *   `FeldIdentityBar` is the same bar with the person in it.
+ *   `FeldIdentityBar` is the same bar with the person in it. `BELOW_LINK_PAGE_HEADER_CLASS`
+ *   sticks a block under it.
  */
 
 /** The height and padding every link-page header shares — `FeldIdentityBar` included. */
 export const LINK_PAGE_HEADER_CLASS = 'sticky top-0 z-sticky border-b border-border bg-background'
 export const LINK_PAGE_HEADER_ROW_CLASS = 'mx-auto flex min-h-14 max-w-md items-center gap-2 px-3 py-2'
+/** A block that sticks right under `LinkPageHeader` while the page scrolls under it – the /feld
+ *  picker's intro and search (owner, 24.11.2026). The row is 60px (44px controls + `py-2`; the
+ *  `min-h-14` never binds) plus the 1px border; keep this offset in step with the row class. */
+export const BELOW_LINK_PAGE_HEADER_CLASS = 'sticky top-[calc(3.75rem+1px)] z-sticky bg-background'
 
 export function LinkPageHeader({
   title,

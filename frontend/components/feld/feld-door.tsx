@@ -249,12 +249,10 @@ export function useFeldDoor({
  * The code screen, drawn from `useFeldDoor`'s state — the page renders it as
  * `codeScreen` and never builds one itself.
  *
- * Four boxes and one button. No explanation of where the code lives while
- * nothing has gone wrong: whoever is standing here scanned the poster it is
- * printed under two seconds ago, and the one screen somebody reads in the
- * rain is not the place for a paragraph. What appears when it DOES go wrong
- * is the whole point of this block — each of the four failures says what
- * happened and what to do about it.
+ * Four boxes over one input, and one line saying where the code is, above them. On a
+ * phone it all sits in the upper part of the screen so the number pad never covers it.
+ * What appears when it goes wrong is the whole point of this block — each of the four
+ * failures says what happened and what to do about it.
  */
 function FeldCodeScreen({
   codeError,
@@ -308,14 +306,20 @@ function FeldCodeScreen({
 
   const locked = codeError?.kind === 'locked'
   const countdown = formatCountdown(lockRemaining)
+  // On a phone the content sits in the upper part, not centred: the number pad and Safari's
+  // form bar take the lower half, and centred boxes ended under them with the hint hidden
+  // (owner, iPhone, 24.11.2026). Centred again from `md`, where no keyboard covers half.
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center p-6">
+    <div
+      data-testid="feld-code-screen"
+      className="min-h-dvh bg-background flex flex-col justify-start px-6 pb-6 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.5rem))] md:justify-center md:pt-6"
+    >
       <div className="mx-auto w-full max-w-xs">
         {/* The proof of place: station and Ereignis, fetched with the link
             token before any digit. Whoever scanned a poster must see they
             reached the right brigade — the heading falls back to the bare
             prompt only while the proof has not arrived. */}
-        <div className="mb-8">
+        <div className="mb-6">
           {doorContext?.station_name && (
             <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               {doorContext.station_name}
@@ -327,6 +331,11 @@ function FeldCodeScreen({
           {doorContext?.training_flag && (
             <TrainingBadge label={t('code.training')} className="mt-2" />
           )}
+          {/* Always visible, not withheld until a failure: the reasoning that a
+              scanner "just saw the poster" does not survive a gloved hand and a
+              borrowed phone. Above the boxes, so the keyboard never hides it while
+              the boxes show. */}
+          <p className="mt-3 text-sm text-muted-foreground">{t('code.whereHint')}</p>
         </div>
 
         {/* Four cells over ONE invisible input: the input keeps the number
@@ -380,11 +389,6 @@ function FeldCodeScreen({
             ))}
           </div>
         </div>
-
-        {/* Always visible, not withheld until a failure: the reasoning that a
-            scanner "just saw the poster" does not survive a gloved hand and a
-            borrowed phone. */}
-        <p className="mt-4 text-sm text-muted-foreground">{t('code.whereHint')}</p>
 
         {/* Wrong: the only failure the typing can fix — so it is also the only
             one that says where the code is written. Since the slip carries it

@@ -1601,6 +1601,7 @@
       "searchPlaceholder": "Adresse suchen …",
       "searching": "Wird gesucht …",
       "noResults": "Keine Adressen gefunden.",
+      "searchUnavailable": "Adresssuche nicht erreichbar.",
       "useFreetext": "«{query}» übernehmen",
       "freetextNote": "Als Freitext ohne Koordinaten",
       "minChars": "Mindestens 3 Zeichen eingeben",
@@ -4048,7 +4049,6 @@
       "trainingMode": "Übungsmodus",
       "messageLabel": "Meldung",
       "messagePlaceholder": "z. B. Brennt im Keller",
-      "priorityLabel": "Priorität",
       "typeLabel": "Einsatzart",
       "typeSearchPlaceholder": "Einsatzart suchen …",
       "typeNotFound": "Keine Einsatzart gefunden.",
@@ -4080,8 +4080,7 @@
       "correctError": "Die Korrektur wurde nicht übermittelt – die Angaben bleiben im Formular.",
       "receiptTitle": "Alarm ist beim KP",
       "receiptMeta": "{eventName} · {time}",
-      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen.",
-      "detailsToggle": "Details ergänzen"
+      "hintsCorrectionHelp": "Ergänzungen werden hinzugefügt – was bereits beim KP steht, bleibt stehen."
     },
     "checkin": {
       "retrying": "Verbindung unterbrochen",
@@ -4277,7 +4276,7 @@
       "notDispatched": "Ein Rapport wird erst erfasst, wenn der Schadenplatz disponiert wurde.",
       "sections": {
         "kurzbericht": "Kurzbericht",
-        "owner": "Eigentümer- / Halterdaten",
+        "owner": "Eigentümer / Geschädigte",
         "photos": "Fotos",
         "personnel": "Mannschaft",
         "vehicles": "Fahrzeuge"
@@ -4285,31 +4284,30 @@
       "material": {
         "title": "Material",
         "empty": "Kein Material erfasst.",
-        "noLongerAssigned": "Nicht mehr zugewiesen",
-        "consumable": "Verbrauch",
-        "used": "gebraucht",
-        "usedAria": "Gebraucht: {name}",
         "leftOnSite": "vor Ort verblieben",
-        "leftOnSiteAria": "Vor Ort verblieben: {name}",
-        "extraLabel": "Weiteres gebrauchtes Material",
-        "extraSearchPlaceholder": "Material suchen …",
-        "extraRemove": "{name} entfernen",
         "extraLeftOnSiteHint": "Kommt auf die Abholliste. Nicht bei «Material zurück – freigeben»: das sind Namen, kein erfasstes Material.",
         "add": "Material hinzufügen",
-        "addTyped": "«{name}» hinzufügen"
+        "addTyped": "«{name}» hinzufügen",
+        "listLabel": "Material",
+        "addChip": "Material",
+        "groupAssigned": "Zugewiesen",
+        "groupCatalogue": "Weiteres Material",
+        "leftOnSiteShort": "vor Ort",
+        "removeAria": "{name} entfernen",
+        "searchPlaceholder": "Material suchen …"
       },
       "vehicles": {
-        "present": "war dabei",
-        "presentAria": "War dabei: {name}",
-        "empty": "Kein Fahrzeug disponiert.",
+        "empty": "Kein Fahrzeug erfasst.",
         "searchPlaceholder": "Fahrzeug suchen …",
-        "dispatchedLabel": "Disponiert auf diesen Schadenplatz",
-        "addLabel": "Zusätzlich dabei",
         "removeAria": "{name} entfernen",
-        "add": "Fahrzeug hinzufügen"
+        "add": "Fahrzeug hinzufügen",
+        "listLabel": "Fahrzeuge",
+        "addChip": "Fahrzeug",
+        "groupDispatched": "Disponiert",
+        "groupFleet": "Weitere Fahrzeuge"
       },
       "kurzberichtPlaceholder": "Lage, Tätigkeit, Material",
-      "handedOverTo": "Schadenplatz übergeben an",
+      "handedOverTo": "Übergeben an (optional)",
       "handedOverToPlaceholder": "z. B. Eigentümer, Polizei",
       "ownerName": "Eigentümer / Halter",
       "ownerNamePlaceholder": "Name",
@@ -4354,18 +4352,19 @@
       "loadError": "Rapport konnte nicht geladen werden.",
       "loadRetry": "Erneut versuchen",
       "personnel": {
-        "present": "war dabei",
-        "presentAria": "War dabei: {name}",
-        "empty": "Das Board hat hierher niemanden zugewiesen.",
+        "empty": "Noch niemand erfasst.",
         "searchPlaceholder": "Person suchen …",
         "removeAria": "{name} entfernen",
-        "dispatchedLabel": "Aufgeboten auf diesen Schadenplatz",
-        "addLabel": "Zusätzlich dabei",
         "add": "Person hinzufügen",
         "addGuest": "«{name}» als Gast hinzufügen",
         "guest": "Gast",
         "groupCheckedIn": "Heute anwesend",
-        "groupAll": "Alle"
+        "groupAll": "Alle",
+        "listLabel": "Mannschaft",
+        "addChip": "Person",
+        "groupDispatched": "Aufgeboten",
+        "leader": "EL",
+        "leaderTitle": "Einsatzleiter"
       },
       "summary": {
         "material": "{count, plural, one {# Position} other {# Positionen}}",

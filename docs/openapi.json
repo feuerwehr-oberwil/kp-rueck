@@ -3473,6 +3473,9 @@
           },
           {
             "GeocodingFieldCookie": []
+          },
+          {
+            "GeocodingIntakeHeader": []
           }
         ],
         "parameters": [
@@ -3563,6 +3566,9 @@
           },
           {
             "GeocodingFieldCookie": []
+          },
+          {
+            "GeocodingIntakeHeader": []
           }
         ],
         "parameters": [
@@ -28517,6 +28523,17 @@
             "type": "array",
             "title": "Vehicle Candidates",
             "default": []
+          },
+          "vehicle_drivers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Vehicle Drivers",
+            "default": {}
           }
         },
         "type": "object",
@@ -32029,6 +32046,12 @@
         "description": "A live, bound field-device token; poster and picker tokens are not accepted.",
         "in": "cookie",
         "name": "feld-device-token"
+      },
+      "GeocodingIntakeHeader": {
+        "type": "apiKey",
+        "description": "The /alarm intake link's token, while its Ereignis is live (not revoked, not archived).",
+        "in": "header",
+        "name": "X-Intake-Token"
       }
     }
   }

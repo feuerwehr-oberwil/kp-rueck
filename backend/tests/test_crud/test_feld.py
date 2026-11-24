@@ -21,6 +21,7 @@ from app.crud import feld as crud
 from app.models import (
     Event,
     EventAttendance,
+    EventSpecialFunction,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -443,6 +444,29 @@ class TestVehicleChecklist:
         assert rows["TLF 1"]["present"] is True and rows["TLF 1"]["on_board"] is True
         # …and the MTW is still reachable, one fold away.
         assert [c["name"] for c in view["prefill"]["vehicle_candidates"]] == ["MTW"]
+
+    @pytest.mark.asyncio
+    async def test_the_prefill_names_who_drives_each_vehicle(
+        self, db_session: AsyncSession, test_event: Event, test_user: User
+    ):
+        # The Fahrzeuge chip reads «Pio · Dürring Jan». The driver is the
+        # Ereignis's, and a vehicle nobody drives is simply absent.
+        incident = await _incident(db_session, test_event, test_user)
+        pio = await self._vehicle(db_session, "Pio", display_order=1)
+        await self._vehicle(db_session, "MTW", display_order=2)
+        await _assign(db_session, incident, "vehicle", pio.id)
+        driver = Personnel(id=uuid.uuid4(), name="Dürring Jan", role="Fahrer", status="available")
+        db_session.add(driver)
+        await db_session.commit()
+        db_session.add(
+            EventSpecialFunction(
+                event_id=test_event.id, personnel_id=driver.id, function_type="driver", vehicle_id=pio.id
+            )
+        )
+        await db_session.commit()
+
+        view = await crud.get_rapport(db_session, incident, actor=ACTOR)
+        assert view["prefill"]["vehicle_drivers"] == {pio.id: "Dürring Jan"}
 
     @pytest.mark.asyncio
     async def test_an_archived_vehicle_is_offered_nowhere(
