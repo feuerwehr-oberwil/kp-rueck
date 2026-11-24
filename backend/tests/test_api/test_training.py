@@ -650,16 +650,34 @@ async def test_simulate_escalation_rejects_completed_incident(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+@pytest.mark.parametrize(
+    ("kind", "item", "label"),
+    [
+        ("personnel", "2 zusätzliche AdF", "Verstärkung: 2 zusätzliche AdF"),
+        ("material", "Beleuchtungsmaterial für die Nacht", "Material: Beleuchtungsmaterial für die Nacht"),
+    ],
+)
 async def test_simulate_reinforcement_is_a_real_field_request(
-    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    training_event: Event,
+    active_incident: Incident,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    item: str,
+    label: str,
 ):
-    """«Feld fordert Verstärkung» writes what a crew's «Verstärkung nötig» writes: a work
-    item, its bell and a Journal line (owner, 23.11.2026, #12) – not a bell alone."""
+    """«Feld fordert Verstärkung» writes what a crew's «Verstärkung nötig» or «Material nötig»
+    writes: a work item, its bell and a Journal line (owner, 23.11.2026, #12) – not a bell
+    alone. A material text is a material request, not a crew one (sign-off 24.11.2026)."""
+    from app.api import training_simulate
+
+    monkeypatch.setattr(training_simulate, "generate_reinforcement_request", lambda _type: (kind, item))
     response = await editor_client.post(
         f"/api/training/events/{training_event.id}/simulate/reinforcement/{active_incident.id}"
     )
     assert response.status_code == 200
-    assert "Verstärkung" in response.json()["message"]
+    assert label in response.json()["message"]
 
     from sqlalchemy import select
 
@@ -668,7 +686,7 @@ async def test_simulate_reinforcement_is_a_real_field_request(
     request = (
         await db_session.execute(select(FieldRequest).where(FieldRequest.incident_id == active_incident.id))
     ).scalar_one()
-    assert request.kind == "personnel" and request.status == "open" and request.item
+    assert (request.kind, request.item, request.status) == (kind, item, "open")
     assert request.notification_id is not None
     journal = (
         await db_session.execute(

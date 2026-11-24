@@ -15635,7 +15635,7 @@
           "training"
         ],
         "summary": "Simulate Reinforcement Request",
-        "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nThe same write a crew's «Verstärkung nötig» on `/feld` makes\n(``crud.feld.create_field_request``, kind ``personnel``): a work item in the\nRapport tab, a bell entry, a Journal line and a Chronik row. It used to be a\nbell entry only, so the request was gone once dismissed (owner, 23.11.2026).\nWhat (and whether) to send is the trainee's decision on the board.",
+        "description": "Inject \"Feld fordert Verstärkung\": the crew on scene asks for more.\n\nThe same write a crew's «Verstärkung nötig» or «Material nötig» on `/feld` makes\n(``crud.feld.create_field_request``, kind ``personnel`` or ``material`` as the text's\npool entry says – `generate_reinforcement_request`): a work item in the\nRapport tab, a bell entry, a Journal line and a Chronik row. It used to be a\nbell entry only, so the request was gone once dismissed (owner, 23.11.2026).\nWhat (and whether) to send is the trainee's decision on the board.",
         "operationId": "simulate_reinforcement_request_api_training_events__event_id__simulate_reinforcement__incident_id__post",
         "parameters": [
           {

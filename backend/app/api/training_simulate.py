@@ -509,8 +509,9 @@ async def simulate_reinforcement_request(
 ) -> SimulateInjectResponse:
     """Inject "Feld fordert Verstärkung": the crew on scene asks for more.
 
-    The same write a crew's «Verstärkung nötig» on `/feld` makes
-    (``crud.feld.create_field_request``, kind ``personnel``): a work item in the
+    The same write a crew's «Verstärkung nötig» or «Material nötig» on `/feld` makes
+    (``crud.feld.create_field_request``, kind ``personnel`` or ``material`` as the text's
+    pool entry says – `generate_reinforcement_request`): a work item in the
     Rapport tab, a bell entry, a Journal line and a Chronik row. It used to be a
     bell entry only, so the request was gone once dismissed (owner, 23.11.2026).
     What (and whether) to send is the trainee's decision on the board.
@@ -525,13 +526,14 @@ async def simulate_reinforcement_request(
         )
 
     actor = await simulated_filer(db, incident, current_user, random.Random())
+    kind, item = generate_reinforcement_request(incident.type)
     created = await feld_crud.create_field_request(
         db,
         incident,
         actor=actor,
         message="",
-        kind="personnel",
-        item=generate_reinforcement_request(incident.type)[:120],
+        kind=kind,
+        item=item[:120],
         request=request,
     )
     if created is None:  # never: the item is always set

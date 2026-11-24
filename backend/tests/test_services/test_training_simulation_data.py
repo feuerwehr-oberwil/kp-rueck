@@ -20,6 +20,7 @@ from app.services.training_simulation_data import (
     _NICE_LITER,
     _NICE_M,
     _NOT_RELEVANT_SUMMARIES,
+    _REINFORCEMENTS,
     _SUMMARIES,
     _TEMPLATE_SUMMARIES,
     _dispatch_figure,
@@ -697,3 +698,12 @@ class TestDispatchLinkedSummaryActions:
 
     def test_no_figure_in_dispatch_falls_back_to_pool(self):
         assert _dispatch_figure("elementar_water", "Keller unter Wasser.") is None
+
+
+def test_reinforcement_texts_that_ask_for_things_are_material_requests():
+    """Sign-off 24.11.2026: «Ölsperre», «Sandsäcke», «Beleuchtungsmaterial» were filed as a crew
+    request. A text naming no person, crew or vehicle is «Material nötig»."""
+    crew = re.compile(r"\bAdF\b|trupp|Ablösung|\bTLF\b|\bDLK\b", re.IGNORECASE)
+    for pool in _REINFORCEMENTS.values():
+        for kind, text in pool:
+            assert kind == ("personnel" if crew.search(text) else "material"), text
