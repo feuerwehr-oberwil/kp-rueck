@@ -92,7 +92,7 @@ export function CardContextMenu({
     >
       {/* Bearbeiten */}
       <ContextMenuItem onClick={() => onEdit()}>
-        <Pencil className="mr-2 h-4 w-4" />
+        <Pencil className="h-4 w-4" />
         {t('common.edit')}
       </ContextMenuItem>
 
@@ -102,35 +102,35 @@ export function CardContextMenu({
           <ContextMenuSeparator />
           {onAssignReko && (
             <ContextMenuItem onClick={() => onAssignReko()}>
-              <Binoculars className="mr-2 h-4 w-4" />
+              <Binoculars className="h-4 w-4" />
               {operation.assignedReko ? t('card.changeReko') : t('card.assignReko')}
             </ContextMenuItem>
           )}
           {onAssignResource && (
             <>
               <ContextMenuItem onClick={() => onAssignResource('crew', operation.id)}>
-                <Users className="mr-2 h-4 w-4" />
+                <Users className="h-4 w-4" />
                 {t('common.assignCrew')}
               </ContextMenuItem>
               <ContextMenuItem onClick={() => onAssignResource('vehicles', operation.id)}>
-                <Truck className="mr-2 h-4 w-4" />
+                <Truck className="h-4 w-4" />
                 {t('common.assignVehicle')}
               </ContextMenuItem>
               <ContextMenuItem onClick={() => onAssignResource('materials', operation.id)}>
-                <Package className="mr-2 h-4 w-4" />
+                <Package className="h-4 w-4" />
                 {t('common.assignMaterial')}
               </ContextMenuItem>
             </>
           )}
           {onTransfer && (
             <ContextMenuItem onClick={() => onTransfer()}>
-              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              <ArrowRightLeft className="h-4 w-4" />
               {t('common.transferResources')}
             </ContextMenuItem>
           )}
           {onDistribute && (
             <ContextMenuItem onClick={() => onDistribute()}>
-              <Waypoints className="mr-2 h-4 w-4" />
+              <Waypoints className="h-4 w-4" />
               {t('common.distributeToAuftrag')}
             </ContextMenuItem>
           )}
@@ -147,7 +147,7 @@ export function CardContextMenu({
                 )
               }
             >
-              <Route className="mr-2 h-4 w-4" />
+              <Route className="h-4 w-4" />
               {t('common.openRoutenEditor')}
             </ContextMenuItem>
           )}
@@ -171,13 +171,13 @@ export function CardContextMenu({
           <ContextMenuSeparator />
           {onToggleNachbarhilfe && (
             <ContextMenuItem onClick={() => onToggleNachbarhilfe()}>
-              <Building2 className="mr-2 h-4 w-4" />
+              <Building2 className="h-4 w-4" />
               {operation.nachbarhilfe ? t('card.removeNachbarhilfe') : t('card.markNachbarhilfe')}
             </ContextMenuItem>
           )}
           {onToggleAmWarten && (
             <ContextMenuItem onClick={() => onToggleAmWarten()}>
-              <Timer className="mr-2 h-4 w-4" />
+              <Timer className="h-4 w-4" />
               {operation.amWarten ? t('card.removeAmWarten') : t('card.markAmWarten')}
             </ContextMenuItem>
           )}
@@ -195,11 +195,11 @@ export function CardContextMenu({
         <>
           <ContextMenuSeparator />
           <ContextMenuItem onClick={() => onMoveInColumn('up')}>
-            <ArrowUp className="mr-2 h-4 w-4" />
+            <ArrowUp className="h-4 w-4" />
             {tReorder('moveUp')}
           </ContextMenuItem>
           <ContextMenuItem onClick={() => onMoveInColumn('down')}>
-            <ArrowDown className="mr-2 h-4 w-4" />
+            <ArrowDown className="h-4 w-4" />
             {tReorder('moveDown')}
           </ContextMenuItem>
         </>
@@ -208,13 +208,13 @@ export function CardContextMenu({
       {((onRequestComplete && operation.status !== "complete") || onRequestDelete) && <ContextMenuSeparator />}
       {onRequestComplete && operation.status !== "complete" && (
         <ContextMenuItem onClick={() => onRequestComplete()}>
-          <CheckCircle2 className="mr-2 h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4" />
           {t('card.completeIncident')}
         </ContextMenuItem>
       )}
       {onRequestDelete && (
         <ContextMenuItem variant="destructive" onClick={() => onRequestDelete()}>
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="h-4 w-4" />
           {t('card.deleteIncident')}
         </ContextMenuItem>
       )}
@@ -223,19 +223,19 @@ export function CardContextMenu({
       <ContextMenuSeparator />
       <ContextMenuItem asChild>
         <Link href={`/map?highlight=${operation.id}`}>
-          <Map className="mr-2 h-4 w-4" />
+          <Map className="h-4 w-4" />
           {t('card.showOnMapMenu')}
         </Link>
       </ContextMenuItem>
       {onRepeatRadio && RADIO_REPEATABLE.has(operation.status) && (
         <ContextMenuItem onClick={() => onRepeatRadio()}>
-          <Radio className="mr-2 h-4 w-4" />
+          <Radio className="h-4 w-4" />
           {t('card.repeatRadio')}
         </ContextMenuItem>
       )}
       {printerEnabled && (
         <ContextMenuItem onClick={handlePrint} disabled={isPrinting}>
-          <Printer className="mr-2 h-4 w-4" />
+          <Printer className="h-4 w-4" />
           {isPrinting ? t('card.printing') : t('common.printSlip')}
         </ContextMenuItem>
       )}

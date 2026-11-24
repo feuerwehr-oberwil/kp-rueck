@@ -147,10 +147,11 @@ function MenuHint({ hint }: { hint: string }) {
   return <span className="ml-auto max-w-40 truncate pl-4 text-xs text-muted-foreground">{hint}</span>
 }
 
-/** Every row keeps the icon column, so labels line up with or without one. */
+/** Every row keeps the icon column, so labels line up with or without one – and with a
+ *  checkbox row's box. The item's own gap spaces it: no margin here. */
 function MenuIcon({ icon }: { icon: ReactNode }) {
   return (
-    <span className="mr-2 flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
+    <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">
       {icon}
     </span>
   )
