@@ -96,8 +96,11 @@ class NotCurrentStepError(Exception):
 
 
 def place(incident: Incident) -> str:
-    """How «Vorhin» names an incident: its address, else its title."""
-    return incident.location_address or incident.title
+    """How «Vorhin» names an incident: the street part of its address («Langegasse 97»), else its title.
+
+    A log line, like the timeline beside it: the postcode and town add nothing in an Übung."""
+    street = (incident.location_address or "").split(",")[0].strip()
+    return street or incident.title
 
 
 # ── The state row ───────────────────────────────────────────────────────────
