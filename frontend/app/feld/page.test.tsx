@@ -337,6 +337,20 @@ describe('/feld preselect from the Einsatzzettel QR', () => {
     await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledWith('p-1', 'bound-token'))
   })
 
+  // Owner, iPhone, 24.11.2026: the number pad and Safari's form bar covered the hint, and the
+  // centred boxes sat low with the top half empty. The hint reads before the boxes, and on a
+  // phone the screen starts at the top.
+  it('puts the code hint above the boxes and the code screen in the upper part', async () => {
+    forgetDevice()
+    setParams({ token: 'feld-token' })
+    renderWithIntl(<FeldPage />)
+    const field = await screen.findByRole('textbox')
+    const hint = screen.getByText('Der Code steht auf dem Zettel unter dem QR-Code.')
+    expect(hint.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('feld-code-screen')).toHaveClass('justify-start')
+    expect(screen.getByTestId('feld-code-screen')).not.toHaveClass('justify-center')
+  })
+
   // Owner, 24.11.2026: in a long roster the search was a scroll away. The intro and the search
   // stick under the bar; only the names scroll.
   it('keeps the picker intro and the name search in one block that sticks under the bar', async () => {
