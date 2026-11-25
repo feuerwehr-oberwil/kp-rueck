@@ -277,6 +277,24 @@ describe('NewEmergencyModal — Abmeldung während des Erstellens (hunt follow-u
     expect(sessionStorage.getItem('kp-new-incident-draft:event-1')).toBeNull()
   })
 
+  it('what was typed in one Ereignis never opens in another – it waits as that one\'s draft', async () => {
+    const user = userEvent.setup()
+    const onCreateOperation = vi.fn().mockResolvedValue(true)
+    const dialog = (eventId: string, open: boolean) => (
+      <NewEmergencyModal open={open} onOpenChange={() => {}} onCreateOperation={onCreateOperation} eventId={eventId} />
+    )
+    const { rerender } = renderWithIntl(dialog('event-1', true))
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    rerender(dialog('event-1', false))
+
+    rerender(dialog('event-2', true))
+    expect(screen.getByLabelText('Ort')).toHaveValue('')
+    rerender(dialog('event-2', false))
+
+    rerender(dialog('event-1', true))
+    expect(screen.getByLabelText('Ort')).toHaveValue('Hauptstrasse 12')
+  })
+
   it('a plain «Neuer Einsatz» after a closed «+ Stop» belongs to no Auftrag', async () => {
     const user = userEvent.setup()
     const onCreateOperation = vi.fn().mockResolvedValue(true)

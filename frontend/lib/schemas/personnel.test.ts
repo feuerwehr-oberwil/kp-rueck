@@ -89,6 +89,11 @@ describe("personnelUpdateFor (hunt follow-up 25.11.)", () => {
     expect(personnelUpdateFor(spaced, { ...spaced, tags: ["Atemschutz"], role: "Wachtmeister" })).toEqual({ role: "Wachtmeister" });
   });
 
+  it("sends a tag split in two, though the text stays the same", () => {
+    const joined = personnelFormValuesFor({ name: "Müller Stefan", kennung: null, role: "Offizier", status: "available", tags: ["EL\nReko"] });
+    expect(personnelUpdateFor(joined, { ...joined, tags: ["EL", "Reko"] })).toEqual({ tags: ["EL", "Reko"] });
+  });
+
   it("sends the tags and the status when they were changed here", () => {
     expect(personnelUpdateFor(opened, { ...opened, tags: [], status: "unavailable" })).toEqual({ tags: [], status: "unavailable" });
   });

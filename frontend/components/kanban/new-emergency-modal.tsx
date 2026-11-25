@@ -235,10 +235,19 @@ export function NewEmergencyModal({
   // When opened as an Auftrag "+ Stop", stamp the preset group so the created
   // incident is attached at creation. Cleared again by the reset on submit/close.
   // An empty form starts from a draft a sign-out took away (`readDraft`).
+  // The form belongs to one Ereignis: opened in another, what was typed for the first is
+  // kept as ITS draft and the form starts from the new one's (never creates there).
+  const formEventId = useRef(eventId)
   useEffect(() => {
     if (!open) return
+    const switched = formEventId.current !== eventId
+    if (switched && hasTyped(latestForm.current)) saveDraft(formEventId.current, latestForm.current)
+    formEventId.current = eventId
     const draft = readDraft(eventId)
-    updateForm((prev) => ({ ...(draft && !hasTyped(prev) ? { ...prev, ...draft } : prev), groupId: defaultGroupId }))
+    updateForm((prev) => {
+      const current = switched ? emptyForm() : prev
+      return { ...(draft && !hasTyped(current) ? { ...current, ...draft } : current), groupId: defaultGroupId }
+    })
   }, [open, defaultGroupId, eventId])
 
   // Validation rules

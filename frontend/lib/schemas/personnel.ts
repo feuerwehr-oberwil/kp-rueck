@@ -59,8 +59,9 @@ export function personnelUpdateFor(opened: PersonnelFormValues, values: Personne
   if ((values.kennung ?? "") !== (opened.kennung ?? "")) update.kennung = values.kennung;
   if (values.role !== opened.role) update.role = values.role;
   if (values.status !== opened.status) update.status = values.status;
-  // Trimmed on both sides: the form trims, a stored tag may not be.
-  const tagsOf = (form: PersonnelFormValues) => form.tags.map((tag) => tag.trim()).join("\n");
-  if (tagsOf(values) !== tagsOf(opened)) update.tags = values.tags;
+  // Trimmed on both sides (the form trims, a stored tag may not be), element by element.
+  const openedTags = opened.tags.map((tag) => tag.trim());
+  const tags = values.tags.map((tag) => tag.trim());
+  if (tags.length !== openedTags.length || tags.some((tag, index) => tag !== openedTags[index])) update.tags = values.tags;
   return update;
 }
