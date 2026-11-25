@@ -37,6 +37,7 @@ from ..services.divera_members import (
     fetch_divera_members,
 )
 from ..services.divera_poller import divera_poller
+from ..services.rapport_rows import TYPE_LABELS
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_incident_update
 
@@ -579,7 +580,8 @@ def _render_alarm_template(template: str, incident: models.Incident) -> str:
     """
     values = {
         "title": incident.title or "",
-        "type": incident.type or "",
+        # The label, as the client's renderer fills it (divera-formatter.ts) – never the enum key.
+        "type": TYPE_LABELS.get(incident.type, incident.type) if incident.type else "",
         "location": incident.location_address or "",
         "priority": incident.priority or "",
         "notes": incident.description or "",
