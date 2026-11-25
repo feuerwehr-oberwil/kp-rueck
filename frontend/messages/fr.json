@@ -1564,6 +1564,7 @@
       "crew": "Effectif",
       "vehicles": "Véhicules",
       "reko": "Reconnaissance",
+      "auftrag": "Mission",
       "openDetail": "Afficher les détails : {incident}"
     },
     "mobileDetail": {
