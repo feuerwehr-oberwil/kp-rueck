@@ -74,6 +74,7 @@ from .background import (
     start_demo_reset_scheduler,
     start_divera_retention_scheduler,
     start_heartbeat_scheduler,
+    start_photo_sweep_scheduler,
     start_roster_snapshot_scheduler,
     start_telemetry_scheduler,
     start_weather_scheduler,
@@ -81,6 +82,7 @@ from .background import (
     stop_demo_reset_scheduler,
     stop_divera_retention_scheduler,
     stop_heartbeat_scheduler,
+    stop_photo_sweep_scheduler,
     stop_roster_snapshot_scheduler,
     stop_telemetry_scheduler,
     stop_weather_scheduler,
@@ -287,6 +289,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             start_divera_retention_scheduler()
     except Exception as e:
         logger.warning(f"Divera retention scheduler failed to start: {e}")
+
+    # Photo files a crash left without their report row (background/photo_orphans.py).
+    try:
+        if not standby:
+            start_photo_sweep_scheduler()
+    except Exception as e:
+        logger.warning(f"Photo sweep scheduler failed to start: {e}")
 
     # Weather layer (radar + official warnings for the map). A no-op with WEATHER_ENABLED=false;
     # like the heartbeat, a failure here must never keep the board from starting.
@@ -504,6 +513,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         stop_divera_retention_scheduler()
     except Exception as e:
         logger.warning(f"Divera retention scheduler shutdown failed: {e}")
+
+    try:
+        stop_photo_sweep_scheduler()
+    except Exception as e:
+        logger.warning(f"Photo sweep scheduler shutdown failed: {e}")
 
     try:
         stop_weather_scheduler()
