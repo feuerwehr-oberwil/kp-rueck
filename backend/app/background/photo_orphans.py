@@ -12,7 +12,10 @@ Only files at least `MIN_AGE` old by BOTH their modification and their inode-cha
 are candidates: an upload whose commit is still on its way is seconds old, and a merge copy
 (`copy2` keeps the source's mtime) – or a file a merge keeps and attaches anew
 (`copy_photos` refreshes its change time) – is new by its change time. The age is checked
-again right before each removal, after the rows were read. Folders that are not an
+again right before each removal, after the rows were read. A merge attaches existing files
+under the shared photo-files lock, held to its commit; the sweep holds it exclusively from
+listing to removal, so it reads every row such a merge writes
+(`photo_storage.PHOTO_FILES_LOCK`). Folders that are not an
 incident id, and files at the top of the photo folder, are not touched. A standby box does
 not run it: its photos follow the mirrored rows. Never raises.
 """
@@ -30,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_maker
 from app.logging_config import get_logger
-from app.services.photo_storage import photo_storage
+from app.services.photo_storage import lock_photo_files, photo_storage
 
 logger = get_logger(__name__)
 
@@ -74,15 +77,20 @@ def _old_files(photos_dir: Path, cutoff: float) -> list[tuple[str, Path]]:
             continue
         if not folder.is_dir() or folder.is_symlink():
             continue
-        for path in folder.iterdir():
-            if path.is_file() and not path.is_symlink() and _is_old(path, cutoff):
-                found.append((folder.name, path))
+        try:
+            for path in folder.iterdir():
+                if path.is_file() and not path.is_symlink() and _is_old(path, cutoff):
+                    found.append((folder.name, path))
+        except FileNotFoundError:
+            continue  # the folder went while it was read
     return found
 
 
 async def sweep_orphan_photos(db: AsyncSession, *, now: datetime | None = None) -> int:
     """Remove every old photo file no row names (see the module header). Returns how many."""
     cutoff = ((now or datetime.now(UTC)) - MIN_AGE).timestamp()
+    # Until `db`'s transaction ends: no merge attaches a file between the listing and the unlink.
+    await lock_photo_files(db, exclusive=True)
     # Files first, rows second: a row committed in between can only name a file this list
     # already holds if that file is old – and an old file named anew is a merge copy, which
     # is new by its change time and so not in the list.

@@ -20,7 +20,7 @@ except ImportError:
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -74,6 +74,19 @@ class ExportPhoto(NamedTuple):
     data: bytes | None
     note: str | None
     taken_at: datetime | None  # file mtime = upload time; None when unknown
+
+
+#: The transaction-scoped advisory lock between the orphan sweep (exclusive,
+#: background/photo_orphans.py) and a merge that attaches existing photo files to a report
+#: (shared, services/merge_work.py, held to its commit): the sweep never removes a file a
+#: merge is about to point a row at.
+PHOTO_FILES_LOCK = "photo_files"
+
+
+async def lock_photo_files(db: AsyncSession, *, exclusive: bool) -> None:
+    """Take `PHOTO_FILES_LOCK` for `db`'s transaction (see there)."""
+    fn = "pg_advisory_xact_lock" if exclusive else "pg_advisory_xact_lock_shared"
+    await db.execute(text(f"SELECT {fn}(hashtext(:key))"), {"key": PHOTO_FILES_LOCK})
 
 
 class PhotoCopyError(Exception):

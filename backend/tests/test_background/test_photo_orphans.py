@@ -110,3 +110,23 @@ async def test_a_file_a_merge_attaches_meanwhile_stays(db_session, test_incident
     after = target.stat()
     assert after.st_mtime_ns == before.st_mtime_ns  # «taken at» unchanged
     assert after.st_ctime_ns > before.st_ctime_ns
+
+
+async def test_the_sweep_waits_for_a_merge_that_attaches_photos(test_engine, photos_dir):
+    """A merge holds the shared photo-files lock from its copy to its commit; the sweep takes
+    it exclusively, so it reads the rows such a merge writes."""
+    import asyncio
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.services.photo_storage import lock_photo_files
+
+    maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+    async with maker() as merge, maker() as sweep:
+        await lock_photo_files(merge, exclusive=False)
+        running = asyncio.create_task(sweep_orphan_photos(sweep, now=LATER))
+        await asyncio.sleep(0.3)
+        assert not running.done()
+        await merge.commit()
+        assert await asyncio.wait_for(running, timeout=5) == 0
+        await sweep.rollback()
