@@ -594,13 +594,16 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
       ],
       groups: [{ id: "g1", stopIds: ["stop-1", "stop-2", "stop-3"] }],
     })
+    let booked: unknown
     await act(async () => {
       write.settle(true)
-      await done
+      booked = await done
     })
     expect(unassignGroupResource).not.toHaveBeenCalled()
-    // The stop's own unit is the stop's: its answer stands.
+    // The stop's own unit is the stop's: its answer stands – in the release, the rapport and the receipt.
     expect(removeMaterial).toHaveBeenCalledWith("stop-2", "pumpe")
+    expect(applyRapportMaterialDecisions).toHaveBeenCalledWith("stop-2", [{ material_id: "pumpe", left_on_site: false }])
+    expect(booked).toEqual({ returned: ["pumpe"], kept: [] })
   })
 })
 

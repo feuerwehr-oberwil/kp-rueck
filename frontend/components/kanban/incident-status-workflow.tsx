@@ -792,10 +792,19 @@ export function useIncidentStatusWorkflow({
     // Read before the gate closes and before the completion write empties the card.
     const operationId = materialDecisionOperation.id
     const auftrag = findAuftragForStop(groups, materialDecisionOperation)
-    const returnedItems = materialDecisionItems.filter((item) => materialChoice(item) === "magazin")
-    const kept = materialDecisionItems
-      .filter((item) => materialChoice(item) === "vorort")
-      .map((item) => item.id)
+    const answered = materialDecisionItems.map((item) => ({ item, choice: materialChoice(item) }))
+    setGate(null)
+
+    // A held completion happens now, and first: the server frees crew and vehicles in
+    // that write. A refused one leaves everything as it was.
+    if (materialDecisionGate?.held && !(await changeStatusToTop(operationId, "complete"))) return null
+
+    // Route-owned units are answered for the ROUTE — and only while the route is still done
+    // on the latest board: a stop added during the write keeps them, unanswered. The stop's
+    // own units are the stop's, and their answers stand.
+    const latestAuftrag = latestRoute(operationId)
+    const routeDone = Boolean(latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0)
+    const standing = answered.filter(({ item }) => !(item.assignmentId && auftrag) || routeDone)
 
     // Write the confirmed answers back into the rapport: «Vor Ort» persists as
     // `left_on_site` (so the Restliste / Abholliste show the unit), «Magazin»
@@ -804,15 +813,9 @@ export function useIncidentStatusWorkflow({
     // `applied: false`), and the board release below is independent of it.
     // Consumables are excluded the same way the dialog excludes them: a used
     // consumable is gone and can never be "vor Ort".
-    const rapportDecisions = materialDecisionItems
-      .filter((item) => !item.consumable && materialChoice(item) !== null)
-      .map((item) => ({ material_id: item.id, left_on_site: materialChoice(item) === "vorort" }))
-    setGate(null)
-
-    // A held completion happens now, and first: the server frees crew and vehicles in
-    // that write. A refused one leaves everything as it was.
-    if (materialDecisionGate?.held && !(await changeStatusToTop(operationId, "complete"))) return null
-
+    const rapportDecisions = standing
+      .filter(({ item, choice }) => !item.consumable && choice !== null)
+      .map(({ item, choice }) => ({ material_id: item.id, left_on_site: choice === "vorort" }))
     if (rapportDecisions.length > 0) {
       void apiClient
         .applyRapportMaterialDecisions(operationId, rapportDecisions)
@@ -820,17 +823,16 @@ export function useIncidentStatusWorkflow({
     }
 
     // Route-owned units are released from the ROUTE — and the route is the one
-    // `materialDecisionItems` listed them from, so it is resolved the same way. Only while
-    // the route is still done on the latest board: a stop added during the write keeps them.
-    const latestAuftrag = latestRoute(operationId)
-    const routeDone = Boolean(latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0)
+    // `materialDecisionItems` listed them from, so it is resolved the same way.
+    const returnedItems = standing.filter(({ choice }) => choice === "magazin").map(({ item }) => item)
     for (const item of returnedItems) {
       if (item.assignmentId && auftrag) {
-        if (routeDone) void unassignGroupResource(auftrag.id, item.assignmentId)
+        void unassignGroupResource(auftrag.id, item.assignmentId)
       } else {
         void removeMaterial(operationId, item.id)
       }
     }
+    const kept = standing.filter(({ choice }) => choice === "vorort").map(({ item }) => item.id)
     // The completion is written first, then the squad is sent on — so an operator
     // watching the board sees the stop leave before the next one runs.
     if (startNextId) startConfirmedNextStop(operationId, startNextId)
