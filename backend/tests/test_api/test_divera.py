@@ -1153,3 +1153,23 @@ async def test_detach_viewer_forbidden(viewer_client: AsyncClient, test_emergenc
         json={"incident_id": "00000000-0000-0000-0000-000000000001"},
     )
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(
+    "overrides",
+    [{"title": "A" * 256}, {"number": "1" * 51}, {"id": 2_147_483_648}, {"lat": 100, "lng": 7.5}],
+    ids=["title-over-255", "number-over-50", "id-over-integer", "latitude-out-of-range"],
+)
+async def test_a_native_alarm_over_the_pool_limits_is_refused_as_input(
+    client: AsyncClient, db_session: AsyncSession, webhook_secret: str, overrides: dict
+):
+    """The pool's column limits are checked at the door: 422, not a database error's 500."""
+    payload = {"id": 555777, "title": "Probe", **overrides}
+    response = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
+
+    assert response.status_code == 422
+    from sqlalchemy import select
+
+    assert (await db_session.execute(select(DiveraEmergency))).scalars().all() == []

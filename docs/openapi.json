@@ -20712,12 +20712,15 @@
         "properties": {
           "id": {
             "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Id"
           },
           "number": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
@@ -20727,6 +20730,7 @@
           },
           "title": {
             "type": "string",
+            "maxLength": 255,
             "title": "Title"
           },
           "text": {
@@ -20754,7 +20758,9 @@
           "lat": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
               },
               {
                 "type": "null"
@@ -20765,7 +20771,9 @@
           "lng": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
               },
               {
                 "type": "null"

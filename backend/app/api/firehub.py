@@ -23,6 +23,9 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +33,7 @@ from .. import schemas
 from ..crud import divera as divera_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
+from ..models import AuditLog
 from ..services.audit import log_action
 from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret, try_auto_attach
 from ..utils.errors import ErrorMessages
@@ -65,13 +69,28 @@ async def receive_firehub_webhook(
     return await _handle_start(db, payload, background_tasks)
 
 
+#: An `AlarmIn` field → the FireHub payload field it came from (`FireHubWebhook.to_alarm`).
+_FIREHUB_FIELD = {"address": "street", "number": "opsNumber", "started_at": "created", "source_id": "opsID"}
+
+
 async def _handle_start(
     db: AsyncSession,
     payload: schemas.FireHubWebhook,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     """Store (or ack a redelivery of) a FireHub operation start as a pool alarm."""
-    alarm = payload.to_alarm()
+    try:
+        alarm = payload.to_alarm()
+    except ValidationError as e:
+        # A blank title or one coordinate passes the FireHub shape but not the alarm's own
+        # rules: that is the sender's to fix – 422 naming ITS field, not a 500 (hunt 2026-11-24).
+        op = payload.operation
+        errors = []
+        for error in e.errors(include_url=False):
+            # The pair check is model-level (no field): name the coordinate that is missing.
+            field = str(error["loc"][0]) if error["loc"] else ("lng" if op.lat is not None else "lat")
+            errors.append({**error, "loc": ("body", "operation", _FIREHUB_FIELD.get(field, field))})
+        raise RequestValidationError(errors) from e
     # opsID is required, so the dedupe key is always present — take it straight from the
     # payload (a str, unlike the Optional AlarmIn.source_id) for the lookups below.
     source_id = str(payload.operation.ops_id)
@@ -122,7 +141,29 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
         logger.info("FireHub end for unknown alarm firehub:%s — nothing to note", source_id)
         return {"status": "ok", "action": "end", "noted": False, "emergency_id": None, "incident_id": None}
 
+    # One end per operation: a redelivery (a lost response, a retry) acknowledges the note
+    # already written and keeps its receipt time (hunt 2026-11-24). The pool row's lock makes
+    # two deliveries at once queue instead of both writing.
+    await divera_crud.lock_divera_emergency(db, emergency.id)
+    noted_before = await db.scalar(
+        select(AuditLog.id)
+        .where(
+            AuditLog.action_type == "firehub_operation_end",
+            AuditLog.changes_json["emergency_id"].astext == str(emergency.id),
+        )
+        .limit(1)
+    )
     incident_id = emergency.created_incident_id
+    if noted_before is not None:
+        logger.info("FireHub end for firehub:%s already noted — redelivery acknowledged", source_id)
+        return {
+            "status": "ok",
+            "action": "end",
+            "noted": True,
+            "emergency_id": str(emergency.id),
+            "incident_id": str(incident_id) if incident_id else None,
+        }
+
     await log_action(
         db,
         action_type="firehub_operation_end",
