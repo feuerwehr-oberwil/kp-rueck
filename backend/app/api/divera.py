@@ -22,26 +22,23 @@ from ..crud import external_identities as identities_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
+from ..crud.locking import lock_incident
 from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import alerting, divera_responses, duplicates, incident_display
 from ..services import settings as settings_service
+from ..services.alarm_attach import attach, try_auto_attach
 from ..services.audit import log_action
-from ..services.divera_intake import (
-    broadcast_emergency_received,
-    check_webhook_secret,
-    incident_create_from_emergency,
-    try_auto_attach,
-)
+from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret
 from ..services.divera_members import (
     build_sync_preview,
     execute_sync,
     fetch_divera_groups,
     fetch_divera_members,
 )
+from ..services.divera_poller import divera_poller
 from ..utils.errors import ErrorMessages
-from ..websocket_manager import broadcast_incident_update, get_divera_poller_stats
-from .incidents import board_response, broadcast_repointed, lock_incident
+from ..websocket_manager import broadcast_incident_update
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +111,7 @@ async def receive_divera_webhook(
         background_tasks.add_task(
             broadcast_emergency_received,
             schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
-            schemas.IncidentResponse.model_validate(incident).model_dump(mode="json") if incident else None,
+            auto_attached=incident is not None,
         )
 
         return {
@@ -214,7 +211,6 @@ async def attach_emergency_to_event(
     request_data: schemas.AttachEmergencyRequest,
     request: Request,
     response: Response,
-    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.IncidentResponse:
@@ -278,7 +274,7 @@ async def attach_emergency_to_event(
 
     # «Zusammenführen» answered in the attach dialog: the target must be an open
     # card of the event the alarm is being attached to. Locked, because the merge
-    # appends to its «Notizen» (see api/incidents.py::lock_incident).
+    # appends to its «Notizen» (see crud/locking.py::lock_incident).
     merge_target: models.Incident | None = None
     if request_data.merge_into_incident_id is not None:
         merge_target = await lock_incident(db, request_data.merge_into_incident_id)
@@ -289,88 +285,15 @@ async def attach_emergency_to_event(
         ):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
-    # Derive incident (type/priority inferred from title/text)
-    incident_create = incident_create_from_emergency(
-        emergency,
-        request_data.event_id,
-        description_filter_prefixes=await settings_service.get_alarm_description_filter_prefixes(db),
-        description_label_prefixes=await settings_service.get_alarm_description_label_prefixes(db),
-    )
-
-    # Create the incident, carrying the alarm's provenance onto the board card. The request's
-    # commit releases the row lock, so incident and link land together.
-    incident = await incidents_crud.create_incident(
-        db=db,
-        incident=incident_create,
-        current_user=current_user,
-        request=request,
-        source=emergency.source or "divera",
-        source_ref=emergency.source_id,
-    )
-
-    # Not merged: flagged like bulk attach. The dialog's duplicate hint is advice and may not
-    # have loaded (or been read) before the click, so the card itself offers the merge.
-    if merge_target is None:
-        await duplicates.flag_possible_duplicate(db, incident)
-
-    # A re-attach takes the alarm (and its Rückmeldungen) away from another Ereignis.
-    previous_event_id = emergency.attached_to_event_id
-
-    # The alarm is the same Schadenplatz as an open card: its report becomes a
-    # Nachtrag there. The alarm's own incident row is still written and linked —
-    # it keeps source/source_ref, and it is what «Trennen» brings back.
-    merge_result: duplicates.MergeResult | None = None
-    if merge_target is not None:
-        try:
-            merge_result = await duplicates.merge_report(
-                db, report=incident, target=merge_target, user=current_user, request=request
-            )
-        except duplicates.MergeRefusedError as e:
-            await db.rollback()
-            raise e.to_http() from None
-
-    # Link emergency to event and incident (the request commits both)
+    # The request's commit releases the row lock, so card and link land together.
     try:
-        await divera_crud.attach_emergency_to_event(
-            db=db,
-            emergency_id=emergency_id,
-            event_id=request_data.event_id,
-            incident_id=incident.id,
+        attached = await attach(
+            db, emergency, request_data.event_id, actor=current_user, request=request, merge_into=merge_target
         )
-    except ValueError as e:
-        logger.warning("Failed to attach emergency %s to event: %s", emergency_id, e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.INVALID_REQUEST) from e
-
-    if merge_target is not None:
-        await db.refresh(merge_target)
-        target_response = await board_response(db, merge_target)
-        background_tasks.add_task(broadcast_incident_update, target_response.model_dump(mode="json"), "update")
-        if merge_result is not None:
-            await broadcast_repointed(db, background_tasks, merge_result.repointed_ids)
-        # Merged or not, the alarm now belongs to this Ereignis: «Anrückend» re-reads.
-        background_tasks.add_task(divera_responses.broadcast_link_change, request_data.event_id, merge_target.id)
-        if previous_event_id and previous_event_id != request_data.event_id:
-            background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
-        logger.info("Divera emergency %s merged into incident %s", emergency_id, merge_target.id)
-        return target_response
-
-    await db.refresh(incident)
-
-    # Convert to response schema
-    incident_response = await incident_display.incident_with_display(db, incident)
-
-    # Broadcast WebSocket update for instant board refresh
-    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
-    # «Anrückend» on both Ereignisse now reads differently.
-    background_tasks.add_task(divera_responses.broadcast_link_change, request_data.event_id, incident.id)
-    if previous_event_id and previous_event_id != request_data.event_id:
-        background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
-
-    logger.info(
-        f"Divera emergency {emergency_id} attached to event {request_data.event_id}, created incident {incident.id}"
-    )
-
-    return incident_response
+    except duplicates.MergeRefusedError as e:
+        await db.rollback()
+        raise e.to_http() from None
+    return attached.card
 
 
 @router.post("/emergencies/{emergency_id}/detach", status_code=status.HTTP_204_NO_CONTENT)
@@ -431,7 +354,6 @@ async def detach_emergency_from_event(
 async def bulk_attach_emergencies(
     request_data: schemas.BulkAttachEmergenciesRequest,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
 ) -> schemas.BulkAttachEmergenciesResponse:
@@ -448,93 +370,56 @@ async def bulk_attach_emergencies(
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
 
-    created_incidents = []
-    errors = []
+    created_incidents: list[models.Incident] = []
+    errors: list[str] = []
     # Read before the loop: a failed emergency rolls its savepoint back (below), which can
     # expire loaded objects, and a lazy reload from async code is a MissingGreenlet.
     event_is_training = event.training_flag
     rolled_back = False
-    # Read once, not per emergency — the station's description filters are the same for all.
-    description_filters = await settings_service.get_alarm_description_filter_prefixes(db)
-    description_labels = await settings_service.get_alarm_description_label_prefixes(db)
 
     for emergency_id in request_data.emergency_ids:
+        title: str | None = None
         try:
             # One savepoint per alarm: a failed one drops its own card (and lock), and the
-            # request's commit takes the others onto the board.
+            # request's commit takes the others onto the board. `attach` queues its broadcasts
+            # last, so nothing may fail after it in here.
             async with db.begin_nested():
                 # Locked like the single attach — see crud.divera.lock_divera_emergency
                 emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
                 if not emergency:
-                    errors.append(f"Emergency {emergency_id} not found")
+                    errors.append("Ein Alarm wurde nicht gefunden")
                     continue
+                title = emergency.title
 
-                # Skip if already attached to this event
                 if emergency.attached_to_event_id == request_data.event_id:
-                    errors.append(f"Emergency {emergency_id} already attached to this event")
+                    errors.append(f"«{title}»: Alarm ist diesem Ereignis bereits zugeordnet")
                     continue
-
-                # Allow re-attachment to different events
 
                 # Simulated training alarms never become real incidents (the reverse
                 # direction is allowed — see the note on the single-attach route)
                 if emergency.is_training and not event_is_training:
-                    errors.append(f"Emergency {emergency_id}: Übungs-Alarm kann nur an eine Übung angehängt werden")
+                    errors.append(f"«{title}»: Übungs-Alarm kann nur an eine Übung angehängt werden")
                     continue
 
-                # Create incident (type/priority inferred from title/text)
-                incident_create = incident_create_from_emergency(
-                    emergency,
-                    request_data.event_id,
-                    description_filter_prefixes=description_filters,
-                    description_label_prefixes=description_labels,
-                )
+                # Nobody answered a duplicate hint for each of up to 100 alarms: flagged
+                # like an automatic door, never merged (`attach` without `merge_into`).
+                attached = await attach(db, emergency, request_data.event_id, actor=current_user, request=request)
+                created_incidents.append(attached.incident)
 
-                incident = await incidents_crud.create_incident(
-                    db=db,
-                    incident=incident_create,
-                    current_user=current_user,
-                    request=request,
-                    source=emergency.source or "divera",
-                    source_ref=emergency.source_id,
-                )
-                # Nobody answered a duplicate hint for each of up to 100 alarms:
-                # flagged like an automatic door, never merged.
-                await duplicates.flag_possible_duplicate(db, incident)
-
-                previous_event_id = emergency.attached_to_event_id
-                # Link emergency (incident and link land in the same commit)
-                await divera_crud.attach_emergency_to_event(
-                    db=db,
-                    emergency_id=emergency_id,
-                    event_id=request_data.event_id,
-                    incident_id=incident.id,
-                )
-                await db.refresh(incident)
-
-                created_incidents.append(incident)
-                if previous_event_id and previous_event_id != request_data.event_id:
-                    background_tasks.add_task(divera_responses.broadcast_link_change, previous_event_id, None)
-
-        except Exception as e:
-            logger.error(f"Error attaching emergency {emergency_id}: {e}")
-            errors.append(f"Emergency {emergency_id}: {e!s}")
+        except Exception:
+            # The operator reads a German line; the exception goes to the log only.
+            logger.exception("Error attaching emergency %s", emergency_id)
+            errors.append(
+                f"«{title}»: Alarm konnte nicht angehängt werden"
+                if title
+                else "Ein Alarm konnte nicht angehängt werden"
+            )
             rolled_back = True
 
     if rolled_back:
         # The savepoint's rollback may have expired cards created before it; reload them.
         for incident in created_incidents:
             await db.refresh(incident)
-
-    if errors:
-        logger.warning(f"Bulk attach completed with errors: {errors}")
-
-    # Broadcast all created incidents for instant board refresh
-    for incident in created_incidents:
-        incident_response = await incident_display.incident_with_display(db, incident)
-        background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
-    if created_incidents:
-        background_tasks.add_task(divera_responses.broadcast_link_change, request_data.event_id, None)
 
     logger.info(f"Bulk attach completed: {len(created_incidents)} incidents created, {len(errors)} errors")
 
@@ -1265,14 +1150,8 @@ async def get_polling_status(
 
     Returns information about the polling fallback mechanism:
     - Whether polling is configured (access key set)
-    - Whether polling is currently active (users connected)
+    - Whether polling is currently active (it runs from boot whenever it is configured)
     - Last poll time
     - Poll and error counts
     """
-    stats = get_divera_poller_stats()
-    if stats is None:
-        return {
-            "configured": False,
-            "message": "Divera polling service not available",
-        }
-    return stats
+    return divera_poller.stats

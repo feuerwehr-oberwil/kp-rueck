@@ -376,6 +376,39 @@ async def test_attach_emergency_success(editor_client: AsyncClient, test_emergen
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_attaching_a_real_alarm_by_hand_stops_the_simulated_drives(
+    editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
+):
+    """Reality preempts the drill on every attach path, not only the automatic one: a simulated
+    drive would keep masking where the real vehicle is."""
+    from app.services.gps_simulation import SimulatedDrive, gps_simulation
+
+    await gps_simulation.start(
+        SimulatedDrive(
+            vehicle_id=uuid4(),
+            vehicle_name="TLF",
+            start_lat=47.5164,
+            start_lng=7.5618,
+            target_lat=47.5180,
+            target_lng=7.5559,
+            target_label="Übungsweg 1",
+            kind="incident",
+            cruise_kmh=40.0,
+            started_at=datetime.now(UTC),
+        )
+    )
+    try:
+        response = await editor_client.post(
+            f"/api/divera/emergencies/{test_emergency.id}/attach", json={"event_id": str(test_event.id)}
+        )
+        assert response.status_code == 201
+        assert gps_simulation.list_drives() == []
+    finally:
+        await gps_simulation.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_attach_emergency_not_found(editor_client: AsyncClient, test_event: Event):
     """Test attaching non-existent emergency."""
     response = await editor_client.post(
@@ -549,7 +582,7 @@ async def test_bulk_attach_success(editor_client: AsyncClient, db_session: Async
         assert response.status_code == 200
         data = response.json()
         assert data["created"] == []
-        assert len(data["errors"]) == 3  # all already attached
+        assert data["errors"] == [f"«{e.title}»: Alarm ist diesem Ereignis bereits zugeordnet" for e in emergencies]
 
 
 @pytest.mark.asyncio
