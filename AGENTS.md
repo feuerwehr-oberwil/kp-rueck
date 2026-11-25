@@ -41,10 +41,11 @@ More commands, the path without Docker and the test layout: [`docs/DEVELOPMENT.m
 
 ## Required PR checks
 
-Branch protection on `main` (22.11.2026) requires these CI jobs: Backend Tests, Backend Lint &
+Branch protection on `main` (25.11.2026) requires these CI jobs: Backend Tests, Backend Lint &
 Format, Frontend Type Check, Frontend Lint, Frontend Unit Tests, Frontend Build, Images (build +
-boot + smoke), E2E (@smoke), Visual (screenshots), Shared files match KP Front. The other CI jobs
-(secrets, security scans, mypy, print agent) fail red too: fix them before you ask for review.
+boot + smoke), E2E (@smoke), Visual (screenshots), Shared files match KP Front, Static analysis.
+The other CI jobs (secrets, security scans, mypy, print agent, demo sandbox) fail red too: fix
+them before you ask for review.
 The DCO job needs a `Signed-off-by` line on every non-merge commit: commit with `git commit -s`.
 
 - `just ci-static` covers lint, format, types, the build and the shared files before a push.
