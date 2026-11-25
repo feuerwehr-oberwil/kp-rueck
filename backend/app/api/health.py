@@ -171,12 +171,13 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
     # Check audit cleanup scheduler
     try:
         from ..background.audit_cleanup import get_effective_retention_days
-        from ..background.audit_cleanup import scheduler as audit_scheduler
+        from ..background.jobs import scheduled_job_running
 
-        if audit_scheduler:
+        running = scheduled_job_running("audit_cleanup")
+        if running is not None:
             health_status["components"]["audit_cleanup"] = {
-                "status": "healthy" if audit_scheduler.running else "stopped",
-                "running": audit_scheduler.running,
+                "status": "healthy" if running else "stopped",
+                "running": running,
                 "retention_days": get_effective_retention_days(),
             }
         else:

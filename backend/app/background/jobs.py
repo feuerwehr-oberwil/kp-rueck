@@ -47,6 +47,9 @@ from .fallback_print import fallback_print_task
 
 logger = logging.getLogger(__name__)
 
+#: The shared scheduler while the app runs (`/health/detailed` asks it, `scheduled_job_running`).
+_running: AsyncIOScheduler | None = None
+
 Where = Literal["also", "skip", "only"]
 Step = Callable[[], Awaitable[None] | None]
 
@@ -70,6 +73,25 @@ def _allowed(where: Where, here: bool) -> bool:
     return where == "also" or (where == "only") == here
 
 
+def scheduled_job_running(job_id: str) -> bool | None:
+    """For `/health/detailed`: None when the job is not scheduled, else whether its scheduler runs."""
+    if _running is None or _running.get_job(job_id) is None:
+        return None
+    return bool(_running.running)
+
+
+def _start_scheduler(scheduler: AsyncIOScheduler) -> None:
+    global _running
+    scheduler.start()
+    _running = scheduler
+
+
+def _stop_scheduler(scheduler: AsyncIOScheduler) -> None:
+    global _running
+    scheduler.shutdown(wait=False)
+    _running = None
+
+
 def lifespan_jobs(scheduler: AsyncIOScheduler) -> tuple[Job, ...]:
     """The table. Started top to bottom, stopped bottom to top."""
 
@@ -79,8 +101,8 @@ def lifespan_jobs(scheduler: AsyncIOScheduler) -> tuple[Job, ...]:
     return (
         Job(
             name="scheduler",
-            start=scheduler.start,
-            stop=lambda: scheduler.shutdown(wait=False),
+            start=lambda: _start_scheduler(scheduler),
+            stop=lambda: _stop_scheduler(scheduler),
             standby="also",
             demo="also",
         ),
