@@ -62,7 +62,7 @@ from ..models import (
     User,
     Vehicle,
 )
-from ..schemas.journal import JournalEntryOut
+from ..schemas.journal import JournalCategory, JournalEntryOut
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +140,7 @@ JOURNAL_AUDIT_ACTIONS: frozenset[str] = frozenset(
 )
 
 #: The category a filter chip groups kinds under. Mirrors `frontend/lib/journal.ts`.
-KIND_CATEGORY: dict[str, str] = {
+KIND_CATEGORY: dict[str, JournalCategory] = {
     "manual": "manual",
     "message": "field",
     "field": "field",

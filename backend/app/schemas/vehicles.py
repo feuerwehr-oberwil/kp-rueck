@@ -4,27 +4,21 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .common import AvailabilityStatus, legacy_status
 from .fields import RequiredText50, RequiredText100, SortOrder, reject_null
 
-
-def _vehicle_status(v: str) -> str:
-    """Map the legacy vehicle statuses onto the two the column holds, refuse anything else."""
-    valid_statuses = {"available", "unavailable"}
-    status_mapping = {
-        "assigned": "unavailable",
-        "planned": "unavailable",
-        "maintenance": "unavailable",
-    }
-    if v in status_mapping:
-        return status_mapping[v]
-    if v not in valid_statuses:
-        raise ValueError(f"Status must be one of: {', '.join(sorted(valid_statuses))}")
-    return v
-
-
-VehicleStatus = Annotated[str, AfterValidator(_vehicle_status)]
+VehicleStatus = Annotated[
+    AvailabilityStatus,
+    legacy_status(
+        {
+            "assigned": "unavailable",
+            "planned": "unavailable",
+            "maintenance": "unavailable",
+        }
+    ),
+]
 
 
 class VehicleBase(BaseModel):
@@ -150,7 +144,7 @@ class VehicleStatusResponse(BaseModel):
     id: UUID
     name: str
     type: str
-    status: str
+    status: AvailabilityStatus
     out_of_service: bool = False
     out_of_service_since: datetime | None = None
     radio_call_sign: str

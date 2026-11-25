@@ -25647,10 +25647,26 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "manual",
+              "status",
+              "incident",
+              "assignment",
+              "message",
+              "field",
+              "reko",
+              "alarm"
+            ],
             "title": "Kind"
           },
           "category": {
             "type": "string",
+            "enum": [
+              "manual",
+              "field",
+              "status",
+              "resources"
+            ],
             "title": "Category"
           },
           "text": {
@@ -25962,6 +25978,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status",
             "default": "available"
           },
@@ -26117,6 +26137,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status",
             "default": "available"
           },
@@ -26504,7 +26528,11 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"
@@ -27267,6 +27295,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "tags": {
@@ -27477,6 +27509,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "tags": {
@@ -27608,6 +27644,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "tags": {
@@ -27680,6 +27720,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status",
             "default": "available"
           },
@@ -27820,7 +27864,11 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"
@@ -29914,7 +29962,13 @@
           "power_supply": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "available",
+                  "unavailable",
+                  "emergency_needed"
+                ]
               },
               {
                 "type": "null"
@@ -30004,7 +30058,13 @@
           "power_supply": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "available",
+                  "unavailable",
+                  "emergency_needed"
+                ]
               },
               {
                 "type": "null"
@@ -30240,7 +30300,13 @@
           "power_supply": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "available",
+                  "unavailable",
+                  "emergency_needed"
+                ]
               },
               {
                 "type": "null"
@@ -32085,6 +32151,11 @@
           },
           "role": {
             "type": "string",
+            "enum": [
+              "admin",
+              "editor",
+              "viewer"
+            ],
             "title": "Role"
           },
           "display_name": {
@@ -32138,6 +32209,11 @@
           },
           "role": {
             "type": "string",
+            "enum": [
+              "admin",
+              "editor",
+              "viewer"
+            ],
             "title": "Role"
           },
           "display_name": {
@@ -32189,7 +32265,12 @@
           "role": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "editor",
+                  "viewer"
+                ]
               },
               {
                 "type": "null"
@@ -32284,6 +32365,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "radio_call_sign": {
@@ -32455,6 +32540,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "radio_call_sign": {
@@ -32639,6 +32728,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "out_of_service": {
@@ -32802,7 +32895,11 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"

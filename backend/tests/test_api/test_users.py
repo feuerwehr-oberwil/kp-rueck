@@ -316,17 +316,13 @@ class TestCreateUser:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("role", ["superadmin", "Admin", "", "editor "])
     async def test_unknown_role_is_refused(self, admin_client: AsyncClient, db_session: AsyncSession, role: str):
-        """Role is a free-form string in the schema; only this check stands between a
-        typo and a row the CHECK constraint would reject (or, worse, a role nothing
-        recognises). Note the copy names two of the three allowed roles — `viewer` is
-        accepted but not advertised.
-        """
+        """The schema's `UserRole` Literal stands between a typo and a row the CHECK
+        constraint would reject (or, worse, a role nothing recognises)."""
         response = await admin_client.post(
             "/api/users/",
             json={"username": "falsche_rolle", "password": NEW_PASSWORD, "role": role},
         )
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Ungültige Rolle. Erlaubt: admin, editor"
+        assert response.status_code == 422
 
         result = await db_session.execute(select(User).where(User.username == "falsche_rolle"))
         assert result.scalar_one_or_none() is None
@@ -513,8 +509,7 @@ class TestUpdateUser:
         self, admin_client: AsyncClient, target_user: User, db_session: AsyncSession
     ):
         response = await admin_client.put(f"/api/users/{target_user.id}", json={"role": "superadmin"})
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Ungültige Rolle. Erlaubt: admin, editor"
+        assert response.status_code == 422
 
         unchanged = await stored_user(db_session, target_user.id)
         assert unchanged is not None and unchanged.role == "editor"

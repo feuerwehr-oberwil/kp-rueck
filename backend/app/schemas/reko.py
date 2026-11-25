@@ -6,6 +6,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# The Reko form's «Stromversorgung». No CHECK on the column; every writer (the form, the
+# training generator, the seed) uses these four, and `rapport_rows.POWER_LABELS` says them.
+PowerSupply = Literal["unknown", "available", "unavailable", "emergency_needed"]
+
 
 class DangersAssessment(BaseModel):
     """Structured danger checklist."""
@@ -39,7 +43,7 @@ class RekoReportBase(BaseModel):
     is_relevant: bool | None = None
     dangers_json: DangersAssessment | None = None
     effort_json: EffortEstimation | None = None
-    power_supply: str | None = None  # 'available' | 'unavailable' | 'emergency_needed'
+    power_supply: PowerSupply | None = None
     summary_text: str | None = None
     additional_notes: str | None = None
 

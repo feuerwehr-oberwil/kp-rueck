@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 # The three things a resource assignment can point at. Not just a convention: both
 # assignment tables carry a `valid_resource_type` CHECK constraint over exactly these
@@ -14,6 +14,19 @@ from pydantic import BaseModel, ConfigDict
 # – the only API reference a self-hoster has, Swagger being off in production – said
 # "string" and a scripter learned the legal values from a 422.
 ResourceType = Literal["personnel", "vehicle", "material"]
+
+# The two statuses a person, vehicle or material row holds (CHECK `valid_personnel_status`,
+# `valid_vehicle_status`, `valid_material_status`).
+AvailabilityStatus = Literal["available", "unavailable"]
+
+
+def legacy_status(mapping: dict[str, AvailabilityStatus]) -> BeforeValidator:
+    """Map an older client's status word (``"maintenance"`` …) onto the two the column holds.
+
+    Use as ``Annotated[AvailabilityStatus, legacy_status({...})]``: a word outside the
+    mapping falls through to the Literal, which refuses it with a 422.
+    """
+    return BeforeValidator(lambda value: mapping.get(value, value) if isinstance(value, str) else value)
 
 
 class ShareLinkResponse(BaseModel):
