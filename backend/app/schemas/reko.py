@@ -1,16 +1,31 @@
 """Reko (reconnaissance) report schemas."""
 
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 from uuid import UUID
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
 # The Reko form's «Stromversorgung». No CHECK on the column; every writer (the form, the
 # training generator, the seed) uses these four, and `rapport_rows.POWER_LABELS` says them.
-# Older reports store "" for «not answered»; it reads as null rather than failing the Literal.
 PowerSupply = Literal["unknown", "available", "unavailable", "emergency_needed"]
+
+
+def _stored_power(value: object) -> object:
+    """A stored answer as the response says it. The column predates the Literal and took any
+    string: "" (not answered) reads as null, any other word outside the four as «unknown»,
+    so an old report still opens instead of answering 500."""
+    if value == "":
+        return None
+    if isinstance(value, str) and value not in get_args(PowerSupply):
+        return "unknown"
+    return value
+
+
+# Writes: one of the four, or null ("" from an older client counts as null).
 OptionalPowerSupply = Annotated[PowerSupply | None, BeforeValidator(lambda value: None if value == "" else value)]
+# Reads: whatever an older row holds (`_stored_power`).
+StoredPowerSupply = Annotated[PowerSupply | None, BeforeValidator(_stored_power)]
 
 
 class DangersAssessment(BaseModel):
@@ -72,6 +87,7 @@ class RekoReportResponse(RekoReportBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    power_supply: StoredPowerSupply = None
     id: UUID
     incident_id: UUID
     is_draft: bool = False

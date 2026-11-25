@@ -33715,6 +33715,10 @@
             "type": "string",
             "title": "Device Name"
           },
+          "unique_id": {
+            "type": "string",
+            "title": "Unique Id"
+          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -33777,12 +33781,13 @@
         "required": [
           "device_id",
           "device_name",
+          "unique_id",
           "status",
           "latitude",
           "longitude"
         ],
         "title": "ViewerVehiclePosition",
-        "description": "A vehicle's last GPS fix on a shared display – the Traccar row without its device id."
+        "description": "A vehicle's last GPS fix on a shared display."
       },
       "WarningText": {
         "properties": {

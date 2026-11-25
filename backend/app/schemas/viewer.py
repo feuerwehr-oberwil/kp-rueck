@@ -248,10 +248,11 @@ class ViewerSpecialFunction(BaseModel):
 
 
 class ViewerVehiclePosition(BaseModel):
-    """A vehicle's last GPS fix on a shared display – the Traccar row without its device id."""
+    """A vehicle's last GPS fix on a shared display."""
 
     device_id: int
     device_name: str
+    unique_id: str
     status: str
     latitude: float
     longitude: float

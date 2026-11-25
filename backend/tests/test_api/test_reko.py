@@ -572,15 +572,16 @@ async def test_update_report_and_submit(editor_client: AsyncClient, test_reko_re
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_a_legacy_blank_power_supply_reads_as_unanswered(
-    editor_client: AsyncClient, db_session: AsyncSession, test_reko_report: RekoReport
+@pytest.mark.parametrize(("stored", "read"), [("", None), ("Notstrom", "unknown")])
+async def test_an_older_power_supply_still_opens(
+    editor_client: AsyncClient, db_session: AsyncSession, test_reko_report: RekoReport, stored: str, read: str | None
 ):
-    """Older reports stored "" for «Stromversorgung» – the PowerSupply Literal must not 500 on them."""
-    test_reko_report.power_supply = ""
+    """The column took any string before the PowerSupply Literal – such a report must not 500."""
+    test_reko_report.power_supply = stored
     await db_session.commit()
     response = await editor_client.get(f"/api/reko/{test_reko_report.id}")
     assert response.status_code == 200
-    assert response.json()["power_supply"] is None
+    assert response.json()["power_supply"] == read
 
 
 # ============================================
