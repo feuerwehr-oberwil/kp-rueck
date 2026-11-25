@@ -50,9 +50,17 @@
  * the rule and two buttons side by side were the thing to be confused; the
  * second path is for whoever looks for it. Einsatzart, Telefonisch/Vom Feld
  * and the Auftrag carry over into the next card — in a chain they are the same.
+ *
+ * WAITS FOR THE SERVER (hunt 2026-11-24): both ways out empty the form only once
+ * the card exists. A refused or failed create keeps every field and the dialog
+ * open, and says so above the buttons — the caller's address and number are
+ * often the only copy. While a create (or a «Zusammenführen») is on its way the
+ * form is locked: no second press, no Ctrl ↵, no edits the answer would wipe,
+ * and the dialog does not close.
  */
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react"
+import { flushSync } from "react-dom"
 import { useTranslations } from "next-intl"
 import { CONTACT_PHONE_MAX, sanitizePhoneInput } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -90,6 +98,7 @@ import { DuplicateHint } from "@/components/duplicates/duplicate-hint"
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning"
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
 import { Kbd } from "@/components/ui/kbd"
+import { ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMac } from "@/lib/hooks/use-is-mac"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
@@ -99,7 +108,8 @@ const PHONE_FIELD_ID = "contact-phone"
 interface NewEmergencyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => void
+  /** Resolves true once the card exists; false keeps the form as typed (the store toasts why). */
+  onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<boolean>
   /** When set, the created incident is attached to this Auftrag (streamlined "+ Stop"). */
   defaultGroupId?: string | null
   /** The Ereignis the card goes into — what the duplicate lookup is scoped to. */
@@ -191,9 +201,38 @@ export function NewEmergencyModal({
     return true
   }
 
-  const handleSubmit = () => {
-    if (!validateForSubmit()) return
-    onCreateOperation(formData)
+  // WAITS FOR THE SERVER (header): one write at a time – create or merge. The ref
+  // guards a second press before React has re-rendered the locked form;
+  // `createFailed` is the line above the buttons.
+  const inFlight = useRef(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [createFailed, setCreateFailed] = useState(false)
+  // The locked fieldset takes the focus away (a disabled control cannot hold it):
+  // unlock synchronously, then hand it back – Ctrl ↵ again after a failure works.
+  // From the menu the item is gone by then: the Einsatzort takes it instead.
+  const whileLocked = async <T,>(write: () => Promise<T>): Promise<T> => {
+    const focused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    inFlight.current = true
+    setSubmitting(true)
+    try {
+      return await write()
+    } finally {
+      inFlight.current = false
+      flushSync(() => setSubmitting(false))
+      if (focused?.isConnected) focused.focus()
+      else focusFirstBlockingField([LOCATION_FIELD_ID])
+    }
+  }
+  const create = async (): Promise<boolean> => {
+    if (inFlight.current || !validateForSubmit()) return false
+    setCreateFailed(false)
+    const created = await whileLocked(() => onCreateOperation(formData))
+    setCreateFailed(!created)
+    return created
+  }
+
+  const handleSubmit = async () => {
+    if (!(await create())) return
     resetForm()
     onOpenChange(false)
   }
@@ -203,10 +242,9 @@ export function NewEmergencyModal({
   // Chosen from the menu, the cursor can only move once the menu has let go
   // of focus — so the item sets this and `onCloseAutoFocus` does the moving.
   const focusOrtAfterMenu = useRef(false)
-  const handleCreateAndNext = () => {
+  const handleCreateAndNext = async () => {
     focusOrtAfterMenu.current = true
-    if (!validateForSubmit()) return
-    onCreateOperation(formData)
+    if (!(await create())) return
     resetForm({ incidentType: formData.incidentType, source: formData.source, groupId: formData.groupId })
     focusFirstBlockingField([LOCATION_FIELD_ID])
   }
@@ -214,7 +252,7 @@ export function NewEmergencyModal({
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
-      handleCreateAndNext()
+      void handleCreateAndNext()
     }
   }
 
@@ -223,6 +261,7 @@ export function NewEmergencyModal({
     setTouched({})
     setShowValidationErrors(false)
     setDismissedKey(null)
+    setCreateFailed(false)
   }
 
   const resetAndClose = () => {
@@ -241,6 +280,11 @@ export function NewEmergencyModal({
     isOpen: open && isMobile,
     onClose: hasTypedInput ? resetAndClose : () => onOpenChange(false),
   })
+  // ✕, Esc, the backdrop and a swipe wait while a write is on its way (header).
+  const unlessLocked = (handle: (open: boolean) => void) => (next: boolean) => {
+    if (!next && inFlight.current) return
+    handle(next)
+  }
 
   // «Möglicherweise dasselbe wie …» — see the header. Asked only for an editor
   // with an Ereignis, and only once there is something to compare.
@@ -261,10 +305,10 @@ export function NewEmergencyModal({
   const shownCandidates = duplicateKey !== null && duplicateKey !== dismissedKey ? candidates : []
 
   const handleMerge = async (candidate: ApiDuplicateCandidate) => {
-    if (!onMergeInto) return
+    if (!onMergeInto || inFlight.current) return
     setMergingId(candidate.id)
     try {
-      if (await onMergeInto(formData, candidate.id)) resetAndClose()
+      if (await whileLocked(() => onMergeInto(formData, candidate.id))) resetAndClose()
     } finally {
       setMergingId(null)
     }
@@ -282,6 +326,9 @@ export function NewEmergencyModal({
             twice (UX-DESKTOP-14). Phone: no extra space between the stacked fields
             — their own 12px padding + the label's tight line box make the 16px
             group gap (hill climb r7), so the Merkmale chips reach the screen. */}
+        {/* Locked while a write is on its way (WAITS FOR THE SERVER in the header);
+            `contents`, so the fieldset adds no box of its own. */}
+        <fieldset disabled={submitting} className="contents">
         <div className={isMobile ? undefined : "space-y-1 py-2"}>
             {/* Location carries its own label and its own map/coordinate buttons,
                 so it lays itself out as a row rather than being wrapped in one.
@@ -458,14 +505,20 @@ export function NewEmergencyModal({
               </p>
             )}
         </div>
+        </fieldset>
 
     </>
   )
 
   // «Abbrechen» throws the call away: the next «Neuer Einsatz» opens empty. (✕, Esc and the
   // phone's swipe only close — what was typed stays for the next open, see PHONE below.)
+  // WAITS FOR THE SERVER (header): said above the buttons, where the press was.
+  const createFailedMessage = createFailed && (
+    <FormMessage className={isMobile ? "px-6 pt-3" : undefined}>{t('newEmergency.createFailed')}</FormMessage>
+  )
+
   const cancelButton = (
-    <Button variant="outline" onClick={resetAndClose}>
+    <Button variant="outline" onClick={resetAndClose} disabled={submitting}>
       {t('common.cancel')}
     </Button>
   )
@@ -474,14 +527,21 @@ export function NewEmergencyModal({
   // arrow that holds the second way out (TWO WAYS OUT in the header).
   const createButton = (
     <div className="flex" data-slot="create-split">
-      <Button onClick={handleSubmit} className="hover-delight flex-1 rounded-r-none">
-        <Plus className="h-4 w-4" />
+      <Button
+        onClick={() => void handleSubmit()}
+        disabled={submitting}
+        aria-busy={submitting}
+        className="hover-delight flex-1 rounded-r-none"
+      >
+        {/* The busy button's sign, beside its label (docs/DESIGN.md): the write is on its way. */}
+        {submitting ? <ShellLoader className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         {t('newEmergency.create')}
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={t('newEmergency.moreActions')}
+            disabled={submitting}
             className="rounded-l-none border-l border-action-foreground/25 px-2.5 has-[>svg]:px-2.5"
           >
             <ChevronDown className="h-4 w-4" />
@@ -501,7 +561,7 @@ export function NewEmergencyModal({
           {/* The one place the shortcut is named (U13 C): Enter in the Meldung is
               a newline, so a ↵ on the main button would tell half the truth. Same
               keycap as the footer's «Ctrl K»; ⌘ on a Mac, where the key is ⌘. */}
-          <DropdownMenuItem onSelect={handleCreateAndNext}>
+          <DropdownMenuItem onSelect={() => void handleCreateAndNext()}>
             <Plus className="h-4 w-4" />
             {t('newEmergency.createAndNext')}
             <DropdownMenuShortcut className="pl-4 tracking-normal">
@@ -522,7 +582,7 @@ export function NewEmergencyModal({
   if (isMobile) {
     return (
       <>
-      <Sheet open={open} onOpenChange={closeGuard.handleOpenChange}>
+      <Sheet open={open} onOpenChange={unlessLocked(closeGuard.handleOpenChange)}>
         {/* A surface like the desk dialog: the Einsatzort's map picker opens inside the sheet
             as a step (owner pick 5A), not as a centred desk card over it. */}
         <SheetContent side="bottom" surface={t('common.newIncident')} className="modal-h-tall gap-0 p-0 rounded-t-2xl" onKeyDown={onKeyDown}>
@@ -536,6 +596,7 @@ export function NewEmergencyModal({
             <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
           </SheetHeader>
           <SheetBody className="px-6 pt-1 pb-4 [:root[data-kb]_&]:-mt-2 [:root[data-kb]_&]:pt-0">{fields}</SheetBody>
+          {createFailedMessage}
           <SheetFooter className="mt-0 flex-row gap-2 border-t px-6 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
             {cancelButton}
             {createButton}
@@ -548,7 +609,7 @@ export function NewEmergencyModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={unlessLocked(onOpenChange)}>
       {/* M: a form (dialog-frame.ts). The map picker of the Einsatzort opens inside it as
           a step (`surface`, owner pick 5A) instead of a wider dialog on top. */}
       <DialogContent size="md" surface={t('common.newIncident')} onKeyDown={onKeyDown}>
@@ -559,6 +620,8 @@ export function NewEmergencyModal({
         </DialogHeader>
 
         {fields}
+
+        {createFailedMessage}
 
         {/* Actions — Abbrechen left, primary right, like every other dialog. */}
         <DialogFooter className="pt-1">

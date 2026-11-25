@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import CurrentEditor
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
+from ..crud.locking import lock_incidents_with_groups
 from ..crud.materials import apply_out_of_service
 from ..database import after_commit, async_session_maker, get_db
 from ..models import (
@@ -563,10 +564,13 @@ async def simulate_rapports_bulk(
     covered_count = int(len(candidates) * RAPPORT_SIM_PROFILE.bulk_coverage)
     chosen = set(rng.sample(range(len(candidates)), covered_count)) if covered_count else set()
 
+    picked = [incident for index, incident in enumerate(candidates) if index in chosen]
+    # All their locks first, in the one order (`crud/locking.py`): each filing takes its Einsatz
+    # and Auftrag lock, and two bulk runs taking them stop by stop could deadlock on A→B / B→A.
+    await lock_incidents_with_groups(db, [incident.id for incident in picked])
     rapports = [
         await file_simulated_rapport(db, incident, current_user=current_user, rng=rng, request=request)
-        for index, incident in enumerate(candidates)
-        if index in chosen
+        for incident in picked
     ]
 
     skipped = len(candidates) - len(rapports)
@@ -862,11 +866,13 @@ async def simulate_vehicle_breakdown(
     await record_history(
         db, event_id, f"Fahrzeug fällt aus · {vehicle.name} · {place(incident)}", incident_id=incident.id
     )
-    await db.commit()
+    # Flushed: the request's commit is the one commit. A failure before it rolls the breakdown
+    # back with the 500, so a retry does not take a SECOND vehicle out (hunt 2026-11-24).
+    await db.flush()
     await db.refresh(vehicle)
 
-    # A broken-down vehicle stops rolling.
-    await gps_simulation.stop(vehicle.name)
+    # A broken-down vehicle stops rolling – once the breakdown is committed.
+    after_commit(db, gps_simulation.stop, vehicle.name)
 
     # Plain dict instead of schemas.Vehicle: its validator rejects the empty
     # radio_call_sign the DB default allows, and this is a broadcast, not input.

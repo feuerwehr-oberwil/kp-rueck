@@ -770,6 +770,10 @@
       "showOnBoard": "Afficher sur le tableau",
       "moreItems": "+{count} autres",
       "confirmAnyway": "Archiver quand même",
+      "checking": "Vérification des interventions ouvertes, des retraits et des présences …",
+      "checkFailed": "Impossible de charger la liste des points ouverts",
+      "retryCheck": "Recharger",
+      "confirmUnchecked": "Archiver sans vérification",
       "cancel": "Annuler",
       "confirm": "Archiver"
     },
@@ -2101,7 +2105,9 @@
       "rapportSource": "D’après le rapport de {name}",
       "rapportSourceDraft": "D’après le brouillon de rapport de {name}",
       "answeredHint": "Selon le rapport",
-      "consumableHint": "Consommable – ne revient pas"
+      "consumableHint": "Consommable – ne revient pas",
+      "unknownHint": "Inconnu – à demander",
+      "rapportLoading": "Chargement du rapport …"
     },
     "disponiert": {
       "whatsappCopied": "Message WhatsApp copié",
@@ -2127,6 +2133,7 @@
       "auftragContext": "Mission « {name} » · étape {pos}/{total}",
       "copyWhatsapp": "Copier le message WhatsApp",
       "sendDivera": "Envoyer la convocation",
+      "markSpoken": "Transmis",
       "auftragBatchQuestion": "La mission « {name} » compte {count} autres étapes que personne n’a encore prises.",
       "auftragBatchAction": "{count, plural, one {Engager aussi l’autre étape} other {Engager aussi les # autres étapes}}",
       "auftragBatchDone": "{count, plural, one {# étape supplémentaire engagée} other {# étapes supplémentaires engagées}}"
@@ -2239,7 +2246,8 @@
       "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-⁠déposer une fois l’intervention créée.",
       "create": "Créer l’intervention",
       "createAndNext": "Créer et saisir la suivante",
-      "moreActions": "Autres actions"
+      "moreActions": "Autres actions",
+      "createFailed": "Pas créée – tes saisies sont toujours là. Vérifie la connexion et réessaie."
     },
     "detail": {
       "rekoAuftrag": "Reconnaissance",
@@ -2616,7 +2624,11 @@
       "stopConfirm": "Terminer l'étape",
       "stopToastTitle": "Arrêt {location} terminé",
       "stopConfirmAndNext": "Terminer & prochaine étape en intervention",
-      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Cette étape ne libère rien – les moyens appartiennent à la mission et suivent."
+      "stopDescriptionNoRelease": "<hl>{location}</hl> est terminé, la mission « {auftrag} » se poursuit. Cette étape ne libère rien – les moyens appartiennent à la mission et suivent.",
+      "statusLabel": "Statut",
+      "crewReleased": "Personnel libéré",
+      "vehiclesReleased": "{count, plural, one {Véhicule libéré} other {Véhicules libérés}}",
+      "materialLabel": "Matériel"
     },
     "statusCorrection": {
       "title": "Corriger le statut ?",
@@ -3151,6 +3163,7 @@
       "amWartenClearedDescription": "L’intervention est en cours – la marque d’attente a été retirée automatiquement.",
       "statusNotChangedTitle": "Statut non modifié",
       "statusNotChangedDescription": "L’intervention a été ramenée à son dernier état.",
+      "statusNotChangedStaleDescription": "Le rechargement a échoué – la carte est peut-être encore dans la mauvaise colonne.",
       "updateFailedTitle": "Non enregistré",
       "updateFailedDescription": "L’intervention n’a pas pu être actualisée.",
       "reorderFailedTitle": "Ordre non enregistré",
@@ -3343,7 +3356,8 @@
         "elsewhere": "Entre-temps attribué à {where} – cette attribution plus récente est conservée.",
         "outOfService": "{resource} n’est pas opérationnel.",
         "resourceGone": "{resource} n’est plus sur le tableau.",
-        "unavailable": "{resource} est signalé comme indisponible."
+        "unavailable": "{resource} est signalé comme indisponible.",
+        "changedMeanwhile": "Entre-temps attribué ailleurs ou supprimé – l’attribution plus récente reste."
       }
     },
     "planned": {

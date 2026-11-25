@@ -75,12 +75,14 @@ async def _write_once(db: AsyncSession, event_id: uuid.UUID, entry: JournalEntry
     client_id = entry.client_id or ""
     existing = await _by_client_id(db, event_id, client_id)
     if existing is None:
-        db.add(entry)
         try:
-            await db.commit()
+            # A savepoint, not a commit: the request's commit is the one commit, so nothing is
+            # durable before the answer can no longer fail (hunt 2026-11-24).
+            async with db.begin_nested():
+                db.add(entry)
+                await db.flush()
         except IntegrityError:
             # the same line raced in twice (double tap, retry overtaking the original)
-            await db.rollback()
             existing = await _by_client_id(db, event_id, client_id)
             if existing is None:
                 raise

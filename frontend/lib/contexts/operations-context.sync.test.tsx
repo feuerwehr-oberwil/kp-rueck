@@ -419,6 +419,26 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     expect(result.current.sync.loadError).toBeNull()
   })
 
+  it("polls again after a load that kept the old settings, though the socket is up", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    api.getAllSettings.mockRejectedValueOnce(new Error("500"))
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.ops.operations).toHaveLength(1))
+    expect(result.current.ops.homeCity).toBe("")
+
+    // No socket event is coming: only the poll can fetch the settings again.
+    api.getAllSettings.mockResolvedValue({ home_city: "Oberwil" })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+
+    await waitFor(() => expect(result.current.ops.homeCity).toBe("Oberwil"))
+  })
+
   it("retries by polling even with the socket up, and a good load clears the error", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
@@ -438,5 +458,107 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     expect(result.current.ops.operations.map((o) => o.id)).toEqual(["1"])
     expect(result.current.sync.lastSyncAt).not.toBeNull()
     expect(result.current.ops.boardNeverLoaded).toBe(false)
+  })
+})
+
+// KP hunt 2026-11-24 (state-sync F1, F3; ux-flows F6): the board never presents a board it
+// did not load as current.
+describe("OperationsProvider — the board never looks current when it is not", () => {
+  it("a failed reload is never certified by the next «same version» poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.ops.isLoaded).toBe(true))
+
+    // A reload fails: the warning is up and the fallback poll starts.
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+
+    // Another desk changed something: the poll reads v2 and loads – and that load fails too.
+    api.getSyncVersion.mockResolvedValue({ version: "v2" })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+
+    // The next tick still reads v2, but the board on screen is v1: load again, keep the warning.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    expect(result.current.sync.loadError).not.toBeNull()
+  })
+
+  it("an explicit refresh (R / F5) says whether it got through", async () => {
+    const { result } = await renderLoaded()
+
+    let outcome: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      outcome = result.current.refreshOperations()
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+    await expect(outcome).resolves.toBe(false)
+
+    act(() => {
+      outcome = result.current.refreshOperations()
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await expect(outcome).resolves.toBe(true)
+  })
+
+  it("a refresh whose snapshot a newer edit dropped waits for the snapshot that lands", async () => {
+    const { result } = await renderLoaded()
+
+    let settled = false
+    let outcome: Promise<boolean> = Promise.resolve(false)
+    act(() => {
+      outcome = result.current.refreshOperations().then((ok) => {
+        settled = true
+        return ok
+      })
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    // Another desk's «bleibt vor Ort» lands while the refresh fetches: its snapshot is dropped.
+    act(() => ws.emit("assignment_update", { action: "driver_stay", data: { id: "a1", incident_id: "1", driver_stay: true } }))
+    await answer([incident("1")])
+    expect(settled).toBe(false)
+
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await expect(outcome).resolves.toBe(true)
+  })
+
+  it("a «bleibt vor Ort» from another desk is not turned back by a reload that read before it", async () => {
+    const tlf = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
+    const assignment = (driverStay: boolean) => ({
+      "1": [{ id: "a1", resource_type: "vehicle", resource_id: "v1", driver_stay: driverStay }],
+    })
+    api.getVehicles.mockResolvedValue([tlf])
+    api.getAssignmentsByEvent.mockResolvedValue(assignment(false))
+    const { result } = await renderLoaded()
+    const stays = () => result.current.operations[0].vehicles[0]?.driverStay
+    expect(stays()).toBe(false)
+
+    // A reload is out and has already read «kehrt zurück».
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    act(() =>
+      ws.emit("assignment_update", { action: "driver_stay", data: { id: "a1", incident_id: "1", driver_stay: true } }),
+    )
+    expect(stays()).toBe(true)
+
+    api.getAssignmentsByEvent.mockResolvedValue(assignment(true))
+    await answer([incident("1")])
+    expect(stays()).toBe(true)
+    // The outdated snapshot is replaced by a fresh one, which knows.
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    expect(stays()).toBe(true)
   })
 })

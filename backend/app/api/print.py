@@ -29,8 +29,8 @@ from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
 from ..crud import feld as feld_crud
-from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, build_assignment_payload, requeue_lost_jobs
-from ..database import execute_dml, get_db
+from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, STALE_CLAIM_ERROR, build_assignment_payload, requeue_lost_jobs
+from ..database import after_commit, execute_dml, get_db
 from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
 from ..services import print_signal
 from ..services import settings as settings_service
@@ -473,10 +473,12 @@ async def queue_assignment_print(
         event_id=incident.event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    # After the commit, so an agent woken by this immediately sees the row.
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued assignment print job {job.id} for incident {incident_id}")
     return job
@@ -509,9 +511,12 @@ async def queue_board_print(
         event_id=request.event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued board print job {job.id} for event {request.event_id}")
     return job
@@ -570,9 +575,12 @@ async def queue_abholliste_print(
         event_id=event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued Abholliste print job {job.id} for event {event_id}")
     return job
@@ -597,9 +605,12 @@ async def queue_test_print(
         payload=payload,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued test print job {job.id} by user {current_user.username}")
     return job
@@ -637,9 +648,12 @@ async def queue_qr_code_print(
         event_id=request.event_id,
     )
     db.add(job)
-    await db.commit()
+    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
+    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
+    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
+    await db.flush()
     await db.refresh(job)
-    print_signal.notify_job_queued()
+    after_commit(db, print_signal.notify_job_queued)
 
     logger.info(f"Queued QR-code print job {job.id} by user {current_user.username}")
     return job
@@ -685,10 +699,12 @@ async def get_pending_jobs(
         if jobs or remaining <= 0:
             return jobs
 
-        # End the read transaction before parking. Without this the session would hold a
+        # End the transaction before parking. Without this the session would hold a
         # pooled connection idle-in-transaction for the whole hang, which is how a long poll
-        # quietly turns into a connection leak under any concurrency.
-        await db.rollback()
+        # quietly turns into a connection leak under any concurrency. A COMMIT, not a
+        # rollback: the reaper's writes (a retired claim, an expired job) must stand even if
+        # the agent hangs up during the wait (hunt 2026-11-24).
+        await db.commit()
         with contextlib.suppress(TimeoutError):
             async with asyncio.timeout(min(remaining, LONG_POLL_RECHECK_SECONDS)):
                 await print_signal.wait_for_job()
@@ -787,7 +803,10 @@ async def complete_print_job(
     if not job:
         raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
 
-    if job.status == update.status.value and job.status in ("completed", "failed"):
+    # A report that arrives after the reaper retired the silent claim (`STALE_CLAIM_ERROR`) is
+    # the agent's answer after all – it counts, «failed» with the printer's own error too.
+    retired_silent = job.status == "failed" and job.error_message == STALE_CLAIM_ERROR
+    if job.status == update.status.value and job.status in ("completed", "failed") and not retired_silent:
         # A repeat of the report that already landed. The agent retries its completion report
         # on a network error (tools/print-agent/protocols/rueck.py), and a lost RESPONSE looks
         # exactly like a lost request from its side — so the first attempt may well have been
@@ -795,7 +814,7 @@ async def complete_print_job(
         # second toast in the operations room.
         return job
 
-    if job.status not in ("pending", "printing"):
+    if job.status not in ("pending", "printing") and not retired_silent:
         raise HTTPException(
             status_code=409, detail=f"Druckauftrag kann nicht abgeschlossen werden (Status: {job.status})"
         )

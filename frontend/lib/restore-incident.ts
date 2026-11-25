@@ -3,7 +3,7 @@ import { apiClient, ApiError } from '@/lib/api-client'
 import { translateOutsideReact } from '@/lib/i18n-messages'
 
 /** Both the delete toast and the event journal recover the same soft-deleted card. */
-export async function restoreDeletedIncident(id: string, refresh: () => Promise<void>): Promise<boolean> {
+export async function restoreDeletedIncident(id: string, refresh: () => Promise<unknown>): Promise<boolean> {
   let alreadyRestored = false
   try {
     if (!await apiClient.restoreIncident(id)) throw new Error('No restore response')

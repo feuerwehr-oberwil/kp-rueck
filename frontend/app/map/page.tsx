@@ -1223,6 +1223,7 @@ export default function MapPage() {
                   planning={planning}
                   onExit={exitPlanning}
                   canEdit={isEditor}
+                  onRequestStatus={dialogs.statusWorkflow.requestStatusChange}
                 />
               ) : rekoModeActive ? (
                 <RekoModusPanel

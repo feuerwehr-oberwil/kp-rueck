@@ -11,7 +11,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crud.print_jobs import MAX_PRINT_ATTEMPTS, requeue_lost_jobs
+from app.crud.print_jobs import MAX_PRINT_ATTEMPTS, STALE_CLAIM_ERROR, requeue_lost_jobs
 from app.models import PrintJob
 
 
@@ -84,7 +84,9 @@ async def test_recently_failed_job_waits_out_the_delay(db_session: AsyncSession)
 
 @pytest.mark.asyncio
 async def test_retry_cap_is_final(db_session: AsyncSession):
-    """A broken printer must not loop forever — attempts are capped."""
+    """A broken printer must not loop forever — attempts are capped. A claim that went silent
+    on its last attempt is retired as failed with a reason – it used to stay «printing»
+    forever, with nothing pending and no error on the Drucker page (hunt 2026-11-24)."""
     failed = _job("failed", retry_count=MAX_PRINT_ATTEMPTS, completed_ago=600)
     stale = _job("printing", retry_count=MAX_PRINT_ATTEMPTS, claimed_ago=600)
     db_session.add_all([failed, stale])
@@ -94,7 +96,8 @@ async def test_retry_cap_is_final(db_session: AsyncSession):
     await db_session.refresh(failed)
     await db_session.refresh(stale)
     assert failed.status == "failed"
-    assert stale.status == "printing"
+    assert (stale.status, stale.error_message) == ("failed", STALE_CLAIM_ERROR)
+    assert stale.completed_at is not None
 
 
 @pytest.mark.asyncio

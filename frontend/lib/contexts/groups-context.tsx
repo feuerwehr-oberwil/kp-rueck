@@ -77,6 +77,11 @@ interface GroupsContextType {
    * server's locks. "changed" is not toasted here: the caller says it.
    */
   addStopForVehicle: (groupId: string, incidentId: string, vehicleId: string) => Promise<VehicleStopAddResult>
+  /**
+   * «Rückgängig» of a released stop: back onto `groupId` only if it is still in no Auftrag –
+   * another board may have put it on its own meanwhile. "changed" is not toasted here.
+   */
+  restoreStop: (groupId: string, incidentId: string) => Promise<VehicleStopAddResult>
   removeStop: (groupId: string, incidentId: string) => Promise<boolean>
   /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
   assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
@@ -557,13 +562,14 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
   const postStops = useCallback(async (
     groupId: string,
     incidentIds: string[],
-    viaVehicleId?: string,
+    guard: { viaVehicleId?: string; onlyUnassigned?: boolean } = {},
   ): Promise<VehicleStopAddResult> => {
+    const guarded = Boolean(guard.viaVehicleId || guard.onlyUnassigned)
     mutationEpochRef.current++
 
     const previous = groups.find((g) => g.id === groupId)
     // The #23 question outlived its Auftrag (deleted meanwhile): out of date, not a failure.
-    if (!previous) return viaVehicleId ? "changed" : "failed"
+    if (!previous) return guarded ? "changed" : "failed"
     if (incidentIds.length === 0) return "failed"
 
     // Optimistically append the new stops (dedup) and bump the progress total.
@@ -581,13 +587,13 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     )
 
     try {
-      const updated = apiGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds, viaVehicleId))
+      const updated = apiGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds, guard))
       setGroups((gs) => gs.map((g) => (g.id === groupId ? updated : g)))
       return "added"
     } catch (error) {
       setGroups((gs) => gs.map((g) => (g.id === groupId ? previous : g)))
       // 409: the Einsatz or the vehicle's Auftrag changed; 404: the Auftrag is gone.
-      if (viaVehicleId && error instanceof ApiError && (error.status === 409 || error.status === 404)) {
+      if (guarded && error instanceof ApiError && (error.status === 409 || error.status === 404)) {
         void refreshGroups()
         return "changed"
       }
@@ -602,7 +608,11 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
     [postStops],
   )
   const addStopForVehicle = useCallback(
-    (groupId: string, incidentId: string, vehicleId: string) => postStops(groupId, [incidentId], vehicleId),
+    (groupId: string, incidentId: string, vehicleId: string) => postStops(groupId, [incidentId], { viaVehicleId: vehicleId }),
+    [postStops],
+  )
+  const restoreStop = useCallback(
+    (groupId: string, incidentId: string) => postStops(groupId, [incidentId], { onlyUnassigned: true }),
     [postStops],
   )
 
@@ -874,6 +884,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       restoreGroupStops,
       addStops,
       addStopForVehicle,
+      restoreStop,
       removeStop,
       assignResource,
       unassignResource,
@@ -896,6 +907,7 @@ export function GroupsProvider({ children }: { children: ReactNode }) {
       restoreGroupStops,
       addStops,
       addStopForVehicle,
+      restoreStop,
       removeStop,
       assignResource,
       unassignResource,

@@ -584,3 +584,50 @@ async def test_a_nonsense_type_falls_back_to_inference_instead_of_losing_the_ala
     incident = await db_session.get(Incident, UUID(incident_id))
     assert incident is not None
     assert incident.type == "brandbekaempfung"  # inferred from "FEUER Dachstockbrand"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+@pytest.mark.parametrize(
+    ("overrides", "title", "description", "pin"),
+    [
+        # The intake contract takes 255 / 5000; the card holds 200 / 2000 – the card copy is cut,
+        # the pool keeps every character.
+        ({"title": "A" * 255}, "A" * 199 + "…", None, True),
+        ({"text": "W" * 5000}, None, "W" * 1999 + "…", True),
+        # Latitude 0 is a coordinate, not a missing one.
+        ({"lat": 0.0, "lng": 7.5}, None, None, True),
+        # Divera's «no location» is 0, 0: a card without a pin.
+        ({"lat": 0.0, "lng": 0.0}, None, None, False),
+    ],
+    ids=["long-title", "long-text", "zero-latitude", "null-island"],
+)
+async def test_a_valid_alarm_reaches_the_board(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    webhook_secret: str,
+    auto_attach_event,
+    overrides: dict,
+    title: str | None,
+    description: str | None,
+    pin: bool,
+):
+    """Every alarm the contract accepts becomes a card – none sticks in the Alarmeingang."""
+    payload = alarm_payload(**overrides)
+    response = await _post(client, payload)
+    assert response.status_code == 200
+    incident_id = response.json()["auto_attached_incident_id"]
+    assert incident_id is not None, "the alarm stayed in the pool"
+
+    incident = await db_session.get(Incident, UUID(incident_id))
+    assert incident is not None
+    assert incident.title == (title or payload["title"])
+    assert incident.description == (description or payload["text"])
+    if pin:
+        assert (float(incident.location_lat), float(incident.location_lng)) == (payload["lat"], payload["lng"])
+    else:
+        assert incident.location_lat is None and incident.location_lng is None
+
+    row = await db_session.get(DiveraEmergency, UUID(response.json()["emergency_id"]))
+    assert row is not None
+    assert (row.title, row.text) == (payload["title"], payload["text"])

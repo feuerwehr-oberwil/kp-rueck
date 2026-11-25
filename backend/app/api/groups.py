@@ -199,11 +199,19 @@ async def add_stops(
     """Attach existing incidents to an Auftrag as stops (editor only).
 
     With ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in
-    an Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.
+    an Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer. With
+    ``only_unassigned`` (a release's «Rückgängig») it is 409 when a stop is gone or in
+    another Auftrag now.
     """
     try:
         attached = await crud.add_stops_to_group(
-            db, group_id, body.incident_ids, current_user, request, via_vehicle_id=body.via_vehicle_id
+            db,
+            group_id,
+            body.incident_ids,
+            current_user,
+            request,
+            via_vehicle_id=body.via_vehicle_id,
+            only_unassigned=body.only_unassigned,
         )
     except ValueError as e:
         logger.warning("Add stops rejected for Auftrag %s: %s", group_id, e)

@@ -484,6 +484,16 @@ async def _bind_socket_authorization_to_test_db(db_session, monkeypatch):
     )
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def _bind_divera_send_record_to_test_db(db_session, monkeypatch):
+    """An accepted Divera send is recorded in a session of its own (`api/divera.py`): in the
+    test transaction, never a local deployment's DB."""
+    monkeypatch.setattr(
+        "app.api.divera.async_session_maker",
+        async_sessionmaker(bind=db_session.bind, expire_on_commit=False, join_transaction_mode="create_savepoint"),
+    )
+
+
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client with test database override.

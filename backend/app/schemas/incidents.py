@@ -70,10 +70,16 @@ class IncidentStatus(str, Enum):
     COMPLETE = "complete"
 
 
+#: A card's title and its free-text columns (Meldung, Notizen). Tighter than the alarm intake
+#: contract (255 / 5000): `incident_create_from_emergency` cuts an alarm's copy to these.
+TITLE_MAX = 200
+FREE_TEXT_MAX = 2000
+
+
 def check_free_text(v: str | None) -> str | None:
-    """A free-text column (Meldung, Notizen): at most 2000 characters, stripped."""
-    if v and len(v) > 2000:
-        raise ValueError("Description must be 2000 characters or less")
+    """A free-text column (Meldung, Notizen): at most FREE_TEXT_MAX characters, stripped."""
+    if v and len(v) > FREE_TEXT_MAX:
+        raise ValueError(f"Description must be {FREE_TEXT_MAX} characters or less")
     return v.strip() if v else v
 
 
@@ -124,8 +130,8 @@ class IncidentFields(LocationFields):
         """Validate incident title (an explicit null on an update is refused too)."""
         if not v or not v.strip():
             raise ValueError("Title cannot be empty")
-        if len(v) > 200:
-            raise ValueError("Title must be 200 characters or less")
+        if len(v) > TITLE_MAX:
+            raise ValueError(f"Title must be {TITLE_MAX} characters or less")
         return v.strip()
 
     @field_validator("description", check_fields=False)

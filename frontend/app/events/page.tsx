@@ -168,20 +168,44 @@ export default function EventsPage() {
   }, [])
 
   // The archive dialog's open-items check (field test 07.09.): what would
-  // closing this Ereignis cut off? Fetched when the dialog opens; null while
-  // loading or on failure — a failed check must never block archiving, so the
-  // dialog then simply behaves like the plain confirmation it used to be.
-  const [archiveRestliste, setArchiveRestliste] = useState<ApiEventRestliste | null>(null)
+  // closing this Ereignis cut off? Fetched when the dialog opens. While it loads,
+  // «Archivieren» waits (hunt 2026-11-24: a quick click archived past warnings
+  // not yet shown, and without the checkout). A failed check never blocks
+  // archiving: it offers «Erneut laden», and the main answer says it skips the
+  // check – the checkout is then the operator's explicit choice.
+  const [archiveCheck, setArchiveCheck] = useState<
+    { state: 'loading' } | { state: 'failed'; eventId: string } | { state: 'done'; eventId: string; restliste: ApiEventRestliste }
+  >({ state: 'loading' })
+  const [archiveCheckAttempt, setArchiveCheckAttempt] = useState(0)
   const [archiveCheckout, setArchiveCheckout] = useState(true)
+  // A result belongs to the Ereignis it was fetched for: reopened for another one, the
+  // dialog shows «loading» from its first frame, not the previous answer.
+  const archiveCheckState =
+    archiveCheck.state !== 'loading' && archiveCheck.eventId === targetEvent?.id ? archiveCheck.state : 'loading'
+  const archiveRestliste =
+    archiveCheck.state === 'done' && archiveCheckState === 'done' ? archiveCheck.restliste : null
 
   useEffect(() => {
     if (!showArchiveDialog || !targetEvent) return
-    setArchiveRestliste(null)
+    // An answer for a dialog closed meanwhile, or for the previous Ereignis, is dropped.
+    let current = true
+    setArchiveCheck({ state: 'loading' })
     setArchiveCheckout(true)
     apiClient.getEventRestliste(targetEvent.id)
-      .then(setArchiveRestliste)
-      .catch(() => setArchiveRestliste(null))
-  }, [showArchiveDialog, targetEvent])
+      .then((restliste) => {
+        if (current) {
+          setArchiveCheck(
+            restliste ? { state: 'done', eventId: targetEvent.id, restliste } : { state: 'failed', eventId: targetEvent.id },
+          )
+        }
+      })
+      .catch(() => {
+        if (current) setArchiveCheck({ state: 'failed', eventId: targetEvent.id })
+      })
+    return () => {
+      current = false
+    }
+  }, [showArchiveDialog, targetEvent, archiveCheckAttempt])
 
   // Separate active and archived events
   const { activeEvents, archivedEvents } = useMemo(() => {
@@ -274,7 +298,9 @@ export default function EventsPage() {
     if (!targetEvent) return
     try {
       await archiveEvent(targetEvent.id, {
-        checkoutAttendees: archiveCheckout && (archiveRestliste?.attendees_present ?? 0) > 0,
+        // Unknown attendance (failed check): the checkbox is the whole answer.
+        checkoutAttendees:
+          archiveCheckout && (archiveCheckState === 'failed' || (archiveRestliste?.attendees_present ?? 0) > 0),
       })
       setTargetEvent(null)
     } catch (error) {
@@ -767,8 +793,11 @@ export default function EventsPage() {
         title={t('archiveDialog.title')}
         description={t('archiveDialog.question', { name: targetEvent?.name ?? '' })}
         cancelText={t('archiveDialog.cancel')}
+        confirmDisabled={archiveCheckState === 'loading' ? 'waiting' : false}
         confirmText={
-          archiveRestliste &&
+          archiveCheckState === 'failed'
+            ? t('archiveDialog.confirmUnchecked')
+            : archiveRestliste &&
           (archiveRestliste.open_incidents.length > 0 ||
             archiveRestliste.open_pickups.length > 0 ||
             archiveRestliste.material_on_site.length > 0 ||
@@ -779,6 +808,36 @@ export default function EventsPage() {
         onConfirm={handleArchive}
       >
         <div className="space-y-3">
+          {archiveCheckState === 'loading' && (
+            <p className="text-sm text-muted-foreground">{t('archiveDialog.checking')}</p>
+          )}
+          {archiveCheckState === 'failed' && (
+            <>
+              <div className="flex items-baseline gap-2.5 rounded-lg border bg-muted/40 p-3 text-sm">
+                <span className="size-2 shrink-0 self-center rounded-full bg-warning" aria-hidden />
+                <span className="min-w-0 flex-1 font-semibold">{t('archiveDialog.checkFailed')}</span>
+                <button
+                  type="button"
+                  className="whitespace-nowrap text-xs underline underline-offset-2 hover:text-foreground/80"
+                  onClick={() => {
+                    setArchiveCheck({ state: 'loading' })
+                    setArchiveCheckAttempt((attempt) => attempt + 1)
+                  }}
+                >
+                  {t('archiveDialog.retryCheck')}
+                </button>
+              </div>
+              <label className="flex items-start gap-2.5 rounded-lg bg-muted/40 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 accent-sel"
+                  checked={archiveCheckout}
+                  onChange={(e) => setArchiveCheckout(e.target.checked)}
+                />
+                <span>{t('archiveDialog.autoCheckout')}</span>
+              </label>
+            </>
+          )}
           {(() => {
             if (!archiveRestliste) return null
             const openIncidents = archiveRestliste.open_incidents

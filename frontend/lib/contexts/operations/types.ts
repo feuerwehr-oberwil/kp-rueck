@@ -256,7 +256,8 @@ export interface OperationsContextType {
    */
   incidentTotal: number | null
   formatLocation: (fullAddress: string) => string
-  refreshOperations: () => Promise<void>
+  /** Resolves true once the board is the server's, false when the load failed. */
+  refreshOperations: () => Promise<boolean>
   /** Resolves true when the removal was persisted (or ran local-only), false
    * when it failed and was rolled back — callers that chain a follow-up
    * action (e.g. "remove from incident, then make driver") must check it. */
@@ -280,8 +281,9 @@ export interface OperationsContextType {
   /** Change an incident's status and move it to the TOP of the target column —
    *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
-  /** Resolves once the server answered (and the board holds the new card, or the failure toast). */
-  createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<void>
+  /** Resolves once the server answered: true when the board holds the new card, false when
+   *  it was refused or the call failed (a toast already said so – the caller keeps its input). */
+  createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<boolean>
   /** «Zusammenführen» from «Neuer Einsatz»: the typed report becomes a Nachtrag
    *  on `targetId` (no new card) and an undo toast is offered. Resolves false
    *  when the server refused or the call failed (a toast already said so). */
