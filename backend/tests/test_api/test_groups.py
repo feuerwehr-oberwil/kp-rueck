@@ -371,6 +371,28 @@ async def test_add_stop_for_a_vehicle_needs_a_lone_einsatz_and_the_vehicle_on_th
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_undo_of_a_released_stop_leaves_it_on_the_auftrag_that_took_it(
+    editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident
+):
+    """A releases the stop from Nord, B puts it on Süd, A's «Rückgängig» comes late: 409, Süd keeps it."""
+    nord = await _create_group(editor_client, test_event, name="Nord")
+    sued = await _create_group(editor_client, test_event, name="Süd")
+    stop = {"incident_ids": [str(test_incident.id)]}
+    assert (await editor_client.post(f"/api/incident-groups/{nord['id']}/stops", json=stop)).status_code == 200
+    assert (
+        await editor_client.delete(f"/api/incident-groups/{nord['id']}/stops/{test_incident.id}")
+    ).status_code == 204
+    assert (await editor_client.post(f"/api/incident-groups/{sued['id']}/stops", json=stop)).status_code == 200
+
+    undo = await editor_client.post(f"/api/incident-groups/{nord['id']}/stops", json={**stop, "only_unassigned": True})
+
+    assert undo.status_code == 409
+    group_id = await db_session.scalar(select(Incident.group_id).where(Incident.id == test_incident.id))
+    assert str(group_id) == sued["id"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_add_stops_cross_event_rejected(
     editor_client: AsyncClient, test_event: Event, second_event: Event, test_editor: User, db_session: AsyncSession
 ):

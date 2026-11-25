@@ -28,6 +28,7 @@ engine = create_async_engine(
 )
 
 _AFTER_COMMIT = "kp_after_commit"
+_AFTER_ROLLBACK = "kp_after_rollback"
 
 
 class AppSession(AsyncSession):
@@ -35,11 +36,13 @@ class AppSession(AsyncSession):
 
     Django's `transaction.on_commit`, in small. A rollback drops the queue, so nothing is
     announced for a write that never happened. (A rolled-back `begin_nested()` savepoint does
-    not: queue after it, not inside it.)
+    not: queue after it, not inside it.) The mirror image, `after_rollback()`, undoes a side
+    effect outside the database – a photo file written for a row that never committed.
     """
 
     async def commit(self) -> None:
         await super().commit()
+        self.info.pop(_AFTER_ROLLBACK, None)
         queued = self.info.pop(_AFTER_COMMIT, [])
         for emit in queued:
             try:
@@ -49,7 +52,13 @@ class AppSession(AsyncSession):
 
     async def rollback(self) -> None:
         self.info.pop(_AFTER_COMMIT, None)
+        undo = self.info.pop(_AFTER_ROLLBACK, [])
         await super().rollback()
+        for step in undo:
+            try:
+                step()
+            except Exception:  # already on the failure path – log, never mask the first error
+                logger.exception("after-rollback step failed")
 
 
 def after_commit[**P](db: AsyncSession, emit: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> None:
@@ -66,6 +75,13 @@ def after_commit[**P](db: AsyncSession, emit: Callable[P, object], *args: P.args
             await result
 
     db.info.setdefault(_AFTER_COMMIT, []).append(run)
+
+
+def after_rollback[**P](db: AsyncSession, undo: Callable[P, object], *args: P.args, **kwargs: P.kwargs) -> None:
+    """Run `undo(*args, **kwargs)` if `db` rolls back instead of committing – e.g. remove the
+    photo file a refused write had already stored. Synchronous, best effort (logged on error);
+    a commit drops it."""
+    db.info.setdefault(_AFTER_ROLLBACK, []).append(lambda: undo(*args, **kwargs))
 
 
 # Create async session factory

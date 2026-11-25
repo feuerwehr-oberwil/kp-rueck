@@ -346,6 +346,7 @@ export function createResourceActions(board: BoardMutationContext) {
       // Settling until the POST answers: ⌘K's dispatch reports (and offers its undo) only
       // once the row's id is on the card – see `beginAssignmentSettling`.
       const settled = beginAssignmentSettling()
+      let reloadAfter = false
       try {
         // Use the reko assignment API (backend auto-moves status to "reko" if eingegangen).
         // The row's id makes it releasable (`removeReko`).
@@ -362,18 +363,25 @@ export function createResourceActions(board: BoardMutationContext) {
         toast.error(translateOutsideReact('notifications.operations.assignFailedTitle'), {
           description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
         })
-        // Revert on error – only our own entry; a later assign on this card stays.
+        // Revert on error – only our own entry; a later assign on this card stays. Back to
+        // the Reko the card had before (a refused replacement leaves the old one assigned on
+        // the server), not to «none». A previous Reko without a row id was itself still
+        // pending (assign Bea, switch to Sina, back to Bea): nobody knows what the server
+        // holds, so the board reloads it instead of trusting the guess (a spare reload, when
+        // a later assign already owns the card, costs nothing: it is single-flight).
+        const previous = operation.assignedReko ?? null
         setOperations((ops) =>
           ops.map((op) => {
             if (!isOurs(op)) return op
-            const reverted = { ...op, assignedReko: null }
+            const back = { ...op, assignedReko: previous }
             if (shouldAutoMoveToReko) {
-              reverted.status = "incoming" as OperationStatus
-              reverted.statusChangedAt = currentOp?.statusChangedAt ?? null
+              back.status = "incoming" as OperationStatus
+              back.statusChangedAt = currentOp?.statusChangedAt ?? null
             }
-            return reverted
+            return back
           })
         )
+        reloadAfter = previous !== null && !previous.assignmentId
         // The reko badge already snapped back — say why, or the operator assumes it stuck.
         toast.error(translateOutsideReact('notifications.operations.assignRekoFailedTitle'), {
           description: translateOutsideReact('notifications.operations.assignRekoFailedDescription', { name: personName }),
@@ -381,6 +389,10 @@ export function createResourceActions(board: BoardMutationContext) {
       } finally {
         settled()
         releaseAssignmentCooldown()
+        // The hold itself lifts 500 ms later; the explicit reload does not wait for it. It
+        // reads after the refused POST, so its snapshot is newer than this rollback, and an
+        // edit that lands meanwhile still discards it (mutation epoch) and replays it.
+        if (reloadAfter) void refreshOperations()
       }
     } else {
       releaseAssignmentCooldown(3000)

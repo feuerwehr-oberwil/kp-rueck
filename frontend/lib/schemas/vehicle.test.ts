@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { vehicleFormDefaults, vehicleFormSchema, vehicleTypeFor } from "./vehicle";
+import { vehicleFormDefaults, vehicleFormSchema, vehicleTypeFor, vehicleUpdateFor } from "./vehicle";
 
 describe("vehicleFormSchema", () => {
   it("accepts a fully populated valid vehicle", () => {
@@ -84,5 +84,31 @@ describe("vehicleFormSchema", () => {
     expect(vehicleTypeFor({ name: "TLF 1", type: "TLF" })).toBe("TLF");
     expect(vehicleTypeFor({ name: "TLF 1", type: "  " })).toBe("TLF 1");
     expect(vehicleTypeFor({ name: "x".repeat(80), type: "" })).toHaveLength(50);
+  });
+});
+
+describe("vehicleUpdateFor", () => {
+  const opened = {
+    name: "TLF 1",
+    type: "TLF",
+    display_order: 1,
+    status: "available" as const,
+    radio_call_sign: "Omega 1",
+  };
+
+  it("sends only the call sign when only the call sign changed – readiness stays another desk's", () => {
+    expect(vehicleUpdateFor(opened, { ...opened, radio_call_sign: "Omega 2" })).toEqual({ radio_call_sign: "Omega 2" });
+  });
+
+  it("sends nothing when nothing changed", () => {
+    expect(vehicleUpdateFor(opened, { ...opened })).toEqual({});
+  });
+
+  it("never sends a type – the dialog has no field for it", () => {
+    expect(vehicleUpdateFor({ ...opened, type: "" }, { ...opened, type: "", name: "TLF 2" })).toEqual({ name: "TLF 2" });
+  });
+
+  it("sends the readiness when it was changed here", () => {
+    expect(vehicleUpdateFor(opened, { ...opened, status: "unavailable" })).toEqual({ status: "unavailable" });
   });
 });

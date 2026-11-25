@@ -155,14 +155,29 @@ export function useBoardSync(input: BoardSyncInput) {
   // with the effect's — and the two copies had already drifted once (see
   // `rekoDangerTypes`).
   const reloadSchedulerRef = useRef<ReloadScheduler | null>(null)
-  const refreshOperations = useCallback(async () => {
+  // How the newest load that finished ended. «discarded»: a mutation landed while it
+  // fetched, so its snapshot was dropped and a replay is due.
+  const lastLoadOutcomeRef = useRef<"applied" | "failed" | "discarded">("applied")
+  // Resolves true when the board on screen is now the server's, false when the load failed
+  // (the banner then says since when it is old). R / F5 say «Aktualisiert» only on true. A
+  // load dropped for a newer mutation is asked again – a few times, then it counts as failed.
+  const refreshOperations = useCallback(async (): Promise<boolean> => {
     const scheduler = reloadSchedulerRef.current
-    if (scheduler) return scheduler.request()
-    // No sync effect running: signed out, or no Ereignis selected.
+    if (scheduler) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await scheduler.request()
+        // Another Ereignis (or a sign-out) replaced this scheduler: nothing was refreshed.
+        if (reloadSchedulerRef.current !== scheduler) return false
+        if (lastLoadOutcomeRef.current !== "discarded") return lastLoadOutcomeRef.current === "applied"
+      }
+      return false
+    }
+    // No sync effect running: signed out, or no Ereignis selected – nothing to be stale about.
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
       setIsLoading(false)
     }
+    return true
   }, [selectedEvent, setOperations, setIsLoading])
 
   // Load initial data and set up WebSocket/polling
@@ -336,6 +351,7 @@ export function useBoardSync(input: BoardSyncInput) {
         // optimistic state is newer than this snapshot. Discard the stale
         // result and replay once the mutation's cooldown clears.
         if (mutationEpochRef.current !== epochAtStart) {
+          lastLoadOutcomeRef.current = "discarded"
           pendingReplayRef.current = true
           replayPendingUpdatesRef.current?.()
           return
@@ -365,14 +381,25 @@ export function useBoardSync(input: BoardSyncInput) {
         setLastSyncAt(new Date())
         setLoadError(null)
         isInitialLoadRef.current = false
-        stopPollingIfSocketCarries()
+        lastLoadOutcomeRef.current = "applied"
 
         // Store the version snapshot taken before the data fetch (null forces
-        // the next poll tick to reload — fails toward freshness).
-        lastSyncVersionRef.current = versionSnapshot?.version ?? null
+        // the next poll tick to reload — fails toward freshness). Only here: the
+        // version names the board ON SCREEN, so only an applied snapshot sets it –
+        // and not while the settings or the Restliste on screen are older than it
+        // (their fetch failed and the previous value stayed). Then polling goes on
+        // even with the socket up: a quiet Ereignis sends no event to retry on.
+        const complete = settings !== undefined && restliste !== undefined
+        lastSyncVersionRef.current = complete ? versionSnapshot?.version ?? null : null
+        if (complete) stopPollingIfSocketCarries()
+        else onLoadFailed()
       } catch (error) {
         if (!isCurrentLoad()) return
         console.error("Failed to load data:", error)
+        lastLoadOutcomeRef.current = "failed"
+        // What is on screen is older than any version: the next poll tick must load,
+        // never certify it with «same version» (a refused drag stays wrong otherwise).
+        lastSyncVersionRef.current = null
         // Last good state stays on screen; `lastSyncAt` does NOT move, so the
         // stale-data banner starts counting. `isLoaded` still flips on a failed
         // FIRST load — mutations key off it — which is why `loadError` exists:
@@ -441,8 +468,11 @@ export function useBoardSync(input: BoardSyncInput) {
     // client — flip just that vehicle's flag instead of reloading the board.
     // Matches the assignment by id within the incident; idempotent for the
     // sender (it already applied the value optimistically).
+    // A board load already in flight read the assignments BEFORE this toggle: the epoch
+    // bump drops its snapshot and replays a fresh load, or it would turn the flag back.
     const applyDriverStayUpdate = (data: DriverStayPayload) => {
       if (!data?.id || !data?.incident_id) return
+      mutationEpochRef.current++
       setOperations((ops) =>
         ops.map((op) => {
           if (op.id !== data.incident_id) return op
@@ -499,8 +529,9 @@ export function useBoardSync(input: BoardSyncInput) {
         try {
           // Lightweight version check before full reload
           const { version } = await apiClient.getSyncVersion(eventId)
+          // The load records the version once its snapshot is on screen – recorded here,
+          // a failed load left «same version» on the next tick, which certified the old board.
           if (version !== lastSyncVersionRef.current) {
-            lastSyncVersionRef.current = version
             await reloadScheduler.requestAuto()
           } else {
             // Confirmed fresh — keep the stale-data banner honest. Without
