@@ -20,7 +20,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { TransferRekoDialog } from "@/components/kanban/transfer-reko-dialog"
 import { usePersonNaming } from "@/components/person-name"
 import { stationFunctionLabel } from "@/components/kanban/person-function-labels"
-import { apiClient, type FunctionType } from "@/lib/api-client"
+import { ApiError, apiClient, type FunctionType } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations } from "@/lib/contexts/operations-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
@@ -81,9 +81,9 @@ export function usePersonFunctions({
       void refreshOperations()
     } catch (error) {
       console.error("Failed to assign function:", error)
-      // apiClient rejects with ApiError, whose message carries the backend's `detail`.
+      // apiClient rejects with ApiError, whose message is the backend's sentence in this locale.
       const detail = error instanceof Error ? error.message : ""
-      if (detail.includes("already has a driver")) {
+      if (error instanceof ApiError && error.code === "vehicle_has_driver") {
         toast.error(t("personMenu.vehicleTaken"), { description: t("personMenu.vehicleTakenDescription") })
       } else {
         toast.error(t("common.error"), { description: detail || t("personMenu.assignFailed") })
