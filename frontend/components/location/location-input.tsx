@@ -363,6 +363,9 @@ export function LocationInput({
       event.preventDefault()
       const picked = activeIndex >= 0 ? addressResults[activeIndex] : undefined
       if (picked) handleAddressSelect(picked)
+      // Ctrl/⌘ ↵ submits the form in this same key event: an emptied field must reach it
+      // empty, or «Neuer Einsatz» creates at the address that is no longer on screen.
+      else if (!addressSearchQuery.trim() && (event.ctrlKey || event.metaKey)) onAddressChange(null)
       else commitFreetext(addressSearchQuery)
     }
   }

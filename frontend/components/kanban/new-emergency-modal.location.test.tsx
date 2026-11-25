@@ -36,4 +36,17 @@ describe('NewEmergencyModal — Ctrl ↵ in the Einsatzort', () => {
     expect(onCreateOperation).toHaveBeenCalledTimes(1)
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ location: 'Bahnhofstrasse 4' }))
   })
+
+  it('an emptied Einsatzort refuses, never the address committed before', async () => {
+    const user = userEvent.setup()
+    const onCreateOperation = vi.fn().mockResolvedValue(true)
+    renderWithIntl(<NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={onCreateOperation} />)
+    const ort = document.getElementById('location_address') as HTMLInputElement
+
+    await user.type(ort, 'Hauptstrasse 12{Enter}')
+    await user.clear(ort)
+    await user.keyboard('{Control>}{Enter}{/Control}')
+
+    expect(onCreateOperation).not.toHaveBeenCalled()
+  })
 })

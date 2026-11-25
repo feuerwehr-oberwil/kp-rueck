@@ -258,10 +258,12 @@ describe('NewEmergencyModal — Abmeldung während des Erstellens (hunt follow-u
     first.unmount()
     await act(async () => answer.resolve(false))
 
+    // Another Ereignis: no draft there, and throwing its empty form away keeps event-1's.
     const other = renderWithIntl(
       <NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={vi.fn()} eventId="event-2" />,
     )
     expect(screen.getByLabelText('Ort')).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
     other.unmount()
 
     const onCreateOperation = vi.fn().mockResolvedValue(true)
@@ -272,7 +274,21 @@ describe('NewEmergencyModal — Abmeldung während des Erstellens (hunt follow-u
     // Created: the draft is gone.
     await user.click(screen.getByRole('button', { name: 'Einsatz erstellen' }))
     expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ location: 'Hauptstrasse 12' }))
-    expect(sessionStorage.getItem('kp-new-incident-draft')).toBeNull()
+    expect(sessionStorage.getItem('kp-new-incident-draft:event-1')).toBeNull()
+  })
+
+  it('a plain «Neuer Einsatz» after a closed «+ Stop» belongs to no Auftrag', async () => {
+    const user = userEvent.setup()
+    const onCreateOperation = vi.fn().mockResolvedValue(true)
+    const { rerender } = renderWithIntl(
+      <NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={onCreateOperation} defaultGroupId="g1" />,
+    )
+    rerender(<NewEmergencyModal open={false} onOpenChange={() => {}} onCreateOperation={onCreateOperation} defaultGroupId={null} />)
+    rerender(<NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={onCreateOperation} defaultGroupId={null} />)
+
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.click(screen.getByRole('button', { name: 'Einsatz erstellen' }))
+    expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ groupId: null }))
   })
 })
 

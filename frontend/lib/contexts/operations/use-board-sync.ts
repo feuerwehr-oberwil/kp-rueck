@@ -48,6 +48,7 @@ export interface BoardSyncInput {
   isEventLoaded: boolean
   refreshPersonnel: ReturnType<typeof usePersonnelList>["refreshPersonnel"]
   refreshMaterials: ReturnType<typeof useMaterialList>["refreshMaterials"]
+  refreshMaterialGroups: ReturnType<typeof useMaterialList>["refreshMaterialGroups"]
   setPersonnel: Dispatch<SetStateAction<Person[]>>
   setMaterials: Dispatch<SetStateAction<Material[]>>
   setOperations: Dispatch<SetStateAction<Operation[]>>
@@ -78,6 +79,7 @@ export function useBoardSync(input: BoardSyncInput) {
     isEventLoaded,
     refreshPersonnel,
     refreshMaterials,
+    refreshMaterialGroups,
     setPersonnel,
     setMaterials,
     setOperations,
@@ -265,9 +267,9 @@ export function useBoardSync(input: BoardSyncInput) {
         //
         // A failed fetch never becomes an empty list: the reload fails as a
         // whole and the board keeps its last good state (`answered`, and the
-        // rejecting refreshPersonnel/refreshMaterials). Settings and the
-        // Restliste are the exceptions — a failure there keeps the previous
-        // value instead of failing the board.
+        // rejecting refreshPersonnel/refreshMaterials). Settings, the Restliste
+        // and the material groups (Module) are the exceptions — a failure there
+        // keeps the previous value instead of failing the board.
         //
         // ⚠️ Special functions, assignments and reko summaries are part of the snapshot, not
         // decoration: they used to be allSettled and «non-fatal», so a failed assignments
@@ -285,6 +287,7 @@ export function useBoardSync(input: BoardSyncInput) {
           specialFunctions,
           assignmentsByIncident,
           rekoSummaries,
+          groupsLoaded,
         ] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
@@ -297,6 +300,8 @@ export function useBoardSync(input: BoardSyncInput) {
           apiClient.getEventSpecialFunctions(eventId).then(answered),
           apiClient.getAssignmentsByEvent(eventId).then(answered),
           apiClient.getEventRekoSummaries(eventId).then(answered),
+          // Applied on arrival (their own state); false keeps the previous ones.
+          refreshMaterialGroups(),
         ])
         const apiIncidents = incidentPage.incidents
 
@@ -386,10 +391,10 @@ export function useBoardSync(input: BoardSyncInput) {
         // Store the version snapshot taken before the data fetch (null forces
         // the next poll tick to reload — fails toward freshness). Only here: the
         // version names the board ON SCREEN, so only an applied snapshot sets it –
-        // and not while the settings or the Restliste on screen are older than it
-        // (their fetch failed and the previous value stayed). Then polling goes on
-        // even with the socket up: a quiet Ereignis sends no event to retry on.
-        const complete = settings !== undefined && restliste !== undefined
+        // and not while the settings, the Restliste or the Module on screen are older
+        // than it (their fetch failed and the previous value stayed). Then polling goes
+        // on even with the socket up: a quiet Ereignis sends no event to retry on.
+        const complete = settings !== undefined && restliste !== undefined && groupsLoaded
         lastSyncVersionRef.current = complete ? versionSnapshot?.version ?? null : null
         if (complete) stopPollingIfSocketCarries()
         else onLoadFailed()
@@ -633,6 +638,7 @@ export function useBoardSync(input: BoardSyncInput) {
     isEventLoaded,
     refreshPersonnel,
     refreshMaterials,
+    refreshMaterialGroups,
     setPersonnel,
     setMaterials,
     // Stable (state setters and refs handed in by the provider): listed only

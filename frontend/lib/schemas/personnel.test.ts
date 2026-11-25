@@ -83,8 +83,10 @@ describe("personnelUpdateFor (hunt follow-up 25.11.)", () => {
     expect(personnelUpdateFor(opened, { ...opened, role: "Wachtmeister" })).toEqual({ role: "Wachtmeister" });
   });
 
-  it("sends nothing when nothing changed", () => {
+  it("sends nothing when nothing changed – a stored tag with spaces included", () => {
     expect(personnelUpdateFor(opened, { ...opened, tags: ["Atemschutz"] })).toEqual({});
+    const spaced = personnelFormValuesFor({ name: "Müller Stefan", kennung: null, role: "Offizier", status: "available", tags: [" Atemschutz "] });
+    expect(personnelUpdateFor(spaced, { ...spaced, tags: ["Atemschutz"], role: "Wachtmeister" })).toEqual({ role: "Wachtmeister" });
   });
 
   it("sends the tags and the status when they were changed here", () => {

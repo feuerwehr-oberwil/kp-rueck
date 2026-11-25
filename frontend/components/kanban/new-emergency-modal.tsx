@@ -161,14 +161,15 @@ type FormData = ReturnType<typeof emptyForm>
  * The typed part of a create on its way, kept for this tab (hunt follow-up 25.11.): a 401
  * signs out and unmounts the dialog, and the caller's address and number would go with it.
  * Written when a create or merge starts, removed when the form is reset (created, merged,
- * discarded); the next open in the same Ereignis starts from it. sessionStorage: it never
- * outlives the tab.
+ * discarded) in that Ereignis; the next open there starts from it. One key per Ereignis.
+ * sessionStorage: it never outlives the tab. The Auftrag is not kept: it comes from how the
+ * dialog was opened («+ Stop» or not).
  */
-const DRAFT_KEY = "kp-new-incident-draft"
+const draftKey = (eventId: string | null) => `kp-new-incident-draft:${eventId ?? "none"}`
 
 /** The typed fields – a Date or Map would not survive JSON, and nothing else is typed. */
-function pickDraft({ location, coordinates, notes, incidentType, priority, source, contact, contactPhone, groupId }: FormData) {
-  return { location, coordinates, notes, incidentType, priority, source, contact, contactPhone, groupId }
+function pickDraft({ location, coordinates, notes, incidentType, priority, source, contact, contactPhone }: FormData) {
+  return { location, coordinates, notes, incidentType, priority, source, contact, contactPhone }
 }
 type Draft = ReturnType<typeof pickDraft>
 
@@ -179,26 +180,26 @@ function hasTyped(form: Draft) {
 
 function saveDraft(eventId: string | null, form: FormData) {
   try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ eventId, draft: pickDraft(form) }))
+    sessionStorage.setItem(draftKey(eventId), JSON.stringify(pickDraft(form)))
   } catch {
     // storage full or blocked: the open dialog still holds the form
   }
 }
 
-function clearDraft() {
+function clearDraft(eventId: string | null) {
   try {
-    sessionStorage.removeItem(DRAFT_KEY)
+    sessionStorage.removeItem(draftKey(eventId))
   } catch {
     // nothing to clear
   }
 }
 
-/** The kept draft for `eventId`, or null (none, another Ereignis, or unreadable). */
+/** The kept draft for `eventId`, or null (none, or unreadable). */
 function readDraft(eventId: string | null): Draft | null {
   try {
-    const stored: { eventId?: unknown; draft?: Partial<Draft> } | null = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null")
-    if (!stored?.draft || stored.eventId !== eventId) return null
-    const draft = { ...pickDraft(emptyForm()), ...stored.draft }
+    const stored: Partial<Draft> | null = JSON.parse(sessionStorage.getItem(draftKey(eventId)) ?? "null")
+    if (!stored) return null
+    const draft = { ...pickDraft(emptyForm()), ...stored }
     return [draft.location, draft.notes, draft.contact, draft.contactPhone].every((text) => typeof text === "string") ? draft : null
   } catch {
     return null
@@ -237,10 +238,7 @@ export function NewEmergencyModal({
   useEffect(() => {
     if (!open) return
     const draft = readDraft(eventId)
-    updateForm((prev) => {
-      const restored = draft && !hasTyped(prev) ? { ...prev, ...draft } : prev
-      return { ...restored, groupId: defaultGroupId ?? restored.groupId }
-    })
+    updateForm((prev) => ({ ...(draft && !hasTyped(prev) ? { ...prev, ...draft } : prev), groupId: defaultGroupId }))
   }, [open, defaultGroupId, eventId])
 
   // Validation rules
@@ -322,7 +320,7 @@ export function NewEmergencyModal({
 
   const resetForm = (keep: Partial<Pick<FormData, "incidentType" | "source" | "groupId">> = {}) => {
     updateForm(() => ({ ...emptyForm(), ...keep }))
-    clearDraft()
+    clearDraft(eventId)
     setTouched({})
     setShowValidationErrors(false)
     setDismissedKey(null)

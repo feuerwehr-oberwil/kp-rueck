@@ -120,17 +120,22 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
   const hasShownGroupsErrorRef = useRef(false)
   const hasEvent = !!eventId && isValidUUID(eventId)
 
-  const refreshMaterialGroups = useCallback(async () => {
+  /** Resolves false when the groups could not be read (the previous ones stay). Part of
+   *  every board load: a Modul renamed in Einstellungen moves the sync version (hunt
+   *  follow-up 25.11.), and the load it starts must show the new name. */
+  const refreshMaterialGroups = useCallback(async (): Promise<boolean> => {
     try {
       const apiGroups = await apiClient.getMaterialGroups()
       setMaterialGroups(apiGroups.map(apiGroupToGroup))
       hasShownGroupsErrorRef.current = false
+      return true
     } catch (error) {
       console.error("Failed to load material groups:", error)
       if (!hasShownGroupsErrorRef.current) {
         hasShownGroupsErrorRef.current = true
         toast.error(translateOutsideReact("notifications.materials.groupsLoadFailed"))
       }
+      return false
     }
   }, [])
 
@@ -140,9 +145,6 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
         if (!options?.skipStateUpdate) setMaterials([])
         return []
       }
-      // The Module ride along with every depot load: a rename in Einstellungen moves the
-      // sync version (hunt follow-up 25.11.), and the reload it starts must show the new name.
-      void refreshMaterialGroups()
       try {
         const materialsList = (await apiClient.getAllMaterials()).map(apiMaterialToMaterial)
         if (!options?.skipStateUpdate) setMaterials(materialsList)
@@ -161,10 +163,10 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
         return []
       }
     },
-    [hasEvent, refreshMaterialGroups],
+    [hasEvent],
   )
 
-  // The first load per sign-in and Ereignis; after that they come with every depot load.
+  // The first load per sign-in and Ereignis; after that they come with every board load.
   useEffect(() => {
     if (!authReady) return
     if (!hasEvent) {
@@ -213,5 +215,5 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
     [materials],
   )
 
-  return { materials, setMaterials, materialGroups, refreshMaterials, setMaterialOutOfService }
+  return { materials, setMaterials, materialGroups, refreshMaterials, refreshMaterialGroups, setMaterialOutOfService }
 }
