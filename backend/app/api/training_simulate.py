@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.dependencies import CurrentEditor
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
+from ..crud.locking import lock_incidents_with_groups
 from ..crud.materials import apply_out_of_service
 from ..database import after_commit, async_session_maker, get_db
 from ..models import (
@@ -563,10 +564,13 @@ async def simulate_rapports_bulk(
     covered_count = int(len(candidates) * RAPPORT_SIM_PROFILE.bulk_coverage)
     chosen = set(rng.sample(range(len(candidates)), covered_count)) if covered_count else set()
 
+    picked = [incident for index, incident in enumerate(candidates) if index in chosen]
+    # All their locks first, in the one order (`crud/locking.py`): each filing takes its Einsatz
+    # and Auftrag lock, and two bulk runs taking them stop by stop could deadlock on A→B / B→A.
+    await lock_incidents_with_groups(db, [incident.id for incident in picked])
     rapports = [
         await file_simulated_rapport(db, incident, current_user=current_user, rng=rng, request=request)
-        for index, incident in enumerate(candidates)
-        if index in chosen
+        for incident in picked
     ]
 
     skipped = len(candidates) - len(rapports)
