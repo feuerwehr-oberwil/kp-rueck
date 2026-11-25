@@ -621,3 +621,48 @@ async def test_new_row_serialises_type_params_and_the_german_fallback(
     [row] = [n for n in response.json() if n["type"] == "missing_location"]
     assert row["params"] == {"title": "Test Incident"}
     assert row["message"] == "Einsatz 'Test Incident' hat keine geokodierte Position"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_failed_evaluation_keeps_nothing_it_wrote(
+    editor_client, db_session, test_event, test_personnel, monkeypatch
+):
+    """The time-on-duty step no longer commits in the middle of the request (hunt follow-up
+    25.11.): an evaluation that fails after it leaves no half of its result behind."""
+    from unittest.mock import AsyncMock
+
+    from sqlalchemy import select
+
+    from app.models import EventAttendance
+    from app.services import notification_service
+    from app.services.notification_service import NotificationSettings
+
+    monkeypatch.setattr(editor_client._transport, "raise_app_exceptions", False)
+    monkeypatch.setattr(
+        notification_service,
+        "get_notification_settings",
+        AsyncMock(return_value=NotificationSettings(fatigue_hours=4)),
+    )
+    db_session.add(
+        EventAttendance(
+            event_id=test_event.id,
+            personnel_id=test_personnel.id,
+            checked_in=True,
+            checked_in_at=datetime.now(UTC) - timedelta(hours=8),
+        )
+    )
+    await db_session.commit()
+    fatigue = select(Notification.id).where(
+        Notification.event_id == test_event.id, Notification.type == "personnel_fatigue"
+    )
+
+    with monkeypatch.context() as fault:
+        fault.setattr(notification_service, "_deduplicate_and_save", AsyncMock(side_effect=RuntimeError("injected")))
+        failed = await editor_client.get("/api/notifications/", params={"event_id": str(test_event.id)})
+    assert failed.status_code == 500
+    assert (await db_session.scalars(fatigue)).all() == []
+
+    retry = await editor_client.get("/api/notifications/", params={"event_id": str(test_event.id)})
+    assert retry.status_code == 200
+    assert len((await db_session.scalars(fatigue)).all()) == 1
