@@ -388,8 +388,13 @@ class PhotoStorageService:
                 self._get_incident_dir(to_incident_id)
                 target = self._inside_photos_dir(str(to_incident_id), name)
                 # Only a SHORTER target is redone (a copy cut off mid-way); a complete one is
-                # kept – also when the source is the short one (undoing an old merge).
+                # kept – also when the source is the short one (undoing an old merge). Kept, it
+                # is attached anew: its change time is refreshed (the modification time stays –
+                # it is the photo's «taken at»), so the orphan sweep counts it as new
+                # (background/photo_orphans.py).
                 if target.is_file() and target.stat().st_size >= source.stat().st_size:
+                    kept = target.stat()
+                    os.utime(target, ns=(kept.st_atime_ns, kept.st_mtime_ns))
                     continue
                 partial = target.with_name(target.name + ".part")
                 try:

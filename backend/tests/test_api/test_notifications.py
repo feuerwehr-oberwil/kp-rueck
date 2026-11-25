@@ -666,3 +666,55 @@ async def test_a_failed_evaluation_keeps_nothing_it_wrote(
     retry = await editor_client.get("/api/notifications/", params={"event_id": str(test_event.id)})
     assert retry.status_code == 200
     assert len((await db_session.scalars(fatigue)).all()) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_resolved_time_on_duty_row_is_listed_once_without_autoflush(db_session, test_event, monkeypatch):
+    """Production sessions do not autoflush: the fatigue step flushes what it resolved, or the
+    response lists the row as open AND within the 20 dismissed ones (Sol, hunt follow-up 25.11.)."""
+    from unittest.mock import AsyncMock
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.services import notification_service
+    from app.services.notification_service import NotificationSettings
+
+    monkeypatch.setattr(
+        notification_service,
+        "get_notification_settings",
+        AsyncMock(
+            return_value=NotificationSettings(
+                fatigue_hours=4,
+                enabled_time_alerts=False,
+                enabled_data_quality_alerts=False,
+                enabled_event_alerts=False,
+                enabled_geofence_alerts=False,
+            )
+        ),
+    )
+    now = datetime.now(UTC)
+    for index in range(20):
+        db_session.add(
+            Notification(
+                type="missing_location",
+                severity="info",
+                message=f"Alt {index}",
+                event_id=test_event.id,
+                dismissed=True,
+                dismissed_at=now - timedelta(minutes=index + 1),
+            )
+        )
+    # Open, but nobody is on duty any more: this evaluation resolves it.
+    db_session.add(
+        Notification(type="personnel_fatigue", severity="warning", message="Dienstzeit", event_id=test_event.id)
+    )
+    await db_session.commit()
+
+    maker = async_sessionmaker(
+        bind=db_session.bind, expire_on_commit=False, autoflush=False, join_transaction_mode="create_savepoint"
+    )
+    async with maker() as session:
+        listed = await notification_service.evaluate_notifications(session, test_event.id)
+
+    assert len(listed) == len({row.id for row in listed})
+    assert sum(1 for row in listed if row.dismissed) == 20

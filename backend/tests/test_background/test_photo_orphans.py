@@ -5,7 +5,7 @@ import os
 import shutil
 import time
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -86,3 +86,27 @@ async def test_folders_and_files_that_are_not_photos_are_left_alone(db_session, 
 
     assert await sweep_orphan_photos(db_session, now=LATER) == 0
     assert stray.exists() and top.exists()
+
+
+async def test_a_file_a_merge_attaches_meanwhile_stays(db_session, test_incident, photos_dir, monkeypatch):
+    """Listed as old, then a merge keeps it and attaches it anew (copy_photos refreshes its
+    change time) before its row commits: the re-check before removal spares it."""
+    from app.background import photo_orphans
+
+    source = _file(photos_dir / str(uuid4()), "kept.jpg")
+    target = _file(photos_dir / str(test_incident.id), "kept.jpg")
+    long_ago = time.time() - 30 * 24 * 3600
+    for path in (source, target):
+        os.utime(path, (long_ago, long_ago))
+    before = target.stat()
+
+    def listed_then_attached(_photos_dir, _cutoff):
+        photo_storage.copy_photos(UUID(source.parent.name), test_incident.id, ["kept.jpg"])
+        return [(str(test_incident.id), target)]
+
+    monkeypatch.setattr(photo_orphans, "_old_files", listed_then_attached)
+    assert await sweep_orphan_photos(db_session) == 0
+    assert target.exists()
+    after = target.stat()
+    assert after.st_mtime_ns == before.st_mtime_ns  # «taken at» unchanged
+    assert after.st_ctime_ns > before.st_ctime_ns

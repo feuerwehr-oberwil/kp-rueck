@@ -10,7 +10,9 @@ its incident's folder: a Reko report, a Schadenplatz-Rapport (KP and /feld), or 
 the one-report migration parked in `reko_reports_folded` (its downgrade puts them back).
 Only files at least `MIN_AGE` old by BOTH their modification and their inode-change time
 are candidates: an upload whose commit is still on its way is seconds old, and a merge copy
-(`copy2` keeps the source's mtime) is new by its change time. Folders that are not an
+(`copy2` keeps the source's mtime) – or a file a merge keeps and attaches anew
+(`copy_photos` refreshes its change time) – is new by its change time. The age is checked
+again right before each removal, after the rows were read. Folders that are not an
 incident id, and files at the top of the photo folder, are not touched. A standby box does
 not run it: its photos follow the mirrored rows. Never raises.
 """
@@ -51,6 +53,15 @@ _REFERENCES = text(
 )
 
 
+def _is_old(path: Path, cutoff: float) -> bool:
+    """Older than `cutoff` by both modification and change time; False once it is gone."""
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return False
+    return max(stat.st_mtime, stat.st_ctime) < cutoff
+
+
 def _old_files(photos_dir: Path, cutoff: float) -> list[tuple[str, Path]]:
     """(incident folder, file) for every file older than `cutoff` in an incident folder."""
     found: list[tuple[str, Path]] = []
@@ -64,10 +75,7 @@ def _old_files(photos_dir: Path, cutoff: float) -> list[tuple[str, Path]]:
         if not folder.is_dir() or folder.is_symlink():
             continue
         for path in folder.iterdir():
-            if not path.is_file() or path.is_symlink():
-                continue
-            stat = path.stat()
-            if max(stat.st_mtime, stat.st_ctime) < cutoff:
+            if path.is_file() and not path.is_symlink() and _is_old(path, cutoff):
                 found.append((folder.name, path))
     return found
 
@@ -84,11 +92,14 @@ async def sweep_orphan_photos(db: AsyncSession, *, now: datetime | None = None) 
     referenced = {(incident_id, name) for incident_id, name in (await db.execute(_REFERENCES)).all()}
     removed = 0
     for incident_id, path in candidates:
-        if (incident_id, path.name) in referenced:
+        # Still old after the rows were read: a merge that attached it meanwhile made it new.
+        if (incident_id, path.name) in referenced or not _is_old(path, cutoff):
             continue
         try:
             path.unlink()
             removed += 1
+        except FileNotFoundError:
+            continue
         except OSError:
             logger.warning("Orphan photo %s/%s could not be removed", incident_id, path.name)
     return removed

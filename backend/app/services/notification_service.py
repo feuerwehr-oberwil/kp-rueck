@@ -426,7 +426,10 @@ async def _sync_fatigue_notification(
     ``fatigue_hours`` <= 0 switches the check off. Returns the open notification, if any.
     """
     await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"})
-    return await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
+    notification = await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
+    # Sessions do not autoflush: the lists read after this must see a resolved row resolved.
+    await db.flush()
+    return notification
 
 
 async def _sync_fatigue_locked(
