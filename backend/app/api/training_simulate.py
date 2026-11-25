@@ -91,14 +91,6 @@ async def get_event_incident(db: AsyncSession, event_id: UUID, incident_id: UUID
     return incident
 
 
-async def _event_incident_any(db: AsyncSession, event_id: UUID, incident_id: UUID) -> Incident:
-    """Like `get_event_incident`, deleted ones included – the Reko endpoints never checked that."""
-    incident = await db.get(Incident, incident_id)
-    if not incident or incident.event_id != event_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.INCIDENT_NOT_IN_EVENT)
-    return incident
-
-
 # One trickle task per event at most; module-level so requests share the guard
 # and the task isn't garbage-collected mid-run. In-memory only — a backend
 # restart drops pending trickles, which is fine for an exercise aid.

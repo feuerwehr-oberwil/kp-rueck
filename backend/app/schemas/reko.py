@@ -1,14 +1,16 @@
 """Reko (reconnaissance) report schemas."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
 # The Reko form's «Stromversorgung». No CHECK on the column; every writer (the form, the
 # training generator, the seed) uses these four, and `rapport_rows.POWER_LABELS` says them.
+# Older reports store "" for «not answered»; it reads as null rather than failing the Literal.
 PowerSupply = Literal["unknown", "available", "unavailable", "emergency_needed"]
+OptionalPowerSupply = Annotated[PowerSupply | None, BeforeValidator(lambda value: None if value == "" else value)]
 
 
 class DangersAssessment(BaseModel):
@@ -43,7 +45,7 @@ class RekoReportBase(BaseModel):
     is_relevant: bool | None = None
     dangers_json: DangersAssessment | None = None
     effort_json: EffortEstimation | None = None
-    power_supply: PowerSupply | None = None
+    power_supply: OptionalPowerSupply = None
     summary_text: str | None = None
     additional_notes: str | None = None
 

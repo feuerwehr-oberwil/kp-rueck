@@ -570,6 +570,19 @@ async def test_update_report_and_submit(editor_client: AsyncClient, test_reko_re
     assert data["is_draft"] is False
 
 
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_legacy_blank_power_supply_reads_as_unanswered(
+    editor_client: AsyncClient, db_session: AsyncSession, test_reko_report: RekoReport
+):
+    """Older reports stored "" for «Stromversorgung» – the PowerSupply Literal must not 500 on them."""
+    test_reko_report.power_supply = ""
+    await db_session.commit()
+    response = await editor_client.get(f"/api/reko/{test_reko_report.id}")
+    assert response.status_code == 200
+    assert response.json()["power_supply"] is None
+
+
 # ============================================
 # Generate Link Tests
 # ============================================
