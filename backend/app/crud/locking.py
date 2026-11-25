@@ -42,7 +42,7 @@ import uuid
 from collections.abc import Iterable
 from typing import Literal, overload
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Incident, IncidentAssignment, IncidentGroup, Material, Personnel, Vehicle
@@ -115,6 +115,18 @@ async def lock_incident_with_group(
 ) -> Incident | None:
     """``lock_incidents_with_groups`` for one incident: its Auftrag (if any) first, then it."""
     return (await lock_incidents_with_groups(db, [incident_id], extra_group_ids)).get(incident_id)
+
+
+async def lock_incident_numbering(db: AsyncSession, event_id: uuid.UUID) -> None:
+    """Take, early, the per-Ereignis lock every incident INSERT takes anyway.
+
+    The numbering trigger (``models.INCIDENT_NUMBER_TRIGGER_SQL``) holds it to the commit. A
+    writer that must see every card created before its own – the duplicate lookup of an alarm
+    attach – takes it before it looks, so a concurrent attach's card is committed and visible.
+    """
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext('incident_number:' || :event_id))"), {"event_id": str(event_id)}
+    )
 
 
 async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:

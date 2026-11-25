@@ -28,12 +28,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models, schemas
 from ..crud import divera as divera_crud
 from ..crud import incidents as incidents_crud
-from ..database import after_commit
-from ..websocket_manager import broadcast_incident_update
+from ..crud.locking import lock_incident_numbering
+from ..database import after_commit, after_rollback
+from ..websocket_manager import broadcast_divera_responses_update, broadcast_incident_update
 from . import duplicates, incident_display
 from .board_cards import board_response, broadcast_repointed
 from .divera_intake import incident_create_from_emergency
-from .divera_responses import broadcast_link_change
 from .settings import get_alarm_description_filter_prefixes, get_alarm_description_label_prefixes
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,8 @@ async def attach(
         # card exists and stored with its INSERT, so the flag's foreign key takes the other
         # card's lock before create_incident writes the Ereignis row – a status update holds a
         # card and then writes the Ereignis, and the reverse order could deadlock with it.
+        # Under the numbering lock, so a second alarm for the same place sees the first's card.
+        await lock_incident_numbering(db, event_id)
         candidates = await duplicates.find_duplicate_candidates(
             db,
             event_id,
@@ -120,9 +122,9 @@ async def attach(
 
     # «Anrückend» on this Ereignis now counts the alarm's Rückmeldungen – and no longer on the
     # Ereignis a re-attach took it from.
-    after_commit(db, broadcast_link_change, event_id, card.id)
+    _announce_link_change(db, event_id, card.id)
     if previous_event_id is not None and previous_event_id != event_id:
-        after_commit(db, broadcast_link_change, previous_event_id, None)
+        _announce_link_change(db, previous_event_id, None)
 
     if not emergency.is_training:
         # Reality preempts the drill. Simulated drives are global: they mask the real Traccar
@@ -185,6 +187,29 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         return None
     # The caller's commit stores card and link together – it is also what releases the row lock.
     return (await attach(db, emergency, event_id, actor=None)).incident
+
+
+_LINK_CHANGES = "kp_alarm_link_changes"
+
+
+def _announce_link_change(db: AsyncSession, event_id: uuid.UUID, incident_id: uuid.UUID | None) -> None:
+    """«Anrückend» re-reads on these Ereignisse: ONE broadcast per commit, however many alarms
+    the transaction attached – a bulk attach of 100 alarms is one summary reload per board."""
+    pending: tuple[set[uuid.UUID], set[uuid.UUID]] | None = db.info.get(_LINK_CHANGES)
+    if pending is None:
+        pending = (set(), set())
+        db.info[_LINK_CHANGES] = pending
+        after_commit(db, _send_link_changes, db, pending)
+        after_rollback(db, db.info.pop, _LINK_CHANGES, None)
+    pending[0].add(event_id)
+    if incident_id is not None:
+        pending[1].add(incident_id)
+
+
+async def _send_link_changes(db: AsyncSession, pending: tuple[set[uuid.UUID], set[uuid.UUID]]) -> None:
+    if db.info.get(_LINK_CHANGES) is pending:
+        del db.info[_LINK_CHANGES]
+    await broadcast_divera_responses_update(*pending)
 
 
 async def _stop_gps_simulations(event_id: uuid.UUID) -> None:

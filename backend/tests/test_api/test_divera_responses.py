@@ -264,7 +264,7 @@ async def test_attaching_an_alarm_tells_the_board(
     await db_session.commit()
     with (
         patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock),
-        patch("app.websocket_manager.broadcast_divera_responses_update", new_callable=AsyncMock) as pushed,
+        patch("app.services.alarm_attach.broadcast_divera_responses_update", new_callable=AsyncMock) as pushed,
     ):
         response = await editor_client.post(
             f"/api/divera/emergencies/{emergency.id}/attach", json={"event_id": str(test_event.id)}

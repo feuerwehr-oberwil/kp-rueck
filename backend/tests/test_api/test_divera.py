@@ -557,7 +557,7 @@ async def test_bulk_attach_success(editor_client: AsyncClient, db_session: Async
         emergencies.append(emergency)
     await db_session.commit()
 
-    with patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock):
+    with patch("app.services.alarm_attach.broadcast_divera_responses_update", new_callable=AsyncMock) as anrueckend:
         response = await editor_client.post(
             "/api/divera/emergencies/bulk-attach",
             json={
@@ -569,6 +569,8 @@ async def test_bulk_attach_success(editor_client: AsyncClient, db_session: Async
         data = response.json()
         assert len(data["created"]) == 3  # All 3 incidents created
         assert data["errors"] == []
+        # One «Anrückend» reload per board for the whole batch, not one per alarm.
+        anrueckend.assert_awaited_once_with({test_event.id}, {UUID(card["id"]) for card in data["created"]})
 
         # Re-attaching the same emergencies to the same event should surface
         # per-item errors instead of silently reporting success.
