@@ -739,9 +739,9 @@
     },
     "materialDecision": {
       "title": "Material vor Ort oder ins Magazin?",
-      "description": "<hl>{location}</hl> wurde abgeschlossen. Entscheide für jedes Gerät, ob es vor Ort blieb oder zurück ins Magazin kommt.",
-      "descriptionFromRapport": "<hl>{location}</hl> wurde abgeschlossen. Die Mannschaft hat vor Ort bereits für jedes Gerät geantwortet – kontrolliere und bestätige.",
-      "descriptionPartialRapport": "<hl>{location}</hl> wurde abgeschlossen. Die Antworten der Mannschaft sind übernommen; {count, plural, one {ein Gerät ist} other {# Geräte sind}} noch offen.",
+      "description": "<hl>{location}</hl> wird abgeschlossen. Entscheide für jedes Gerät, ob es vor Ort bleibt oder zurück ins Magazin kommt.",
+      "descriptionFromRapport": "<hl>{location}</hl> wird abgeschlossen. Die Mannschaft hat vor Ort bereits für jedes Gerät geantwortet – kontrolliere und bestätige.",
+      "descriptionPartialRapport": "<hl>{location}</hl> wird abgeschlossen. Die Antworten der Mannschaft sind übernommen; {count, plural, one {ein Gerät ist} other {# Geräte sind}} noch offen.",
       "toMagazinShort": "Magazin",
       "onSiteShort": "Vor Ort",
       "toastToMagazin": "Ins Magazin zurück",
@@ -753,7 +753,9 @@
       "rapportSource": "Aus dem Rapport von {name}",
       "rapportSourceDraft": "Aus dem Rapport-Entwurf von {name}",
       "answeredHint": "Laut Rapport",
-      "consumableHint": "Verbrauchsmaterial – kommt nicht zurück"
+      "consumableHint": "Verbrauchsmaterial – kommt nicht zurück",
+      "unknownHint": "Unbekannt – nachfragen",
+      "rapportLoading": "Rapport wird geladen …"
     },
     "disponiert": {
       "whatsappCopied": "WhatsApp-Nachricht kopiert",
@@ -779,6 +781,7 @@
       "auftragContext": "Auftrag «{name}» · Stopp {pos}/{total}",
       "copyWhatsapp": "WhatsApp-Nachricht kopieren",
       "sendDivera": "Aufgebot senden",
+      "markSpoken": "Durchgegeben",
       "auftragBatchQuestion": "Der Auftrag «{name}» hat {count} weitere Stopps, die noch niemand angefahren hat.",
       "auftragBatchAction": "{count, plural, one {Auch den anderen Stopp disponieren} other {Auch die anderen # Stopps disponieren}}",
       "auftragBatchDone": "{count, plural, one {# weiterer Stopp disponiert} other {# weitere Stopps disponiert}}"
@@ -1255,7 +1258,7 @@
     },
     "completion": {
       "title": "Einsatz abschliessen?",
-      "description": "<hl>{location}</hl> wird abgeschlossen. Das gibt sofort frei:",
+      "description": "<hl>{location}</hl> wird abgeschlossen. Beim Abschliessen werden diese Kräfte freigegeben:",
       "materialCount": "{count, plural, one {# Gerät} other {# Geräte}}",
       "toAvailable": "→ verfügbar",
       "toDecision": "→ Entscheid unten",
@@ -1269,7 +1272,11 @@
       "stopConfirm": "Stopp abschliessen",
       "stopToastTitle": "Stopp {location} abgeschlossen",
       "stopConfirmAndNext": "Abschliessen & nächsten Stopp auf «Im Einsatz»",
-      "stopDescriptionNoRelease": "<hl>{location}</hl> ist erledigt, der Auftrag «{auftrag}» läuft weiter. Dieser Stopp gibt nichts frei – die Mittel gehören zum Auftrag und fahren mit."
+      "stopDescriptionNoRelease": "<hl>{location}</hl> ist erledigt, der Auftrag «{auftrag}» läuft weiter. Dieser Stopp gibt nichts frei – die Mittel gehören zum Auftrag und fahren mit.",
+      "statusLabel": "Status",
+      "crewReleased": "Personal frei",
+      "vehiclesReleased": "{count, plural, one {Fahrzeug frei} other {Fahrzeuge frei}}",
+      "materialLabel": "Material"
     },
     "statusCorrection": {
       "title": "Status korrigieren?",
@@ -2847,6 +2854,10 @@
       "showOnBoard": "Auf dem Board zeigen",
       "moreItems": "+{count} weitere",
       "confirmAnyway": "Trotzdem archivieren",
+      "checking": "Offene Einsätze, Abholungen und Anwesenheit werden geprüft …",
+      "checkFailed": "Restliste konnte nicht geladen werden",
+      "retryCheck": "Erneut laden",
+      "confirmUnchecked": "Ohne Restlistenprüfung archivieren",
       "cancel": "Abbrechen",
       "confirm": "Archivieren"
     },

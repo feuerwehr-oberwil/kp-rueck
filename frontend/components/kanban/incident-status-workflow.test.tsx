@@ -157,14 +157,19 @@ describe("shared incident detail status workflow", () => {
     ])
   })
 
-  it("gates enroute requests on missing resources before opening Disponiert", () => {
+  it("holds a dispatch with missing resources until «Disponieren» (hunt 2026-11-24)", () => {
     const { result, changeStatusToTop } = renderWorkflow(operation())
 
     act(() => result.current.requestStatusChange("incident-1", "enroute"))
 
-    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "enroute")
+    // Nothing published yet: no status write, no broadcast, no Einsatzzettel.
+    expect(changeStatusToTop).not.toHaveBeenCalled()
     expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
     expect(result.current.disponiertOperation).toBeNull()
+
+    act(() => result.current.openDisponiert("incident-1"))
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "enroute")
+    expect(result.current.disponiertOperation?.id).toBe("incident-1")
   })
 
   it("opens Disponiert directly when all effective resources are present", () => {
@@ -195,31 +200,31 @@ describe("shared incident detail status workflow", () => {
 
     const complete = renderWorkflow(operation({ materials: ["material-1"] }))
     act(() => complete.result.current.requestCompletion("incident-1"))
-    expect(complete.changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
+    expect(complete.changeStatusToTop).not.toHaveBeenCalled()
     expect(complete.result.current.materialDecisionOperation?.id).toBe("incident-1")
   })
 
-  it("reverts to the pre-dispatch status when the missing-resource gate is cancelled", () => {
+  it("a cancelled dispatch gate leaves the card where it was – no move, no undo", () => {
     const { result, changeStatusToTop } = renderWorkflow(operation({ status: "reko" }))
 
     act(() => result.current.requestStatusChange("incident-1", "enroute"))
-    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "enroute")
     expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
 
     act(() => result.current.cancelGate("missingResources"))
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "reko")
+    expect(changeStatusToTop).not.toHaveBeenCalled()
     expect(result.current.missingResourcesOperation).toBeNull()
   })
 
-  it("keeps the cancel return status across the assignment suspend/resume round-trip", () => {
+  it("keeps the dispatch held across the assignment suspend/resume round-trip", () => {
     const { result, changeStatusToTop } = renderWorkflow(operation())
 
     act(() => result.current.requestStatusChange("incident-1", "enroute"))
     act(() => result.current.suspendGateForAssignment())
     act(() => result.current.resumeGateAfterAssignment())
+    expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
     act(() => result.current.cancelGate("missingResources"))
 
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "incoming")
+    expect(changeStatusToTop).not.toHaveBeenCalled()
     expect(result.current.missingResourcesOperation).toBeNull()
   })
 
@@ -299,20 +304,81 @@ describe("shared incident detail status workflow", () => {
     expect(filed.result.current.holdStatusMove("incident-1", "reko_done")).toBe(false)
   })
 
-  it("reverts the status and discards local decisions when the material decision is cancelled", () => {
-    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "returning", materials: ["material-1"] }))
+  it("holds the completion: nobody is freed before «Abschliessen», Abbrechen changes nothing", () => {
+    const staffed = operation({ status: "active", crew: [crewMember("AdF Eins")], vehicles: [assignedVehicle("TLF")] })
+    const cancelled = renderWorkflow(staffed)
+    act(() => cancelled.result.current.requestCompletion("incident-1"))
+    expect(cancelled.changeStatusToTop).not.toHaveBeenCalled()
+    expect(cancelled.result.current.completionRelease?.crew).toHaveLength(1)
+    expect(cancelled.result.current.completionFromStatus).toBe("active")
+    act(() => cancelled.result.current.cancelGate("materialDecision"))
+    expect(cancelled.changeStatusToTop).not.toHaveBeenCalled()
+    expect(cancelled.result.current.materialDecisionOperation).toBeNull()
+
+    const confirmed = renderWorkflow(staffed)
+    act(() => confirmed.result.current.requestCompletion("incident-1"))
+    act(() => {
+      confirmed.result.current.resolveMaterialDecision()
+    })
+    expect(confirmed.changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
+  })
+
+  it("on the last open stop, holds and names the route's squad – the server frees it too", () => {
+    const routeSquad: GroupResources = {
+      personnel: [{ assignmentId: "a1", resourceId: "p1", name: "Roth Til" }],
+      vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF" }],
+      materials: [],
+    }
+    const { result, changeStatusToTop } = renderWorkflow(
+      operation({ id: "stop-2", groupId: "g1", status: "active" }),
+      routeSquad,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
+    )
+
+    act(() => result.current.requestCompletion("stop-2"))
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.completionRelease).toMatchObject({ crew: ["Roth Til"], vehicles: ["TLF"] })
+  })
+
+  it("holds a Reko-only completion and names the Reko – the server frees it", () => {
+    const { result, changeStatusToTop } = renderWorkflow(
+      operation({ status: "active", assignedReko: { id: "p9", name: "Suter Beat" } }),
+    )
+    act(() => result.current.requestCompletion("incident-1"))
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.completionRelease?.crew).toEqual(["Suter Beat"])
+  })
+
+  it("discards local decisions when the material decision is cancelled", () => {
+    const { result } = renderWorkflow(operation({ status: "returning", materials: ["material-1"] }))
 
     act(() => result.current.requestCompletion("incident-1"))
-    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
-    expect(result.current.materialDecisionOperation?.id).toBe("incident-1")
-
     act(() => result.current.setMaterialDecision("material-1", "vorort"))
     expect(result.current.materialDecisions["material-1"]).toBe("vorort")
 
     act(() => result.current.cancelGate("materialDecision"))
-    expect(changeStatusToTop).toHaveBeenLastCalledWith("incident-1", "returning")
     expect(result.current.materialDecisionOperation).toBeNull()
     expect(result.current.materialDecisions).toEqual({})
+  })
+
+  it("never books an unanswered reusable unit as «Magazin» (hunt 2026-11-24)", async () => {
+    const { result, removeMaterial } = renderWorkflow(operation({ status: "returning", materials: ["pumpe"] }))
+
+    act(() => result.current.requestCompletion("incident-1"))
+    await waitFor(() => expect(result.current.materialAnswersLoading).toBe(false))
+    const [pumpe] = result.current.materialDecisionItems
+    expect(result.current.materialChoice(pumpe)).toBeNull()
+    expect(result.current.materialUnanswered).toBe(1)
+
+    act(() => result.current.setMaterialDecision("pumpe", "vorort"))
+    expect(result.current.materialUnanswered).toBe(0)
+    act(() => {
+      result.current.resolveMaterialDecision()
+    })
+    expect(removeMaterial).not.toHaveBeenCalled()
+    expect(applyRapportMaterialDecisions).toHaveBeenCalledWith("incident-1", [{ material_id: "pumpe", left_on_site: true }])
   })
 
   it("cancel in the post-change gates only closes when no return status is known", () => {
@@ -603,11 +669,12 @@ describe("the material gate takes the crew's word for it", () => {
     act(() => busy.result.current.requestCompletion("stop-1"))
     expect(busy.result.current.materialDecisionOperation).toBeNull()
 
-    // The last stop of a route with no material of its own: an Abschluss that
-    // hands nothing back is still a one-gesture move.
+    // The last stop of a route whose squad is already off it: an Abschluss that
+    // hands nothing back is still a one-gesture move. (With a squad still on the
+    // route the last stop frees it – see «names the route's squad».)
     const lastStop = renderWorkflow(
       operation({ id: "stop-2", groupId: "g1", status: "returning" }),
-      routeResources,
+      emptyGroupResources,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
       [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
@@ -639,6 +706,7 @@ describe("the material gate takes the crew's word for it", () => {
     await waitFor(() => expect(result.current.materialDecisionItems).toHaveLength(1))
     expect(result.current.completionContinuation).toBeNull()
 
+    act(() => result.current.setMaterialDecision("motorsaege", "magazin"))
     act(() => {
       result.current.resolveMaterialDecision()
     })

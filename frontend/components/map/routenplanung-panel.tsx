@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils"
 import { colorAccent } from "@/lib/kanban-utils"
 import type { IncidentGroup } from "@/lib/types/groups"
 import type { useRoutePlanning } from "@/lib/hooks/use-route-planning"
-import { useOperations } from "@/lib/contexts/operations-context"
+import type { OperationStatus } from "@/lib/contexts/operations-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { useIntlLocale } from "@/lib/date-locale"
 import { describeRouteStart, describeStartOption } from "@/lib/route-start"
@@ -68,6 +68,9 @@ interface RoutenplanungPanelProps {
   planning: ReturnType<typeof useRoutePlanning>
   onExit: () => void
   canEdit: boolean
+  /** A stop's status from its menu – the status workflow's `requestStatusChange`, so a
+   *  dispatch with missing resources waits for its gate like on the board. */
+  onRequestStatus: (incidentId: string, status: OperationStatus) => void
 }
 
 export function RoutenplanungPanel({
@@ -82,6 +85,7 @@ export function RoutenplanungPanel({
   planning,
   onExit,
   canEdit,
+  onRequestStatus,
 }: RoutenplanungPanelProps) {
   const t = useTranslations("map.planning")
   const { group, operationsById, isAddingStop, reorder } = planning
@@ -90,7 +94,6 @@ export function RoutenplanungPanel({
   const isPhone = useIsMobile()
   const editable = canEdit && !isPhone
   const optimizeAction = useRouteOptimizeAction(planning)
-  const { updateOperation } = useOperations()
   // Taking a stop off the route offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
 
@@ -262,7 +265,7 @@ export function RoutenplanungPanel({
                 onReorder={(ids) => void reorder(ids)}
                 focusStopId={focusStopId}
                 onSelectStop={onFocusStopChange}
-                onSetStopStatus={(incidentId, status) => updateOperation(incidentId, { status })}
+                onSetStopStatus={onRequestStatus}
                 onRemoveStop={(incidentId) => void release.releaseStop(group.id, incidentId)}
                 showStatusControl={false}
                 // The `/map` planner has no access to the dashboard completion

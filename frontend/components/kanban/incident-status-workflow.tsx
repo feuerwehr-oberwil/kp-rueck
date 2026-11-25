@@ -78,24 +78,31 @@ const BLOCKING_RESOURCES: readonly ResourceType[] = ["crew", "vehicles"]
 /**
  * What every gate remembers about the move that opened it.
  *
- * The gates open AFTER the card has moved, so Abbrechen is an undo:
+ * Most gates open AFTER the card has moved, so Abbrechen is an undo:
  * `returnStatus` is where the card came from (null when the mover did not say,
  * and then cancelling only closes). Moving a card into a working column also
  * auto-clears «Am Warten» (see `updateOperation`), so `restoreAmWarten` says
  * whether the undo has to put that flag back — otherwise the operator cancels
  * the move and the flag is gone anyway, with a toast already claiming it.
+ *
+ * `held`: the move WAITS for the gate (`holdStatusMove`) – the card has not left its
+ * column, nothing was published or released, and the gate's main answer makes the move.
+ * Abbrechen then has nothing to undo (`returnStatus` is null).
  */
 interface GateBase {
   operationId: string
   returnStatus: OperationStatus | null
   restoreAmWarten: boolean
+  held: boolean
 }
 
 /**
  * The status gates. At most one is open at a time — the state is this union
  * (or null), so two can't be open at once.
  *
- * - `missingResources`: «es fehlt noch etwas» before a dispatch
+ * - `missingResources`: «es fehlt noch etwas» before a dispatch – held: the card
+ *   enters «Disponiert / Anfahrt» (status, broadcast, a possible Einsatzzettel) only
+ *   with «Disponieren» (hunt 2026-11-24)
  * - `returningVehicle`: «Beendet / Rückfahrt» without a vehicle
  * - `rekoAssignment`: into Reko without a Reko person – the Reko picker opens
  *   at once (owner pick 19.11.2026, #4 A); backing out of it undoes the move
@@ -104,8 +111,9 @@ interface GateBase {
  *   always null: there is nothing to undo, the card never left
  * - `statusCorrection`: a BACKWARD move into «Disponiert / Anfahrt»; always
  *   knows where the card came from
- * - `materialDecision`: the completion gate, with what the completion releases
- *   (snapshotted before the store emptied the card — see CompletionRelease)
+ * - `materialDecision`: the completion gate, with what the completion releases –
+ *   held: nobody is freed and nothing is published before «Abschliessen» (hunt
+ *   2026-11-24, owner pick «Dialog mit Freigabeliste»); the list is read live off the card
  */
 type OpenGate =
   | (GateBase & { kind: "missingResources" | "returningVehicle" | "rekoAssignment" | "rekoReport" })
@@ -203,6 +211,8 @@ export function useIncidentStatusWorkflow({
   // Was that rapport filed, or is it still a draft the crew never submitted?
   // The gate reads both (§18.23) and must say which it is reading.
   const [materialRapportIsDraft, setMaterialRapportIsDraft] = useState(false)
+  // The rapport answers are on their way: «Abschliessen» waits («Rapport wird geladen …»).
+  const [materialAnswersLoading, setMaterialAnswersLoading] = useState(false)
 
   // The server refused this card's move («Gerade geändert», lib/status-conflict.ts):
   // the move a gate opened for never happened, so its Abbrechen-as-undo would be a
@@ -223,10 +233,11 @@ export function useIncidentStatusWorkflow({
    *  cleared «Am Warten». Called in the trigger, i.e. against the store as it
    *  was BEFORE the move, which is the only moment the flag can still be read. */
   const gateFor = useCallback(
-    (operationId: string, returnStatus: OperationStatus | null) => ({
+    (operationId: string, returnStatus: OperationStatus | null): GateBase => ({
       operationId,
       returnStatus,
       restoreAmWarten: Boolean(operations.find((o) => o.id === operationId)?.amWarten),
+      held: false,
     }),
     [operations],
   )
@@ -364,25 +375,6 @@ export function useIncidentStatusWorkflow({
     }
   }, [gateFor, operationById])
 
-  /**
-   * Asked by EVERY way a card moves (drag, keys, ⌘K, the status menu) BEFORE it moves: true
-   * when the workflow takes the move over and makes it itself once answered – the caller then
-   * does nothing. One case today: into «Reko abgeschlossen» without a filed Reko report, which
-   * opens the Reko form (`rekoReport`); the card moves with «Reko abschliessen» /
-   * «Ohne Bericht abschliessen» (`finishRekoReport`).
-   *
-   * Why the move waits instead of opening after it like the other gates: Abbrechen then has
-   * nothing to undo and the card is where the operator left it. The move itself files nothing –
-   * the save that answers «Einsatz relevant?» does (`api/reko._board_save_files_now`, owner
-   * re-pick 19.11.2026, #30), and the server moves a card in «Reko» on to «Reko abgeschlossen».
-   */
-  const holdStatusMove = useCallback((operationId: string, targetStatus: OperationStatus) => {
-    if (targetStatus !== "reko_done") return false
-    const operation = operationById(operationId)
-    if (!operation || operation.status === targetStatus || operation.hasCompletedReko) return false
-    setGate({ kind: "rekoReport", operationId, returnStatus: null, restoreAmWarten: false })
-    return true
-  }, [operationById])
 
   /**
    * The stop the squad drives to next once `operation` is closed — null when
@@ -418,22 +410,33 @@ export function useIncidentStatusWorkflow({
    * squad to. It stays shut only when none of them applies — completing an
    * incident that was never staffed is still a one-gesture move.
    *
-   * Must be called BEFORE the store has been emptied — see CompletionRelease.
-   * It runs in the same tick as the status change, so `operations` here is
-   * still the pre-completion array.
+   * Returns the gate to open for completing `operation`, or null. Asked before the
+   * move (`holdStatusMove`, so the card is still staffed) or, for a move that was not
+   * held, in the same tick as it – the store has not emptied the card yet.
    */
-  const promptMaterialDecision = useCallback((operationId: string, previousStatus?: OperationStatus) => {
-    const operation = operationById(operationId)
-    if (!operation) return
-
+  const completionGateFor = useCallback((operation: Operation): { kind: "materialDecision"; release: CompletionRelease | null } | null => {
     // On a STANDARD Auftrag a stop owns neither crew nor vehicles — the route
     // does, and the route is not being completed — so this list is empty by
     // construction. Those are exactly the routes the next-stop offer below was
     // built for, which is why an empty list must not keep the gate shut.
+    // The last open stop of an Auftrag also frees the route's squad (the server's
+    // `auto_release_group_resources_if_last_stop`: every other stop `complete`), so the
+    // list names them too – the gate is the confirmation for everybody it frees.
+    const auftrag = findAuftragForStop(groups, operation)
+    const routeSquad = auftrag && auftrag.stopIds.every(
+      (stopId) => stopId === operation.id || (operations.find((o) => o.id === stopId)?.status ?? "complete") === "complete",
+    )
+      ? getGroupResources(auftrag.id)
+      : null
     const release: CompletionRelease = {
       operationId: operation.id,
-      crew: operation.crew.map(personInline),
-      vehicles: operation.vehicles.map(vehicleLabel),
+      // The Reko is held apart from the crew on the board, and the server frees it too.
+      crew: [
+        ...operation.crew.map(personInline),
+        ...(operation.assignedReko ? [operation.assignedReko.name] : []),
+        ...(routeSquad?.personnel.map((person) => person.name) ?? []),
+      ],
+      vehicles: [...operation.vehicles.map(vehicleLabel), ...(routeSquad?.vehicles.map((vehicle) => vehicle.name) ?? [])],
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
@@ -441,7 +444,6 @@ export function useIncidentStatusWorkflow({
     // the next stop, and the Geräte go with it. So the question belongs to the
     // LAST stop of an Auftrag only — everywhere else the route keeps its
     // material exactly as it is (nothing here unassigns it).
-    const auftrag = findAuftragForStop(groups, operation)
     const asksAboutMaterial = routeContinuationFor(operation)
       ? false
       : auftrag
@@ -459,14 +461,57 @@ export function useIncidentStatusWorkflow({
     // Nothing released, nothing to decide, nowhere to send anybody — no dialog.
     // Completing an incident that was never staffed stays the one-gesture move
     // it always was.
-    if (!asksAboutMaterial && !offersNextStop && release.crew.length === 0 && release.vehicles.length === 0) return
+    if (!asksAboutMaterial && !offersNextStop && release.crew.length === 0 && release.vehicles.length === 0) return null
 
-    setGate({
+    return {
       kind: "materialDecision",
-      ...gateFor(operation.id, previousStatus ?? null),
       release: release.crew.length > 0 || release.vehicles.length > 0 ? release : null,
-    })
-  }, [gateFor, getGroupResources, groups, operationById, operations, routeContinuationFor, personInline])
+    }
+  }, [getGroupResources, groups, operations, routeContinuationFor, personInline])
+
+  /** The completion gate after a move that was NOT held (see `holdStatusMove`, which
+   *  asks the same `completionGateFor` first – so this opens nothing for those paths). */
+  const promptMaterialDecision = useCallback((operationId: string, previousStatus?: OperationStatus) => {
+    const operation = operationById(operationId)
+    if (!operation) return
+    const completion = completionGateFor(operation)
+    if (completion) setGate({ ...completion, ...gateFor(operation.id, previousStatus ?? null) })
+  }, [completionGateFor, gateFor, operationById])
+
+  /**
+   * Asked by EVERY way a card moves (drag, keys, ⌘K, the status menu) BEFORE it moves: true
+   * when the workflow takes the move over and makes it itself once answered – the caller then
+   * does nothing. One case today: into «Reko abgeschlossen» without a filed Reko report, which
+   * opens the Reko form (`rekoReport`); the card moves with «Reko abschliessen» /
+   * «Ohne Bericht abschliessen» (`finishRekoReport`).
+   *
+   * Why the move waits instead of opening after it like the other gates: Abbrechen then has
+   * nothing to undo and the card is where the operator left it. The move itself files nothing –
+   * the save that answers «Einsatz relevant?» does (`api/reko._board_save_files_now`, owner
+   * re-pick 19.11.2026, #30), and the server moves a card in «Reko» on to «Reko abgeschlossen».
+   */
+  const holdStatusMove = useCallback((operationId: string, targetStatus: OperationStatus) => {
+    const operation = operationById(operationId)
+    if (!operation || operation.status === targetStatus) return false
+    // Dispatch and completion wait too, whenever they have something to ask
+    // (`completionGateFor`, `getMissingResources`): their gate is the confirmation, and
+    // before it the board must not publish a dispatch or free anybody.
+    if (targetStatus === "complete") {
+      const completion = completionGateFor(operation)
+      if (!completion) return false
+      setGate({ ...completion, operationId, returnStatus: null, restoreAmWarten: false, held: true })
+      return true
+    }
+    if (targetStatus === "enroute" && !isBackwardTransition(operation.status, "enroute")) {
+      if (getMissingResources(operation).length === 0) return false
+      setGate({ kind: "missingResources", operationId, returnStatus: null, restoreAmWarten: false, held: true })
+      return true
+    }
+    if (targetStatus !== "reko_done") return false
+    if (operation.hasCompletedReko) return false
+    setGate({ kind: "rekoReport", operationId, returnStatus: null, restoreAmWarten: false, held: true })
+    return true
+  }, [completionGateFor, getMissingResources, operationById])
 
   const requestStatusChange = useCallback((operationId: string, targetStatus: OperationStatus) => {
     const operation = operationById(operationId)
@@ -595,9 +640,11 @@ export function useIncidentStatusWorkflow({
     setMaterialAnswers({})
     setMaterialRapportBy(null)
     setMaterialRapportIsDraft(false)
+    setMaterialAnswersLoading(false)
     if (!materialDecisionOperationId) return
 
     let cancelled = false
+    setMaterialAnswersLoading(true)
     void (async () => {
       try {
         // `includeDraft` (§18.23): a crew that filled the checklist and never
@@ -629,6 +676,8 @@ export function useIncidentStatusWorkflow({
         // A gate that fails open is right here: no prefill, ask everything, the
         // way it worked before the rapport existed.
         console.error("Failed to load rapport material answers:", error)
+      } finally {
+        if (!cancelled) setMaterialAnswersLoading(false)
       }
     })()
     return () => {
@@ -672,15 +721,22 @@ export function useIncidentStatusWorkflow({
   /** How many units the operator genuinely still has to decide. */
   const materialDecisionOpenCount = materialDecisionItems.filter((item) => item.source === null).length
 
-  /** The operator's own click wins; the rapport answers what they left alone. */
+  /** The operator's own click wins; the rapport answers what they left alone. Null = nobody
+   *  answered: never «Magazin» by default (hunt 2026-11-24) – a pump still running at a
+   *  Schadenplatz must not be booked as returned because nobody asked. */
   const materialChoice = useCallback(
-    (item: { id: string; answer: "magazin" | "vorort" | null }): "magazin" | "vorort" =>
-      materialDecisions[item.id] ?? item.answer ?? "magazin",
+    (item: { id: string; answer: "magazin" | "vorort" | null }): "magazin" | "vorort" | null =>
+      materialDecisions[item.id] ?? item.answer ?? null,
     [materialDecisions],
   )
+  /** Units with no answer yet – «Abschliessen» waits for them (and for the rapport read). */
+  const materialUnanswered = materialDecisionItems.filter((item) => materialChoice(item) === null).length
 
   const resolveMaterialDecision = useCallback(() => {
     if (!materialDecisionOperation) return { returned: [] as string[], kept: [] as string[] }
+    // A held completion happens now: the status first (the server frees crew and
+    // vehicles in that write), then the material answers below.
+    if (materialDecisionGate?.held) changeStatusToTop(materialDecisionOperation.id, "complete")
     const returnedItems = materialDecisionItems.filter((item) => materialChoice(item) === "magazin")
     const kept = materialDecisionItems
       .filter((item) => materialChoice(item) === "vorort")
@@ -694,7 +750,7 @@ export function useIncidentStatusWorkflow({
     // Consumables are excluded the same way the dialog excludes them: a used
     // consumable is gone and can never be "vor Ort".
     const rapportDecisions = materialDecisionItems
-      .filter((item) => !item.consumable)
+      .filter((item) => !item.consumable && materialChoice(item) !== null)
       .map((item) => ({ material_id: item.id, left_on_site: materialChoice(item) === "vorort" }))
     if (rapportDecisions.length > 0) {
       void apiClient
@@ -714,7 +770,7 @@ export function useIncidentStatusWorkflow({
     }
     setGate(null)
     return { returned: returnedItems.map((item) => item.id), kept }
-  }, [groups, materialChoice, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
+  }, [changeStatusToTop, groups, materialChoice, materialDecisionGate, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
 
   const returningVehicleOperation = gateOperation("returningVehicle")
   // Closes itself once a vehicle is on site after all (assigned meanwhile, or set to «bleibt vor Ort»).
@@ -746,7 +802,11 @@ export function useIncidentStatusWorkflow({
       setDisponiertRepeat(false)
     },
     openDisponiert: (operationId: string) => {
-      if (gate?.kind === "missingResources") setGate(null)
+      if (gate?.kind === "missingResources") {
+        setGate(null)
+        // The held dispatch happens now, with «Disponieren» (see `holdStatusMove`).
+        if (gate.held) changeStatusToTop(gate.operationId, "enroute")
+      }
       setDisponiertRepeat(false)
       setDisponiertOperationId(operationId)
     },
@@ -798,12 +858,22 @@ export function useIncidentStatusWorkflow({
     /** What this completion releases, snapshotted before the card was emptied —
      *  null when the gate is open for material alone, and null for a stop of a
      *  standard Auftrag, whose crew and vehicles belong to the route. */
-    completionRelease: materialDecisionGate?.release ?? null,
+    completionRelease: materialDecisionGate?.held && materialDecisionOperation
+      ? completionGateFor(materialDecisionOperation)?.release ?? null
+      : materialDecisionGate?.release ?? null,
     /** Where the completed card came from, so the confirmation toast can offer
      *  «Rückgängig». Read from the gate rather than from `completionRelease`:
      *  a stop that hands nothing back has no snapshot but is just as undoable.
      *  Null when the mover did not say — an undo that guesses is not an undo. */
-    completionReturnStatus: materialDecisionGate?.returnStatus ?? null,
+    completionReturnStatus: materialDecisionGate?.held
+      ? materialDecisionOperation?.status ?? null
+      : materialDecisionGate?.returnStatus ?? null,
+    /** Held completion: the column the card still stands in («Status» row of the dialog). */
+    completionFromStatus: materialDecisionGate?.held ? materialDecisionOperation?.status ?? null : null,
+    /** Units nobody answered yet, and whether the rapport read is still out: both make
+     *  «Abschliessen» wait. */
+    materialUnanswered,
+    materialAnswersLoading,
     /** Put a just-completed incident back where it came from. The backend undoes
      *  its own release in the same transaction (`_undo_completion_release`) and
      *  the context refetches on leaving `complete`, so crew and vehicles come
@@ -888,6 +958,9 @@ export function IncidentStatusWorkflowDialogs({
   // open for material alone) and how many units still need an answer.
   const release = controller.completionRelease
   const materialCount = controller.materialDecisionItems.length
+  // The rapport read matters only for a unit somebody could answer (not a consumable).
+  const waitsForAnswers =
+    controller.materialAnswersLoading && controller.materialDecisionItems.some((item) => !item.consumable)
   const correction = controller.statusCorrectionPrompt
   // …and, when the finished card is a stop with route left ahead of it, what
   // the Auftrag continues with. Then the gate is not an Abschluss at all.
@@ -1069,19 +1142,24 @@ export function IncidentStatusWorkflowDialogs({
         // answer and only appears mid-route: closing the stop stays the single
         // obvious click it was, because the squad may just as well be standing
         // down and the next stop may be one the KP dispatches deliberately.
-        extraAction={nextStopOffer ? {
+        // Same readiness as the main answer (mid-route the list is empty, so it is ready).
+        extraAction={nextStopOffer && !waitsForAnswers && controller.materialUnanswered === 0 ? {
           label: tCompletion("stopConfirmAndNext"),
           onSelect: () => confirmCompletion(nextStopOffer),
         } : undefined}
         cancelText={tMat("cancel")}
         confirmText={continuation
           ? tCompletion("stopConfirm")
-          : release
+          // A held completion is made by this answer: it says so, also for material alone.
+          : release || controller.completionFromStatus
             ? tCompletion("confirm")
             : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
               ? tMat("confirmRapport")
               : tMat("confirm")}
         onConfirm={() => confirmCompletion(null)}
+        // Waits for the rapport's answers, then for every unit nobody answered: «Magazin»
+        // is never assumed (hunt 2026-11-24).
+        confirmDisabled={waitsForAnswers ? "waiting" : controller.materialUnanswered > 0}
       >
         {/* Where the squad goes now — named, because «der nächste Stopp» is
             an address somebody has to read out over the radio. */}
@@ -1093,40 +1171,43 @@ export function IncidentStatusWorkflowDialogs({
             </span>
           </div>
         )}
-        {/* What the completion hands back, by name. Read off the card before
-            the status change emptied it (see CompletionRelease) — this is the
-            list an operator used to have to reconstruct from memory. */}
-        {release && (
-          <div className="space-y-1.5 py-1">
-            {release.crew.length > 0 && (
-              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                <Users className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-sm" title={release.crew.join(", ")}>
-                  {tCommon("personCount", { count: release.crew.length })}
-                  <span className="text-muted-foreground"> – {release.crew.join(", ")}</span>
-                </span>
-                <span className="flex-shrink-0 text-xs text-muted-foreground">{tCompletion("toAvailable")}</span>
+        {/* What the completion hands back, by name (owner pick «Dialog mit Freigabeliste»,
+            hunt 2026-11-24): label │ value rows, read off the card – which still holds
+            them, because nothing is released before «Abschliessen». */}
+        {(release || controller.completionFromStatus) && (
+          <dl className="divide-y border-y text-sm">
+            {controller.completionFromStatus && (
+              <div className="flex gap-3 py-2">
+                <dt className="w-28 flex-shrink-0 text-muted-foreground">{tCompletion("statusLabel")}</dt>
+                <dd className="min-w-0">
+                  {tColumns(controller.completionFromStatus)} → {tColumns("complete")}
+                </dd>
               </div>
             )}
-            {release.vehicles.length > 0 && (
-              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                <Truck className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-sm" title={release.vehicles.join(", ")}>
-                  {release.vehicles.join(", ")}
-                </span>
-                <span className="flex-shrink-0 text-xs text-muted-foreground">{tCompletion("toAvailable")}</span>
+            {release && release.crew.length > 0 && (
+              <div className="flex gap-3 py-2">
+                <dt className="w-28 flex-shrink-0 text-muted-foreground">{tCompletion("crewReleased")}</dt>
+                <dd className="min-w-0">{release.crew.join(", ")}</dd>
               </div>
             )}
-            {materialCount > 0 && (
-              <div className="flex items-center gap-3 rounded-md border px-3 py-2">
-                <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-sm">
+            {release && release.vehicles.length > 0 && (
+              <div className="flex gap-3 py-2">
+                <dt className="w-28 flex-shrink-0 text-muted-foreground">
+                  {tCompletion("vehiclesReleased", { count: release.vehicles.length })}
+                </dt>
+                <dd className="min-w-0">{release.vehicles.join(", ")}</dd>
+              </div>
+            )}
+            {release && materialCount > 0 && (
+              <div className="flex gap-3 py-2">
+                <dt className="w-28 flex-shrink-0 text-muted-foreground">{tCompletion("materialLabel")}</dt>
+                <dd className="min-w-0">
                   {tCompletion("materialCount", { count: materialCount })}
-                </span>
-                <span className="flex-shrink-0 text-xs text-warning-foreground">{tCompletion("toDecision")}</span>
+                  <span className="text-warning-foreground"> {tCompletion("toDecision")}</span>
+                </dd>
               </div>
             )}
-          </div>
+          </dl>
         )}
         {/* The material question keeps its own heading once it sits under a
             release list — two subjects in one window, each labelled. */}
@@ -1146,6 +1227,9 @@ export function IncidentStatusWorkflowDialogs({
             })}
           </p>
         )}
+        {controller.materialAnswersLoading && materialCount > 0 && (
+          <p className="text-xs text-muted-foreground">{tMat("rapportLoading")}</p>
+        )}
         {/* Mid-route the list is empty (`materialDecisionItems`), and an empty
             scroll area is padding pretending to be a section. */}
         {materialCount > 0 && (
@@ -1158,11 +1242,13 @@ export function IncidentStatusWorkflowDialogs({
                 <div key={materialId} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium" title={name}>{name}</span>
-                    {item.source && (
+                    {item.source ? (
                       <span className="block text-xs text-muted-foreground">
                         {tMat(item.source === "consumable" ? "consumableHint" : "answeredHint")}
                       </span>
-                    )}
+                    ) : choice === null && !controller.materialAnswersLoading ? (
+                      <span className="block text-xs text-warning-foreground">{tMat("unknownHint")}</span>
+                    ) : null}
                   </div>
                   <div className="flex flex-shrink-0 gap-1">
                     <Button size="xs" variant={choice === "magazin" ? "selected" : "outline"} aria-pressed={choice === "magazin"} onClick={() => controller.setMaterialDecision(materialId, "magazin")}>

@@ -75,12 +75,14 @@ export function DisponierTransitionDialog({
   const { drivers: liveVehicleDrivers, loaded: liveDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, open)
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
-  // The full-vs-short decision is frozen when the dialog opens, because opening
-  // it IS the announcement: it gets recorded on the server right away, and a
-  // re-render must not turn a full Auftragsdurchsage into the short form while
-  // the Einsatzleiter is still reading it out.
+  // The full-vs-short decision is frozen when the dialog opens: a re-render (a group
+  // refresh) must not turn a full Auftragsdurchsage into the short form while the
+  // Einsatzleiter is still reading it out. Opening records NOTHING (hunt 2026-11-24):
+  // only «Durchgegeben» does – see `markSpoken`.
   const [frozenFull, setFrozenFull] = useState<boolean | null>(null)
   const announcedKeyRef = useRef<string | null>(null)
+  // The (Auftrag, stop) whose Funkdurchsage was confirmed as spoken in this dialog.
+  const [spokenKey, setSpokenKey] = useState<string | null>(null)
 
   // A grouped incident carries no resources itself — the Auftrag (route) owns
   // them. Resolve the route's resources + stop position so both the Funkdurchsage
@@ -104,13 +106,13 @@ export function DisponierTransitionDialog({
     })
   }, [operation, auftrag, groupRes, operations, materials, funkrufname, addressPlaceholder, frozenFull, t, personText])
 
-  // Record what was just read out, once per (Auftrag, stop) the dialog opens for.
-  // The ref keeps this to one write even though `radio` and `recordAnnouncement`
-  // get fresh identities on every group refresh.
+  // Freeze full-vs-short once per (Auftrag, stop) the dialog opens for. The ref keeps
+  // it to once even though `radio` gets a fresh identity on every group refresh.
   useEffect(() => {
     if (!open) {
       announcedKeyRef.current = null
       setFrozenFull(null)
+      setSpokenKey(null)
       return
     }
     if (!radio || !auftrag || !operation) return
@@ -118,12 +120,17 @@ export function DisponierTransitionDialog({
     if (announcedKeyRef.current === key) return
     announcedKeyRef.current = key
     setFrozenFull(radio.full)
-    void recordAnnouncement(auftrag.id, {
-      fingerprint: radio.fingerprint,
-      stopId: operation.id,
-      full: radio.full,
-    })
-  }, [open, radio, auftrag, operation, recordAnnouncement])
+  }, [open, radio, auftrag, operation])
+
+  // «Durchgegeben»: the text on screen was read out. Only this records it – the next stop
+  // of the route then gets the short continuation, and «Funkdurchsage wiederholen» shows
+  // the time. Closing, a copy or a print says nothing about the radio. The dialog stays
+  // open (the batch offer and the Aufgebot are still to come); the button turns into a tick.
+  const markSpoken = () => {
+    if (!radio || !auftrag || !operation) return
+    void recordAnnouncement(auftrag.id, { fingerprint: radio.fingerprint, stopId: operation.id, full: radio.full })
+    setSpokenKey(`${auftrag.id}:${operation.id}`)
+  }
 
   if (!operation) return null
 
@@ -307,6 +314,17 @@ export function DisponierTransitionDialog({
 
           {/* Action buttons */}
           <div className="flex flex-col gap-2">
+            {/* Only on an Auftrag stop: the record decides full vs. short for the next stop. */}
+            {radio && (
+              <Button
+                className="justify-start gap-2"
+                onClick={markSpoken}
+                disabled={spokenKey === `${auftrag?.id}:${operation.id}`}
+              >
+                {spokenKey === `${auftrag?.id}:${operation.id}` ? <Check className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
+                {t('disponiert.markSpoken')}
+              </Button>
+            )}
             <Button
               variant="outline"
               className="justify-start gap-2"
