@@ -8,6 +8,9 @@ once shortly after start.
 Never a file a row points at. A file counts as referenced when any of these name it under
 its incident's folder: a Reko report, a Schadenplatz-Rapport (KP and /feld), or a Reko row
 the one-report migration parked in `reko_reports_folded` (its downgrade puts them back).
+The folder of a card merged into another (`incidents.merged_into_id`) is never swept: its
+photos are the originals «Trennen» copies back – and after a merge by an older build the
+only complete ones.
 Only files at least `MIN_AGE` old by BOTH their modification and their inode-change time
 are candidates: an upload whose commit is still on its way is seconds old, and a merge copy
 (`copy2` keeps the source's mtime) – or a file a merge keeps and attaches anew
@@ -98,10 +101,13 @@ async def sweep_orphan_photos(db: AsyncSession, *, now: datetime | None = None) 
     if not candidates:
         return 0
     referenced = {(incident_id, name) for incident_id, name in (await db.execute(_REFERENCES)).all()}
+    merged_away = set(
+        (await db.execute(text("SELECT id::text FROM incidents WHERE merged_into_id IS NOT NULL"))).scalars()
+    )
     removed = 0
     for incident_id, path in candidates:
         # Still old after the rows were read: a merge that attached it meanwhile made it new.
-        if (incident_id, path.name) in referenced or not _is_old(path, cutoff):
+        if incident_id in merged_away or (incident_id, path.name) in referenced or not _is_old(path, cutoff):
             continue
         try:
             path.unlink()

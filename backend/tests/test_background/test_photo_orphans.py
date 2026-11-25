@@ -130,3 +130,26 @@ async def test_the_sweep_waits_for_a_merge_that_attaches_photos(test_engine, pho
         await merge.commit()
         assert await asyncio.wait_for(running, timeout=5) == 0
         await sweep.rollback()
+
+
+async def test_a_merged_away_card_keeps_its_originals(db_session, test_incident, photos_dir):
+    """«Trennen» copies them back – after a merge by an older build (a short copy on the
+    surviving card) they are the only complete ones."""
+    from app.models import Incident
+
+    merged = Incident(
+        id=uuid4(),
+        event_id=test_incident.event_id,
+        title="Bahnhofstrasse 4",
+        type="elementarereignis",
+        priority="medium",
+        status="incoming",
+        location_address="Bahnhofstrasse 4",
+        merged_into_id=test_incident.id,
+    )
+    db_session.add(merged)
+    await db_session.flush()
+    original = _file(photos_dir / str(merged.id), "a.jpg")
+
+    assert await sweep_orphan_photos(db_session, now=LATER) == 0
+    assert original.exists()
