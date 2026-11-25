@@ -32,7 +32,8 @@ from .rapport_rows import STATUS_LABELS
 from .vehicle_facts import record_vehicle_fact
 
 logger = logging.getLogger(__name__)
-_geofence_failures = FailureLatch(logger, "Geofence check")
+#: One latch per Ereignis: a healthy one must not clear a failing one's (and re-log it every tick).
+_geofence_failures: dict[UUID, FailureLatch] = {}
 
 NOTIFICATION_SETTINGS_KEY = "notification_settings"
 
@@ -715,9 +716,10 @@ async def _check_geofence_alerts(
 
     except Exception as e:
         # Don't let Traccar failures break the entire notification evaluation
-        _geofence_failures.failed(e)
+        _geofence_failures.setdefault(event_id, FailureLatch(logger, f"Geofence check (Ereignis {event_id})")).failed(e)
     else:
-        _geofence_failures.ok()
+        if (latch := _geofence_failures.pop(event_id, None)) is not None:
+            latch.ok()
 
     return notifications
 

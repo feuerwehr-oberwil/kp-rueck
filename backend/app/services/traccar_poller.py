@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 _positions_failures = FailureLatch(logger, "Traccar position poll")
 _automation_failures = FailureLatch(logger, "GPS automation run")
 _trails_failures = FailureLatch(logger, "Traccar trails poll")
+_trail_device_failures = FailureLatch(logger, "Traccar trail of a device")
 
 POSITIONS_INTERVAL_SECONDS = 10
 TRAILS_INTERVAL_SECONDS = 30
@@ -181,11 +182,12 @@ class TraccarPoller:
                 devices = await traccar_client.get_devices()
 
                 trails_data = []
+                device_failed = False
                 for device in devices:
                     try:
                         positions = await traccar_client.get_position_history(device.id, from_time, now)
                         if not positions:
-                            continue
+                            continue  # expected: no history in the window
                         trails_data.append(
                             {
                                 "device_id": device.id,
@@ -201,8 +203,11 @@ class TraccarPoller:
                                 ],
                             }
                         )
-                    except Exception as e:  # expected: a device without history in the window
-                        logger.debug("Failed to get trail for device %s: %s", device.name, e)
+                    except Exception as e:  # one device's failure must not cost the others their trail
+                        device_failed = True
+                        _trail_device_failures.failed(e)
+                if not device_failed:
+                    _trail_device_failures.ok()
 
                 await broadcast_vehicle_trails(trails_data)
             except asyncio.CancelledError:
