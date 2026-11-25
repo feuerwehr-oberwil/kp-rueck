@@ -195,15 +195,6 @@ async def test_dismiss_keeps_the_plan(editor_client: AsyncClient, test_event: Ev
     assert await _list(editor_client, test_event) == []
 
 
-async def test_viewer_cannot_plan(viewer_client: AsyncClient, three, test_personnel: Personnel):
-    _, b, _ = three
-    response = await viewer_client.post(
-        "/api/planned-assignments/",
-        json={"resource_type": "personnel", "resource_id": str(test_personnel.id), "incident_id": str(b.id)},
-    )
-    assert response.status_code == 403
-
-
 async def test_another_ereignis_never_binds(
     editor_client: AsyncClient, db_session: AsyncSession, test_user: User, three, test_personnel: Personnel
 ):

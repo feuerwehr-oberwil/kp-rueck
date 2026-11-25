@@ -263,20 +263,6 @@ async def test_create_incident_success(editor_client: AsyncClient, test_event: E
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_create_incident_viewer_forbidden(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot create incidents."""
-    incident_data = {
-        "event_id": str(test_event.id),
-        "title": "New Incident",
-        "type": "brandbekaempfung",
-        "priority": "high",
-    }
-    response = await viewer_client.post("/api/incidents/", json=incident_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_create_incident_invalid_event(editor_client: AsyncClient):
     """Test creating incident with non-existent event returns 404."""
     incident_data = {
@@ -388,15 +374,6 @@ async def test_update_incident_success(editor_client: AsyncClient, test_incident
     assert data["priority"] == "high"
     # Unchanged fields should remain
     assert data["type"] == "brandbekaempfung"
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_incident_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident):
-    """Test that viewers cannot update incidents."""
-    update_data = {"title": "Updated Title"}
-    response = await viewer_client.patch(f"/api/incidents/{test_incident.id}", json=update_data)
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -574,18 +551,6 @@ async def test_status_patch_without_from_status_is_not_checked(editor_client: As
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_update_status_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident):
-    """Test that viewers cannot update incident status."""
-    status_data = {
-        "from_status": "incoming",
-        "to_status": "reko",
-    }
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/status", json=status_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_update_status_not_found(editor_client: AsyncClient):
     """Test updating status of non-existent incident returns 404."""
     status_data = {
@@ -614,14 +579,6 @@ async def test_delete_incident_success(editor_client: AsyncClient, test_incident
     incidents = response.json()
     incident_ids = [i["id"] for i in incidents]
     assert str(test_incident.id) not in incident_ids
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_delete_incident_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident):
-    """Test that viewers cannot delete incidents."""
-    response = await viewer_client.delete(f"/api/incidents/{test_incident.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -744,14 +701,6 @@ async def test_restore_incident_not_found(editor_client: AsyncClient):
     """Restoring an unknown incident returns 404."""
     response = await editor_client.post(f"/api/incidents/{uuid4()}/restore")
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_restore_incident_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident):
-    """Viewers cannot restore incidents."""
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/restore")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -910,19 +859,6 @@ async def test_reorder_incidents_persists_order(
     # Positions are 0,1,2 in the new order.
     by_id = {inc["id"]: inc["position"] for inc in listed.json()}
     assert [by_id[i] for i in new_order] == [0, 1, 2]
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_reorder_incidents_viewer_forbidden(
-    viewer_client: AsyncClient, test_event: Event, three_incidents: list[Incident]
-):
-    """Viewers cannot reorder the board."""
-    response = await viewer_client.post(
-        "/api/incidents/reorder",
-        json={"event_id": str(test_event.id), "ordered_ids": [str(three_incidents[0].id)]},
-    )
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

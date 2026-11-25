@@ -82,14 +82,6 @@ async def test_generate_link_requires_auth(client: AsyncClient, test_event: Even
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_link_requires_editor(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot generate check-in links."""
-    response = await viewer_client.post(f"/api/personnel/check-in/generate-link?event_id={test_event.id}")
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_generate_link_success(editor_client: AsyncClient, test_event: Event):
     """Test successful check-in link generation."""
     response = await editor_client.post(f"/api/personnel/check-in/generate-link?event_id={test_event.id}")

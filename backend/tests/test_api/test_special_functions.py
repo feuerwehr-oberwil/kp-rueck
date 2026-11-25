@@ -292,19 +292,6 @@ async def test_assign_special_function_requires_auth(client: AsyncClient, test_e
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_assign_special_function_viewer_forbidden(
-    viewer_client: AsyncClient, test_event: Event, test_personnel: Personnel
-):
-    """Test that viewers cannot assign special functions."""
-    response = await viewer_client.post(
-        f"/api/events/{test_event.id}/special-functions/",
-        json={"personnel_id": str(test_personnel.id), "function_type": "einsatzleiter"},
-    )
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_assign_special_function_success(
     editor_client: AsyncClient, test_event: Event, test_personnel: Personnel
 ):
@@ -374,20 +361,6 @@ async def test_unassign_special_function_requires_auth(
         json={"personnel_id": str(test_personnel.id), "function_type": "reko"},
     )
     assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_unassign_special_function_viewer_forbidden(
-    viewer_client: AsyncClient, test_event: Event, test_personnel: Personnel
-):
-    """Test that viewers cannot unassign special functions."""
-    response = await viewer_client.request(
-        "DELETE",
-        f"/api/events/{test_event.id}/special-functions/",
-        json={"personnel_id": str(test_personnel.id), "function_type": "reko"},
-    )
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

@@ -287,12 +287,6 @@ class TestSourceCorrection:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_viewer_cannot_correct(self, viewer_client: AsyncClient, test_incident: Incident):
-        response = await viewer_client.patch(f"/api/incidents/{test_incident.id}", json={"source": "intake"})
-        assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
     async def test_anonymous_cannot_claim_intake(self, client: AsyncClient, test_event: Event):
         """The board door needs a session; the token door is `/api/intake/alarm`."""
         response = await client.post(

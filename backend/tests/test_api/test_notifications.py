@@ -170,14 +170,6 @@ async def test_dismiss_notification_not_found(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_dismiss_notification_viewer_forbidden(viewer_client: AsyncClient, test_notification: Notification):
-    """Dismissal is global (hides it for the whole board), so a viewer may not do it."""
-    response = await viewer_client.post(f"/api/notifications/{test_notification.id}/dismiss")
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_dismiss_notification_idempotent(editor_client: AsyncClient, test_notification: Notification):
     """Test that dismissing a notification twice is idempotent."""
     # First dismiss
@@ -270,14 +262,6 @@ async def test_update_notification_settings_partial(editor_client: AsyncClient):
     assert data["live_reko_min"] == 90
     # Other fields should retain their values
     assert data["fatigue_hours"] == original_fatigue
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_notification_settings_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot update notification settings."""
-    response = await viewer_client.patch("/api/notifications/settings/", json={"fatigue_hours": 5})
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

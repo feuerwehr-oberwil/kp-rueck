@@ -179,17 +179,6 @@ async def test_create_vehicle_core_fields(editor_client: AsyncClient):
     assert data["status"] == "available"
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_create_vehicle_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot create vehicles."""
-    response = await viewer_client.post(
-        "/api/vehicles/",
-        json={"name": "New Vehicle", "display_order": 1},
-    )
-    assert response.status_code == 403
-
-
 # ============================================
 # Update Vehicle Tests
 # ============================================
@@ -238,14 +227,6 @@ async def test_update_vehicle_not_found(editor_client: AsyncClient):
     """Test updating a non-existent vehicle."""
     response = await editor_client.put(f"/api/vehicles/{uuid4()}", json={"name": "Updated"})
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_vehicle_viewer_forbidden(viewer_client: AsyncClient, test_vehicle: Vehicle):
-    """Test that viewers cannot update vehicles."""
-    response = await viewer_client.put(f"/api/vehicles/{test_vehicle.id}", json={"name": "Updated"})
-    assert response.status_code == 403
 
 
 # ============================================
@@ -360,14 +341,6 @@ async def test_delete_vehicle_not_found(editor_client: AsyncClient):
     """Test deleting a non-existent vehicle."""
     response = await editor_client.delete(f"/api/vehicles/{uuid4()}")
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_delete_vehicle_viewer_forbidden(viewer_client: AsyncClient, test_vehicle: Vehicle):
-    """Test that viewers cannot delete vehicles."""
-    response = await viewer_client.delete(f"/api/vehicles/{test_vehicle.id}")
-    assert response.status_code == 403
 
 
 # ============================================

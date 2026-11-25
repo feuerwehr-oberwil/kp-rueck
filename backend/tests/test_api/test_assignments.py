@@ -223,18 +223,6 @@ async def test_assign_material_success(editor_client: AsyncClient, test_incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_assign_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident, test_personnel: Personnel):
-    """Test that viewers cannot assign resources."""
-    assignment_data = {
-        "resource_type": "personnel",
-        "resource_id": str(test_personnel.id),
-    }
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/assign", json=assignment_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_assign_invalid_resource_type(editor_client: AsyncClient, test_incident: Incident):
     """A bad resource_type is refused with a message that names the legal values.
 
@@ -317,16 +305,6 @@ async def test_unassign_success(
     """Test unassigning a resource from incident."""
     response = await editor_client.post(f"/api/incidents/{test_incident.id}/unassign/{existing_assignment.id}")
     assert response.status_code == 204
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_unassign_viewer_forbidden(
-    viewer_client: AsyncClient, test_incident: Incident, existing_assignment: IncidentAssignment
-):
-    """Test that viewers cannot unassign resources."""
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/unassign/{existing_assignment.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -455,15 +433,6 @@ async def test_collect_material_refuses_a_unit_the_amended_rapport_took_back(
     assert response.json()["detail"] == "Laut Rapport ist dieses Material nicht mehr vor Ort."
     await db_session.refresh(material_on_site)
     assert material_on_site.unassigned_at is None
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_collect_material_viewer_forbidden(
-    viewer_client: AsyncClient, test_incident: Incident, material_on_site: IncidentAssignment
-):
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

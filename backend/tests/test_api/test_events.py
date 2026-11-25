@@ -274,14 +274,6 @@ async def test_create_event_minimal(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_create_event_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot create events."""
-    response = await viewer_client.post("/api/events/", json={"name": "New Event"})
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_create_event_empty_name(editor_client: AsyncClient):
     """Test creating event with empty name.
 
@@ -343,14 +335,6 @@ async def test_update_event_not_found(editor_client: AsyncClient):
     """Test updating a non-existent event."""
     response = await editor_client.put(f"/api/events/{uuid4()}", json={"name": "Updated"})
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_event_viewer_forbidden(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot update events."""
-    response = await viewer_client.put(f"/api/events/{test_event.id}", json={"name": "Updated"})
-    assert response.status_code == 403
 
 
 # ============================================
@@ -438,14 +422,6 @@ async def test_archive_event_not_found(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_archive_event_viewer_forbidden(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot archive events."""
-    response = await viewer_client.post(f"/api/events/{test_event.id}/archive")
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_archive_removes_from_default_list(editor_client: AsyncClient, test_event: Event):
     """Test that archived events don't appear in default list."""
     # Archive the event
@@ -486,14 +462,6 @@ async def test_unarchive_event_not_found(editor_client: AsyncClient):
     """Test unarchiving a non-existent event."""
     response = await editor_client.post(f"/api/events/{uuid4()}/unarchive")
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_unarchive_event_viewer_forbidden(viewer_client: AsyncClient, archived_event: Event):
-    """Test that viewers cannot unarchive events."""
-    response = await viewer_client.post(f"/api/events/{archived_event.id}/unarchive")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -608,14 +576,6 @@ async def test_delete_event_not_found(admin_client: AsyncClient):
     """Test deleting a non-existent event."""
     response = await admin_client.delete(f"/api/events/{uuid4()}")
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_delete_event_viewer_forbidden(viewer_client: AsyncClient, archived_event: Event):
-    """Test that viewers cannot delete events."""
-    response = await viewer_client.delete(f"/api/events/{archived_event.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

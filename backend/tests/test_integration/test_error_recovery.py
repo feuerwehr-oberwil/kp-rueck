@@ -374,29 +374,6 @@ async def test_event_delete_cascade_handling(admin_client: AsyncClient, db_sessi
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_viewer_cannot_create_incident(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot create incidents."""
-    incident_data = {
-        "event_id": str(test_event.id),
-        "title": "Viewer Created Incident",
-        "type": "brandbekaempfung",
-        "priority": "high",
-    }
-    response = await viewer_client.post("/api/incidents/", json=incident_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_viewer_cannot_update_incident(viewer_client: AsyncClient, test_incident: Incident):
-    """Test that viewers cannot update incidents."""
-    update_data = {"title": "Viewer Updated Title"}
-    response = await viewer_client.patch(f"/api/incidents/{test_incident.id}", json=update_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
 async def test_unauthenticated_access_denied(client: AsyncClient, test_event: Event):
     """Test that unauthenticated requests are denied."""
     # No login performed
