@@ -89,8 +89,15 @@ function renderWorkflow(
   siblings: Operation[] = [],
 ) {
   // Resolves like the store's: true once the server took the status.
+  // What the store holds.
+  const board = { operations: [currentOperation, ...siblings] }
+  // Like the store: the status is on the board at once (seen from the next render), and the
+  // write resolves true once the server took it.
   const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
-    () => Promise.resolve(true),
+    (id, status) => {
+      board.operations = board.operations.map((op) => (op.id === id ? { ...op, status } : op))
+      return Promise.resolve(true)
+    },
   )
   const getGroupResources = vi.fn(() => groupResources)
   const materials: Material[] = currentOperation.materials.map((id) => ({
@@ -107,8 +114,6 @@ function renderWorkflow(
   }))
   const removeMaterial = vi.fn()
   const unassignGroupResource = vi.fn()
-  // What the store holds; a test that models its optimistic status write changes it.
-  const board = { operations: [currentOperation, ...siblings] }
   const result = renderHook(() => useIncidentStatusWorkflow({
     operations: board.operations,
     materials,
@@ -119,6 +124,17 @@ function renderWorkflow(
     unassignGroupResource,
   }))
   return { ...result, board, changeStatusToTop, removeMaterial, unassignGroupResource }
+}
+
+/** «Abschliessen» as the app runs it: the store shows the new status at once, and the write
+ *  answers after the board re-rendered (a real PATCH takes a round trip). */
+async function confirmAsTheApp(rendered: ReturnType<typeof renderWorkflow>, startNextId: string | null = null) {
+  let done: Promise<{ returned: string[]; kept: string[] } | null> = Promise.resolve(null)
+  act(() => { done = rendered.result.current.resolveMaterialDecision(startNextId) })
+  rendered.rerender()
+  let outcome: { returned: string[]; kept: string[] } | null = null
+  await act(async () => { outcome = await done })
+  return outcome
 }
 
 describe("shared incident detail status workflow", () => {
@@ -555,6 +571,43 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
     expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
   })
 
+  it("keeps the route's Geräte when the last stop was reopened during the write", async () => {
+    const write = deferred()
+    const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
+      (_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)),
+    )
+    const unassignGroupResource = vi.fn()
+    const routeMaterial: GroupResources = {
+      ...emptyGroupResources,
+      materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
+    }
+    const only = (status: Operation["status"]) => [operation({ id: "stop-1", groupId: "g1", status })]
+    const { result, rerender } = renderHook(
+      ({ operations }: { operations: Operation[] }) => useIncidentStatusWorkflow({
+        operations,
+        materials: [],
+        groups: [{ id: "g1", stopIds: ["stop-1"] }] as never,
+        changeStatusToTop,
+        getGroupResources: () => routeMaterial,
+        removeMaterial: vi.fn(),
+        unassignGroupResource,
+      }),
+      { initialProps: { operations: only("returning") } },
+    )
+
+    act(() => result.current.requestCompletion("stop-1"))
+    await waitFor(() => expect(result.current.materialAnswersLoading).toBe(false))
+    act(() => result.current.setMaterialDecision("motorsaege", "magazin"))
+    let done: Promise<unknown> = Promise.resolve()
+    act(() => { done = result.current.resolveMaterialDecision(null) })
+    rerender({ operations: only("active") })
+    await act(async () => {
+      write.settle(true)
+      await done
+    })
+    expect(unassignGroupResource).not.toHaveBeenCalled()
+  })
+
   it("starts nothing when the finished stop was reopened during the write", async () => {
     const write = deferred()
     const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
@@ -939,7 +992,7 @@ describe("the material gate takes the crew's word for it", () => {
 
     act(() => lastStop.result.current.setMaterialDecision("motorsaege", "magazin"))
     act(() => lastStop.result.current.setMaterialDecision("pumpe", "magazin"))
-    await act(() => lastStop.result.current.resolveMaterialDecision(null))
+    await confirmAsTheApp(lastStop)
     expect(lastStop.unassignGroupResource).toHaveBeenCalledWith("g1", "a1")
     expect(lastStop.removeMaterial).toHaveBeenCalledWith("stop-2", "pumpe")
   })
@@ -950,20 +1003,21 @@ describe("the material gate takes the crew's word for it", () => {
       vehicles: [],
       materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
     }
-    const { result, unassignGroupResource } = renderWorkflow(
+    const rendered = renderWorkflow(
       operation({ id: "stop-2", groupId: "g1", status: "returning" }),
       routeMaterial,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
       [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
     )
+    const { result, unassignGroupResource } = rendered
 
     act(() => result.current.requestCompletion("stop-2"))
     await waitFor(() => expect(result.current.materialDecisionItems).toHaveLength(1))
     expect(result.current.completionContinuation).toBeNull()
 
     act(() => result.current.setMaterialDecision("motorsaege", "magazin"))
-    await act(() => result.current.resolveMaterialDecision(null))
+    await confirmAsTheApp(rendered)
     expect(unassignGroupResource).toHaveBeenCalledWith("g1", "a1")
   })
 

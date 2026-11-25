@@ -804,9 +804,13 @@ export function useIncidentStatusWorkflow({
     // on the latest board: a stop added during the write keeps them, unanswered. The stop's
     // own units are the stop's, and their answers stand.
     // The route captured at «Abschliessen», as the latest board has it (the stop may have
-    // moved to another route meanwhile) – the same rule the gate asked by.
+    // moved to another route meanwhile) – the same rule the gate asked by – and only while
+    // the stop is still closed (not reopened during the write).
     const latestAuftrag = auftrag ? latestRoute(auftrag.id) : null
-    const routeDone = Boolean(latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0)
+    const stillClosed = latest.current.operations.find((operation) => operation.id === operationId)?.status === "complete"
+    const routeDone = Boolean(
+      stillClosed && latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0,
+    )
     const standing = answered.filter(({ item }) => !(item.assignmentId && auftrag) || routeDone)
 
     // Write the confirmed answers back into the rapport: «Vor Ort» persists as
