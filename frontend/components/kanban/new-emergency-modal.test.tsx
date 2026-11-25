@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
@@ -46,6 +46,9 @@ const viewport = vi.hoisted(() => ({ mobile: false }))
 vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => viewport.mobile }))
 
 import { NewEmergencyModal } from '@/components/kanban/new-emergency-modal'
+
+// A failed create keeps its draft for the tab (readDraft): every case starts without one.
+beforeEach(() => sessionStorage.clear())
 
 function renderModal() {
   const onCreateOperation = vi.fn().mockResolvedValue(true)
@@ -238,6 +241,38 @@ describe('NewEmergencyModal — Erstellen schlägt fehl', () => {
     expect(screen.getByLabelText('Telefonnummer')).toHaveValue('079 123 45 67')
     expect(screen.getByRole('alert')).toHaveTextContent('Nicht erstellt – deine Eingaben sind noch hier.')
     expect(screen.getByRole('button', { name: 'Einsatz erstellen' })).toBeEnabled()
+  })
+})
+
+describe('NewEmergencyModal — Abmeldung während des Erstellens (hunt follow-up 25.11.)', () => {
+  it('a sign-out that takes the dialog away keeps the report for the next open in this Ereignis', async () => {
+    const user = userEvent.setup()
+    const answer = Promise.withResolvers<boolean>()
+    const first = renderWithIntl(
+      <NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={() => answer.promise} eventId="event-1" />,
+    )
+    await user.type(screen.getByLabelText('Meldung'), 'Wasser im Keller')
+    await user.type(screen.getByLabelText('Ort'), 'Hauptstrasse 12')
+    await user.click(screen.getByRole('button', { name: 'Einsatz erstellen' }))
+    // 401: the board signs out and unmounts the dialog before the create answers.
+    first.unmount()
+    await act(async () => answer.resolve(false))
+
+    const other = renderWithIntl(
+      <NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={vi.fn()} eventId="event-2" />,
+    )
+    expect(screen.getByLabelText('Ort')).toHaveValue('')
+    other.unmount()
+
+    const onCreateOperation = vi.fn().mockResolvedValue(true)
+    renderWithIntl(<NewEmergencyModal open onOpenChange={() => {}} onCreateOperation={onCreateOperation} eventId="event-1" />)
+    expect(screen.getByLabelText('Ort')).toHaveValue('Hauptstrasse 12')
+    expect(screen.getByLabelText('Meldung')).toHaveValue('Wasser im Keller')
+
+    // Created: the draft is gone.
+    await user.click(screen.getByRole('button', { name: 'Einsatz erstellen' }))
+    expect(onCreateOperation).toHaveBeenCalledWith(expect.objectContaining({ location: 'Hauptstrasse 12' }))
+    expect(sessionStorage.getItem('kp-new-incident-draft')).toBeNull()
   })
 })
 
