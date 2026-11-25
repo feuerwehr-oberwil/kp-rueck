@@ -847,17 +847,27 @@ async def test_a_standby_box_acts_only_where_it_leads_and_only_asks(
     await db_session.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
     await _enable_arrival(db_session, silent=True)
     clock = _Clock(datetime.now(UTC))
+    event_id = enroute_incident.event_id
 
-    await _three_fixes_at_the_incident(db_session, clock)
-    assert (await _status(db_session, enroute_incident.id), await _arrival_todos(db_session)) == ("enroute", 0)
+    async def after_three_fixes() -> tuple[str, int]:
+        await _three_fixes_at_the_incident(db_session, clock)
+        return await _status(db_session, enroute_incident.id), await _arrival_todos(db_session)
 
-    await db_session.execute(
-        text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": enroute_incident.event_id}
-    )
-    db_session.add(EventLead(event_id=enroute_incident.event_id, holder="standby", since=datetime.now(UTC)))
+    # The lead row arrived by replication, but the box has not taken the Ereignis out of the stream.
+    lead = EventLead(event_id=event_id, holder="standby", since=datetime.now(UTC))
+    db_session.add(lead)
     await db_session.flush()
-    await _three_fixes_at_the_incident(db_session, clock)
-    assert (await _status(db_session, enroute_incident.id), await _arrival_todos(db_session)) == ("enroute", 1)
+    assert await after_three_fixes() == ("enroute", 0)
+
+    # Taken out of the stream, but the hosted board took it back («Hier übernehmen»).
+    await db_session.execute(text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": event_id})
+    lead.holder = "hosted"
+    await db_session.flush()
+    assert await after_three_fixes() == ("enroute", 0)
+
+    lead.holder = "standby"
+    await db_session.flush()
+    assert await after_three_fixes() == ("enroute", 1)
 
 
 @pytest.mark.asyncio
