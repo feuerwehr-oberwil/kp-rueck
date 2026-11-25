@@ -630,7 +630,8 @@ jobs:
         with:
           name: next-standalone
           path: frontend/next-standalone.tgz
-          retention-days: 1
+          # Long enough to re-run one browser job of this run on its own later.
+          retention-days: 7
 
       # GitHub Pages serves site/ verbatim, so the generated pages are committed.
       # This fails if index.html / fr/index.html are behind the template or the

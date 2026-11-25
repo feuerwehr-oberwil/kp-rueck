@@ -101,9 +101,11 @@ async def test_two_uploads_at_once_both_stay_on_the_rapport(board, monkeypatch):
     await inside.wait()
     # The first has read the Rapport and is storing its file; the second arrives now.
     second = asyncio.create_task(client.post(url, files={"file": ("b.jpg", jpeg(), "image/jpeg")}))
-    await wait_until_blocked(sessions)  # behind the first's Rapport lock
-    release.set()
-    answers = [await first, await second]
+    try:
+        await wait_until_blocked(sessions)  # behind the first's Rapport lock
+    finally:  # never leave the first parked in its transaction
+        release.set()
+        answers = [await first, await second]
 
     assert [a.status_code for a in answers] == [200, 200]
     async with sessions() as db:

@@ -751,8 +751,8 @@ async def test_viewer_token_opens_no_other_endpoint(client: AsyncClient, test_ev
     incidents = await client.get(f"/api/incidents/?event_id={test_event.id}&token={token}")
     assert incidents.status_code == 401
 
-    reports = await client.get(f"/api/reko/incident/{test_incident.id}?token={token}")
-    assert reports.status_code == 404
+    reports = await client.get(f"/api/reko/incident/{test_incident.id}/reports?token={token}")
+    assert reports.status_code == 401
 
 
 @pytest.mark.asyncio
