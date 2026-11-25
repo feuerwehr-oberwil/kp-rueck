@@ -891,7 +891,8 @@
       "infoDragDrop": "Fahrzeuge, Mannschaft und Material können nach dem Erstellen des Einsatzes per Drag & Drop zugewiesen werden.",
       "create": "Einsatz erstellen",
       "createAndNext": "Erstellen und nächsten erfassen",
-      "moreActions": "Weitere Aktionen"
+      "moreActions": "Weitere Aktionen",
+      "createFailed": "Nicht erstellt – deine Eingaben sind noch hier. Prüfe die Verbindung und versuche es nochmals."
     },
     "detail": {
       "rekoAuftrag": "Reko",
