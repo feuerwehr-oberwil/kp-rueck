@@ -1,5 +1,5 @@
 {
-  "notice": "Cette version française n’a pas encore été relue par une personne francophone des sapeurs-pompiers. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
+  "notice": "Cette version française n’a pas encore été relue par un sapeur-pompier francophone. Un terme qui sonne faux ? <a href=\"#kontakt\">Dites-le-nous</a>, nous corrigeons.",
   "meta": {
     "title": "KP Rück – le tableau d’intervention du poste de commandement",
     "description": "KP Rück est le tableau magnétique numérique du poste de commandement arrière : interventions, personnel, véhicules et matériel – en direct, open source.",
@@ -63,23 +63,24 @@
     "note": "Né du service opérationnel réel des\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">sapeurs-pompiers d’Oberwil BL</a>\n        – éprouvé sur le terrain et développé en continu."
   },
   "tenet": {
+    "h2": "Trois niveaux de redondance.",
     "eyebrow": "La mesure de toute chose",
     "quote": "«&nbsp;Quand le réseau tombe, c’est le <em>papier</em> qui conduit&nbsp;»",
     "expl": "Un tableau qui devient noir à la première coupure de courant n’est pas un document de\n        conduite. D’où une redondance à plusieurs niveaux – <strong>chaque niveau fonctionne\n        sans celui du dessus</strong>.",
     "stages": [
       {
         "n": "Niveau 1",
-        "h3": "Plusieurs appareils au même état",
-        "p": "Tablettes, écrans de projection et téléphones sont reliés en direct au même tableau.\n            Si un appareil tombe ou se fige, un autre continue – il n’y a rien à sauver et rien\n            à reporter."
+        "h3": "Plusieurs appareils toujours synchronisés",
+        "p": "Tablettes, écrans de projection et téléphones sont reliés en direct au même tableau.\n            Si un appareil tombe en panne ou se fige, un autre continue – il n’y a rien à sauver et rien\n            à reporter."
       },
       {
         "n": "Niveau 2",
         "h3": "Un boîtier de secours à la caserne",
-        "p": "Un mini-PC à la caserne reflète le tableau en continu. Si Internet tombe, il prend le relais : le tableau continue dans le réseau local, avec la carte de votre propre serveur de tuiles et l’imprimante sur le réseau local. Au retour du réseau, ce qui y a été conduit est de nouveau synchronisé."
+        "p": "Un mini-PC à la caserne reflète le tableau en continu. Si Internet tombe, il prend le relais : le tableau continue dans le réseau local, avec la carte de votre propre serveur de tuiles et l’imprimante sur le réseau local. Au retour du réseau, les données saisies localement sont à nouveau synchronisées."
       },
       {
         "n": "Niveau 3",
-        "h3": "Le papier conduit",
+        "h3": "Le papier prend le relais",
         "p": "L’état du tableau part toutes les quelques minutes sur l’imprimante thermique, la\n            feuille de situation sur simple pression. Si tout tombe, la dernière feuille devient\n            le tableau. Au redémarrage, <strong>une seule</strong> personne reporte dans\n            l’application ce qui a été fait à la main."
       }
     ]
@@ -103,7 +104,7 @@
         "p": "Par le formulaire d’annonce, par téléphone ou par l’interface ouverte depuis le système d’alarme (p.&nbsp;ex. Divera ou FireHub). L’aide à la conduite reprend l’annonce d’un clic – elle devient une intervention sur le tableau.",
         "li": [
           "Formulaire d’annonce par lien ou QR pour le téléphone et les gens qui se présentent, sans compte",
-          "Si quelqu’un signale une deuxième fois la même place sinistrée, le tableau le demande",
+          "Si quelqu’un signale une deuxième fois la même place sinistrée, le tableau demande confirmation",
           "Interface ouverte – n’importe quel système d’engagement peut ouvrir des interventions"
         ],
         "alt": "Formulaire d’annonce sur le téléphone : lieu, annonce et coordonnées de l’appelant"
@@ -114,7 +115,7 @@
         "p": "Toutes les interventions sur une carte, et les véhicules avec leur position GPS en option. Dès qu’un véhicule arrive sur les lieux, le tableau propose lui-même le changement de statut.",
         "li": [
           "Toutes les interventions par priorité et par statut sur une carte",
-          "Les affectations comme une ligne – quel véhicule appartient à quelle intervention",
+          "Les affectations comme une ligne – quel véhicule est affecté à quelle intervention",
           "Radar des précipitations et alertes officielles (MétéoSuisse, Alertswiss)"
         ],
         "alt": "Carte de situation : interventions par priorité, avec les véhicules et leurs affectations"
@@ -122,7 +123,7 @@
       {
         "was": "Groupe WhatsApp et message radio",
         "h2": "L’équipe annonce depuis son téléphone.",
-        "p": "Chaque équipe voit ses propres places sinistrées : arrivée, récupération, fin d’intervention – sans radio. La reconnaissance remplit son formulaire avec photos sur son propre téléphone ; l’annonce est rattachée à la bonne intervention, au lieu de se perdre dans un groupe de discussion.",
+        "p": "Chaque équipe voit ses propres places sinistrées : arrivée, récupération, fin d’intervention – sans radio. L’équipe de reconnaissance remplit son formulaire avec photos sur son propre téléphone ; l’annonce est rattachée à la bonne intervention, au lieu de se perdre dans un groupe de discussion.",
         "li": [
           "Vue terrain sans compte, par lien et code",
           "Les demandes – matériel, renfort, récupération – restent ouvertes jusqu’à ce que le PC les ait réglées",
@@ -133,7 +134,7 @@
       {
         "was": "Rapport le week-end suivant",
         "h2": "Le rapport d’intervention s’écrit tout seul.",
-        "p": "Journal d’intervention et temps de réaction naissent en cours de route et deviennent un PDF. On corrige par une nouvelle entrée, pas à la gomme – la nuit reste ainsi documentée.",
+        "p": "Le journal d’intervention et les temps de réaction sont générés au fil de l’intervention et deviennent un PDF. On corrige par une nouvelle entrée, pas à la gomme – la nuit reste ainsi documentée.",
         "li": [
           "Le journal consigne lui-même changements de statut, affectations et annonces",
           "Rapport d’intervention en PDF avec les temps de réaction",
@@ -146,7 +147,7 @@
   "run": {
     "eyebrow": "Exploitation",
     "h2": "Vos données restent chez vous.",
-    "lede": "KP Rück est open source et tourne sur votre propre machine à la caserne ou dans votre propre cloud. Interventions, personnel, véhicules et matériel restent sous votre contrôle. Aucun frais de licence, aucune dépendance à un fournisseur.",
+    "lede": "KP Rück est open source et tourne sur votre propre machine à la caserne ou dans votre propre cloud. Interventions, personnel, véhicules et matériel restent sous votre contrôle. Pas de frais de licence, aucune dépendance à un fournisseur.",
     "guide": "Vers le guide",
     "ways": [
       {
@@ -161,7 +162,7 @@
       },
       {
         "h3": "Hébergé",
-        "tag": "Personne ne s’occupe d’une machine",
+        "tag": "Aucune machine à gérer",
         "p": "Chez l’hébergeur de votre choix. Un boîtier de secours à la caserne peut prendre le relais si le réseau tombe."
       }
     ],
@@ -196,10 +197,10 @@
           "<strong>Interface ouverte</strong> – n’importe quel système d’engagement peut ouvrir des interventions",
           "Peut reprendre les alarmes de Divera ou FireHub <span class=\"opt\">facultatif</span>",
           "Formulaire d’annonce par lien ou QR, pour le téléphone et pour les gens qui se présentent",
-          "Réception dans un pool, reprise d’un clic",
+          "Réception dans une file d’attente, reprise d’un clic",
           "Les annonces en double pour la même place sinistrée sont détectées ; deux interventions peuvent être fusionnées – avec équipe, reconnaissance et rapport – puis séparées à nouveau",
           "Alarmer l’effectif depuis le tableau <span class=\"opt\">facultatif</span>",
-          "En route : qui a répondu oui à l’alarme Divera apparaît à l’appel – enregistrement d’un clic <span class=\"opt\">facultatif</span>",
+          "En route : qui a accepté l’alarme Divera apparaît à l’appel – enregistrement d’un clic <span class=\"opt\">facultatif</span>",
           "Annonces de reconnaissance avec photos, directement depuis le téléphone de la reconnaissance",
           "Vue terrain pour les équipes : voir leurs propres places sinistrées, annoncer leur arrivée et la fin de l’intervention, demander une récupération et transmettre au PC des annonces et des rapports avec photos",
           "Les demandes du terrain – matériel, renfort, récupération – restent ouvertes sur l’intervention jusqu’à ce que le PC les ait réglées ; l’équipe en voit l’état sur son téléphone"
@@ -212,7 +213,7 @@
           "Toutes les interventions par priorité et par statut sur une carte",
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
           "Proposition de statut dès qu’un véhicule arrive sur les lieux",
-          "Les affectations comme une ligne – quel véhicule appartient à quelle intervention",
+          "Les affectations comme une ligne – quel véhicule est affecté à quelle intervention",
           "Radar des précipitations de la dernière heure et alertes officielles (MétéoSuisse, Alertswiss) sur la carte <span class=\"opt\">facultatif</span>",
           "Tuiles cartographiques aussi depuis votre propre serveur à la caserne"
         ]
@@ -273,7 +274,7 @@
       },
       {
         "q": "KP Rück a-t-il absolument besoin de KP Front ?",
-        "a": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, sa propre connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href=\"https://kp-front.ch/fr/\">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. Le front et l’arrière travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
+        "a": "Non. KP Rück fonctionne de manière entièrement autonome – avec sa propre base de données, son propre système de connexion et ses propres mises à jour. Il donne toute sa mesure en combinaison avec <a href=\"https://kp-front.ch/fr/\">KP Front</a>, l’application pour le front sur le lieu d’intervention : les deux reçoivent les mêmes alarmes du système de dispatching, lisent la même liste du personnel et classent les alarmes selon la même liste de mots-clés, si souhaité avec le même accès Divera. KP Front et KP Rück travaillent ainsi avec les mêmes données de départ, sans devoir entretenir deux fois le raccordement d’alarme et l’effectif."
       },
       {
         "q": "À quoi sert l’imprimante locale de la caserne dans KP Rück ?",

@@ -246,17 +246,27 @@
         "height": 937
       },
       "inLanguage": "rm-CH",
-      "dateModified": "2026-11-22",
+      "dateModified": "2026-11-25",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
       "mainEntity": {
         "@id": "https://kp-rueck.ch/#app"
+      },
+      "hasPart": {
+        "@id": "https://kp-rueck.ch/rm/#faq"
       }
     },
     {
       "@type": "FAQPage",
       "@id": "https://kp-rueck.ch/rm/#faq",
+      "url": "https://kp-rueck.ch/rm/",
+      "isPartOf": {
+        "@id": "https://kp-rueck.ch/rm/#webpage"
+      },
+      "about": {
+        "@id": "https://kp-rueck.ch/#app"
+      },
       "inLanguage": "rm-CH",
       "mainEntity": [
         {
@@ -264,7 +274,7 @@
           "name": "Pertge midar?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Attribuziuns dublas vegnan immediatamain visiblas. Nagina annunzia va a perder, il traffic da radio diminuescha e tuts vesan la medema situaziun a medem temp. Il rapport è gia preparà al return."
+            "text": "Naginas attribuziuns dublas pli. Nagina annunzia che va a perder en il chat da gruppa. Damain traffic da radio per dumondas che vegnan gia respundidas sin la tavla. Tuts vesan il medem maletg da la situaziun a medem temp – ed il rapport d’acziun è gia preparà al return, empè pir la fin d’emna suenter."
           }
         },
         {
@@ -485,6 +495,7 @@
 
   <section class="tenet">
     <div class="wrap">
+      <h2 class="sr-only">Trais stgalims da redundanza.</h2>
       <p class="eyebrow">La mesira</p>
       <blockquote>«Sche la rait croda ora, maina il <em>palpiri</em>»</blockquote>
       <p class="expl">Ina tavla che daventa naira tar ina panna da current n’è nagin instrument da direcziun.
@@ -500,8 +511,8 @@
         </div>
         <div class="stage">
           <p class="stage-n">Stgalim 2</p>
-          <h3>Ina box da reserva en il magazin</h3>
-          <p>In mini-PC en il magazin reflectescha il board cuntinuadamain. Sche l’internet croda, surpiglia el: il board funcziuna vinavant en la rait locala, cun la charta dal agen server da chartas ed il stampader en la rait locala. Cur che la rait è enavos, vegn quai ch’è vegnì manà là puspè sincronisà.</p>
+          <h3>In mini-PC da reserva en il magazin</h3>
+          <p>In mini-PC en il magazin reflectescha il board cuntinuadamain. Sche l’internet croda, surpiglia el: il board funcziuna vinavant en la rait locala, cun la charta dal agen server da chartas ed il stampader en la rait locala. Cur che la rait è puspè disponibla, vegnan las datas registradas localmain sincronisadas.</p>
         </div>
         <div class="stage">
           <p class="stage-n">Stgalim 3</p>
@@ -554,7 +565,7 @@
         <p>Sur il formular d’annunzia, per telefon u sur l’interfatscha averta dal sistem d’alarm (p.&nbsp;ex. Divera u FireHub). Il sustegn da direcziun surpiglia l’annunzia cun in clic – e quella daventa in’acziun sin la tavla.</p>
         <ul class="checks">
           <li>Formular d’annunzia cun link u code QR per telefon e spurtegl, senza conto</li>
-          <li>Sch’insatgi annunzia il medem lieu ina segunda giada, dumonda la tavla</li>
+          <li>Sch’insatgi annunzia il medem lieu ina segunda giada, dumonda la tavla ina conferma</li>
           <li>Interfatscha averta – mintga sistem da disposiziun po avrir acziuns</li>
         </ul>
       </div>
@@ -577,7 +588,7 @@
         <p>Tut las acziuns sin ina charta, cun posiziuns GPS dals vehichels sco opziun. Cur ch’in vehichel arriva al lieu, propona la tavla la midada da status.</p>
         <ul class="checks">
           <li>Tut las acziuns tenor prioritad e status sin ina charta</li>
-          <li>Attribuziuns mussadas sco lingias</li>
+          <li>Attribuziuns mussadas sco lingias – tge vehichel è attribuì a tge acziun</li>
           <li>Radar da precipitaziuns ed avertiments uffizials (MeteoSvizra, Alertswiss)</li>
         </ul>
       </div>
@@ -681,7 +692,7 @@
       <div class="own-card">
         <p class="way-tag">Nagin sto tgirar ina maschina</p>
         <h3>Hosting</h3>
-        <p>Tar in purschider da hosting da vossa tscherna. Ina box da reserva en il magazin po surpigliar, sche la rait croda.</p>
+        <p>Tar in purschider da hosting da vossa tscherna. In mini-PC da reserva en il magazin po surpigliar, sche la rait croda.</p>
         <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">A l’instrucziun →</a></p>
       </div>
     </div>
@@ -702,14 +713,14 @@
           <summary><span>Tavla &amp; disposiziun<span class="peek">Fasas d’acziun · attribuir · attribuziuns dublas · registraziun QR · temps da servetsch · projectur</span></span></summary>
           <ul class="flist">
             <li><strong>Las colonnas èn las fasas d’acziun</strong> – las cartas sa movan cun drag-and-drop da sanestra a dretga</li>
-            <li>Attribuir persunal, vehichels e material – e far visiblas attribuziuns dublas, resursas mancantas e cuntradicziuns</li>
+            <li>Attribuir persunal, vehichels e material – KP Rück avertescha tar attribuziuns dublas e renda visibels conflicts da resursas</li>
             <li>Material al lieu d’acziun cun attribuziun e durada</li>
             <li>Prioritad, durada e termin per mintga acziun</li>
             <li>Reunir pliras acziuns ad ina ruta per ina gruppa ed optimar tenor distanza</li>
-            <li>Preparar incumbensas recurrentas</li>
-            <li>Registraziun cun code QR</li>
-            <li>Temps da servetsch: tgi è qua dapi cura, quant da quel temp en acziun e tgi ha pausa</li>
-            <li>Fegl d’acziun cun code QR per gruppas e manischunzs</li>
+            <li>Incumbensas recurrentas sco serrar giu zonas u allontanar laina suenter ina tempesta pon vegnir preparadas e messas directamain a disposiziun tar in eveniment</li>
+            <li>Registraziun cun code QR – tgi che arriva sa registrescha sez</li>
+            <li>Temps da servetsch: tgi è qua dapi cura, quant da quel temp en acziun e tgi ha pausa – duradas da servetsch memia lungas dattan en egl</li>
+            <li>Fegl d’acziun cun code QR per gruppas e manischunzs, surdà directamain al post da commando</li>
             <li>Vista da projectur senza elements da cumond per la paraid dal post da commando</li>
             <li>Attribuir cun la tastatura: «14 tlf meier» en la paletta da cumonds attribuescha il TLF e Meier a l’acziun 14 – e scursanidas da tastatura</li>
           </ul>
@@ -724,8 +735,8 @@
             <li>Annunzias dublas per il medem lieu vegnan renconuschidas; duas acziuns sa laschan unir – cun persunal, reko e rapport – e puspè separar</li>
             <li>Alarmar il persunal directamain da la tavla <span class="opt">opziunal</span></li>
             <li>Sin via: tgi che ha confermà l’alarm da Divera cumpara en la glista da preschientscha – registraziun cun in clic <span class="opt">opziunal</span></li>
-            <li>Rapports da reko cun fotografias, colliads cun l’acziun correcta</li>
-            <li>Vista dal lieu per gruppas: annunziar arriv, fin, transport e rapports al post da commando – mintga gruppa vesa mo ses agens lieus</li>
+            <li>Rapports da reko cun fotografias, directamain dal telefonin da la gruppa da reko</li>
+            <li>Vista dal lieu per gruppas: vesair ils agens lieus d’acziun, annunziar l’arriv e la fin da l’acziun, dumandar in transport e trametter annunzias e rapports cun fotografias al post da commando</li>
             <li>Dumondas dal lieu – material, rinforz, transport – restan avertas tar l’acziun fin ch’il post da commando las ha liquidadas; la gruppa vesa il stadi sin ses telefonin</li>
           </ul>
         </details>
@@ -735,22 +746,22 @@
             <li>Tut las acziuns tenor prioritad e status sin ina charta</li>
             <li>Posiziuns GPS dals vehichels <span class="opt">opziunal</span></li>
             <li>Proposta da midada da status cur ch’in vehichel arriva al lieu</li>
-            <li>Attribuziuns mussadas sco lingias</li>
+            <li>Attribuziuns mussadas sco lingias – tge vehichel è attribuì a tge acziun</li>
             <li>Radar da precipitaziuns da l’ultima ura ed avertiments uffizials (MeteoSvizra, Alertswiss) sin la charta <span class="opt">opziunal</span></li>
-            <li>Chartas era dal server local en il magazin</li>
+            <li>Tegulas da charta era dal server local en il magazin</li>
           </ul>
         </details>
         <details>
           <summary><span>Suenter &amp; manaschi<span class="peek">Rapport sco PDF · diari · cifras · administraziun · stampa termica · exercizi</span></span></summary>
           <ul class="flist">
-            <li><strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun</li>
+            <li><strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun – vegn generà durant l’acziun ed è gia per gronda part preparà al return</li>
             <li>Diari d’acziun sin la tavla: registrescha sez midadas da status, attribuziuns ed annunzias; atgnas endataziuns cun ⇧J – mo cumplettà, mai surscrit</li>
             <li>Cifras actualas gia durant l’eveniment: annunzias avertas tenor prioritad e temps da reacziun – en l’exercizi sco evaluaziun</li>
-            <li>Glista da chaussas avertas fin a la conclusiun</li>
+            <li>Glista da chaussas avertas: rapports averts, transports pendents e material che sa chatta anc al lieu d’acziun restan visibels fin a la conclusiun</li>
             <li><strong>Atgna administraziun</strong> per persunal, parc da vehichels, material, tips d’acziun e prioritads</li>
             <li>Import ed export cun Excel</li>
-            <li>Stampa termica en il magazin <span class="opt">opziunal</span></li>
-            <li>Rollas per modifitgar u mo leger</li>
+            <li>Stampa termica en il magazin sur in agen agent da stampa <span class="opt">opziunal</span></li>
+            <li>Rollas: modifitgar u mo leger; interfatscha stgira per il post da commando en la stgirezza</li>
             <li>Modus d’exercizi separà cleramain dal cas real, cun scenaris e viadis simulads</li>
           </ul>
         </details>
@@ -767,7 +778,7 @@
       <div class="acc">
         <details>
           <summary><span>Pertge midar?</span></summary>
-          <p>Attribuziuns dublas vegnan immediatamain visiblas. Nagina annunzia va a perder, il traffic da radio diminuescha e tuts vesan la medema situaziun a medem temp. Il rapport è gia preparà al return.</p>
+          <p>Naginas attribuziuns dublas pli. Nagina annunzia che va a perder en il chat da gruppa. Damain traffic da radio per dumondas che vegnan gia respundidas sin la tavla. Tuts vesan il medem maletg da la situaziun a medem temp – ed il rapport d’acziun è gia preparà al return, empè pir la fin d’emna suenter.</p>
         </details>
         <details>
           <summary><span>Per tge corps da pumpiers e tge acziuns è KP Rück fatg?</span></summary>

@@ -195,9 +195,12 @@
   </section>
 
   <!--@template The standard comes right after the hero, as on KP Front: a board that goes dark
-       is no Führungsunterlage, and the three stages say how KP Rück keeps it lit. -->
+       is no Führungsunterlage, and the three stages say how KP Rück keeps it lit. The H2 is for
+       the outline only (H1 → H2 → the stages' H3): the eyebrow and quote already head the section
+       visually, so it is `sr-only`. -->
   <section class="tenet">
     <div class="wrap">
+      <h2 class="sr-only">{{tenet.h2}}</h2>
       <p class="eyebrow">{{tenet.eyebrow}}</p>
       <blockquote>{{tenet.quote}}</blockquote>
       <p class="expl">{{tenet.expl}}</p>
