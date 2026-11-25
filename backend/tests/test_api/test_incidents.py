@@ -162,12 +162,13 @@ async def test_sync_version_not_shadowed_by_incident_id_route(
 
 @pytest.mark.asyncio
 @pytest.mark.api
-@pytest.mark.parametrize("change", ["readiness", "checkout", "driver_stay"])
+@pytest.mark.parametrize("change", ["readiness", "checkout", "driver_stay", "module_rename"])
 async def test_sync_version_sees_readiness_and_attendance(
     editor_client: AsyncClient, test_event: Event, test_vehicle, test_personnel, test_incident: Incident, change: str
 ):
     """The REST fallback polls this version: a change it misses stays off the board – also a
-    flag-only edit of an assignment («bleibt vor Ort»), which moves no count or timestamp."""
+    flag-only edit of an assignment («bleibt vor Ort»), which moves no count or timestamp – and
+    a renamed material group (Modul), whose name the board shows on the depot list."""
 
     async def version() -> str:
         response = await editor_client.get("/api/incidents/sync-version", params={"event_id": str(test_event.id)})
@@ -182,12 +183,17 @@ async def test_sync_version_sees_readiness_and_attendance(
         vehicle = {"resource_type": "vehicle", "resource_id": str(test_vehicle.id)}
         assigned = await editor_client.post(f"/api/incidents/{test_incident.id}/assign", json=vehicle)
         assert assigned.status_code == 200
+    if change == "module_rename":
+        module = await editor_client.post("/api/material-groups/", json={"name": "Modul 1"})
+        assert module.status_code in (200, 201)
     before = await version()
 
     if change == "readiness":
         response = await editor_client.put(f"/api/vehicles/{test_vehicle.id}", json={"out_of_service": True})
     elif change == "checkout":
         response = await editor_client.post(f"{checkin}/out", params=event)
+    elif change == "module_rename":
+        response = await editor_client.put(f"/api/material-groups/{module.json()['id']}", json={"name": "Pumpenmodul"})
     else:
         response = await editor_client.patch(
             f"/api/incidents/{test_incident.id}/assignments/{assigned.json()['id']}", json={"driver_stay": True}

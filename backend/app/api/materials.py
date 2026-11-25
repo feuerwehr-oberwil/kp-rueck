@@ -307,7 +307,9 @@ async def update_material_group(
             )
 
     await db.flush()
-    await db.refresh(db_group, ["materials"])
+    # `updated_at` too: the flush expired it (onupdate), and reading it lazily while the
+    # response is built is IO outside the session's greenlet – every rename answered 500.
+    await db.refresh(db_group, ["updated_at", "materials"])
     return db_group
 
 

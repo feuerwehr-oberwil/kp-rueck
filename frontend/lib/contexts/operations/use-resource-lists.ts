@@ -120,12 +120,29 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
   const hasShownGroupsErrorRef = useRef(false)
   const hasEvent = !!eventId && isValidUUID(eventId)
 
+  const refreshMaterialGroups = useCallback(async () => {
+    try {
+      const apiGroups = await apiClient.getMaterialGroups()
+      setMaterialGroups(apiGroups.map(apiGroupToGroup))
+      hasShownGroupsErrorRef.current = false
+    } catch (error) {
+      console.error("Failed to load material groups:", error)
+      if (!hasShownGroupsErrorRef.current) {
+        hasShownGroupsErrorRef.current = true
+        toast.error(translateOutsideReact("notifications.materials.groupsLoadFailed"))
+      }
+    }
+  }, [])
+
   const refreshMaterials = useCallback(
     async (options?: RefreshOptions): Promise<Material[]> => {
       if (!hasEvent) {
         if (!options?.skipStateUpdate) setMaterials([])
         return []
       }
+      // The Module ride along with every depot load: a rename in Einstellungen moves the
+      // sync version (hunt follow-up 25.11.), and the reload it starts must show the new name.
+      void refreshMaterialGroups()
       try {
         const materialsList = (await apiClient.getAllMaterials()).map(apiMaterialToMaterial)
         if (!options?.skipStateUpdate) setMaterials(materialsList)
@@ -144,25 +161,10 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
         return []
       }
     },
-    [hasEvent],
+    [hasEvent, refreshMaterialGroups],
   )
 
-  const refreshMaterialGroups = useCallback(async () => {
-    try {
-      const apiGroups = await apiClient.getMaterialGroups()
-      setMaterialGroups(apiGroups.map(apiGroupToGroup))
-      hasShownGroupsErrorRef.current = false
-    } catch (error) {
-      console.error("Failed to load material groups:", error)
-      if (!hasShownGroupsErrorRef.current) {
-        hasShownGroupsErrorRef.current = true
-        toast.error(translateOutsideReact("notifications.materials.groupsLoadFailed"))
-      }
-    }
-  }, [])
-
-  // The groups are not part of the board load (they change in Einstellungen,
-  // not during an Einsatz): once per sign-in and Ereignis.
+  // The first load per sign-in and Ereignis; after that they come with every depot load.
   useEffect(() => {
     if (!authReady) return
     if (!hasEvent) {
