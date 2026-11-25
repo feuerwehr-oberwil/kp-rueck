@@ -107,8 +107,10 @@ function renderWorkflow(
   }))
   const removeMaterial = vi.fn()
   const unassignGroupResource = vi.fn()
+  // What the store holds; a test that models its optimistic status write changes it.
+  const board = { operations: [currentOperation, ...siblings] }
   const result = renderHook(() => useIncidentStatusWorkflow({
-    operations: [currentOperation, ...siblings],
+    operations: board.operations,
     materials,
     groups: groups as never,
     changeStatusToTop,
@@ -116,7 +118,7 @@ function renderWorkflow(
     removeMaterial,
     unassignGroupResource,
   }))
-  return { ...result, changeStatusToTop, removeMaterial, unassignGroupResource }
+  return { ...result, board, changeStatusToTop, removeMaterial, unassignGroupResource }
 }
 
 describe("shared incident detail status workflow", () => {
@@ -471,7 +473,11 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
       [],
       [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
     )
-    rendered.changeStatusToTop.mockImplementation((_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)))
+    // Like the store: the status is on the board at once, the server's answer comes later.
+    rendered.changeStatusToTop.mockImplementation((id, status) => {
+      rendered.board.operations = rendered.board.operations.map((op) => (op.id === id ? { ...op, status } : op))
+      return status === "complete" ? write.promise : Promise.resolve(true)
+    })
     act(() => rendered.result.current.requestCompletion("stop-1"))
     await waitFor(() => expect(rendered.result.current.materialAnswersLoading).toBe(false))
     act(() => rendered.result.current.setMaterialDecision("pumpe", "magazin"))
@@ -520,8 +526,8 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
     const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
       (_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)),
     )
-    const stops = (third: Operation["status"]) => [
-      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
+    const stops = (third: Operation["status"], first: Operation["status"] = "returning") => [
+      operation({ id: "stop-1", groupId: "g1", status: first, crew: [crewMember("AdF Eins")] }),
       operation({ id: "stop-2", groupId: "g1", status: "incoming" }),
       operation({ id: "stop-3", groupId: "g1", status: third }),
     ]
@@ -541,6 +547,40 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
     act(() => result.current.requestCompletion("stop-1"))
     let done: Promise<unknown> = Promise.resolve()
     act(() => { done = result.current.resolveMaterialDecision("stop-2") })
+    rerender({ operations: stops("active", "complete") })
+    await act(async () => {
+      write.settle(true)
+      await done
+    })
+    expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
+  })
+
+  it("starts nothing when the finished stop was reopened during the write", async () => {
+    const write = deferred()
+    const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
+      (_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)),
+    )
+    const stops = (first: Operation["status"]) => [
+      operation({ id: "stop-1", groupId: "g1", status: first, crew: [crewMember("AdF Eins")] }),
+      operation({ id: "stop-2", groupId: "g1", status: "incoming" }),
+    ]
+    const { result, rerender } = renderHook(
+      ({ operations }: { operations: Operation[] }) => useIncidentStatusWorkflow({
+        operations,
+        materials: [],
+        groups: [{ id: "g1", stopIds: ["stop-1", "stop-2"] }] as never,
+        changeStatusToTop,
+        getGroupResources: () => squadOnRoute,
+        removeMaterial: vi.fn(),
+        unassignGroupResource: vi.fn(),
+      }),
+      { initialProps: { operations: stops("returning") } },
+    )
+
+    act(() => result.current.requestCompletion("stop-1"))
+    let done: Promise<unknown> = Promise.resolve()
+    act(() => { done = result.current.resolveMaterialDecision("stop-2") })
+    // Another desk put the stop back on «Im Einsatz» before this completion answered.
     rerender({ operations: stops("active") })
     await act(async () => {
       write.settle(true)

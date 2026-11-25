@@ -768,16 +768,17 @@ export function useIncidentStatusWorkflow({
   // The board as of the latest render, for decisions made after the completion write.
   const latest = useRef({ operations, groups, startNextStop })
   latest.current = { operations, groups, startNextStop }
-  /** The finished stop's Auftrag on the latest board, or null. */
-  const latestRoute = useCallback((finishedId: string) => {
-    const finished = latest.current.operations.find((operation) => operation.id === finishedId)
-    return finished ? findAuftragForStop(latest.current.groups, finished) : null
-  }, [])
-  const startConfirmedNextStop = useCallback((finishedId: string, stopId: string) => {
-    const auftrag = latestRoute(finishedId)
-    if (auftrag && startableNextStop(auftrag, latest.current.operations, finishedId)?.id === stopId) {
-      latest.current.startNextStop(stopId)
-    }
+  /** The Auftrag `routeId` as the latest board has it, or null (deleted meanwhile). */
+  const latestRoute = useCallback(
+    (routeId: string) => latest.current.groups.find((group) => group.id === routeId) ?? null,
+    [],
+  )
+  const startConfirmedNextStop = useCallback((finishedId: string, routeId: string, stopId: string) => {
+    const { operations: board } = latest.current
+    // Still closed (not reopened meanwhile) and the stop still the one the route would start.
+    if (board.find((operation) => operation.id === finishedId)?.status !== "complete") return
+    const auftrag = latestRoute(routeId)
+    if (auftrag && startableNextStop(auftrag, board, finishedId)?.id === stopId) latest.current.startNextStop(stopId)
   }, [latestRoute])
 
   /**
@@ -802,7 +803,9 @@ export function useIncidentStatusWorkflow({
     // Route-owned units are answered for the ROUTE — and only while the route is still done
     // on the latest board: a stop added during the write keeps them, unanswered. The stop's
     // own units are the stop's, and their answers stand.
-    const latestAuftrag = latestRoute(operationId)
+    // The route captured at «Abschliessen», as the latest board has it (the stop may have
+    // moved to another route meanwhile) – the same rule the gate asked by.
+    const latestAuftrag = auftrag ? latestRoute(auftrag.id) : null
     const routeDone = Boolean(latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0)
     const standing = answered.filter(({ item }) => !(item.assignmentId && auftrag) || routeDone)
 
@@ -835,7 +838,7 @@ export function useIncidentStatusWorkflow({
     const kept = standing.filter(({ choice }) => choice === "vorort").map(({ item }) => item.id)
     // The completion is written first, then the squad is sent on — so an operator
     // watching the board sees the stop leave before the next one runs.
-    if (startNextId) startConfirmedNextStop(operationId, startNextId)
+    if (startNextId && auftrag) startConfirmedNextStop(operationId, auftrag.id, startNextId)
     return { returned: returnedItems.map((item) => item.id), kept }
   }, [changeStatusToTop, groups, latestRoute, materialChoice, materialDecisionGate, materialDecisionItems, materialDecisionOperation, removeMaterial, startConfirmedNextStop, unassignGroupResource])
 
