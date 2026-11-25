@@ -47,7 +47,8 @@ const refreshMaterials = vi.hoisted(() => vi.fn())
 const NO_GROUPS = vi.hoisted(() => [] as unknown[])
 const setMaterialOutOfService = vi.hoisted(() => vi.fn())
 // Stable, like the real useCallback: the board-sync effect lists it as a dependency.
-const refreshMaterialGroups = vi.hoisted(() => async () => true)
+const loadMaterialGroups = vi.hoisted(() => async () => [])
+const setMaterialGroups = vi.hoisted(() => () => {})
 vi.mock("./operations/use-resource-lists", () => ({
   usePersonnelList: () => {
     const [personnel, setPersonnel] = useState<unknown[]>([])
@@ -55,7 +56,7 @@ vi.mock("./operations/use-resource-lists", () => ({
   },
   useMaterialList: () => {
     const [materials, setMaterials] = useState<unknown[]>([])
-    return { materials, setMaterials, materialGroups: NO_GROUPS, refreshMaterials, refreshMaterialGroups, setMaterialOutOfService }
+    return { materials, setMaterials, materialGroups: NO_GROUPS, refreshMaterials, loadMaterialGroups, setMaterialGroups, setMaterialOutOfService }
   },
 }))
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { apiClient, type ApiMaterialGroup, type ApiMaterialResource, type ApiPersonnel } from "@/lib/api-client"
@@ -112,7 +112,7 @@ export function usePersonnelList(eventId: string | null) {
 }
 
 /** The depot (station-wide, deployment per Ereignis) and its material groups. */
-export function useMaterialList(eventId: string | null, authReady: boolean) {
+export function useMaterialList(eventId: string | null) {
   const [materials, setMaterials] = useState<Material[]>([])
   const [materialGroups, setMaterialGroups] = useState<MaterialGroup[]>([])
   // Toast deduplication across an outage, as for the roster.
@@ -120,22 +120,22 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
   const hasShownGroupsErrorRef = useRef(false)
   const hasEvent = !!eventId && isValidUUID(eventId)
 
-  /** Resolves false when the groups could not be read (the previous ones stay). Part of
-   *  every board load: a Modul renamed in Einstellungen moves the sync version (hunt
-   *  follow-up 25.11.), and the load it starts must show the new name. */
-  const refreshMaterialGroups = useCallback(async (): Promise<boolean> => {
+  /** The Module, or null when they could not be read (it toasts once per outage). Read by
+   *  the board load only, which applies them with the rest of its snapshot: a Modul renamed
+   *  in Einstellungen moves the sync version (hunt follow-up 25.11.), and the load it
+   *  starts must show the new name. */
+  const loadMaterialGroups = useCallback(async (): Promise<MaterialGroup[] | null> => {
     try {
       const apiGroups = await apiClient.getMaterialGroups()
-      setMaterialGroups(apiGroups.map(apiGroupToGroup))
       hasShownGroupsErrorRef.current = false
-      return true
+      return apiGroups.map(apiGroupToGroup)
     } catch (error) {
       console.error("Failed to load material groups:", error)
       if (!hasShownGroupsErrorRef.current) {
         hasShownGroupsErrorRef.current = true
         toast.error(translateOutsideReact("notifications.materials.groupsLoadFailed"))
       }
-      return false
+      return null
     }
   }, [])
 
@@ -165,16 +165,6 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
     },
     [hasEvent],
   )
-
-  // The first load per sign-in and Ereignis; after that they come with every board load.
-  useEffect(() => {
-    if (!authReady) return
-    if (!hasEvent) {
-      setMaterialGroups([])
-      return
-    }
-    void refreshMaterialGroups()
-  }, [authReady, hasEvent, eventId, refreshMaterialGroups])
 
   /** Set or clear «Nicht einsatzbereit». The ONE write path for the flag on the
    *  board side — the sidebar's right-click menu calls it, and the
@@ -215,5 +205,5 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
     [materials],
   )
 
-  return { materials, setMaterials, materialGroups, refreshMaterials, refreshMaterialGroups, setMaterialOutOfService }
+  return { materials, setMaterials, materialGroups, setMaterialGroups, refreshMaterials, loadMaterialGroups, setMaterialOutOfService }
 }

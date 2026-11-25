@@ -314,6 +314,13 @@ export function NewEmergencyModal({
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
+      // The Einsatzort emptied and not left yet commits nothing (LocationInput keeps an
+      // empty text as no answer): what is on screen is no address and no pin, so the
+      // create refuses instead of using the ones committed before.
+      const field = event.target
+      if (field instanceof HTMLInputElement && field.id === LOCATION_FIELD_ID && !field.value.trim()) {
+        updateForm((prev) => ({ ...prev, location: "", coordinates: null }))
+      }
       void handleCreateAndNext()
     }
   }

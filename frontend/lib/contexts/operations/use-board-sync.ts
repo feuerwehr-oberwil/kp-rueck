@@ -48,7 +48,8 @@ export interface BoardSyncInput {
   isEventLoaded: boolean
   refreshPersonnel: ReturnType<typeof usePersonnelList>["refreshPersonnel"]
   refreshMaterials: ReturnType<typeof useMaterialList>["refreshMaterials"]
-  refreshMaterialGroups: ReturnType<typeof useMaterialList>["refreshMaterialGroups"]
+  loadMaterialGroups: ReturnType<typeof useMaterialList>["loadMaterialGroups"]
+  setMaterialGroups: ReturnType<typeof useMaterialList>["setMaterialGroups"]
   setPersonnel: Dispatch<SetStateAction<Person[]>>
   setMaterials: Dispatch<SetStateAction<Material[]>>
   setOperations: Dispatch<SetStateAction<Operation[]>>
@@ -79,8 +80,9 @@ export function useBoardSync(input: BoardSyncInput) {
     isEventLoaded,
     refreshPersonnel,
     refreshMaterials,
-    refreshMaterialGroups,
+    loadMaterialGroups,
     setPersonnel,
+    setMaterialGroups,
     setMaterials,
     setOperations,
     setIsLoaded,
@@ -287,7 +289,7 @@ export function useBoardSync(input: BoardSyncInput) {
           specialFunctions,
           assignmentsByIncident,
           rekoSummaries,
-          groupsLoaded,
+          materialGroups,
         ] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
@@ -300,8 +302,8 @@ export function useBoardSync(input: BoardSyncInput) {
           apiClient.getEventSpecialFunctions(eventId).then(answered),
           apiClient.getAssignmentsByEvent(eventId).then(answered),
           apiClient.getEventRekoSummaries(eventId).then(answered),
-          // Applied on arrival (their own state); false keeps the previous ones.
-          refreshMaterialGroups(),
+          // Never fatal: null keeps the Module on screen (and keeps polling, below).
+          loadMaterialGroups(),
         ])
         const apiIncidents = incidentPage.incidents
 
@@ -366,6 +368,7 @@ export function useBoardSync(input: BoardSyncInput) {
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
         if (restliste) setMaterialOnSite(toMaterialOnSite(restliste))
+        if (materialGroups) setMaterialGroups(materialGroups)
         setOutOfServiceVehicleIds(new Set(vehiclesList.filter(v => v.out_of_service).map(v => v.id)))
         setSpecialFunctions(specialFunctions)
         setVehicles((prev) => keepIfSame(prev, vehiclesList))
@@ -394,7 +397,7 @@ export function useBoardSync(input: BoardSyncInput) {
         // and not while the settings, the Restliste or the Module on screen are older
         // than it (their fetch failed and the previous value stayed). Then polling goes
         // on even with the socket up: a quiet Ereignis sends no event to retry on.
-        const complete = settings !== undefined && restliste !== undefined && groupsLoaded
+        const complete = settings !== undefined && restliste !== undefined && materialGroups !== null
         lastSyncVersionRef.current = complete ? versionSnapshot?.version ?? null : null
         if (complete) stopPollingIfSocketCarries()
         else onLoadFailed()
@@ -638,8 +641,9 @@ export function useBoardSync(input: BoardSyncInput) {
     isEventLoaded,
     refreshPersonnel,
     refreshMaterials,
-    refreshMaterialGroups,
+    loadMaterialGroups,
     setPersonnel,
+    setMaterialGroups,
     setMaterials,
     // Stable (state setters and refs handed in by the provider): listed only
     // because they arrive as arguments now; they never re-run the effect.

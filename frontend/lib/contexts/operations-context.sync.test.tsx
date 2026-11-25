@@ -42,7 +42,8 @@ vi.mock("./event-context", () => ({ useEvent: () => eventState }))
 
 const refreshPersonnel = vi.hoisted(() => vi.fn())
 const refreshMaterials = vi.hoisted(() => vi.fn())
-const refreshMaterialGroups = vi.hoisted(() => vi.fn())
+const loadMaterialGroups = vi.hoisted(() => vi.fn())
+const setMaterialGroups = vi.hoisted(() => vi.fn())
 // The roster/depot loaders the provider owns: the board load calls their
 // refreshers (with skipStateUpdate) and writes the reconciled lists.
 const NO_GROUPS = vi.hoisted(() => [] as unknown[])
@@ -54,7 +55,7 @@ vi.mock("./operations/use-resource-lists", () => ({
   },
   useMaterialList: () => {
     const [materials, setMaterials] = useState<unknown[]>([])
-    return { materials, setMaterials, materialGroups: NO_GROUPS, refreshMaterials, refreshMaterialGroups, setMaterialOutOfService }
+    return { materials, setMaterials, materialGroups: NO_GROUPS, refreshMaterials, loadMaterialGroups, setMaterialGroups, setMaterialOutOfService }
   },
 }))
 
@@ -148,7 +149,8 @@ beforeEach(() => {
   api.updateIncident.mockReset().mockResolvedValue({})
   refreshPersonnel.mockReset().mockResolvedValue([])
   refreshMaterials.mockReset().mockResolvedValue([])
-  refreshMaterialGroups.mockReset().mockResolvedValue(true)
+  loadMaterialGroups.mockReset().mockResolvedValue([])
+  setMaterialGroups.mockReset()
 })
 
 afterEach(() => {
@@ -445,12 +447,13 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     // A Modul renamed in Einstellungen moves the sync version; the load it starts must
     // bring the new name, and a failed read must not be certified by the next poll.
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    refreshMaterialGroups.mockResolvedValueOnce(false)
+    loadMaterialGroups.mockResolvedValueOnce(null)
     const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
     await waitFor(() => expect(incidentCalls).toHaveLength(1))
     await answer([incident("1")])
     await waitFor(() => expect(result.current.ops.operations).toHaveLength(1))
-    expect(refreshMaterialGroups).toHaveBeenCalledTimes(1)
+    expect(loadMaterialGroups).toHaveBeenCalledTimes(1)
+    expect(setMaterialGroups).not.toHaveBeenCalled()
 
     // No socket event is coming: only the poll can read them again.
     await act(async () => {
@@ -458,7 +461,8 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     })
     await waitFor(() => expect(incidentCalls).toHaveLength(1))
     await answer([incident("1")])
-    await waitFor(() => expect(refreshMaterialGroups).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(setMaterialGroups).toHaveBeenCalledWith([]))
+    expect(loadMaterialGroups).toHaveBeenCalledTimes(2)
   })
 
   it("retries by polling even with the socket up, and a good load clears the error", async () => {

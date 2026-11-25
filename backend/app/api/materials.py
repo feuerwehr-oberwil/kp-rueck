@@ -258,6 +258,7 @@ async def list_material_groups(
 async def create_material_group(
     group: schemas.MaterialGroupCreate,
     current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> MaterialGroup:
     """Create a material group and optionally assign materials to it."""
@@ -276,6 +277,7 @@ async def create_material_group(
 
     await db.flush()
     await db.refresh(db_group, ["materials"])
+    background_tasks.add_task(broadcast_material_update, {"group_id": str(db_group.id)}, "update")
     return db_group
 
 
@@ -284,6 +286,7 @@ async def update_material_group(
     group_id: uuid.UUID,
     group_update: schemas.MaterialGroupUpdate,
     current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> MaterialGroup:
     """Update a material group."""
@@ -310,6 +313,9 @@ async def update_material_group(
     # `updated_at` too: the flush expired it (onupdate), and reading it lazily while the
     # response is built is IO outside the session's greenlet – every rename answered 500.
     await db.refresh(db_group, ["updated_at", "materials"])
+    # A connected board does not poll /sync-version: the material event makes it reload, and
+    # every board load reads the Module (a rename on screen, hunt follow-up 25.11.).
+    background_tasks.add_task(broadcast_material_update, {"group_id": str(group_id)}, "update")
     return db_group
 
 
@@ -317,6 +323,7 @@ async def update_material_group(
 async def delete_material_group(
     group_id: uuid.UUID,
     current_user: CurrentEditor,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a material group. Materials are unlinked, not deleted."""
@@ -336,3 +343,4 @@ async def delete_material_group(
         # unlinked). Roll back and return a clear conflict instead of a raw 500.
         await db.rollback()
         raise HTTPException(status_code=409, detail="Materialgruppe wird noch verwendet") from None
+    background_tasks.add_task(broadcast_material_update, {"group_id": str(group_id)}, "delete")
