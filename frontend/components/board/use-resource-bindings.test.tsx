@@ -3,9 +3,9 @@ import { renderHook } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import type { ReactNode } from "react"
 import de from "@/messages/de.json"
-import type { Operation } from "@/lib/contexts/operations-context"
 
 import { useResourceBindings, type UseResourceBindingsInput } from "@/components/board/use-resource-bindings"
+import { crewMember, makeOperation } from "@/test-utils/operation-fixtures"
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Zurich">
@@ -16,7 +16,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 // Owner pick A (24.11.2026): a person row's click always opens the popover, even with one place.
 describe("useResourceBindings handlePersonClick", () => {
   it("opens the popover for a person on exactly one Einsatz instead of jumping to the card", () => {
-    const operation = { id: "op-12", number: 12, location: "Ringstrasse 11", crew: [{ personnelId: "p-koch" }] } as unknown as Operation
+    const operation = makeOperation({ id: "op-12", number: 12, location: "Ringstrasse 11", crew: [crewMember("Koch", "p-koch")] })
     const input: UseResourceBindingsInput = {
       operations: [operation],
       filteredOperations: [operation],

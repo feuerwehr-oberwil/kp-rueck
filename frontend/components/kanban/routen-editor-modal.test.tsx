@@ -41,7 +41,7 @@ const COORDS: Record<string, [number, number] | null> = {
 }
 
 const makeOp = (id: string): Operation =>
-  ({ id, location: `Stop ${id}`, status: "incoming", coordinates: COORDS[id], vehicles: [], crew: [] }) as unknown as Operation
+  makeOperation({ id, location: `Stop ${id}`, status: "incoming", coordinates: COORDS[id], vehicles: [], crew: [] })
 
 // --- Mocks for the useRoutePlanning hook ------------------------------------
 
@@ -113,6 +113,7 @@ vi.mock("@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box", () => ({
 import { useRoutePlanning } from "@/lib/hooks/use-route-planning"
 import { RoutenEditorModal } from "./routen-editor-modal"
 import { RouteStopList } from "@/components/map/route-stop-list"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 beforeEach(() => {
   rp.groups = []

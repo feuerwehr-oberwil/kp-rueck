@@ -3,8 +3,9 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import de from '@/messages/de.json'
-import type { Operation, Person } from '@/lib/contexts/operations-context'
+import type { Person } from '@/lib/contexts/operations-context'
 import { MobilePersonnelSheet } from '@/components/mobile/mobile-personnel-sheet'
+import { crewMember, makeOperation } from '@/test-utils/operation-fixtures'
 
 /**
  * The phone «Personal» sheet, two lines per person like the Appell (phone sweep 14.11.2026):
@@ -15,13 +16,12 @@ import { MobilePersonnelSheet } from '@/components/mobile/mobile-personnel-sheet
 const person = (over: Partial<Person>) =>
   ({ id: 'p1', name: 'Aebi Lionel', role: 'Mannschaft', status: 'available', tags: [], isReko: false, ...over }) as Person
 
-const operation = {
+const operation = makeOperation({
   id: 'i1',
   location: 'Mühlemattstrasse 18',
   locationDisplay: 'Mühlemattstrasse 18',
-  incidentType: 'elementarereignis',
-  crew: [{ personnelId: 'p2', name: 'Bendik-Dimitrijević Alexandra' }],
-} as unknown as Operation
+  crew: [crewMember('Bendik-Dimitrijević Alexandra', 'p2')],
+})
 
 describe('MobilePersonnelSheet', () => {
   it('gives a long name its own line and says where and what in words on the next', () => {
@@ -64,8 +64,8 @@ describe('MobilePersonnelSheet', () => {
   // Phone sweep 24.11.2026 #23: the row named the Einsatz but led nowhere.
   it('opens the Einsatz of a person on exactly one, and leaves a person on two a plain row', async () => {
     const onOpenIncident = vi.fn()
-    const second = { ...operation, id: 'i2', crew: [{ personnelId: 'p3', name: 'Berger Maja' }] } as unknown as Operation
-    const third = { ...operation, id: 'i3', crew: [{ personnelId: 'p3', name: 'Berger Maja' }] } as unknown as Operation
+    const second = { ...operation, id: 'i2', crew: [crewMember('Berger Maja', 'p3')] }
+    const third = { ...operation, id: 'i3', crew: [crewMember('Berger Maja', 'p3')] }
     renderWithIntl(
       <MobilePersonnelSheet
         open

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
-import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
+import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 
 // The material gate prefills itself from the Schadenplatz-Rapport. Every gate
 // test opens one, so the door has to be mocked for all of them, not just the
@@ -39,39 +39,16 @@ beforeEach(() => {
 })
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: "incident-1",
     location: "Hauptstrasse 1",
-    vehicle: null,
-    vehicles: [],
     incidentType: "brand",
     dispatchTime: new Date("2026-07-23T10:00:00Z"),
-    crew: [],
     priority: "high",
-    status: "incoming",
     coordinates: [47.1, 7.2],
-    materials: [],
     notes: "Meldung",
-    contact: "",
-    contactPhone: "",
-    internalNotes: "",
-    nachbarhilfe: false,
-    nachbarhilfeNote: "",
-    amWarten: false,
-    amWartenNote: "",
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  }
+  })
 }
 
 function renderWorkflow(

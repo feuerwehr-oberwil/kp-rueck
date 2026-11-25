@@ -1,22 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { formatWhatsAppMessage } from "./whatsapp-formatter"
-import type { Operation } from "@/lib/contexts/operations-context"
-import { assignedVehicle } from "@/test-utils/operation-fixtures"
+import { assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 
-const operation = {
+const operation = makeOperation({
   id: "e1",
   location: "Hauptstrasse 5",
-  incidentType: "elementarereignis",
-  notes: "",
-  contact: "",
-  internalNotes: "",
-  crew: [],
-  materials: [],
   vehicles: [assignedVehicle("TLF")],
-  zuFuss: false,
-  leaderId: null,
-  leaderName: null,
-} as unknown as Operation
+})
 
 const routeResources = {
   personnel: [],
@@ -55,7 +45,7 @@ describe("formatWhatsAppMessage — vehicles without a driver", () => {
 
   it("names an Auftrag vehicle with its call sign", () => {
     const message = formatWhatsAppMessage({
-      operation: { ...operation, vehicles: [] } as Operation,
+      operation: { ...operation, vehicles: [] },
       materials: [],
       groupResources: { ...routeResources, vehicles: [{ assignmentId: "a1", resourceId: "v2", name: "Pio", callsign: "Omega 3" }] },
       template: "{vehicles}",

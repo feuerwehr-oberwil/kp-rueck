@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest"
 import { screen } from "@testing-library/react"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
-import { assignedVehicle } from "@/test-utils/operation-fixtures"
+import { assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { OperationHoverCard } from "./operation-hover-card"
 
 const operation = (overrides: Partial<Operation>) =>
-  ({
+  makeOperation({
     id: "i1", number: 7, location: "Hauptstrasse 1", incidentType: "brandbekaempfung", status: "active",
     priority: "high", dispatchTime: new Date("2026-11-19T09:00:00Z"), statusChangedAt: null,
     crew: [], vehicles: [], materials: [], notes: "", assignedReko: null, leaderId: null, pickupNeeded: false,
     ...overrides,
-  }) as Operation
+  })
 
 describe("map hover card", () => {
   it("says per vehicle whether its driver stays on site or returns", () => {

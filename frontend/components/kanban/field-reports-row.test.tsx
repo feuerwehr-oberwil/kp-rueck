@@ -20,41 +20,18 @@ vi.mock('@/lib/contexts/groups-context', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 import { FieldMessageThread, FieldReportsRow } from '@/components/kanban/field-reports-row'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: 'incident-1',
     location: 'Hauptstrasse 1',
-    vehicle: null,
-    vehicles: [],
-    incidentType: 'elementarereignis',
     dispatchTime: new Date('2026-08-09T20:00:00Z'),
-    crew: [],
     priority: 'low',
     status: 'active',
     coordinates: [47.1, 7.2],
-    materials: [],
-    notes: '',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  } as Operation
+  })
 }
 
 function message(timestamp: string, text: string, actor: string | null): ApiIncidentTimelineEvent {

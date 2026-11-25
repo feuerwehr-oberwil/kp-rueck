@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { Operation } from '@/lib/contexts/operations-context'
 
 /**
  * The phone Einsatz card tells the crew in the detail sheet's order, and VoiceOver finds a
@@ -12,25 +11,23 @@ import type { Operation } from '@/lib/contexts/operations-context'
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
 
 import { MobileIncidentCard } from '@/components/mobile/mobile-incident-card'
+import { crewMember, makeOperation } from '@/test-utils/operation-fixtures'
 
-const operation = {
+const operation = makeOperation({
   id: 'incident-1',
   number: 7,
   location: 'Hauptstrasse 1',
-  vehicles: [],
   incidentType: 'brandbekaempfung',
   dispatchTime: new Date('2026-08-09T10:00:00Z'),
   crew: [
-    { personnelId: 'p-1', name: 'Hoffmann Lisa' },
-    { personnelId: 'p-2', name: 'Müller Hans' },
+    crewMember('Hoffmann Lisa', 'p-1'),
+    crewMember('Müller Hans', 'p-2'),
   ],
   priority: 'low',
   status: 'active',
-  materials: [],
-  notes: '',
   leaderId: 'p-2',
   leaderName: 'Müller Hans',
-} as unknown as Operation
+})
 
 describe('the phone Einsatz card', () => {
   it('lists the Einsatzleiter first in the crew, as the detail sheet does', () => {

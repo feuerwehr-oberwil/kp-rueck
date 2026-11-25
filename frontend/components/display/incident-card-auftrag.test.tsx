@@ -5,6 +5,7 @@ import type { Operation } from '@/lib/contexts/operations-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
 
 import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incident-card'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 /**
  * The Auftrag row on the WALL card, which is the surface where the one-line
@@ -20,39 +21,16 @@ import { DisplayIncidentCard, crewShownAtStop } from '@/components/display/incid
  */
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: 'stop-6',
     location: 'Allschwilerstrasse 14, 4104 Oberwil',
-    vehicle: null,
-    vehicles: [],
-    incidentType: 'elementarereignis',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
-    crew: [],
     priority: 'low',
-    status: 'incoming',
     coordinates: [47.1, 7.2],
-    materials: [],
-    notes: '',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
     groupId: 'auftrag-1',
     groupPosition: 5,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  } as Operation
+  })
 }
 
 const auftrag = {

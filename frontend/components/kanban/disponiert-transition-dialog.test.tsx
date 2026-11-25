@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { DisponierTransitionDialog } from "./disponiert-transition-dialog"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 /**
  * The Funkdurchsage of an Auftrag stop is recorded as SPOKEN only with «Durchgegeben»
@@ -23,38 +24,14 @@ vi.mock("@/lib/contexts/groups-context", () => ({
 vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => ({ operations: stops }) }))
 
 function stop(id: string, index: number): Operation {
-  return {
+  return makeOperation({
     id,
     location: `Hauptstrasse ${index + 1}`,
-    vehicle: null,
-    vehicles: [],
-    incidentType: "elementarereignis",
     dispatchTime: new Date("2026-07-23T10:00:00Z"),
-    crew: [],
-    priority: "medium",
     status: index === 0 ? "enroute" : "incoming",
-    coordinates: null,
-    materials: [],
-    notes: "",
-    contact: "",
-    contactPhone: "",
-    internalNotes: "",
-    nachbarhilfe: false,
-    nachbarhilfeNote: "",
-    amWarten: false,
-    amWartenNote: "",
-    zuFuss: false,
     groupId: "g",
     groupPosition: index,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
-  }
+  })
 }
 const stops = ["first", "second"].map(stop)
 

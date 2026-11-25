@@ -48,18 +48,18 @@ vi.mock('@/components/kanban/transfer-reko-dialog', () => ({ TransferRekoDialog:
 vi.mock('@/components/ui/use-mobile', () => ({ useIsMobile: () => false }))
 
 import { PersonPopoverBody } from '@/components/board/person-popover'
+import { assignedVehicle, crewMember, makeOperation } from '@/test-utils/operation-fixtures'
 
-const op14 = {
+const op14 = makeOperation({
   id: 'op-14',
   number: 14,
   location: 'Poststrasse 6, 4104 Oberwil',
   locationDisplay: 'Poststrasse 6',
-  incidentType: 'elementarereignis',
   notes: 'Tiefgarage ca. 40 cm unter Wasser.',
-  status: 'disponiert',
-  crew: [{ personnelId: 'p-peter' }],
-  vehicles: [{ vehicleId: 'v-trawa' }],
-} as unknown as Operation
+  status: 'enroute',
+  crew: [crewMember('Schneider Peter', 'p-peter')],
+  vehicles: [assignedVehicle('Trawa', { vehicleId: 'v-trawa' })],
+})
 
 const crewBinding: ResourceBinding = {
   key: 'incident-op-14',
@@ -178,7 +178,7 @@ describe('PersonPopoverBody', () => {
   it('offers a Reko tick for release only once its row id is known', () => {
     const rekoBinding: ResourceBinding = { ...crewBinding, key: 'reko-op-14', target: REKO_TARGET, purpose: 'reko' }
     // The assign POST has not answered: the row may still be refused, so no release.
-    board.operations = [{ ...op14, crew: [], assignedReko: { id: 'p-sina', name: 'Unternährer Sina' } } as Operation]
+    board.operations = [{ ...op14, crew: [], assignedReko: { id: 'p-sina', name: 'Unternährer Sina' } }]
     renderPopover(person({ isReko: true }), [rekoBinding])
     expect(screen.getByRole('checkbox', { name: '14 · Poststrasse 6' })).toBeDisabled()
   })

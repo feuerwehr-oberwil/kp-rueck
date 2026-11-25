@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { Material, Operation } from '@/lib/contexts/operations-context'
+import type { Material } from '@/lib/contexts/operations-context'
 
 /**
  * The phone Einsatz sheet is read-only for every role (owner's pick 14.11.2026, «Board
@@ -36,27 +36,19 @@ vi.mock('@/lib/hooks/use-scroll-block-into-view', () => ({
 
 import { MobileIncidentDetailSheet } from '@/components/mobile/mobile-incident-detail-sheet'
 import { REKO_TARGET } from '@/lib/detail-target'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
-const OPERATION = {
+const OPERATION = makeOperation({
   id: 'incident-1',
   number: 7,
   location: 'Hauptstrasse 1',
-  incidentType: 'elementarereignis',
   priority: 'high',
   status: 'active',
   dispatchTime: new Date('2026-11-14T18:00:00Z'),
-  statusChangedAt: null,
   notes: 'Keller unter Wasser, 30 cm',
   contact: 'Muster Anna',
   contactPhone: '061 111 11 11',
-  vehicles: [],
-  crew: [],
-  materials: [],
-  zuFuss: false,
-  hasCompletedReko: false,
-  rekoSummary: null,
-  leaderId: null,
-} as unknown as Operation
+})
 
 function renderSheet() {
   return renderWithIntl(
@@ -93,7 +85,7 @@ describe('the phone Einsatz sheet has a Reko block before a Bericht is filed', (
   it('names the Reko person and «vor Ort» – the block «Reko vor Ort» lands on', () => {
     renderWithIntl(
       <MobileIncidentDetailSheet
-        operation={{ ...OPERATION, assignedReko: { id: 'p-1', name: 'Keller Lea' }, rekoArrivedAt: new Date('2026-11-14T18:12:00') } as Operation}
+        operation={{ ...OPERATION, assignedReko: { id: 'p-1', name: 'Keller Lea' }, rekoArrivedAt: new Date('2026-11-14T18:12:00') }}
         open
         onOpenChange={vi.fn()}
         materials={[] as Material[]}
@@ -108,7 +100,7 @@ describe('the phone Einsatz sheet has a Reko block before a Bericht is filed', (
 // Sol review I round 2: the sheet stays open while it switches incidents.
 describe('the phone Einsatz sheet scrolls to a Reko-Bericht only once THAT one is drawn', () => {
   it('does not take the last incident\'s loaded Bericht for the next one', () => {
-    const withReko = (id: string) => ({ ...OPERATION, id, hasCompletedReko: true }) as Operation
+    const withReko = (id: string) => ({ ...OPERATION, id, hasCompletedReko: true })
     const sheetFor = (id: string) => (
       <MobileIncidentDetailSheet
         operation={withReko(id)}

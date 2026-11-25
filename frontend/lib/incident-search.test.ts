@@ -2,44 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Material, Operation } from '@/lib/contexts/operations-context'
 import { filterIncidents, matchesIncidentQuery } from '@/lib/incident-search'
-import { assignedVehicle } from "@/test-utils/operation-fixtures"
-
-/** A board-shaped incident with everything empty, so each test names only what it is about. */
-function makeOperation(overrides: Partial<Operation> = {}): Operation {
-  return {
-    id: 'op-1',
-    location: 'Hauptstrasse 1',
-    vehicle: null,
-    vehicles: [],
-    incidentType: 'wasser',
-    dispatchTime: new Date('2026-08-13T08:00:00Z'),
-    crew: [],
-    priority: 'low',
-    status: 'incoming',
-    coordinates: [47.5, 7.6],
-    materials: [],
-    notes: '',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
-    ...overrides,
-  }
-}
+import { assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 
 const NO_MATERIALS: Material[] = []
 

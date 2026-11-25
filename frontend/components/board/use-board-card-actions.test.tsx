@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import de from '@/messages/de.json'
 import { useBoardCardActions, type UseBoardCardActionsInput } from './use-board-card-actions'
 import type { Operation } from '@/lib/contexts/operations-context'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -16,7 +17,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 )
 
 const op = (id: string, extra: Partial<Operation> = {}) =>
-  ({ id, location: `Strasse ${id}`, vehicles: [], crew: [], materials: [], groupId: null, ...extra }) as unknown as Operation
+  makeOperation({ id, location: `Strasse ${id}`, vehicles: [], crew: [], materials: [], groupId: null, ...extra })
 
 function setup(operations: Operation[]) {
   const input = {

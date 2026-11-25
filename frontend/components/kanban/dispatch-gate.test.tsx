@@ -10,7 +10,7 @@ import {
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
-import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
+import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 
 /**
  * «Ressourcen fehlen» — press twice (owner pick UX-DESKTOP-09 B, + C's «Zu Fuss»).
@@ -26,40 +26,16 @@ vi.mock("@/components/incidents/assign-reko-dialog", () => ({ AssignRekoDialog: 
 const noRoute: GroupResources = { personnel: [], vehicles: [], materials: [] }
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: "incident-1",
     location: "Bahnhofstrasse 22",
     locationDisplay: "Bahnhofstrasse 22",
-    vehicle: null,
-    vehicles: [],
-    incidentType: "elementarereignis",
     dispatchTime: new Date("2026-10-24T18:00:00Z"),
     crew: [crewMember("Ackermann Reto")],
-    priority: "medium",
     status: "enroute",
-    coordinates: null,
     materials: ["m1"],
-    notes: "",
-    contact: "",
-    contactPhone: "",
-    internalNotes: "",
-    nachbarhilfe: false,
-    nachbarhilfeNote: "",
-    amWarten: false,
-    amWartenNote: "",
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  }
+  })
 }
 
 function auftrag(id: string, stopIds: string[]): IncidentGroup {

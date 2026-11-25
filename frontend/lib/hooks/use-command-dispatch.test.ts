@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { DispatchResource } from "@/lib/command-dispatch"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
-import { assignedVehicle, crewMember } from "@/test-utils/operation-fixtures"
+import { assignedVehicle, crewMember, makeOperation } from "@/test-utils/operation-fixtures"
 
 import { renderHook } from "@testing-library/react"
 
@@ -18,18 +18,11 @@ import {
 const EMPTY: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: "inc-14",
     number: 14,
-    status: "incoming",
-    priority: "medium",
-    crew: [],
-    vehicles: [],
-    materials: [],
-    groupId: null,
-    assignedReko: null,
     ...overrides,
-  } as Operation
+  })
 }
 
 const TLF: DispatchResource = { kind: "vehicle", id: "v-tlf", name: "TLF", incidentIds: [], outOfService: false }

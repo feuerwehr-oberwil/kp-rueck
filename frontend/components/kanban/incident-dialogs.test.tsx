@@ -12,7 +12,10 @@ const groups = vi.hoisted(() => [] as { id: string; stopIds: string[] }[])
 
 vi.mock("@/lib/api-client", () => ({ apiClient: { transferAssignments, transferToAuftrag, getIncidents } }))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }))
+vi.mock("next-intl", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next-intl")>()),
+  useTranslations: () => (key: string) => key,
+}))
 vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => ({ isEditor: true }) }))
 vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => ({ selectedEvent: { id: "event-1" } }) }))
 vi.mock("@/lib/contexts/operations-context", () => ({
@@ -35,8 +38,9 @@ vi.mock("@/lib/contexts/groups-context", () => ({
 }))
 
 import { useIncidentDialogs } from "@/components/kanban/incident-dialogs"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
-const stop = { id: "incident-1", groupId: null, status: "incoming" } as unknown as Operation
+const stop = makeOperation({ id: "incident-1", groupId: null, status: "incoming" })
 
 beforeEach(() => {
   operations.splice(0, operations.length, stop)
@@ -95,7 +99,7 @@ describe("useIncidentDialogs", () => {
   })
 
   it("opens no assignment dialog for a closed Einsatz – not through its Auftrag either", () => {
-    operations.splice(0, operations.length, { ...stop, status: "complete" } as Operation)
+    operations.splice(0, operations.length, { ...stop, status: "complete" })
     groups.push({ id: "g1", stopIds: ["incident-1"] })
     const { result } = renderHook(() => useIncidentDialogs())
 

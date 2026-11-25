@@ -11,41 +11,18 @@ vi.mock("@/lib/contexts/operations-context", () => ({
 }))
 
 import { FieldStatusNudge, FIELD_NUDGE_STORAGE_KEY } from "@/components/kanban/field-status-nudge"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: "incident-1",
     location: "Hauptstrasse 1",
-    vehicle: null,
-    vehicles: [],
     incidentType: "brand",
     dispatchTime: new Date("2026-08-09T10:00:00Z"),
-    crew: [],
     priority: "low",
-    status: "incoming",
     coordinates: [47.1, 7.2],
-    materials: [],
-    notes: "",
-    contact: "",
-    contactPhone: "",
-    internalNotes: "",
-    nachbarhilfe: false,
-    nachbarhilfeNote: "",
-    amWarten: false,
-    amWartenNote: "",
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  }
+  })
 }
 
 // Node 26 + jsdom: localStorage has to be stubbed explicitly, so give the

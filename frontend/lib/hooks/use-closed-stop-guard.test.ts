@@ -2,10 +2,11 @@ import { act, renderHook } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { useClosedStopGuard } from "./use-closed-stop-guard"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 // The guard only ever reads id + status + the address it names in the prompt.
 const op = (id: string, status: Operation["status"], location = "Poststrasse 6") =>
-  ({ id, status, location, locationDisplay: location, incidentType: "brand" }) as unknown as Operation
+  makeOperation({ id, status, location, locationDisplay: location, incidentType: "brand" })
 
 describe("useClosedStopGuard", () => {
   it("lets an open incident through without asking", () => {

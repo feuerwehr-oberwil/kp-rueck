@@ -34,41 +34,18 @@ vi.mock('@atlaskit/pragmatic-drag-and-drop/combine', () => ({ combine: () => () 
 
 import { DraggableOperation } from '@/components/kanban/draggable-operation'
 import { DisplayIncidentCard } from '@/components/display/incident-card'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: 'incident-1',
     location: 'Hauptstrasse 1, 4104 Oberwil',
-    vehicle: null,
-    vehicles: [],
     incidentType: 'brandbekaempfung',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
-    crew: [],
     priority: 'low',
-    status: 'incoming',
     coordinates: [47.1, 7.2],
-    materials: [],
-    notes: '',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  } as Operation
+  })
 }
 
 function renderBoardCard(op: Operation) {
