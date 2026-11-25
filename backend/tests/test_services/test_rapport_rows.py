@@ -1,7 +1,7 @@
-"""The server's German status and priority words are the board's (frontend/messages/de.json).
+"""The server's German label tables are the board's words (frontend/messages/de.json).
 
-Paper, notification sentences and 409 details read ``STATUS_LABELS`` / ``PRIORITY_LABELS``;
-the board reads the catalogue. Read from the frontend source itself so the two cannot drift
+Paper, notification sentences and 409 details read the Python tables; the board reads the
+catalogue. Read from the frontend source itself so the two cannot drift
 the way «Einsatz beendet» and «Abschluss» once did.
 """
 
@@ -10,13 +10,23 @@ from pathlib import Path
 
 import pytest
 
-from app.services.rapport_rows import PRIORITY_LABELS, STATUS_LABELS
+from app.services.notification_params import DANGER_LABELS_DE
+from app.services.rapport_rows import POWER_LABELS, PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS
 
 DE_JSON = Path(__file__).resolve().parents[3] / "frontend" / "messages" / "de.json"
 
 
 @pytest.mark.skipif(not DE_JSON.exists(), reason="frontend sources not present")
-def test_status_and_priority_labels_are_the_board_words():
+def test_label_tables_are_the_board_words():
     catalogue = json.loads(DE_JSON.read_text())
     assert catalogue["kanban"]["columns"] == STATUS_LABELS
     assert catalogue["incidents"]["priority"] == PRIORITY_LABELS
+    assert catalogue["incidents"]["types"] == TYPE_LABELS
+    report = catalogue["reko"]["reportSection"]
+    assert report["dangerBadges"] == DANGER_LABELS_DE
+    assert {
+        "unknown": catalogue["reko"]["form"]["powerLabels"]["unknown"],
+        "available": report["powerAvailable"],
+        "unavailable": report["powerUnavailable"],
+        "emergency_needed": report["powerEmergencyNeeded"],
+    } == POWER_LABELS
