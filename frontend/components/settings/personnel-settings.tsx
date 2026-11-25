@@ -57,6 +57,8 @@ import { useInventoryDialog, useInventoryList } from './use-archivable-inventory
 import {
   personnelFormDefaults,
   personnelFormSchema,
+  personnelFormValuesFor,
+  personnelUpdateFor,
   type PersonnelFormValues,
 } from '@/lib/schemas/personnel';
 import { toast } from 'sonner';
@@ -182,10 +184,14 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
     try {
       const editing = dialog.editing;
       if (editing) {
-        const updated = await apiClient.updatePersonnel(editing.id, values);
-        setPersonnel((prev) =>
-          prev.map((p) => (p.id === editing.id ? updated : p))
-        );
+        // Only what was changed here – see `personnelUpdateFor`.
+        const update = personnelUpdateFor(personnelFormValuesFor(editing), values);
+        if (Object.keys(update).length > 0) {
+          const updated = await apiClient.updatePersonnel(editing.id, update);
+          setPersonnel((prev) =>
+            prev.map((p) => (p.id === editing.id ? updated : p))
+          );
+        }
       } else {
         const created = await apiClient.createPersonnel(values);
         setPersonnel((prev) => [...prev, created]);
@@ -206,16 +212,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
   });
 
   const handleEdit = (person: ApiPersonnel) => {
-    dialog.open(person, {
-      name: person.name,
-      kennung: person.kennung ?? '',
-      role: person.role || '',
-      status:
-        person.status === 'available' || person.status === 'unavailable'
-          ? person.status
-          : 'available',
-      tags: person.tags || [],
-    });
+    dialog.open(person, personnelFormValuesFor(person));
   };
 
   const handleDeleteClick = (person: ApiPersonnel) => {
