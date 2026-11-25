@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useState, useRef } from 'react'
-import { apiClient, type ApiPersonnelCreate } from '@/lib/api-client'
+import { apiClient, ApiError, NetworkError, type ApiPersonnelCreate } from '@/lib/api-client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -112,11 +112,11 @@ export function QuickAddPersonnel({
     } catch (error) {
       console.error('Failed to add person:', error)
       // Provide specific error messages based on error type
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      if (NetworkError.isNetworkError(error)) {
         toast.error(t('networkErrorTitle'), {
           description: t('networkErrorDescription')
         })
-      } else if (error instanceof Error && error.message.includes('409')) {
+      } else if (ApiError.isConflictError(error)) {
         toast.error(t('duplicateTitle'), {
           description: t('duplicateDescription')
         })

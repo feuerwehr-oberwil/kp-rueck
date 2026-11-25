@@ -551,7 +551,7 @@ function FeldSurface() {
       // 401 means this device was logged out from the board ("alle Geräte
       // abmelden"). The credential is gone, so the honest move is back to the
       // code — not an empty list that looks like "you have nothing to do".
-      if ((err instanceof ApiError && err.status === 401) || (err instanceof Error && err.message.includes('401'))) {
+      if (err instanceof ApiError && err.status === 401) {
         forgetDevice()
         return
       }
@@ -559,7 +559,7 @@ function FeldSurface() {
       // failure a stale list must NOT survive. Everything else keeps its rows
       // on a silent poll, because a cellar losing one request must not blank
       // the Schadenplatz somebody is standing at.
-      if ((err instanceof ApiError && err.status === 403) || (err instanceof Error && err.message.includes('403'))) {
+      if (err instanceof ApiError && err.status === 403) {
         setAssignments([])
         // The request skips the transport's toast (the band speaks for an outage), so the
         // server's reason is said here.
