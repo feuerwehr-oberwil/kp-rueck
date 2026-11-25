@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -825,23 +825,29 @@ async def test_a_failing_tick_is_logged_once_with_its_traceback_until_it_recover
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
-async def test_a_standby_mirror_moves_cards_only_in_ereignisse_it_took_offline(
+async def test_a_standby_mirror_acts_only_in_ereignisse_it_took_offline_and_only_asks(
     _bc, _msg, monkeypatch, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
-    """The mirrored Ereignisse belong to the hosted board; the box acts once it has taken one over."""
-    from app.standby import install_guards
-
+    """Mirrored Ereignisse belong to the hosted board. In one the box took over it asks, even
+    with silent advance on: the silent path needs the ``gps-automation`` user, which only the
+    hosted board may create (the same id arriving by replication would stop the mirror)."""
     monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
-    conn = (await (await db_session.connection()).get_raw_connection()).driver_connection
-    await install_guards(conn)
+    # Only the table the automation reads – app/standby.py's install_guards also moves sequences.
+    await db_session.execute(text("CREATE SCHEMA IF NOT EXISTS standby"))
+    await db_session.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
     await _enable_arrival(db_session, silent=True)
     clock = _Clock(datetime.now(UTC))
 
-    for _ in range(3):
-        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, enroute_incident.id) == "enroute"
+    async def arrival_todos() -> int:
+        return len((await db_session.scalars(select(Notification).where(Notification.type == "gps_arrival"))).all())
 
-    await conn.execute("INSERT INTO standby.detached_events (event_id) VALUES ($1)", enroute_incident.event_id)
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert await _status(db_session, enroute_incident.id) == "active"
+    assert (await _status(db_session, enroute_incident.id), await arrival_todos()) == ("enroute", 0)
+
+    await db_session.execute(
+        text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": enroute_incident.event_id}
+    )
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert (await _status(db_session, enroute_incident.id), await arrival_todos()) == ("enroute", 1)
