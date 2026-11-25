@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import EventSpecialFunction, SpecialFunctionType, User
 from ..services.audit import log_action
+from ..utils.error_codes import DomainError, ErrorCode
 from .locking import lock_resource
 
 
@@ -74,7 +75,8 @@ async def create_special_function(
     Raises:
         PersonnelNotInEventError: unknown person, or a guest of another Ereignis
             (``Personnel.in_scope``) – nobody this Ereignis lists.
-        ValueError: unknown function, a driver without a vehicle, a vehicle with a driver.
+        DomainError: unknown function (422), a driver without a vehicle (422), a vehicle
+            that has a driver (409).
     """
     person = await lock_resource(db, "personnel", assignment.personnel_id)
     if person is None or person.guest_event_id not in (None, event_id):
@@ -85,11 +87,16 @@ async def create_special_function(
     # value was wrong.
     known = await db.scalar(select(SpecialFunctionType.key).where(SpecialFunctionType.key == assignment.function_type))
     if known is None:
-        raise ValueError(f"Unbekannte Funktion: {assignment.function_type}")
+        raise DomainError(
+            ErrorCode.FUNCTION_UNKNOWN,
+            f"Unbekannte Funktion: {assignment.function_type}",
+            status_code=422,
+            params={"function": assignment.function_type},
+        )
 
     # Validate driver assignment has a vehicle
     if assignment.function_type == "driver" and not assignment.vehicle_id:
-        raise ValueError("Driver assignments must include a vehicle_id")
+        raise DomainError(ErrorCode.DRIVER_NEEDS_VEHICLE, "Ein Fahrer braucht ein Fahrzeug.", status_code=422)
 
     held = await db.scalar(
         select(EventSpecialFunction)
@@ -111,7 +118,7 @@ async def create_special_function(
     if assignment.function_type == "driver" and assignment.vehicle_id:
         existing = await check_vehicle_driver_exists(db, event_id, assignment.vehicle_id)
         if existing:
-            raise ValueError("Vehicle already has a driver assigned")
+            raise DomainError(ErrorCode.VEHICLE_HAS_DRIVER, "Dieses Fahrzeug hat bereits einen Fahrer.")
 
     # Create the assignment
     db_assignment = EventSpecialFunction(

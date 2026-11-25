@@ -464,7 +464,7 @@ async def test_event_delete_requires_archive_first(admin_client: AsyncClient, db
 
     # Try to delete without archiving first
     response = await admin_client.delete(f"/api/events/{event_id}")
-    assert response.status_code == 400  # Should fail
+    assert response.status_code == 409  # Should fail
 
     # Archive first
     response = await admin_client.post(f"/api/events/{event_id}/archive")

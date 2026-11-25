@@ -29,6 +29,7 @@ from app.models import (
     User,
     Vehicle,
 )
+from app.utils.error_codes import DomainError
 
 # ============================================
 # Fixtures
@@ -265,7 +266,7 @@ class TestAssignResource:
         )
 
         # Second assignment should fail
-        with pytest.raises(ValueError, match="diesem Einsatz bereits zugewiesen"):
+        with pytest.raises(DomainError, match="bereits zugewiesen"):
             await assignment_crud.assign_resource(
                 db=db_session,
                 incident_id=test_incident.id,
@@ -823,7 +824,7 @@ class TestTransferAssignments:
         mock_request,
     ):
         """Test transfer fails when source incident doesn't exist."""
-        with pytest.raises(ValueError, match="Quell-Einsatz nicht gefunden"):
+        with pytest.raises(DomainError, match="Einsatz nicht gefunden"):
             await assignment_crud.transfer_assignments(
                 db=db_session,
                 source_incident_id=uuid4(),
@@ -851,7 +852,7 @@ class TestTransferAssignments:
             request=mock_request,
         )
 
-        with pytest.raises(ValueError, match="Ziel-Einsatz nicht gefunden"):
+        with pytest.raises(DomainError, match="Einsatz nicht gefunden"):
             await assignment_crud.transfer_assignments(
                 db=db_session,
                 source_incident_id=test_incident.id,
@@ -869,7 +870,7 @@ class TestTransferAssignments:
         mock_request,
     ):
         """Test transfer fails when source has no assignments."""
-        with pytest.raises(ValueError, match="keine aktiven Ressourcen"):
+        with pytest.raises(DomainError, match="keine aktiven Ressourcen"):
             await assignment_crud.transfer_assignments(
                 db=db_session,
                 source_incident_id=test_incident.id,
@@ -912,7 +913,7 @@ class TestTransferAssignments:
             request=mock_request,
         )
 
-        with pytest.raises(ValueError, match="bereits zugewiesen"):
+        with pytest.raises(DomainError, match="bereits zugewiesen"):
             await assignment_crud.transfer_assignments(
                 db=db_session,
                 source_incident_id=test_incident.id,
@@ -1092,7 +1093,7 @@ class TestTransactionIsolation:
         )
 
         # Second assignment to same incident should fail
-        with pytest.raises(ValueError, match="diesem Einsatz bereits zugewiesen"):
+        with pytest.raises(DomainError, match="bereits zugewiesen"):
             await assignment_crud.assign_resource(
                 db=db_session,
                 incident_id=test_incident.id,

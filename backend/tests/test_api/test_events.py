@@ -596,10 +596,13 @@ async def test_delete_event_is_recorded_in_the_audit_log(
 @pytest.mark.asyncio
 @pytest.mark.api
 async def test_delete_event_must_be_archived_first(admin_client: AsyncClient, test_event: Event):
-    """Test that non-archived events cannot be deleted."""
+    """A non-archived event cannot be deleted – and the refusal says why, with its code."""
     response = await admin_client.delete(f"/api/events/{test_event.id}")
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Ungültige Anfrage"
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Das Ereignis muss vor dem Löschen archiviert werden.",
+        "code": "event_not_archived",
+    }
 
 
 @pytest.mark.asyncio

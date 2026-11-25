@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas
 from app.crud import events as crud
 from app.models import Incident
+from app.utils.error_codes import DomainError
 
 
 @pytest.mark.asyncio
@@ -145,7 +146,7 @@ async def test_delete_non_archived_event_fails(db_session: AsyncSession):
     event = await crud.create_event(db_session, event_data)
 
     # Try to delete without archiving first
-    with pytest.raises(ValueError, match="must be archived"):
+    with pytest.raises(DomainError, match="archiviert"):
         await crud.delete_event(db_session, event.id)
 
 

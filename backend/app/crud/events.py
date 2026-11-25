@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import Event, Incident, User
 from ..services.audit import log_action
+from ..utils.error_codes import DomainError, ErrorCode
 from . import auftrag_templates as auftrag_templates_crud
 
 
@@ -217,7 +218,7 @@ async def delete_event(
         True if deleted, False if not found
 
     Raises:
-        ValueError: If event is not archived
+        DomainError: ``event_not_archived`` – the event is not archived
     """
     event = await db.scalar(select(Event).where(Event.id == event_id).with_for_update())
     if not event:
@@ -225,7 +226,7 @@ async def delete_event(
 
     # Require event to be archived before deletion
     if event.archived_at is None:
-        raise ValueError("Event must be archived before deletion")
+        raise DomainError(ErrorCode.EVENT_NOT_ARCHIVED, "Das Ereignis muss vor dem Löschen archiviert werden.")
 
     doomed_incidents = (
         await db.execute(select(Incident.id, Incident.title).where(Incident.event_id == event_id))

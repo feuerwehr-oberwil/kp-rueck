@@ -15,7 +15,13 @@ from ..services import reko_history
 from ..services.merge_links import live_incident_id
 from ..services.reko_history import RekoAuthor
 from ..services.tokens import generate_form_token, validate_form_token
+from ..utils.error_codes import DomainError, ErrorCode
+from ..utils.errors import ErrorMessages
 from .locking import lock_incident_with_group
+
+
+def _incident_not_found() -> DomainError:
+    return DomainError(ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND, status_code=404)
 
 
 async def _locked_report(db: AsyncSession, incident_id: uuid.UUID) -> RekoReport | None:
@@ -26,10 +32,10 @@ async def _locked_report(db: AsyncSession, incident_id: uuid.UUID) -> RekoReport
     index, and serializes them with the photo unlink and the status move's filing.
 
     Raises:
-        ValueError: If the incident does not exist
+        DomainError: ``incident_not_found`` (404) – the incident does not exist
     """
     if await lock_incident_with_group(db, incident_id) is None:
-        raise ValueError("Incident not found")
+        raise _incident_not_found()
     result = await db.execute(
         select(RekoReport).where(RekoReport.incident_id == incident_id).execution_options(populate_existing=True)
     )
@@ -45,7 +51,7 @@ async def _the_report(
     is none yet.
 
     Raises:
-        ValueError: If the incident does not exist
+        DomainError: ``incident_not_found`` (404) – the incident does not exist
     """
     report = await _locked_report(db, incident_id)
     if report is None:
@@ -75,10 +81,10 @@ async def get_or_create_reko_report(
     each edit names its own in the Chronik (`reko_history`).
 
     Raises:
-        ValueError: If token is invalid or incident not found
+        DomainError: ``reko_link_invalid`` (400) or ``incident_not_found`` (404)
     """
     if not validate_form_token(token, str(incident_id)):
-        raise ValueError("Invalid token")
+        raise DomainError(ErrorCode.REKO_LINK_INVALID, "Ungültiger Reko-Link", status_code=400)
     incident_id = await live_incident_id(db, incident_id)
     report = await _the_report(
         db,
@@ -108,7 +114,7 @@ async def get_or_create_kp_reko_report(
     The row still gets a real form token: ``token`` is NOT NULL. It is never handed out.
 
     Raises:
-        ValueError: If the incident does not exist
+        DomainError: ``incident_not_found`` (404) – the incident does not exist
     """
     incident_id = await live_incident_id(db, incident_id)
     report = await _the_report(
@@ -152,7 +158,7 @@ async def update_reko_report(
         lock) – the one write that rings the bell (`process_reko_submission`).
 
     Raises:
-        ValueError: If report not found
+        DomainError: ``reko_report_not_found`` (404)
     """
     # Read the latest JSON under the row lock before merging disjoint hazard/effort edits.
     result = await db.execute(
@@ -161,7 +167,7 @@ async def update_reko_report(
     report = result.scalar_one_or_none()
 
     if not report:
-        raise ValueError("Report not found")
+        raise DomainError(ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND, status_code=404)
 
     before = reko_history.snapshot(report)
 
@@ -239,14 +245,14 @@ async def mark_reko_arrived(
         Updated RekoReport instance
 
     Raises:
-        ValueError: If token is invalid or incident not found
+        DomainError: ``reko_link_invalid`` (400) or ``incident_not_found`` (404)
     """
     # Validate the token against the id it was minted for; the report is the one of the
     # card that id lives on now (R2 review) — the arrival and its bell belong there.
     report = await get_or_create_reko_report(db, incident_id, token, personnel_id)
     incident = await db.get(Incident, report.incident_id)
     if incident is None:
-        raise ValueError("Incident not found")
+        raise _incident_not_found()
 
     newly_arrived = report.arrived_at is None
     if newly_arrived:
@@ -303,7 +309,7 @@ async def set_reko_arrived_by_user(
     Returns the report carrying the arrival, or ``None`` when a clear found nothing to clear.
 
     Raises:
-        ValueError: If the incident does not exist
+        DomainError: ``incident_not_found`` (404) – the incident does not exist
     """
     if clear:
         report = await _locked_report(db, incident_id)

@@ -322,8 +322,8 @@ async def test_unavailable_person_is_refused_from_both_channels(
 
     field = await editor_client.post(f"/api/personnel/check-in/{unavailable.id}/in?token={token}")
     board = await editor_client.post(f"/api/personnel/check-in/{unavailable.id}/in?event_id={parity_event.id}")
-    assert field.status_code == 400
-    assert board.status_code == 400
+    for response in (field, board):
+        assert (response.status_code, response.json()["code"]) == (409, "person_unavailable")
 
 
 @pytest.mark.asyncio
@@ -397,7 +397,7 @@ async def test_phone_still_blocks_check_out_of_an_assigned_person(
     """The phone cannot release an assignment, so a block is the only honest answer."""
     token = generate_checkin_token(parity_event.id)
     response = await editor_client.post(f"/api/personnel/check-in/{assigned_person.id}/out?token={token}")
-    assert response.status_code == 400
+    assert (response.status_code, response.json()["code"]) == (409, "person_still_assigned")
 
 
 @pytest.mark.asyncio

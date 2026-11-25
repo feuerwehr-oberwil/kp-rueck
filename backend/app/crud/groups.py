@@ -16,21 +16,25 @@ from .. import schemas
 from ..database import execute_dml
 from ..models import Event, Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment, User
 from ..services.audit import log_action
+from ..utils.error_codes import DomainError, ErrorCode
 from . import events as events_crud
 from . import group_assignments as group_assignments_crud
 from .assignments import (
-    CLOSED_SOURCE_REFUSED,
-    ResourceNotAssignableError,
-    TransferChangedError,
-    TransferRefusedError,
+    closed_source_error,
     ensure_assignable,
     sync_auto_leader,
+    transfer_changed_error,
 )
 from .locking import lock_groups, lock_incidents_with_groups, lock_resources
 from .manual_order import plan_manual_order
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
 _DONE_STATUSES = ("returning", "complete")
+
+
+def other_event_error() -> DomainError:
+    """An Einsatz of another Ereignis as a stop of this Auftrag (409)."""
+    return DomainError(ErrorCode.INCIDENT_OTHER_EVENT, "Einsatz gehört zu einem anderen Ereignis")
 
 
 async def _get_group(db: AsyncSession, group_id: uuid.UUID) -> IncidentGroup | None:
@@ -381,7 +385,7 @@ async def add_stops_to_group(
     The guard reads under those locks (a route's assignments are its leaves).
 
     Raises:
-        ValueError: if any provided incident belongs to a different event.
+        DomainError: ``incident_other_event`` – an incident belongs to a different event.
         StopsChangedError: the ``via_vehicle_id`` guard failed; nothing was written.
     """
     locked = await lock_incidents_with_groups(db, incident_ids, extra_group_ids=[group_id])
@@ -426,7 +430,7 @@ async def add_stops_to_group(
     for incident_id in incident_ids:
         incident = incidents_by_id.get(incident_id)
         if incident is not None and incident.event_id != group.event_id:
-            raise ValueError("Einsatz gehört zu einem anderen Ereignis")
+            raise other_event_error()
 
     # Append at the end of the current route.
     max_pos = await db.scalar(
@@ -533,9 +537,9 @@ async def transfer_to_auftrag(
 
     Raises:
         LookupError: the Auftrag or the Einsatz is gone.
-        TransferRefusedError: the Einsatz is closed, already a stop or of another Ereignis,
-            or every stop of the Auftrag is closed.
-        ResourceNotAssignableError: the policy refused a resource; nothing was written.
+        DomainError: the Einsatz is closed, already a stop or of another Ereignis, every stop
+            of the Auftrag is closed, or ``ensure_assignable`` refused a resource
+            (``ResourceNotAssignableError``); nothing was written.
     """
     locked = await lock_incidents_with_groups(db, [incident_id], extra_group_ids=[group_id])
     incident = locked.get(incident_id)
@@ -545,14 +549,17 @@ async def transfer_to_auftrag(
     if group is None:
         raise LookupError(f"incident group {group_id} does not exist")
     if incident.group_id is not None:
-        raise TransferRefusedError("Der Einsatz ist bereits Stopp eines Auftrags.")
+        raise DomainError(ErrorCode.TRANSFER_ALREADY_STOP, "Der Einsatz ist bereits Stopp eines Auftrags.")
     if incident.event_id != group.event_id:
-        raise TransferRefusedError("Einsatz gehört zu einem anderen Ereignis")
+        raise other_event_error()
     if incident.status == "complete":
-        raise TransferRefusedError(CLOSED_SOURCE_REFUSED)
+        raise closed_source_error()
     # Under the Auftrag lock, and before this open Einsatz joins and makes it look open.
     if await group_assignments_crud.auftrag_is_closed(db, group_id):
-        raise TransferRefusedError("Alle Stopps des Auftrags sind abgeschlossen – Übertragen nicht möglich.")
+        raise DomainError(
+            ErrorCode.TRANSFER_AUFTRAG_CLOSED,
+            "Alle Stopps des Auftrags sind abgeschlossen – Übertragen nicht möglich.",
+        )
     event = await db.get(Event, group.event_id)
     if event is None:
         raise LookupError(f"event {group.event_id} does not exist")
@@ -576,10 +583,7 @@ async def transfer_to_auftrag(
         resource = resources.get((row.resource_type, row.resource_id))
         if resource is None:
             continue  # a deleted resource moves as it is, like the incident transfer
-        try:
-            ensure_assignable(resource, event=event)
-        except ResourceNotAssignableError as refused:
-            raise ResourceNotAssignableError(f"Übertragen nicht möglich – {refused}") from refused
+        ensure_assignable(resource, event=event)
         row.assigned_by = current_user.id
 
     # The role does not travel on a released row (as in `unassign_resource`).
@@ -626,10 +630,10 @@ async def undo_transfer_to_auftrag(
     409). A hand-picked Einsatzleiter leads again. Same lock order as the transfer.
 
     Raises:
-        TransferChangedError: something changed since the transfer; nothing was written.
-        ResourceNotAssignableError: the policy refused a resource; nothing was written.
+        DomainError: something changed since the transfer (``transfer_changed``), or
+            ``ensure_assignable`` refused a resource; nothing was written.
     """
-    changed = TransferChangedError("Nicht mehr rückgängig machbar – der Auftrag wurde inzwischen geändert.")
+    changed = transfer_changed_error()
     locked = await lock_incidents_with_groups(db, [incident_id], extra_group_ids=[group_id])
     incident = locked.get(incident_id)
     if incident is None or incident.deleted_at is not None or incident.group_id != group_id:
@@ -673,10 +677,7 @@ async def undo_transfer_to_auftrag(
         raise LookupError(f"event {incident.event_id} does not exist")
     resources = await lock_resources(db, [(row.resource_type, row.resource_id) for row in released])
     for resource in resources.values():
-        try:
-            ensure_assignable(resource, event=event, incident=incident)
-        except ResourceNotAssignableError as refused:
-            raise ResourceNotAssignableError(f"Nicht mehr rückgängig machbar – {refused}") from refused
+        ensure_assignable(resource, event=event, incident=incident)
 
     now = datetime.now(UTC)
     for row in on_auftrag:

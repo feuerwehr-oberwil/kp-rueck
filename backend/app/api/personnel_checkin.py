@@ -256,9 +256,6 @@ async def check_in(
         raise HTTPException(
             status_code=409, detail="Die Anwesenheit hat sich inzwischen geändert – nicht mehr rückgängig zu machen."
         ) from e
-    except ValueError as e:
-        logger.warning("Personnel check-in failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
@@ -314,22 +311,15 @@ async def check_out(
         db=db,
     )
 
-    try:
-        person = await crud.check_out_personnel(
-            db=db,
-            event_id=event_id,
-            personnel_id=personnel_id,
-            current_user=current_user,
-            request=request,
-            allow_assigned=current_user is not None,
-            refuse_bound=only_if_free,
-        )
-    except crud.PersonStillBoundError as e:
-        raise HTTPException(status_code=409, detail="Die Person ist noch zugewiesen.") from e
-    except ValueError as e:
-        # Only reachable through the field door now. It used to escape as a 500.
-        logger.warning("Personnel check-out failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    person = await crud.check_out_personnel(
+        db=db,
+        event_id=event_id,
+        personnel_id=personnel_id,
+        current_user=current_user,
+        request=request,
+        allow_assigned=current_user is not None,
+        refuse_bound=only_if_free,
+    )
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
@@ -378,18 +368,14 @@ async def set_plan(
         db=db,
     )
 
-    try:
-        person = await crud.set_attendance_plan(
-            db=db,
-            event_id=event_id,
-            personnel_id=personnel_id,
-            plan=plan,
-            current_user=current_user,
-            request=request,
-        )
-    except ValueError as e:
-        logger.warning("Attendance plan refused: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    person = await crud.set_attendance_plan(
+        db=db,
+        event_id=event_id,
+        personnel_id=personnel_id,
+        plan=plan,
+        current_user=current_user,
+        request=request,
+    )
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)

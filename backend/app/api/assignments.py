@@ -59,15 +59,6 @@ async def assign_resource(
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
     except ResourceBusyError as e:
         raise CodedHTTPException(409, ErrorCode.RESOURCE_BUSY, str(e), params={"holders": ", ".join(e.holders)}) from e
-    except crud.ResourceNotAssignableError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except crud.IncidentNotOnBoardError as e:
-        raise HTTPException(
-            status_code=409, detail="Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt)."
-        ) from e
-    except ValueError as e:
-        logger.warning("Assignment conflict for incident %s: %s", incident_id, e)
-        raise CodedHTTPException(409, ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from e
 
     # Convert SQLAlchemy model to Pydantic for response
     assignment_response = schemas.AssignmentResponse.model_validate(result)
@@ -194,11 +185,6 @@ async def update_assignment(
     """Update assignment properties (driver_stay flag, Einsatzleiter)."""
     try:
         assignment = await crud.update_assignment(db, assignment_id, update, incident_id=incident_id)
-    except crud.AssignmentReleasedError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except ValueError as e:
-        # Currently: marking a non-personnel assignment as Einsatzleiter.
-        raise HTTPException(status_code=422, detail=str(e)) from e
     except IntegrityError as e:
         # Two editors promoting someone on the same incident at the same moment
         # collide on `uq_assignments_single_leader`. That is a conflict, not a

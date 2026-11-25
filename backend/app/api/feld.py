@@ -844,10 +844,7 @@ async def set_own_attendance_plan(
     """
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
     event = await _load_event(db, claims.event_id)
-    try:
-        result = await personnel_checkin_crud.set_attendance_plan(db, event.id, person.id, plan, None, request)
-    except ValueError as e:
-        raise CodedHTTPException(400, ErrorCode.FELD_PLAN_INVALID, "Diese Zeit geht nicht. Bitte neu wählen.") from e
+    result = await personnel_checkin_crud.set_attendance_plan(db, event.id, person.id, plan, None, request)
     if result is None:
         raise CodedHTTPException(404, ErrorCode.FELD_PERSON_NOT_FOUND, "Person nicht gefunden")
     after_commit(

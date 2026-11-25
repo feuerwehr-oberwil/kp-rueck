@@ -302,7 +302,7 @@ class TestRekoReportParity:
     @pytest.mark.api
     async def test_an_unknown_incident_is_refused(self, editor_client: AsyncClient):
         response = await editor_client.post("/api/reko/", json={"incident_id": str(uuid4())})
-        assert response.status_code == 400
+        assert (response.status_code, response.json()["code"]) == (404, "incident_not_found")
 
 
 class TestRekoArrivedParity:

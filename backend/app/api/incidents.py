@@ -955,12 +955,9 @@ async def set_reko_arrived(
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     clear = "arrived_at" in payload.model_fields_set and payload.arrived_at is None
-    try:
-        report = await reko_crud.set_reko_arrived_by_user(
-            db, incident_id, user=current_user, at=payload.arrived_at, clear=clear
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND) from e
+    report = await reko_crud.set_reko_arrived_by_user(
+        db, incident_id, user=current_user, at=payload.arrived_at, clear=clear
+    )
 
     await log_action(
         db=db,
@@ -1252,23 +1249,6 @@ async def restore_incident(
             current_user=current_user,
             request=request,
         )
-    except crud.IncidentAlreadyRestoredError as e:
-        raise CodedHTTPException(
-            409, ErrorCode.INCIDENT_ALREADY_RESTORED, "Der Einsatz ist bereits wiederhergestellt."
-        ) from e
-    except crud.RestoreResourceConflictError as e:
-        raise CodedHTTPException(
-            409,
-            ErrorCode.INCIDENT_RESTORE_RESOURCE_CONFLICT,
-            f"«{e}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
-            params={"name": str(e)},
-        ) from e
-    except ValueError as e:
-        raise CodedHTTPException(
-            409,
-            ErrorCode.INCIDENT_RESTORE_MERGED,
-            "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
-        ) from e
     except IntegrityError as e:
         await db.rollback()
         raise CodedHTTPException(
@@ -1411,39 +1391,19 @@ async def transfer_assignments(
     2. Block if any resource is already assigned to target
     3. Log the transfer action
     4. Broadcast WebSocket updates
+
+    Every refusal is a ``DomainError`` (404 for a missing Einsatz, 409 otherwise) the handler answers.
     """
     from ..crud import assignments as assignment_crud
 
-    try:
-        result = await assignment_crud.transfer_assignments(
-            db=db,
-            source_incident_id=incident_id,
-            target_incident_id=transfer_request.target_incident_id,
-            current_user=current_user,
-            request=request,
-            only_assignment_ids=transfer_request.assignment_ids,
-        )
-    except assignment_crud.TransferChangedError as e:
-        # The undo's rows are no longer all there: nothing moves, the operator is told.
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except assignment_crud.TransferRefusedError as e:
-        # A closed source: nothing moves, the sentence says why.
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except assignment_crud.ResourceNotAssignableError as e:
-        # The target may not take a resource (closed Einsatz, archived Ereignis, …): 409 like assign.
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except ValueError as e:
-        # Surface the specific reason (which resource conflicts / nothing to transfer)
-        # so the operator sees why it failed instead of a generic message.
-        logger.warning("Assignment transfer failed for incident %s: %s", incident_id, e)
-        msg = str(e)
-        low = msg.lower()
-        if "not found" in low or "nicht gefunden" in low:
-            raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
-        elif "bereits zugewiesen" in low or "already assigned" in low or "conflict" in low:
-            raise HTTPException(status_code=409, detail=msg) from e
-        else:
-            raise HTTPException(status_code=400, detail=msg) from e
+    result = await assignment_crud.transfer_assignments(
+        db=db,
+        source_incident_id=incident_id,
+        target_incident_id=transfer_request.target_incident_id,
+        current_user=current_user,
+        request=request,
+        only_assignment_ids=transfer_request.assignment_ids,
+    )
 
     # Get event_id for WebSocket broadcast
     incident_result = await db.execute(select(models.Incident).where(models.Incident.id == incident_id))
