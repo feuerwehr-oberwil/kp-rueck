@@ -501,6 +501,11 @@ export function useBoardSync(input: BoardSyncInput) {
     const unsubscribeAssignmentsTransferred = wsClient.on('assignments_transferred', () => {
       handleRemoteUpdate()
     })
+    // A filed or amended Reko: the summaries are part of the snapshot, so it is one more
+    // remote update – here and not on one page, so the Lagekarte and the signed-in display
+    // get it too. Through the scheduler like the rest: an auto-saving Reko form sends one
+    // per save, and the debounce turns a burst into one load.
+    const unsubscribeRekoUpdate = wsClient.on('reko_update', handleRemoteUpdate)
 
     // Fallback polling
     let pollTimeout: NodeJS.Timeout | undefined
@@ -618,6 +623,7 @@ export function useBoardSync(input: BoardSyncInput) {
       unsubscribeSpecialFunctionUpdate()
       unsubscribeAssignmentUpdate()
       unsubscribeAssignmentsTransferred()
+      unsubscribeRekoUpdate()
       statusUnsubscribe()
       stopPolling()
       reloadScheduler.dispose()

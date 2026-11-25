@@ -562,3 +562,36 @@ describe("OperationsProvider — the board never looks current when it is not", 
     expect(stays()).toBe(true)
   })
 })
+
+const filedReko = (summaryText: string) => ({
+  summaries: {
+    "1": {
+      incident_id: "1",
+      has_completed_reko: true,
+      arrived_at: null,
+      is_relevant: true,
+      dangers_json: null,
+      effort_json: null,
+      summary_text: summaryText,
+      photos_json: [],
+      submitted_at: "2026-11-25T20:00:00Z",
+      submitted_by_personnel_name: null,
+    },
+  },
+  total: 1,
+})
+
+describe("OperationsProvider — Reko summaries", () => {
+  it("a reko_update reloads the board, so every page shows the new summary", async () => {
+    api.getEventRekoSummaries.mockResolvedValue(filedReko("Keller 10 cm"))
+    const { result } = await renderLoaded()
+    expect(result.current.operations[0].rekoSummary?.summaryText).toBe("Keller 10 cm")
+
+    api.getEventRekoSummaries.mockResolvedValue(filedReko("Keller 40 cm"))
+    act(() => ws.emit("reko_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+
+    expect(result.current.operations[0].rekoSummary?.summaryText).toBe("Keller 40 cm")
+  })
+})
