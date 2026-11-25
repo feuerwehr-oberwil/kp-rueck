@@ -51,6 +51,28 @@ class TestQRCodePrintEndpoint:
 
     @pytest.mark.asyncio
     @pytest.mark.api
+    async def test_a_request_that_fails_queues_no_slip(
+        self, editor_client: AsyncClient, db_session: AsyncSession, printer_enabled, monkeypatch
+    ):
+        """The job is committed with the request, not before its answer: a failure after the
+        insert used to leave the slip queued under a 500, and the retry printed it twice."""
+        monkeypatch.setattr(editor_client._transport, "raise_app_exceptions", False)
+        refresh = db_session.refresh
+
+        async def failing_refresh(instance, *args, **kwargs):
+            if isinstance(instance, PrintJob):
+                raise RuntimeError("injected: the read-back fails")
+            return await refresh(instance, *args, **kwargs)
+
+        monkeypatch.setattr(db_session, "refresh", failing_refresh)
+        response = await editor_client.post("/api/print/qr-code/", json=QR_BODY)
+        monkeypatch.undo()
+
+        assert response.status_code == 500
+        assert (await db_session.execute(select(PrintJob))).scalars().all() == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.api
     async def test_subtitle_optional(self, editor_client: AsyncClient, printer_enabled):
         body = {"qr_content": "https://kp.example.li/viewer?token=x", "title": "Viewer-Link"}
         response = await editor_client.post("/api/print/qr-code/", json=body)

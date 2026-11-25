@@ -689,13 +689,11 @@ def format_abholliste(p: Network, payload: dict) -> None:
             for line in _wrap_text(detail, WIDTH_B):
                 _text(p, f"{line}\n")
 
-            since = unit.get("since")
-            if since:
-                try:
-                    stamp = datetime.fromisoformat(since).astimezone().strftime("%d.%m. %H:%M")
-                    _text(p, f"   seit {stamp}\n")
-                except (ValueError, TypeError):
-                    pass
+            # Station time (`_to_local`), like the footer: a bare `astimezone()` used the
+            # host's zone, so a UTC host printed «seit 00:30» over a footer of 01:30.
+            since = _to_local(unit.get("since"))
+            if since is not None:
+                _text(p, f"   seit {since.strftime('%d.%m. %H:%M')}\n")
             _text(p, "\n")
 
         p.set(font="b", bold=False, align="left")

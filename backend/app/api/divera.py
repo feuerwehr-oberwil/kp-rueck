@@ -2,6 +2,7 @@
 
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -21,7 +22,7 @@ from ..crud import external_identities as identities_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
-from ..database import get_db
+from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import alerting, divera_responses, duplicates, incident_display
 from ..services import settings as settings_service
@@ -718,6 +719,22 @@ def _render_alarm_template(template: str, incident: models.Incident) -> str:
     return "\n".join(collapsed)
 
 
+async def _record_accepted_send(what: str, record: Callable[[AsyncSession], Awaitable[object]]) -> None:
+    """Record a send the provider has ACCEPTED – in a session of its own, committed here.
+
+    Never raises: once Divera took the alarm or Mitteilung, an error answer would only make
+    the operator send it again – a Mitteilung gets a new foreign id, so a second message goes
+    out (hunt 2026-11-24). Its own session, so nothing of it rides on the request's commit
+    either; a failed record is logged and the send is reported as done.
+    """
+    try:
+        async with async_session_maker() as record_db:
+            await record(record_db)
+            await record_db.commit()
+    except Exception:
+        logger.exception("Divera accepted the %s, but recording it here failed", what)
+
+
 @router.post("/incidents/{incident_id}/alarm", response_model=schemas.DiveraAlarmResponse)
 async def send_incident_alarm(
     incident_id: UUID,
@@ -905,24 +922,27 @@ async def send_incident_alarm(
         logger.error("%s alarm failed for incident %s: %s", provider.slug, incident_id, e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
-    await log_action(
-        db=db,
-        action_type="divera_alarm",
-        resource_type="incident",
-        resource_id=incident_id,
-        user=current_user,
-        changes={
-            "provider": provider.slug,
-            "recipients": [str(r.personnel_id) for r in sent],
-            "channels": {
-                "push": request_data.send_push,
-                "sms": request_data.send_sms,
-                "call": request_data.send_call,
-                "mail": request_data.send_mail,
+    await _record_accepted_send(
+        "alarm",
+        lambda record_db: log_action(
+            db=record_db,
+            action_type="divera_alarm",
+            resource_type="incident",
+            resource_id=incident_id,
+            user=current_user,
+            changes={
+                "provider": provider.slug,
+                "recipients": [str(r.personnel_id) for r in sent],
+                "channels": {
+                    "push": request_data.send_push,
+                    "sms": request_data.send_sms,
+                    "call": request_data.send_call,
+                    "mail": request_data.send_mail,
+                },
+                "divera_alarm_id": result.provider_alarm_id,
             },
-            "divera_alarm_id": result.provider_alarm_id,
-        },
-        request=request,
+            request=request,
+        ),
     )
 
     return schemas.DiveraAlarmResponse(
@@ -1076,19 +1096,22 @@ async def send_divera_message(
         logger.error("Divera Mitteilung failed: %s", e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
-    await log_action(
-        db=db,
-        action_type="divera_message",
-        resource_type="settings",
-        resource_id=None,
-        user=current_user,
-        changes={
-            "provider": provider.slug,
-            "target": request_data.target,
-            "groups": group_names,
-            "divera_message_id": result.provider_message_id,
-        },
-        request=request,
+    await _record_accepted_send(
+        "Mitteilung",
+        lambda record_db: log_action(
+            db=record_db,
+            action_type="divera_message",
+            resource_type="settings",
+            resource_id=None,
+            user=current_user,
+            changes={
+                "provider": provider.slug,
+                "target": request_data.target,
+                "groups": group_names,
+                "divera_message_id": result.provider_message_id,
+            },
+            request=request,
+        ),
     )
 
     return schemas.DiveraMessageResponse(
@@ -1157,14 +1180,17 @@ async def send_test_alarm(
         logger.error("Divera test alarm failed: %s", e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
-    await log_action(
-        db=db,
-        action_type="divera_test_alarm",
-        resource_type="settings",
-        resource_id=None,
-        user=current_user,
-        changes={"divera_user_id": request_data.divera_user_id, "divera_alarm_id": result.provider_alarm_id},
-        request=request,
+    await _record_accepted_send(
+        "test alarm",
+        lambda record_db: log_action(
+            db=record_db,
+            action_type="divera_test_alarm",
+            resource_type="settings",
+            resource_id=None,
+            user=current_user,
+            changes={"divera_user_id": request_data.divera_user_id, "divera_alarm_id": result.provider_alarm_id},
+            request=request,
+        ),
     )
 
     return schemas.DiveraAlarmResponse(
