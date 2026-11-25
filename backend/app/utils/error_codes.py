@@ -28,6 +28,7 @@ same body. Do not catch a ``DomainError`` in a route just to re-raise it; catch 
 where the route says something else. A plain ``ValueError`` is a bug and answers 500.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
 
 from fastapi import HTTPException, Request
@@ -169,7 +170,7 @@ class DomainError(Exception):
         detail: str,
         *,
         status_code: int = 409,
-        params: dict[str, str | int | float] | None = None,
+        params: Mapping[str, str | int | float] | None = None,
     ) -> None:
         super().__init__(detail)
         self.code = code
