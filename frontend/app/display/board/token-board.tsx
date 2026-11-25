@@ -20,6 +20,8 @@ import { type Operation } from '@/lib/contexts/operations-context'
 import { type Material } from '@/lib/contexts/materials-context'
 import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
 import { PersonNamingProvider } from "@/components/person-name"
+import { useHistoryLevel } from '@/lib/hooks/use-history-level'
+import { DisplaySearchHits } from '@/components/display/display-search-hits'
 
 // Read-only board rendered from a share token (no login). The SAME board and the
 // SAME cards as the logged-in display — it differs only in where the data comes
@@ -207,6 +209,9 @@ export function TokenBoard({ token }: { token: string }) {
     () => situation.operations.find((op) => op.id === selectedIncidentId) ?? null,
     [situation, selectedIncidentId],
   )
+  // Back closes the detail and stays on the board (hunt 2026-11-24) – see `useHistoryLevel`.
+  // Keyed to the resolved Einsatz: one a refresh removed closes the level and walks it back.
+  const closeDetail = useHistoryLevel(selectedOperation !== null, () => setSelectedIncidentId(null))
 
   return (
     <PersonNamingProvider roster={situation.personnel}>
@@ -215,6 +220,8 @@ export function TokenBoard({ token }: { token: string }) {
       {/* No header of its own: the display layout's bar already carries this
           Ereignis, the clock and the «Nur Ansicht» badge, and two bars stacked
           said the same thing twice on the screen with the least room for it. */}
+
+      <DisplaySearchHits shown={matchingIds?.size ?? situation.operations.length} total={situation.operations.length} />
 
       {/* min-h-0 lets the columns scroll internally instead of the last card
           getting clipped at the container edge. */}
@@ -243,7 +250,7 @@ export function TokenBoard({ token }: { token: string }) {
       <IncidentDetailModal
         operation={selectedOperation}
         open={!!selectedOperation}
-        onOpenChange={(open) => { if (!open) setSelectedIncidentId(null) }}
+        onOpenChange={(open) => { if (!open) closeDetail() }}
         materialsOverride={situation.materials}
         groupsOverride={detailGroups}
         groupResourcesOverride={groupResources}

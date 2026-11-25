@@ -300,7 +300,23 @@ export function DisplayIncidentCard({
                   first. It hyphenates rather than truncating (WALL_TEXT_WRAP). */}
               <h3 className={cn("font-bold text-xl text-foreground leading-[1.15]", WALL_TEXT_WRAP)}>
                 <IncidentNumber number={operation.number} className="mr-1.5 text-[0.8rem]" />
-                {getIncidentLocationLabel(operation)}
+                {/* An open-able card's address is a real button: Tab reaches it and Enter or
+                    Space opens the detail (hunt 2026-11-24). The whole card stays the pointer
+                    target; the button only adds the keyboard's way in. */}
+                {onClick ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onClick()
+                    }}
+                    className="rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    {getIncidentLocationLabel(operation)}
+                  </button>
+                ) : (
+                  getIncidentLocationLabel(operation)
+                )}
               </h3>
               {/* A crew standing at the kerb is the last thing a wall display
                   may keep to itself. No `incidentId`: the chip stays a label. */}

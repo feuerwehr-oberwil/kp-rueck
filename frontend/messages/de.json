@@ -4090,6 +4090,7 @@
     },
     "board": {
       "loginRequired": "Bitte melde dich an für die Board-Anzeige.",
+      "noEvent": "Noch kein Ereignis gewählt – das Board zeigt erst nach der Wahl Einsätze.",
       "collapsedColumnTitle": "{title} – {count} – zum Aufklappen klicken",
       "railLabel": {
         "incoming": "Eingeg.",
@@ -4150,6 +4151,7 @@
       "searchPlaceholder": "Suchen …",
       "readOnly": "Nur Ansicht",
       "selectEvent": "Ereignis wählen",
+      "searchHits": "{shown} von {total, plural, one {# Einsatz} other {# Einsätzen}}",
       "pagesNav": "Ansichten"
     },
     "map": {

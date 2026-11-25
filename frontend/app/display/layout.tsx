@@ -91,7 +91,7 @@ function DisplayChrome({
   const intlLocale = useIntlLocale()
   const { selectedEvent } = useEvent()
   const pathname = usePathname()
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, isViewer, loading: authLoading } = useAuth()
   const feed = useViewerFeed(token)
   const tCommon = useTranslations("common")
   const isIndexPage = pathname === "/display"
@@ -237,7 +237,9 @@ function DisplayChrome({
           three). */}
       <header className="flex items-center justify-between gap-3 border-b border-border bg-header px-3 py-1 min-h-11 sm:min-h-[44px] shrink-0">
         <div className="flex flex-1 items-center gap-2 min-w-0">
-          {!token && (
+          {/* No arrow on the overview for a viewer: it leads «Zurück zum Editor», and «/»
+              sends that role straight back (hunt 2026-11-24). */}
+          {!token && !(isIndexPage && isViewer) && (
             // One box for the arrow and its divider, so the idle fade has one
             // target; `gap-2` is the row's own gap, so nothing moves.
             <div className={cn("flex items-center gap-2 shrink-0", idleChromeClass)}>

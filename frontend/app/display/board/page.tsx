@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
+import { CalendarRange } from "lucide-react"
 import { TokenBoard } from "./token-board"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
@@ -19,6 +21,9 @@ import { columns, STATUS_ACCENT } from "@/lib/kanban-utils"
 import { WALL_STACK_BOARD, WALL_STACK_BODY, WALL_STACK_COLUMN } from "@/lib/wall-stack"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { useWallFit } from "@/lib/hooks/use-wall-fit"
+import { useHistoryLevel } from "@/lib/hooks/use-history-level"
+import { Button } from "@/components/ui/button"
+import { DisplaySearchHits } from "@/components/display/display-search-hits"
 import { DisplayIncidentCard, crewShownAtStop } from "@/components/display/incident-card"
 import { IncidentDetailModal } from "@/components/display/incident-detail-modal"
 import { WallColumnHead } from "@/components/display/wall-column-head"
@@ -35,6 +40,8 @@ export default function DisplayBoardPage() {
   const token = searchParams.get("token")
   const { isAuthenticated } = useAuth()
 
+  const { selectedEvent, isEventLoaded } = useEvent()
+
   // Public share link (no login): render the read-only token board.
   if (token) {
     return <TokenBoard token={token} />
@@ -43,6 +50,22 @@ export default function DisplayBoardPage() {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         {t('board.loginRequired')}
+      </div>
+    )
+  }
+  // No Ereignis yet: the way to one, not seven columns of «0» under a green connection dot
+  // that read as «nothing is happening» (hunt 2026-11-24).
+  if (!selectedEvent) {
+    if (!isEventLoaded) return null
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="max-w-sm text-muted-foreground">{t('board.noEvent')}</p>
+        <Button asChild>
+          <Link href="/display">
+            <CalendarRange className="h-4 w-4" />
+            {t('layout.selectEvent')}
+          </Link>
+        </Button>
       </div>
     )
   }
@@ -85,6 +108,9 @@ function BoardDisplay() {
   const doubleBookedPersons = useDoubleBookedPersons(allOperations)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null)
+  // The open detail stands on a history entry of its own: Back closes it and stays on the
+  // board, instead of leaving the board for the overview (hunt 2026-11-24).
+  const closeDetail = useHistoryLevel(!!selectedOperation, () => setSelectedOperation(null))
   // EVERY column folds now — a larger Feuerwehr otherwise just scrolls. All of
   // them start open except ABGESCHLOSSEN, which is finished work by definition
   // and whose width the live columns can use. Remembered per device.
@@ -192,14 +218,16 @@ function BoardDisplay() {
   }, [operationsByColumn, groups])
 
   return (
-    // `overflow-x-auto` is a safety valve for a window narrower than any wall
-    // (a laptop, a phone in landscape) — NOT the recovery path for a display.
-    // Between 1280 and 1920 nothing may end up behind it: see the column
-    // min-width below.
-    // Below `sm` (a viewer's phone, UX-PHONE-10) the columns stack top to
-    // bottom instead and this box scrolls down: the same wall cards, nothing
-    // sideways. `WALL_STACK_*` (lib/wall-stack) – the token board does the same.
-    <div ref={boardRef} className={cn("flex h-full gap-2 p-3 overflow-x-auto", WALL_STACK_BOARD)}>
+    <div className="flex h-full flex-col">
+    <DisplaySearchHits shown={operations.length} total={allOperations.length} />
+    {/* `overflow-x-auto` is a safety valve for a window narrower than any wall
+        (a laptop, a phone in landscape) — NOT the recovery path for a display.
+        Between 1280 and 1920 nothing may end up behind it: see the column
+        min-width below.
+        Below `sm` (a viewer's phone, UX-PHONE-10) the columns stack top to
+        bottom instead and this box scrolls down: the same wall cards, nothing
+        sideways. `WALL_STACK_*` (lib/wall-stack) – the token board does the same. */}
+    <div ref={boardRef} className={cn("flex min-h-0 flex-1 gap-2 p-3 overflow-x-auto", WALL_STACK_BOARD)}>
       {columns.map((column) => {
         const ops = operationsByColumn[column.id] || []
         const isCollapsed = collapsedColumns.isCollapsed(column.id)
@@ -319,9 +347,10 @@ function BoardDisplay() {
       <IncidentDetailModal
         operation={selectedOperation}
         open={!!selectedOperation}
-        onOpenChange={(open) => { if (!open) setSelectedOperation(null) }}
+        onOpenChange={(open) => { if (!open) closeDetail() }}
         showReports
       />
+    </div>
     </div>
   )
 }

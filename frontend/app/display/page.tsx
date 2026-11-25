@@ -41,7 +41,7 @@ export default function DisplayIndexPage() {
   const t = useTranslations('display.layout')
   const te = useTranslations('events.page')
   const { selectedEvent, setSelectedEvent, events, refreshEvents } = useEvent()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isViewer } = useAuth()
   // Same «Abmelden?» as the user menu and the Mehr sheet, then /login.
   const { requestLogout, logoutDialog } = useLogout()
   const tAccount = useTranslations('nav.account')
@@ -138,13 +138,16 @@ export default function DisplayIndexPage() {
 
         {!token && (
         <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {t('backToEditor')}
-          </Link>
+          {/* Not for a viewer: «/» sends that role straight back here (hunt 2026-11-24). */}
+          {!isViewer && (
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {t('backToEditor')}
+            </Link>
+          )}
           {isAuthenticated && (
             <button
               type="button"
