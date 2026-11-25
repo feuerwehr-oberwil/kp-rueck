@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     AuditLog,
     Event,
+    EventLead,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -822,10 +823,19 @@ async def test_a_failing_tick_is_logged_once_with_its_traceback_until_it_recover
     ]
 
 
+async def _arrival_todos(db: AsyncSession) -> int:
+    return len((await db.scalars(select(Notification).where(Notification.type == "gps_arrival"))).all())
+
+
+async def _three_fixes_at_the_incident(db: AsyncSession, clock: _Clock) -> None:
+    for _ in range(3):
+        await _tick(db, clock, _fresh_at_incident(clock.now()), advance=35)
+
+
 @pytest.mark.asyncio
 @patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
-async def test_a_standby_mirror_acts_only_in_ereignisse_it_took_offline_and_only_asks(
+async def test_a_standby_box_acts_only_where_it_leads_and_only_asks(
     _bc, _msg, monkeypatch, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     """Mirrored Ereignisse belong to the hosted board. In one the box took over it asks, even
@@ -838,16 +848,29 @@ async def test_a_standby_mirror_acts_only_in_ereignisse_it_took_offline_and_only
     await _enable_arrival(db_session, silent=True)
     clock = _Clock(datetime.now(UTC))
 
-    async def arrival_todos() -> int:
-        return len((await db_session.scalars(select(Notification).where(Notification.type == "gps_arrival"))).all())
-
-    for _ in range(3):
-        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert (await _status(db_session, enroute_incident.id), await arrival_todos()) == ("enroute", 0)
+    await _three_fixes_at_the_incident(db_session, clock)
+    assert (await _status(db_session, enroute_incident.id), await _arrival_todos(db_session)) == ("enroute", 0)
 
     await db_session.execute(
         text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": enroute_incident.event_id}
     )
-    for _ in range(3):
-        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    assert (await _status(db_session, enroute_incident.id), await arrival_todos()) == ("enroute", 1)
+    db_session.add(EventLead(event_id=enroute_incident.event_id, holder="standby", since=datetime.now(UTC)))
+    await db_session.flush()
+    await _three_fixes_at_the_incident(db_session, clock)
+    assert (await _status(db_session, enroute_incident.id), await _arrival_todos(db_session)) == ("enroute", 1)
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_the_hosted_board_leaves_an_ereignis_a_standby_box_leads_alone(
+    _bc, _msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """Both systems sync that Ereignis; only the leading one may raise the prompt."""
+    db_session.add(EventLead(event_id=enroute_incident.event_id, holder="standby", since=datetime.now(UTC)))
+    await db_session.flush()
+    await _enable_arrival(db_session, silent=False)
+
+    await _three_fixes_at_the_incident(db_session, _Clock(datetime.now(UTC)))
+
+    assert await _arrival_todos(db_session) == 0

@@ -30,8 +30,8 @@ side effects fire, and are attributed to a clearly-named system actor user
 (``gps-automation``) so the audit / Excel export shows "automatic (GPS)" vs operator
 actions. Also active in training events (so the rules can be exercised in Übungen);
 disabled only in demo mode. On a standby mirror it acts only in the Ereignisse that box
-has taken offline (``_own_event_ids``), and never silently; the mirrored ones belong to the
-hosted board, and the ``gps-automation`` actor is created there, not on the box.
+has taken offline and leads (``_leads``), and never silently – the ``gps-automation`` actor is
+created on the hosted board, not on the box. The hosted board leaves those Ereignisse alone.
 
 Debounce counters are kept in module-level memory and reset on any gap (missing/stale
 fix) so spotty GPS coverage can never accumulate a false positive.
@@ -40,6 +40,7 @@ fix) so spotty GPS coverage can never accumulate a false positive.
 import logging
 import math
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -52,6 +53,7 @@ from ..crud import incidents as incidents_crud
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import (
     Event,
+    EventLead,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -362,16 +364,19 @@ def _suppressed_arrival_keys(
 _DETACHED_EVENTS = table("detached_events", column("event_id"), schema="standby")
 
 
-async def _own_event_ids(db: AsyncSession) -> set[uuid.UUID] | None:
-    """The Ereignisse whose cards this box may move, or None for all of them.
+async def _leads(db: AsyncSession) -> Callable[[uuid.UUID], bool]:
+    """Whether this box's automation may write in an Ereignis: only where it leads.
 
-    A standby mirror holds the hosted board's Ereignisse as a copy the sync alone writes;
-    the automation there writes only into the ones the box has taken offline. The targets
-    are still read across all Ereignisse, so Rule C knows which vehicles are busy.
+    An Ereignis a standby box took offline is synced both ways (app/standby_sync.py), and
+    ``event_leads`` says which side works on it. The side that does not lead stays quiet, or
+    both would raise the same prompt. A standby box leads only Ereignisse it also took out of
+    the mirror stream (``standby.detached_events``); the hosted board leads all others.
     """
+    led_by_box = set(await db.scalars(select(EventLead.event_id).where(EventLead.holder == "standby")))
     if deployment_role() != ROLE_STANDBY:
-        return None
-    return set((await db.execute(select(_DETACHED_EVENTS.c.event_id))).scalars())
+        return lambda event_id: event_id not in led_by_box
+    mine = led_by_box & set(await db.scalars(select(_DETACHED_EVENTS.c.event_id)))
+    return lambda event_id: event_id in mine
 
 
 async def _group_vehicle_targets(db: AsyncSession) -> list[dict[str, Any]]:
@@ -544,15 +549,21 @@ async def _run_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) 
     return_keys: set[uuid.UUID] = set()
     actor = None  # lazily created only when an action actually fires
 
+    # Every Ereignis's assignments make a vehicle busy for Rule C; Rules A and B act only where
+    # this box leads.
+    leads = await _leads(db)
+    busy_vehicle_ids = {t["vehicle_id"] for t in targets}
+    targets = [t for t in targets if leads(t["event_id"])]
+
     # Nearest-single-match guard: if a vehicle confirms arrival at several of its
     # clustered route stops on this tick, only its nearest stop may fire (the rest
     # are suppressed and behave as not-confirming). See _suppressed_arrival_keys.
     suppressed_arrival = _suppressed_arrival_keys(targets, position_by_name, cfg, now, sim_names)
-    own = await _own_event_ids(db)
+    # The silent path needs the `gps-automation` user, which only the hosted board may
+    # create (the same id replicated in later would stop a mirror): a standby box asks.
+    standby = deployment_role() == ROLE_STANDBY
 
     for t in targets:
-        if own is not None and t["event_id"] not in own:
-            continue  # a mirrored Ereignis: the hosted board's automation acts there
         vp = position_by_name.get(t["vehicle_name"].lower())
 
         # ---- Rule A: arrival -> enroute -> active (silent) ----
@@ -572,7 +583,7 @@ async def _run_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) 
                 if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
                     # Silent advance only when the station genuinely opted in —
                     # a sim-enabled rule never silently moves a card.
-                    if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled and own is None:
+                    if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled and not standby:
                         # Dangerous opt-in: silently advance without operator confirm.
                         actor = actor or await _get_system_actor(db)
                         await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
@@ -634,9 +645,8 @@ async def _run_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) 
     # ---- Rule C: unassigned vehicle back home -> info notification ----
     rule_c_configured = cfg.enabled and cfg.rule_return_enabled
     if (rule_c_configured or sim_names) and cfg.station_lat is not None and cfg.station_lng is not None:
-        assigned_vehicle_ids = {t["vehicle_id"] for t in targets}
         await _watch_unassigned_returns(
-            db, cfg, position_by_name, assigned_vehicle_ids, now, sim_names, rule_c_configured, own
+            db, cfg, position_by_name, busy_vehicle_ids, now, sim_names, rule_c_configured, leads
         )
 
 
@@ -686,7 +696,7 @@ async def _watch_unassigned_returns(
     now: datetime,
     sim_names: set[str],
     rule_configured: bool,
-    own: set[uuid.UUID] | None,
+    leads: Callable[[uuid.UUID], bool],
 ) -> None:
     """Rule C: notify (info bell) when an unassigned vehicle comes home.
 
@@ -727,7 +737,7 @@ async def _watch_unassigned_returns(
             if _advance_debounce(_state.unassigned_returns, vehicle.id, vp.last_update, cfg):  # noqa: SIM102
                 if vehicle.id in _state.unassigned_away:
                     _state.unassigned_away.discard(vehicle.id)
-                    await _fire_unassigned_return_notification(db, vehicle, own)
+                    await _fire_unassigned_return_notification(db, vehicle, leads)
                 # else: first sighting is already at home (e.g. after a restart) —
                 # latch silently so a parked vehicle never notifies.
         else:
@@ -735,11 +745,13 @@ async def _watch_unassigned_returns(
             _reset_debounce(_state.unassigned_returns, vehicle.id)
 
 
-async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicle, own: set[uuid.UUID] | None) -> None:
+async def _fire_unassigned_return_notification(
+    db: AsyncSession, vehicle: Vehicle, leads: Callable[[uuid.UUID], bool]
+) -> None:
     """Create the "vehicle back home" info notification, attributed to the event
     of its most recent released assignment (that's whose dispatchers care). The bell
     also leaves «zurück im Magazin» in that incident's Chronik, once per assignment.
-    Nothing when that event is not one of ``own`` (``_own_event_ids``)."""
+    Nothing when this box does not lead that event (``_leads``)."""
     row = (
         await db.execute(
             select(Incident.id, Incident.event_id, IncidentAssignment.id)
@@ -756,8 +768,8 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
     if row is None:
         # Never assigned in any open event — nobody is waiting for this vehicle.
         return
-    if own is not None and row[1] not in own:
-        return  # released in a mirrored Ereignis: the hosted board tells its dispatchers
+    if not leads(row[1]):
+        return  # released in an Ereignis the other system leads: it tells its dispatchers
     from .notification_service import create_vehicle_returned_notification
 
     logger.info("GPS automation: unassigned vehicle %s back at station — notifying", vehicle.name)
