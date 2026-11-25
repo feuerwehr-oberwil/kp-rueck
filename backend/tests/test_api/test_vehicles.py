@@ -21,23 +21,6 @@ from app.models import User, Vehicle
 # ============================================
 
 
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="TLF 16/25",
-        type="TLF",
-        status="available",
-        display_order=1,
-        radio_call_sign="Florian Basel 1",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
 # ============================================
 # List Vehicles Tests
 # ============================================
@@ -376,22 +359,6 @@ async def test_vehicle_response_structure(editor_client: AsyncClient, test_vehic
 # ============================================
 # Vehicle Status Endpoint Tests
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> "Event":
-    """Create a test event."""
-    from app.models import Event
-
-    event = Event(
-        id=uuid4(),
-        name="Vehicle Status Test Event",
-        training_flag=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 @pytest_asyncio.fixture

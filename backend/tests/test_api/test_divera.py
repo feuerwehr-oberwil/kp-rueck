@@ -36,21 +36,6 @@ async def webhook_secret(db_session: AsyncSession) -> str:
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Test Divera Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_emergency(db_session: AsyncSession) -> DiveraEmergency:
     """Create a test Divera emergency."""
     emergency = DiveraEmergency(

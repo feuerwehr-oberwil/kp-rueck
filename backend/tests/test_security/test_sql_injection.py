@@ -7,10 +7,7 @@ Tests verify that:
 4. Application responds gracefully to injection attempts
 """
 
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,21 +21,6 @@ SQL_INJECTION_PAYLOADS = [
     "' OR ''='",
     "${7*7}",  # Server-side template injection attempt
 ]
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Security Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 # ============================================

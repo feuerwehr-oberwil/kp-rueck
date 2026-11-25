@@ -12,77 +12,10 @@ Tests verify system behavior under error conditions:
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, Personnel, User, Vehicle
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Error Recovery Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    """Create a test incident."""
-    incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Error Recovery Test Incident",
-        type="brandbekaempfung",
-        priority="medium",
-        status="incoming",
-        created_by=test_editor.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create a test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Error Test Person",
-        role="Feuerwehrmann",
-        status="available",
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="Error Test Vehicle",
-        type="TLF",
-        display_order=1,
-        status="available",
-        radio_call_sign="Error-1",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
+from app.models import Event, Incident, Personnel
 
 # ============================================
 # Invalid Data Handling Tests

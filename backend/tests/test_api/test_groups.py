@@ -27,39 +27,12 @@ from app.services.tokens import generate_viewer_token
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    event = Event(id=uuid4(), name="Group API Event", training_flag=False)
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def second_event(db_session: AsyncSession) -> Event:
     event = Event(id=uuid4(), name="Other API Event", training_flag=False)
     db_session.add(event)
     await db_session.commit()
     await db_session.refresh(event)
     return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Board Stop",
-        type="brandbekaempfung",
-        priority="medium",
-        status="incoming",
-        location_address="Test Street 123",
-        created_by=test_editor.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
 
 
 @pytest_asyncio.fixture
@@ -78,15 +51,6 @@ async def second_incident(db_session: AsyncSession, test_event: Event, test_edit
     await db_session.commit()
     await db_session.refresh(incident)
     return incident
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    vehicle = Vehicle(id=uuid4(), name="TLF API", type="TLF", status="available")
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
 
 
 async def _create_group(client: AsyncClient, event: Event, name: str = "Sturm-Route West", **extra) -> dict:

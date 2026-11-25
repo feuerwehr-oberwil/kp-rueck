@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,22 +19,6 @@ from app.models import IncidentAssignment, Material
 # ============================================
 # Fixtures
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def test_material(db_session: AsyncSession) -> Material:
-    """Create a test material."""
-    material = Material(
-        id=uuid4(),
-        name="Tauchpumpe TP 8/1",
-        type="Tauchpumpen",
-        location="TLF",
-        status="available",
-    )
-    db_session.add(material)
-    await db_session.commit()
-    await db_session.refresh(material)
-    return material
 
 
 # ============================================

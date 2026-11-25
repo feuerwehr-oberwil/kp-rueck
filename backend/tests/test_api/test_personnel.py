@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,22 +19,6 @@ from app.models import Event, EventAttendance, Personnel
 # ============================================
 # Fixtures
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Hans Müller",
-        role="Gruppenführer",
-        status="available",
-        tags=["Atemschutz", "Maschinisten"],
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
 
 
 # ============================================

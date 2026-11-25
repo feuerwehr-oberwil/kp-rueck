@@ -36,54 +36,6 @@ from app.models import (
 
 
 @pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="assignment_test_editor",
-        password_hash="hashed_password",
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Assignment Test Event",
-        training_flag=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_user: User, test_event: Event) -> Incident:
-    """Create a test incident."""
-    incident = Incident(
-        id=uuid4(),
-        title="Test Incident",
-        type="brandbekaempfung",
-        priority="high",
-        location_address="Test Street 1",
-        status="incoming",
-        event_id=test_event.id,
-        created_by=test_user.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
-
-
-@pytest_asyncio.fixture
 async def second_incident(db_session: AsyncSession, test_user: User, test_event: Event) -> Incident:
     """Create a second test incident for transfer tests."""
     incident = Incident(
@@ -100,52 +52,6 @@ async def second_incident(db_session: AsyncSession, test_user: User, test_event:
     await db_session.commit()
     await db_session.refresh(incident)
     return incident
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="TLF Test",
-        type="TLF",
-        status="available",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Test Person",
-        role="firefighter",
-        status="available",
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
-
-
-@pytest_asyncio.fixture
-async def test_material(db_session: AsyncSession) -> Material:
-    """Create test material."""
-    material = Material(
-        id=uuid4(),
-        name="Test Material",
-        type="equipment",
-        status="available",
-        location="Storage",
-    )
-    db_session.add(material)
-    await db_session.commit()
-    await db_session.refresh(material)
-    return material
 
 
 @pytest.fixture

@@ -8,30 +8,10 @@ Tests verify that:
 5. Format validation works (coordinates, UUIDs, etc.)
 """
 
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Validation Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
 
 # ============================================
 # String Length Boundary Tests - Incidents

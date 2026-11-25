@@ -24,23 +24,8 @@ from app.models import Event, Incident, Notification
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Test Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_incident(db_session: AsyncSession, test_event: Event) -> Incident:
-    """Create a test incident."""
+    """Overrides conftest's: the notification texts a test reads name «Test Incident»."""
     incident = Incident(
         id=uuid4(),
         event_id=test_event.id,

@@ -10,12 +10,8 @@ Note: Since this is a JSON API, XSS prevention is primarily a frontend concern.
 However, we test that the backend stores and returns content safely.
 """
 
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event
 
@@ -27,21 +23,6 @@ XSS_PAYLOADS = [
     "${alert(1)}",  # ES6 template injection
     "{{constructor.constructor('alert(1)')()}}",  # Template injection
 ]
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="XSS Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 # ============================================

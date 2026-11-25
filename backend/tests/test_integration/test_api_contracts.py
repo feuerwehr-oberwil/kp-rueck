@@ -6,31 +6,11 @@ stays: a minimal incident answers with nulls (not missing keys), the enum values
 the board switches on, and the 422 shape `frontend/lib/api/http.ts` parses.
 """
 
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
 from app.models import Event
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Contract Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
 
 # ============================================
 # Incident API Contract Tests

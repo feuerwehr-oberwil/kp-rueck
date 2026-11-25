@@ -18,7 +18,7 @@ from app.models import Event, EventAttendance, Incident, IncidentAssignment, Per
 
 @pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession) -> User:
-    """Create a test user."""
+    """Overrides conftest's: a user that signs in with a real password (authenticated_client)."""
     user = User(
         id=uuid4(),
         username="stats_user",
@@ -29,21 +29,6 @@ async def test_user(db_session: AsyncSession) -> User:
     await db_session.commit()
     await db_session.refresh(user)
     return user
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Stats Test Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 @pytest_asyncio.fixture

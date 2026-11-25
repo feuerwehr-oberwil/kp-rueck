@@ -25,21 +25,6 @@ from app.services.tokens import generate_checkin_token, generate_link_token
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Check-in Test Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_personnel(db_session: AsyncSession) -> list[Personnel]:
     """Create test personnel."""
     personnel_list = []

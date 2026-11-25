@@ -25,23 +25,8 @@ from app.models import AuditLog, Event, Incident, IncidentAssignment, StatusTran
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    """Create a test incident."""
+    """Overrides conftest's: the list tests assert the title «Test Incident»."""
     incident = Incident(
         id=uuid4(),
         event_id=test_event.id,

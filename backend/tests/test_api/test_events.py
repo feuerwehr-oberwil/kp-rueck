@@ -21,21 +21,6 @@ from app.models import AuditLog, Event, Incident, User
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Test Event",
-        training_flag=False,
-        auto_attach_divera=True,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def archived_event(db_session: AsyncSession) -> Event:
     """Create an archived test event."""
     event = Event(
