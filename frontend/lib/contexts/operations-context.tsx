@@ -11,7 +11,7 @@ import { OperationsContext, BoardSyncStatusContext } from "./operations/contexts
 import { useAlertAudio } from "./operations/use-alert-audio"
 import { useBoardSync } from "./operations/use-board-sync"
 import { useMaterialList, usePersonnelList } from "./operations/use-resource-lists"
-import type { BoardMutationContext } from "./operations/board-context"
+import { MUTATION_COOLDOWN_GRACE_MS, type BoardMutationContext } from "./operations/board-context"
 import { createResourceActions } from "./operations/resource-actions"
 import { PersonNamingProvider } from "@/components/person-name"
 import { createIncidentActions } from "./operations/incident-actions"
@@ -147,7 +147,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // Release the hold taken by armAssignmentCooldown after a short grace
   // period; when the last hold drops, replay any queued remote update.
-  const releaseAssignmentCooldown = (graceMs = 500) => {
+  const releaseAssignmentCooldown = (graceMs = MUTATION_COOLDOWN_GRACE_MS) => {
     setTimeout(() => {
       assignmentHoldsRef.current = Math.max(0, assignmentHoldsRef.current - 1)
       if (assignmentHoldsRef.current === 0) replayPendingUpdatesRef.current?.()

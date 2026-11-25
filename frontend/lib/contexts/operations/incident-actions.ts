@@ -25,6 +25,10 @@ import type { BoardMutationContext } from "./board-context"
  *  those while it waits for capacity or for the Reko to report back. */
 const AM_WARTEN_CLEARING_STATUSES: OperationStatus[] = ["enroute", "active", "returning", "complete"]
 
+/** How long `updateOperation` gathers edits of one incident before it sends them: a
+ *  move or status change goes out almost at once, typed text after a pause. */
+export const EDIT_DEBOUNCE_MS = { critical: 50, text: 500 } as const
+
 /** The create payload for an operation typed into «Neuer Einsatz» — shared by
  *  the plain create and the «Zusammenführen» merge, so both send the same report. */
 function operationToIncidentCreate(
@@ -333,7 +337,7 @@ export function createIncidentActions(board: BoardMutationContext) {
       const isCriticalUpdate =
         merged.location !== undefined || merged.coordinates !== undefined || merged.status !== undefined
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
-      updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? 50 : 500, performUpdate)
+      updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? EDIT_DEBOUNCE_MS.critical : EDIT_DEBOUNCE_MS.text, performUpdate)
     } else {
       releaseAssignmentCooldown(3000)
     }
