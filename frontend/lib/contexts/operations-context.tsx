@@ -70,6 +70,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // The roster and the depot: state of this provider, filled by the board load.
   const eventId = selectedEvent?.id ?? null
+  const selectedEventIdRef = useRef(eventId)
+  selectedEventIdRef.current = eventId
   const { personnel, setPersonnel, refreshPersonnel } = usePersonnelList(eventId)
   const { materials, setMaterials, materialGroups, refreshMaterials, setMaterialOutOfService } = useMaterialList(
     eventId,
@@ -253,6 +255,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setResourceConflict,
     setVehicleNeedingDriver,
     operationsRef,
+    selectedEventIdRef,
     recentRemovalsRef,
     criticalUpdateInProgress,
     mutationEpochRef,

@@ -14,9 +14,10 @@ import { undoToast } from "@/lib/toast-undo"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { restoreDeletedIncident } from "@/lib/restore-incident"
 import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
-import { apiCoordinatesToTuple, coordinatesToApiFields } from "@/lib/coordinate-parser"
+import { coordinatesToApiFields } from "@/lib/coordinate-parser"
 import { reportStatusConflict } from "@/lib/status-conflict"
 import type { Operation, OperationStatus, StatusWriteGuard } from "./types"
+import { apiIncidentToOperation } from "./mapping"
 import type { BoardMutationContext } from "./board-context"
 
 /** Columns in which an incident is being worked or wound down — reaching any of
@@ -67,6 +68,7 @@ export function createIncidentActions(board: BoardMutationContext) {
     materials,
     isLoaded,
     selectedEvent,
+    selectedEventIdRef,
     setOperations,
     setPersonnel,
     setMaterials,
@@ -427,46 +429,14 @@ export function createIncidentActions(board: BoardMutationContext) {
     // card kept only in local state would vanish with the next load, and the modal would
     // already have emptied the report on the strength of it.
     try {
-      const incidentData = operationToIncidentCreate(operation, selectedEvent.id)
+      const eventId = selectedEvent.id
+      const apiIncident = await apiClient.createIncident(operationToIncidentCreate(operation, eventId))
+      // The board switched Ereignis while the POST was out: the incident exists in
+      // the old one, so it must not land in this list, nor bump the epoch and
+      // throw away the new Ereignis's first load.
+      if (selectedEventIdRef.current !== eventId) return true
 
-      const apiIncident = await apiClient.createIncident(incidentData)
-
-      const newOperation: Operation = {
-        id: apiIncident.id,
-        location: apiIncident.location_address || apiIncident.title,
-        locationDisplay: apiIncident.location_display ?? undefined,
-        vehicle: operation.vehicle,
-        vehicles: [],
-        incidentType: operation.incidentType,
-        dispatchTime: new Date(apiIncident.created_at),
-        crew: [],
-        priority: apiIncident.priority as "low" | "medium" | "high",
-        status: "incoming",
-        coordinates: apiCoordinatesToTuple(apiIncident.location_lat, apiIncident.location_lng),
-        materials: [],
-        notes: apiIncident.description || "",
-        contact: apiIncident.contact || "",
-        contactPhone: apiIncident.contact_phone || "",
-        internalNotes: apiIncident.internal_notes || "",
-        nachbarhilfe: apiIncident.nachbarhilfe || false,
-        nachbarhilfeNote: apiIncident.nachbarhilfe_note || "",
-        amWarten: apiIncident.am_warten || false,
-        amWartenNote: apiIncident.am_warten_note || "",
-        zuFuss: apiIncident.zu_fuss || false,
-        source: apiIncident.source || "operator",
-        fromRealAlarm: apiIncident.from_real_alarm ?? false,
-        statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
-        hasCompletedReko: false,
-        rekoArrivedAt: null,
-        rekoSummary: null,
-        assignedReko: null,
-        leaderId: null,
-        leaderName: null,
-        materialAssignments: new Map(),
-        groupId: apiIncident.group_id ?? null,
-        groupPosition: apiIncident.group_position ?? 0,
-        number: apiIncident.number ?? null,
-      }
+      const newOperation = apiIncidentToOperation(apiIncident)
       // Invalidate reloads that started before the POST landed — they'd
       // overwrite the board without the new incident.
       mutationEpochRef.current++
