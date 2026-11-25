@@ -419,6 +419,26 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
     expect(result.current.sync.loadError).toBeNull()
   })
 
+  it("polls again after a load that kept the old settings, though the socket is up", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    api.getAllSettings.mockRejectedValueOnce(new Error("500"))
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.ops.operations).toHaveLength(1))
+    expect(result.current.ops.homeCity).toBe("")
+
+    // No socket event is coming: only the poll can fetch the settings again.
+    api.getAllSettings.mockResolvedValue({ home_city: "Oberwil" })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_500)
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+
+    await waitFor(() => expect(result.current.ops.homeCity).toBe("Oberwil"))
+  })
+
   it("retries by polling even with the socket up, and a good load clears the error", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })

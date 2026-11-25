@@ -382,15 +382,17 @@ export function useBoardSync(input: BoardSyncInput) {
         setLoadError(null)
         isInitialLoadRef.current = false
         lastLoadOutcomeRef.current = "applied"
-        stopPollingIfSocketCarries()
 
         // Store the version snapshot taken before the data fetch (null forces
         // the next poll tick to reload — fails toward freshness). Only here: the
         // version names the board ON SCREEN, so only an applied snapshot sets it –
         // and not while the settings or the Restliste on screen are older than it
-        // (their fetch failed and the previous value stayed).
-        lastSyncVersionRef.current =
-          settings !== undefined && restliste !== undefined ? versionSnapshot?.version ?? null : null
+        // (their fetch failed and the previous value stayed). Then polling goes on
+        // even with the socket up: a quiet Ereignis sends no event to retry on.
+        const complete = settings !== undefined && restliste !== undefined
+        lastSyncVersionRef.current = complete ? versionSnapshot?.version ?? null : null
+        if (complete) stopPollingIfSocketCarries()
+        else onLoadFailed()
       } catch (error) {
         if (!isCurrentLoad()) return
         console.error("Failed to load data:", error)
