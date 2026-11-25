@@ -13,10 +13,10 @@ from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from PIL import Image
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.auth.security import create_login_tokens
-from app.database import get_db
+from app.database import AppSession, get_db
 from app.main import app
 from app.models import Event, Incident, RekoReport, User
 from app.services.photo_storage import photo_storage
@@ -44,7 +44,8 @@ async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatc
     other_method = "GET" if operation == "draft" else "POST"
     winner_method = other_method if first == "other" else "DELETE"
 
-    class ControlledSession(AsyncSession):
+    # The app's session class: its commit runs what the route queued for after it (the unlink).
+    class ControlledSession(AppSession):
         async def commit(self):
             if self.info.get("pause"):
                 self.info["pause"] = False
