@@ -126,12 +126,15 @@ async def attach(
     if previous_event_id is not None and previous_event_id != event_id:
         _announce_link_change(db, previous_event_id, None)
 
-    if not emergency.is_training:
-        # Reality preempts the drill. Simulated drives are global: they mask the real Traccar
-        # position of their vehicle for EVERY consumer (map, GPS automation, geofences), and
-        # they outlive the Übung that started them (30 min, in memory). A real alarm just put
-        # a real card on the board, so the map has to show where the vehicles really are.
-        after_commit(db, _stop_gps_simulations, event_id)
+    # Reality preempts the drill. Simulated drives are global: they mask the real Traccar
+    # position of their vehicle for EVERY consumer (map, GPS automation, geofences), and they
+    # outlive the Übung that started them (30 min, in memory). A real alarm just put a real card
+    # on the board, so the map has to show where the vehicles really are. Once per commit: a
+    # bulk attach must not stop a drive started between two of its stops.
+    if not emergency.is_training and not db.info.get(_SIMULATIONS_STOPPING):
+        db.info[_SIMULATIONS_STOPPING] = True
+        after_commit(db, _stop_gps_simulations, db, event_id)
+        after_rollback(db, db.info.pop, _SIMULATIONS_STOPPING, None)
 
     logger.info("Alarm %s attached to Ereignis %s (card %s)", emergency.id, event_id, card.id)
     return Attached(incident=incident, card=card)
@@ -190,6 +193,7 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
 
 
 _LINK_CHANGES = "kp_alarm_link_changes"
+_SIMULATIONS_STOPPING = "kp_alarm_stops_simulations"
 
 
 def _announce_link_change(db: AsyncSession, event_id: uuid.UUID, incident_id: uuid.UUID | None) -> None:
@@ -212,8 +216,9 @@ async def _send_link_changes(db: AsyncSession, pending: tuple[set[uuid.UUID], se
     await broadcast_divera_responses_update(*pending)
 
 
-async def _stop_gps_simulations(event_id: uuid.UUID) -> None:
+async def _stop_gps_simulations(db: AsyncSession, event_id: uuid.UUID) -> None:
     """Once a real alarm is on the board: stop every simulated drive (see `attach`)."""
+    db.info.pop(_SIMULATIONS_STOPPING, None)
     # Lazy import mirrors traccar.py's: gps_simulation pulls in websocket_manager.
     from .gps_simulation import gps_simulation
 
