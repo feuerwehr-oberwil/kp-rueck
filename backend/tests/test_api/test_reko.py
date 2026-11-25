@@ -582,10 +582,9 @@ async def test_generate_reko_link(editor_client: AsyncClient, test_incident: Inc
     response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
     assert response.status_code == 200
     data = response.json()
-    assert data["incident_id"] == str(test_incident.id)
     assert "token" in data
-    assert "link" in data
-    assert str(test_incident.id) in data["link"]
+    assert data["link"] == f"/reko?incident_id={test_incident.id}&token={data['token']}"
+    assert data["qr_code_data"] == data["link"]
 
 
 @pytest.mark.asyncio
@@ -605,7 +604,6 @@ async def test_generate_reko_link_with_personnel(
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["personnel_id"] == str(test_personnel.id)
     assert data["link"].startswith("/feld?token=")
     assert f"incident_id={test_incident.id}" in data["link"]
 
@@ -1333,8 +1331,7 @@ async def test_generate_link_custom_form_type(editor_client: AsyncClient, test_i
     response = await editor_client.post(f"/api/reko/generate-link?incident_id={test_incident.id}&form_type=custom")
     assert response.status_code == 200
     data = response.json()
-    assert "token" in data
-    assert data["incident_id"] == str(test_incident.id)
+    assert f"incident_id={test_incident.id}" in data["link"]
 
 
 @pytest.mark.parametrize("action", ["create", "patch", "upload", "delete"])

@@ -213,12 +213,12 @@ from fastapi import APIRouter as NewRouter
 bulk_router = NewRouter(prefix="/assignments", tags=["assignments"])
 
 
-@bulk_router.get("/by-event/{event_id}", response_model=None)
+@bulk_router.get("/by-event/{event_id}", response_model=dict[uuid.UUID, list[schemas.AssignmentResponse]])
 async def get_assignments_by_event(
     event_id: uuid.UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, list[schemas.AssignmentResponse]]:
+) -> dict[uuid.UUID, list[schemas.AssignmentResponse]]:
     """
     Get all assignments for all incidents in an event.
 
@@ -228,7 +228,4 @@ async def get_assignments_by_event(
     Returns:
         Dictionary mapping incident_id to list of assignments
     """
-    assignments = await crud.get_assignments_by_event(db, event_id)
-
-    # Convert UUID keys to strings for JSON serialization
-    return {str(incident_id): assignments_list for incident_id, assignments_list in assignments.items()}
+    return await crud.get_assignments_by_event(db, event_id)

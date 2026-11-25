@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { X, ClipboardCheck, Check, MessageCircle, Send, Binoculars } from 'lucide-react'
 import { toast } from 'sonner'
-import { apiClient } from '@/lib/api-client'
+import { apiClient, type ApiShareLink } from '@/lib/api-client'
 import { FeldAccessCard } from '@/components/feld/feld-access-card'
 import { queueLinkQrPrint, type LinkKind } from '@/lib/link-qr-print'
 import { REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from '@/components/incidents/assign-reko-dialog'
@@ -107,7 +107,7 @@ export function EventSetupChecklist({
   const shareLink = useCallback(
     async (
       kind: LinkKind,
-      generate: () => Promise<{ link: string; valid_until?: string }>,
+      generate: () => Promise<Pick<ApiShareLink, 'link' | 'valid_until'>>,
       mode: 'copy' | 'print',
       meta: { title: string; subtitle: string; copyLabel: string }
     ) => {

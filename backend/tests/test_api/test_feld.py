@@ -195,7 +195,6 @@ class TestGenerateLink:
         body = response.json()
         assert body["token"]
         assert body["link"].startswith("/feld?token=")
-        assert body["full_url"].endswith(body["link"])
         assert body["qr_code_data"] == body["link"]
 
 

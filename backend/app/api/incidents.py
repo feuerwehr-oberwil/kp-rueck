@@ -123,15 +123,12 @@ def _fingerprint(
     )
 
 
-# response_model=None keeps the untyped `{}` response schema this route has always published:
-# without it FastAPI would derive a response model from the new return annotation and drift
-# docs/openapi.json.
-@router.get("/sync-version", response_model=None)
+@router.get("/sync-version", response_model=schemas.SyncVersion)
 async def get_sync_version(
     current_user: CurrentUser,
     event_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.SyncVersion:
     """Return a quick hash of the current state for change detection.
 
     Lightweight endpoint that returns a version string based on incident count
@@ -268,7 +265,7 @@ async def get_sync_version(
         f"{count}-{latest_str}-{a_count}-{a_latest_str}-{a_unassigned_str}-{g_count}-{g_latest_str}-"
         f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}-{inputs_str}"
     )
-    return {"version": version}
+    return schemas.SyncVersion(version=version)
 
 
 def _candidate_response(candidate: duplicates.DuplicateCandidate, home_city: str) -> schemas.DuplicateCandidate:

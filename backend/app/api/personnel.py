@@ -1,7 +1,6 @@
 """Personnel management API endpoints."""
 
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import update
@@ -128,15 +127,12 @@ async def delete_personnel(
     background_tasks.add_task(broadcast_personnel_update, {"id": str(personnel_id)}, "delete")
 
 
-# response_model=None keeps the untyped `{}` response schema this route has always published:
-# without it FastAPI would derive a response model from the new return annotation and drift
-# docs/openapi.json.
-@router.post("/categories/sort-order", response_model=None, status_code=status.HTTP_200_OK)
+@router.post("/categories/sort-order", response_model=schemas.CategorySortOrderResult, status_code=status.HTTP_200_OK)
 async def update_role_sort_orders(
     sort_update: schemas.BulkCategorySortOrderUpdate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.CategorySortOrderResult:
     """
     Update sort orders for personnel role categories (editor only).
 
@@ -151,4 +147,4 @@ async def update_role_sort_orders(
             .values(role_sort_order=category_update.sort_order)
         )
 
-    return {"status": "success", "updated_categories": len(sort_update.categories)}
+    return schemas.CategorySortOrderResult(updated_categories=len(sort_update.categories))

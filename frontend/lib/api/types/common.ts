@@ -94,21 +94,31 @@ export interface ApiDeployment {
   blocked_domains: string[]
 }
 
-/** The standby box's mirror of the hosted board (GET /api/standby, backend `app/api/standby.py`).
- *  `mirror` is false on every other deployment, and then nothing else is sent. */
+/** A link the board hands out (backend `ShareLinkResponse`): check-in, viewer, alarm intake,
+ *  `/feld`, Reko. `link` is relative – prefix the page's own origin. `qr_code_data` is what the
+ *  QR code encodes; `valid_until` (ISO) is set where the slip prints its expiry (the `/feld` poster). */
+export interface ApiShareLink {
+  token: string
+  link: string
+  qr_code_data: string
+  valid_until: string | null
+}
+
+/** The standby box's mirror of the hosted board (GET /api/standby, backend `StandbyStatus`).
+ *  `mirror` is false on every other deployment, and then the mirror fields are null. */
 export interface ApiStandby {
   /** This is a standby box that mirrors a hosted board. False on the hosted board itself. */
   mirror: boolean
   /** The subscription to the hosted database exists. */
-  configured?: boolean
+  configured: boolean | null
   /** The hosted board was heard from within the last ~90 s – the mirror is up to date. */
-  current?: boolean
+  current: boolean | null
   /** When the hosted board was last heard from: the «Stand» of the band. */
-  last_received_at?: string | null
+  last_received_at: string | null
   /** Ereignisse that left the mirror for the two-way sync, oldest first. */
-  detached?: { event_id: string; detached_at: string }[]
+  detached: { event_id: string; detached_at: string }[] | null
   /** Every Ereignis a standby box took over at some point – on the box AND on the hosted board. */
-  leads?: ApiStandbyLead[]
+  leads: ApiStandbyLead[]
 }
 
 /** Who leads one Ereignis, and how its two-way sync stands (backend `app/standby_sync.py`). */

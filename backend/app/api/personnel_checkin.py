@@ -70,13 +70,12 @@ async def _resolve_event_and_actor(
     return event_id, user
 
 
-@router.post("/generate-link", response_model=dict)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_checkin_link(
-    request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for check-in"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.ShareLinkResponse:
     """
     Generate check-in link with QR code (editor only).
 
@@ -86,17 +85,7 @@ async def generate_checkin_link(
     token = await share_links.issue(db, "checkin", event_id)
     if token is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
-    link = f"/check-in?token={token}"
-
-    # Get base URL from request
-    base_url = str(request.base_url).rstrip("/")
-
-    return {
-        "token": token,
-        "link": link,
-        "full_url": f"{base_url}{link}",
-        "qr_code_data": link,  # Frontend will generate QR code from this
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/check-in?token={token}")
 
 
 @router.get("/list", response_model=schemas.CheckInListResponse)

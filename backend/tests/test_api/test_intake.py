@@ -66,7 +66,6 @@ class TestGenerateLink:
         body = response.json()
         assert body["token"]
         assert body["link"].startswith("/alarm?token=")
-        assert body["full_url"].endswith(body["link"])
 
 
 class TestContext:

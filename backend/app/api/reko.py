@@ -529,7 +529,7 @@ async def mark_reko_arrived(
     return response_data
 
 
-@router.post("/generate-link", response_model=None)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_reko_link(
     request: Request,
     incident_id: uuid.UUID = Query(...),
@@ -537,7 +537,7 @@ async def generate_reko_link(
     personnel_id: uuid.UUID | None = Query(None),
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.ShareLinkResponse:
     """
     Generate the direct Reko link for an incident (editor/admin only).
 
@@ -581,25 +581,10 @@ async def generate_reko_link(
             claim_id=claim.id,
             expires_hours=72,
         )
-        link = f"/feld?token={token}&incident_id={incident_id}"
-        return {
-            "incident_id": incident_id,
-            "token": token,
-            "link": link,
-            "personnel_id": personnel_id,
-            "qr_code_url": f"/api/qr?data={link}",
-        }
+        return schemas.ShareLinkResponse.for_link(token, f"/feld?token={token}&incident_id={incident_id}")
 
     token = generate_form_token(str(incident_id), form_type)
-    link = f"/reko?incident_id={incident_id}&token={token}"
-
-    return {
-        "incident_id": incident_id,
-        "token": token,
-        "link": link,
-        "personnel_id": personnel_id,
-        "qr_code_url": f"/api/qr?data={link}",  # Future: QR code generation
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/reko?incident_id={incident_id}&token={token}")
 
 
 @router.get("/event/{event_id}/summaries", response_model=schemas.EventRekoSummariesResponse)
