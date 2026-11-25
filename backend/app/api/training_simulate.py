@@ -9,7 +9,6 @@ import asyncio
 import logging
 import random
 from datetime import UTC, datetime
-from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -34,18 +33,14 @@ from ..models import (
     Vehicle,
 )
 from ..schemas import (
-    DiveraEmergencyResponse,
     FeldIncidentCreate,
     IncidentPriority,
     IncidentResponse,
     IncidentType,
-    RekoReportResponse,
     SimulateBulkRapportResponse,
     SimulateCheckinRequest,
     SimulateCheckinResponse,
     SimulateCheckinStopResponse,
-    SimulateDiveraRequest,
-    SimulateFieldCompleteRequest,
     SimulateInjectResponse,
     SimulatePickupRequest,
     SimulateRapportResponse,
@@ -53,10 +48,8 @@ from ..schemas import (
 )
 from ..services import incident_display, notification_params
 from ..services.audit import log_action
-from ..services.divera_intake import broadcast_emergency_received
 from ..services.training import (
     file_simulated_rapport,
-    generate_training_divera_emergency,
     simulated_filer,
     stranded_pickup_note,
 )
@@ -67,7 +60,6 @@ from ..services.training_simulation_data import (
     generate_field_message,
     generate_reinforcement_request,
 )
-from ..services.training_steps import StepRefusedError, file_reko_report, mark_reko_arrived, report_field_complete
 from ..services.vehicle_facts import record_vehicle_fact
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import (
@@ -222,149 +214,9 @@ async def stop_simulated_checkin(event_id: UUID, current_user: CurrentEditor) ->
     return SimulateCheckinStopResponse(stopped=pending)
 
 
-@router.post("/events/{event_id}/simulate/field-complete/{incident_id}", response_model=IncidentResponse)
-async def simulate_field_complete(
-    event_id: UUID,
-    incident_id: UUID,
-    request: Request,
-    current_user: CurrentEditor,
-    background_tasks: BackgroundTasks,
-    payload: SimulateFieldCompleteRequest | None = None,
-    db: AsyncSession = Depends(get_db),
-) -> IncidentResponse:
-    """Field crew reports the incident finished ("Einsatz beendet") — plus the
-    follow-up the field actually gets: *"Kommt ihr selbst zurück?"*
-
-    Informational only: stamps ``field_complete_reported_at`` so the operator
-    sees a "Feld meldet: beendet" badge on the card and can decide to close the
-    incident. Deliberately does NOT change the status — closing is the
-    operator's board action, mimicking the real command-post split.
-
-    Goes through the same CRUD calls as the **KP-parity endpoint**
-    (`POST /api/incidents/{id}/field-report`) – `services.training_steps.report_field_complete`,
-    shared with the Regie – audit entry and notification included.
-
-    The Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the
-    suggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a
-    vehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter
-    can always override it by sending it explicitly. It goes to
-    ``crud.feld.record_pickup`` as that answer (``self_drive``) under the same
-    KP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».
-    """
-    await require_training_event(db, event_id)
-    incident = await get_event_incident(db, event_id, incident_id)
-    await report_field_complete(
-        db,
-        incident,
-        user=current_user,
-        pickup_needed=payload.pickup_needed if payload else None,
-        pickup_note=payload.pickup_note if payload else None,
-        request=request,
-    )
-
-    await db.refresh(incident)
-    response = await incident_display.incident_with_display(db, incident)
-    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
-    return response
-
-
-@router.post("/events/{event_id}/simulate/reko-arrived/{incident_id}", response_model=IncidentResponse)
-async def simulate_reko_arrived(
-    event_id: UUID,
-    incident_id: UUID,
-    current_user: CurrentEditor,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-) -> IncidentResponse:
-    """Mark the Reko crew as "vor Ort" (arrived on scene) for a training incident.
-
-    This is the first half of the Reko arc — it sets ``arrived_at`` without
-    submitting a report, so the conductor console can walk an incident through
-    "Reko vor Ort" → "Reko-Meldung" as two separate, realistically-timed steps
-    (the one-shot ``simulate_reko`` below still does both at once).
-    """
-    await require_training_event(db, event_id)
-    incident = await _event_incident_any(db, event_id, incident_id)
-    try:
-        await mark_reko_arrived(db, incident)
-    except StepRefusedError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-    await db.refresh(incident)
-    response = await incident_display.incident_with_display(db, incident)
-    background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
-    return response
-
-
-@router.post("/events/{event_id}/simulate/reko/{incident_id}", response_model=RekoReportResponse)
-async def simulate_reko(
-    event_id: UUID,
-    incident_id: UUID,
-    current_user: CurrentEditor,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-) -> RekoReportResponse:
-    """
-    Simulate a reko report submission for a training incident.
-
-    Marks arrival, generates random report data, and submits it.
-    Triggers the same status transitions and notifications as a real submission.
-    """
-    await require_training_event(db, event_id)
-    incident = await _event_incident_any(db, event_id, incident_id)
-    try:
-        updated = await file_reko_report(db, incident)
-    except StepRefusedError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-    # Build response
-    response_data = RekoReportResponse.model_validate(updated)
-    response_data.incident_title = incident.title
-    response_data.incident_location = incident.location_address
-    response_data.incident_type = incident.type
-    response_data.incident_description = incident.description
-    response_data.incident_contact = incident.contact
-
-    # Broadcast updates
-    incident_response = await incident_display.incident_with_display(db, incident)
-    background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "update")
-
-    return response_data
-
-
 # ---------------------------------------------------------------------------
-# Trainer injects: simulated Divera intake + escalations
+# Trainer injects: escalations, reinforcements, field reports
 # ---------------------------------------------------------------------------
-
-
-@router.post("/events/{event_id}/simulate/divera", response_model=DiveraEmergencyResponse)
-async def simulate_divera_alarm(
-    event_id: UUID,
-    request: SimulateDiveraRequest,
-    current_user: CurrentEditor,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-) -> DiveraEmergencyResponse:
-    """Inject a simulated Divera alarm into the emergency pool.
-
-    Trainees then run the real alarm-intake workflow: alert sound and toast on
-    the pool page, review, attach to the exercise. The entry is training-marked
-    (ÜBUNG badge), excluded from auto-attach and only attachable to training
-    events — it never touches real operations or Divera itself.
-    """
-    await require_training_event(db, event_id)
-
-    if request.category and request.category not in ["normal", "critical"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorMessages.CATEGORY_INVALID)
-
-    # Same Literal-vs-str gap as in `generate_emergencies`: the check above is the guarantee.
-    category = cast(Literal["normal", "critical"] | None, request.category)
-    emergency = await generate_training_divera_emergency(db, event_id, category=category)
-    await record_history(db, event_id, f"Alarm im Pool · {emergency.title}")
-
-    response = DiveraEmergencyResponse.model_validate(emergency)
-    background_tasks.add_task(broadcast_emergency_received, response.model_dump(mode="json"))
-    return response
 
 
 @router.post("/events/{event_id}/simulate/escalate/{incident_id}", response_model=IncidentResponse)

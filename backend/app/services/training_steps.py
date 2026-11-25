@@ -119,7 +119,6 @@ async def report_field_complete(
     *,
     user: User,
     pickup_needed: bool | None,
-    pickup_note: str | None,
     request: Request | None,
 ) -> None:
     """«Einsatz beendet» plus the field's answer to «Kommt ihr selbst zurück?».
@@ -130,10 +129,12 @@ async def report_field_complete(
     the «bleibt vor Ort» pill, the suggestion /feld makes (`crud.feld.vehicle_on_site`, owner
     23.11.2026): a vehicle on site → «fährt selbst», none → «Abholung nötig». The answer goes
     to `record_pickup` as `self_drive`: a KP «nein» reads «fährt selbst», not «Abholung disponiert».
+    A pickup the situation decided carries the field's reason as its note.
     """
+    pickup_note = None
     if pickup_needed is None:
         pickup_needed = await feld_crud.vehicle_on_site(db, incident) is None
-        if pickup_needed and pickup_note is None:
+        if pickup_needed:
             pickup_note = stranded_pickup_note(incident)
 
     actor = feld_crud.FieldActor(user=user)

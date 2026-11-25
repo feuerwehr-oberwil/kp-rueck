@@ -425,19 +425,6 @@ async def generate_training_emergency(
     return incidents
 
 
-async def generate_training_divera_emergency(
-    db: AsyncSession,
-    event_id: UUID,
-    category: Literal["normal", "critical"] | None = None,
-) -> DiveraEmergency:
-    """Generate a simulated Divera alarm into the pool for a training event."""
-    settings_result = await db.execute(select(Setting))
-    settings = {s.key: s.value for s in settings_result.scalars().all()}
-
-    generator = TrainingGenerator(db)
-    return await generator.generate_pool_emergency(event_id, category, settings)
-
-
 # ---------------------------------------------------------------------------
 # Simulated field work, for the Übungssteuerung's injects (api/training_simulate.py)
 # ---------------------------------------------------------------------------

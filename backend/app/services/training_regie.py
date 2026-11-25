@@ -377,9 +377,7 @@ async def run_step(
         case "vehicle_on_scene":
             await report_vehicle_on_scene(db, incident, user=user, request=request)
         case "field_complete":
-            await report_field_complete(
-                db, incident, user=user, pickup_needed=pickup_needed, pickup_note=None, request=request
-            )
+            await report_field_complete(db, incident, user=user, pickup_needed=pickup_needed, request=request)
         case "drive_to_magazin":
             await start_incident_drives(db, incident, target="magazin", speed_kmh=speed)
         case "rapport":

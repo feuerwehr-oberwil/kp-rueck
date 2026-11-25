@@ -196,7 +196,7 @@ The first photo creates the rapport as a draft if none exists yet. Uploads share
 
 ### Training photo pool
 
-The training simulation (`POST /api/training/events/{event_id}/simulate/reko/{incident_id}` and `…/simulate/rapport…`) attaches 0–2 scene photos to the simulated report, picked by incident type from a curated, CC-licensed pool shipped inside the backend: `backend/app/assets/training_photos/<type>/*.jpg` (attribution in `ATTRIBUTION.md` there, curated once with `scripts/download-training-photos.py`). They are copied through the same storage path as real uploads, so serving, deletion and cleanup behave the same, and no network is needed at runtime. A type without its own folder borrows a sibling's (`_POOL_ALIASES` in `backend/app/services/training_photos.py`); a stripped or missing pool just yields reports without photos.
+The training simulation (the Regie's «Reko-Meldung» step, `services/training_steps.file_reko_report`, and `…/simulate/rapport…`) attaches 0–2 scene photos to the simulated report, picked by incident type from a curated, CC-licensed pool shipped inside the backend: `backend/app/assets/training_photos/<type>/*.jpg` (attribution in `ATTRIBUTION.md` there, curated once with `scripts/download-training-photos.py`). They are copied through the same storage path as real uploads, so serving, deletion and cleanup behave the same, and no network is needed at runtime. A type without its own folder borrows a sibling's (`_POOL_ALIASES` in `backend/app/services/training_photos.py`); a stripped or missing pool just yields reports without photos.
 
 ## Security Considerations
 
