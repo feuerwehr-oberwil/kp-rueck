@@ -94,7 +94,7 @@ beforeEach(() => {
     onMoveLeft: vi.fn(),
     onMoveSelection: vi.fn(),
     onToggleZuFuss: vi.fn(),
-    onRefresh: vi.fn().mockResolvedValue(undefined),
+    onRefresh: vi.fn().mockResolvedValue(true),
     onOpenDetail: vi.fn(),
     onRequestDelete: vi.fn(),
     onOpenNewEmergency: vi.fn(),
@@ -633,7 +633,7 @@ describe("useKanbanShortcuts", () => {
 
   describe("refresh flow", () => {
     it("'r' calls onRefresh and resolves to success toast", async () => {
-      let resolveRefresh: (v?: unknown) => void = () => {};
+      let resolveRefresh: (v: boolean) => void = () => {};
       (actions.onRefresh as ReturnType<typeof vi.fn>).mockReturnValue(
         new Promise((res) => {
           resolveRefresh = res;
@@ -644,10 +644,19 @@ describe("useKanbanShortcuts", () => {
       expect(toastLoading).toHaveBeenCalledWith("Wird aktualisiert …");
       expect(actions.onRefresh).toHaveBeenCalled();
       await new Promise<void>((res) => {
-        resolveRefresh();
+        resolveRefresh(true);
         setTimeout(res, 0);
       });
       expect(toastSuccess).toHaveBeenCalled();
+    });
+
+    it("says «Aktualisierung fehlgeschlagen», not «Aktualisiert», when the reload failed", async () => {
+      (actions.onRefresh as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+      renderHook(() => useKanbanShortcuts(baseState(), actions));
+      press("r");
+      await new Promise<void>((res) => setTimeout(res, 0));
+      expect(toastSuccess).not.toHaveBeenCalled();
+      expect(toastError).toHaveBeenCalledWith("Aktualisierung fehlgeschlagen", expect.anything());
     });
 
     it("toasts an error when refresh rejects", async () => {

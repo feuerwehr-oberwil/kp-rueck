@@ -3418,6 +3418,7 @@
       "amWartenClearedDescription": "Der Einsatz läuft jetzt – die Wartemarkierung wurde automatisch entfernt.",
       "statusNotChangedTitle": "Status nicht geändert",
       "statusNotChangedDescription": "Der Einsatz wurde auf den letzten Stand zurückgesetzt.",
+      "statusNotChangedStaleDescription": "Neu laden fehlgeschlagen – die Karte steht vielleicht noch in der falschen Spalte.",
       "updateFailedTitle": "Nicht gespeichert",
       "updateFailedDescription": "Der Einsatz konnte nicht aktualisiert werden.",
       "reorderFailedTitle": "Reihenfolge nicht gespeichert",
@@ -3610,7 +3611,8 @@
         "elsewhere": "Inzwischen bei {where} zugewiesen – diese neuere Zuweisung bleibt.",
         "outOfService": "{resource} ist nicht einsatzbereit.",
         "resourceGone": "{resource} ist nicht mehr auf dem Board.",
-        "unavailable": "{resource} ist als nicht verfügbar gemeldet."
+        "unavailable": "{resource} ist als nicht verfügbar gemeldet.",
+        "changedMeanwhile": "Inzwischen anderswo eingeteilt oder entfernt – die neuere Einteilung bleibt."
       }
     },
     "planned": {

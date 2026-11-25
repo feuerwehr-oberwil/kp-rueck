@@ -59,7 +59,8 @@ export interface KanbanShortcutsActions {
   /** Toggle zu_fuss flag on the selected operation. */
   onToggleZuFuss: (operationId: string) => void
   /** Refresh all operations (toast-wrapped). */
-  onRefresh: () => Promise<unknown>
+  /** Resolves false when the reload failed – then no «Aktualisiert». */
+  onRefresh: () => Promise<boolean>
   /** Open the detail modal for the hovered operation (a read, so hover is fine). */
   onOpenDetail: (operation: Operation) => void
   /** Stage an operation for delete confirmation. */
@@ -439,8 +440,9 @@ export function useKanbanShortcuts(
         const toastId = toast.loading(translateOutsideReact("kanban.shortcuts.refreshing"))
         actions
           .onRefresh()
-          .then(() => {
-            toast.success(translateOutsideReact("kanban.shortcuts.refreshed"), { id: toastId, duration: 1500 })
+          .then((ok) => {
+            if (ok) toast.success(translateOutsideReact("kanban.shortcuts.refreshed"), { id: toastId, duration: 1500 })
+            else toast.error(translateOutsideReact("kanban.shortcuts.refreshFailed"), { id: toastId })
           })
           .catch(() => {
             toast.error(translateOutsideReact("kanban.shortcuts.refreshFailed"), { id: toastId })

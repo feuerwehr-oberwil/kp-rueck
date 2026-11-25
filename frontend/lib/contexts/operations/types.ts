@@ -256,7 +256,8 @@ export interface OperationsContextType {
    */
   incidentTotal: number | null
   formatLocation: (fullAddress: string) => string
-  refreshOperations: () => Promise<void>
+  /** Resolves true once the board is the server's, false when the load failed. */
+  refreshOperations: () => Promise<boolean>
   /** Resolves true when the removal was persisted (or ran local-only), false
    * when it failed and was rolled back — callers that chain a follow-up
    * action (e.g. "remove from incident, then make driver") must check it. */

@@ -29,7 +29,7 @@ export interface UseBoardCommandHandlersInput {
   fleet: ApiVehicle[]
   operations: Operation[]
   materials: Material[]
-  refreshOperations: () => Promise<void>
+  refreshOperations: () => Promise<boolean>
   outOfServiceVehicleIds: Set<string>
   dispatchRef: RefObject<{ vocabulary: () => DispatchVocabulary; run: (command: DispatchCommand) => void; jump: (target: DispatchResource) => void; }>
   personnel: Person[]

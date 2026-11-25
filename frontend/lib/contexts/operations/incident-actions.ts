@@ -300,11 +300,20 @@ export function createIncidentActions(board: BoardMutationContext) {
           } else if (batchedUpdates.status !== undefined) {
             // Status changes are usually drag-drops between columns. If the
             // backend rejects the change, the card visually sits in the wrong
-            // column until the next poll — refresh now so it snaps back.
-            toast.error(translateOutsideReact('notifications.operations.statusNotChangedTitle'), {
-              description: translateOutsideReact('notifications.operations.statusNotChangedDescription'),
+            // column until the next poll — refresh now so it snaps back. «Zurückgesetzt»
+            // only once that reload is on screen: a failed one leaves the card where
+            // it was dropped, and the toast must not say otherwise.
+            const title = translateOutsideReact('notifications.operations.statusNotChangedTitle')
+            const toastId = toast.error(title)
+            const reset = await refreshOperations()
+            toast.error(title, {
+              id: toastId,
+              description: translateOutsideReact(
+                reset
+                  ? 'notifications.operations.statusNotChangedDescription'
+                  : 'notifications.operations.statusNotChangedStaleDescription',
+              ),
             })
-            await refreshOperations()
           } else if (!failureShownAtField()) {
             toast.error(translateOutsideReact('notifications.operations.updateFailedTitle'), { description: translateOutsideReact('notifications.operations.updateFailedDescription') })
           }

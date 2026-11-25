@@ -40,5 +40,5 @@ export interface BoardMutationContext {
   armAssignmentCooldown: () => void
   releaseAssignmentCooldown: (graceMs?: number) => void
   beginAssignmentSettling: () => () => void
-  refreshOperations: () => Promise<void>
+  refreshOperations: () => Promise<boolean>
 }
