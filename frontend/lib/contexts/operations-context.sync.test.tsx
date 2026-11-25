@@ -259,7 +259,7 @@ describe("OperationsProvider — reload scheduling", () => {
     act(() => ws.emit("incident_update"))
     await waitFor(() => expect(incidentCalls).toHaveLength(1))
 
-    act(() => result.current.updateOperation("1", { notes: "neu" }))
+    act(() => { void result.current.updateOperation("1", { notes: "neu" }) })
     expect(result.current.operations[0].notes).toBe("neu")
 
     // The in-flight reload was fetched before the edit: discarded, not applied.
@@ -294,7 +294,7 @@ describe("OperationsProvider — render cost", () => {
 
     expect(result.current.updateOperation).toBe(updateOperation)
     // The wrapper captured before the reload still sees incident 2.
-    act(() => updateOperation("2", { notes: "neu" }))
+    act(() => { void updateOperation("2", { notes: "neu" }) })
     expect(result.current.operations.find((o) => o.id === "2")?.notes).toBe("neu")
   })
 

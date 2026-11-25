@@ -101,8 +101,9 @@ interface GateBase {
  * (or null), so two can't be open at once.
  *
  * - `missingResources`: «es fehlt noch etwas» before a dispatch – held: the card
- *   enters «Disponiert / Anfahrt» (status, broadcast, a possible Einsatzzettel) only
- *   with «Disponieren» (hunt 2026-11-24)
+ *   enters `dispatchTo` (status, broadcast, a possible Einsatzzettel) only with
+ *   «Disponieren» (hunt 2026-11-24). A first dispatch may skip Anfahrt and go straight
+ *   to «Im Einsatz», which prints the Einsatzzettel too (`isFirstDispatch`).
  * - `returningVehicle`: «Beendet / Rückfahrt» without a vehicle
  * - `rekoAssignment`: into Reko without a Reko person – the Reko picker opens
  *   at once (owner pick 19.11.2026, #4 A); backing out of it undoes the move
@@ -116,11 +117,23 @@ interface GateBase {
  *   2026-11-24, owner pick «Dialog mit Freigabeliste»); the list is read live off the card
  */
 type OpenGate =
-  | (GateBase & { kind: "missingResources" | "returningVehicle" | "rekoAssignment" | "rekoReport" })
+  | (GateBase & { kind: "missingResources"; dispatchTo: DispatchStatus })
+  | (GateBase & { kind: "returningVehicle" | "rekoAssignment" | "rekoReport" })
   | (GateBase & { kind: "statusCorrection"; returnStatus: OperationStatus })
   | (GateBase & { kind: "materialDecision"; release: CompletionRelease | null })
 
 export type GateKind = OpenGate["kind"]
+
+/** The two columns a dispatch lands in – the server's `AUTO_PRINT_STATUSES`. */
+type DispatchStatus = Extract<OperationStatus, "enroute" | "active">
+
+/** Nobody has been sent yet (the columns before «Disponiert / Anfahrt»). */
+const PRE_DISPATCH: readonly OperationStatus[] = ["incoming", "reko", "reko_done"]
+
+/** `from → to` sends the crew out for the first time: the move the dispatch gate holds. */
+function isFirstDispatch(from: OperationStatus, to: OperationStatus): to is DispatchStatus {
+  return (to === "enroute" || to === "active") && PRE_DISPATCH.includes(from)
+}
 
 /**
  * What completing an incident is about to hand back — read off the card BEFORE
@@ -167,7 +180,9 @@ interface UseIncidentStatusWorkflowOptions {
   /** The Aufträge — a stop's route is resolved through these, not through its
    *  own groupId, which lags a stop that was just added (findAuftragForStop). */
   groups: IncidentGroup[]
-  changeStatusToTop: (operationId: string, status: OperationStatus, extraUpdates?: Partial<Operation>) => void
+  /** Resolves true once the server took the status, false when it refused it (the store
+   *  has said so and reset the card). */
+  changeStatusToTop: (operationId: string, status: OperationStatus, extraUpdates?: Partial<Operation>) => Promise<boolean>
   getGroupResources: (groupId: string) => GroupResources
   removeMaterial: (operationId: string, materialId: string) => unknown
   unassignGroupResource: (groupId: string, assignmentId: string) => unknown
@@ -323,7 +338,7 @@ export function useIncidentStatusWorkflow({
     const operation = operationById(base.operationId)
     if (!operation) return
     if (getMissingResources(operation).length > 0) {
-      setGate({ ...base, kind: "missingResources" })
+      setGate({ ...base, kind: "missingResources", dispatchTo: "enroute" })
     } else {
       setDisponiertRepeat(false)
       setDisponiertOperationId(operation.id)
@@ -440,15 +455,14 @@ export function useIncidentStatusWorkflow({
     }
 
     // «Vor Ort oder ins Magazin?» has two answers, and mid-route both are
-    // wrong: the squad is not driving back to the Magazin, it is driving to
-    // the next stop, and the Geräte go with it. So the question belongs to the
-    // LAST stop of an Auftrag only — everywhere else the route keeps its
-    // material exactly as it is (nothing here unassigns it).
-    const asksAboutMaterial = routeContinuationFor(operation)
-      ? false
-      : auftrag
-        ? getGroupResources(auftrag.id).materials.length > 0
-        : operation.materials.length > 0
+    // wrong for the ROUTE's Geräte: the squad is not driving back to the Magazin,
+    // it is driving to the next stop, and they go with it. So the route's question
+    // belongs to the LAST stop of an Auftrag only. The stop's OWN material («Nur
+    // dieser Einsatz») stays with this stop – the server keeps it assigned – so it
+    // is asked about on every stop, as on a lone incident (`materialDecisionItems`).
+    const asksAboutMaterial = operation.materials.length > 0 || Boolean(
+      auftrag && !routeContinuationFor(operation) && getGroupResources(auftrag.id).materials.length > 0,
+    )
 
     // The third reason to open, and on a standard Auftrag the only one: the
     // squad is free and the route has a stop it may be sent to. Same rule as
@@ -502,9 +516,9 @@ export function useIncidentStatusWorkflow({
       setGate({ ...completion, operationId, returnStatus: null, restoreAmWarten: false, held: true })
       return true
     }
-    if (targetStatus === "enroute" && !isBackwardTransition(operation.status, "enroute")) {
+    if (isFirstDispatch(operation.status, targetStatus)) {
       if (getMissingResources(operation).length === 0) return false
-      setGate({ kind: "missingResources", operationId, returnStatus: null, restoreAmWarten: false, held: true })
+      setGate({ kind: "missingResources", dispatchTo: targetStatus, operationId, returnStatus: null, restoreAmWarten: false, held: true })
       return true
     }
     if (targetStatus !== "reko_done") return false
@@ -687,20 +701,20 @@ export function useIncidentStatusWorkflow({
 
   const materialDecisionItems = useMemo(() => {
     if (!materialDecisionOperation) return []
-    // Mid-route there is nothing to decide — see `asksAboutMaterial`. Empty
-    // here is what makes that true rather than merely written down:
-    // `resolveMaterialDecision` iterates this list, so an empty one returns
-    // and unassigns nothing, and the route's Geräte stay on the route.
-    if (completionContinuation) return []
     // The Auftrag is resolved through the routes, not through `groupId` — a
     // just-added stop has not been told about its group yet (findAuftragForStop).
-    const auftrag = findAuftragForStop(groups, materialDecisionOperation)
-    const rows = auftrag
-      ? getGroupResources(auftrag.id).materials.map((material) => ({
-          id: material.resourceId,
-          assignmentId: material.assignmentId,
-        }))
-      : materialDecisionOperation.materials.map((id) => ({ id, assignmentId: null }))
+    // Mid-route the route's units are not asked about — see `asksAboutMaterial`.
+    // Leaving them out here is what makes that true rather than merely written
+    // down: `resolveMaterialDecision` iterates this list, so the route's Geräte
+    // stay on the route. The stop's own units are asked about on every stop.
+    const auftrag = completionContinuation ? null : findAuftragForStop(groups, materialDecisionOperation)
+    const rows: { id: string; assignmentId: string | null }[] = [
+      ...(auftrag ? getGroupResources(auftrag.id).materials : []).map((material) => ({
+        id: material.resourceId,
+        assignmentId: material.assignmentId,
+      })),
+      ...materialDecisionOperation.materials.map((id) => ({ id, assignmentId: null })),
+    ]
 
     return rows.map((row) => {
       // A consumable has no "vor Ort" state at all — it was used or it was not,
@@ -732,15 +746,72 @@ export function useIncidentStatusWorkflow({
   /** Units with no answer yet – «Abschliessen» waits for them (and for the rapport read). */
   const materialUnanswered = materialDecisionItems.filter((item) => materialChoice(item) === null).length
 
-  const resolveMaterialDecision = useCallback(() => {
+  /**
+   * Put a stop on Einsatz — the ONE way the board starts the next stop of a
+   * route, called both from the «Nächsten Stopp starten?» prompt and from the
+   * same offer in the «Stopp abschliessen?» gate. The stop is passed in rather
+   * than re-derived here so the card that starts is provably the card the
+   * operator just read the name of. A first dispatch like any other: with crew or
+   * vehicle missing, the dispatch gate holds it (`holdStatusMove`).
+   */
+  const startNextStop = useCallback((stopId: string) => {
+    setNextStopAfterId(null)
+    requestStatusChange(stopId, "active")
+  }, [requestStatusChange])
+
+  /**
+   * The confirmed next stop, once the completion of `finishedId` landed – read against the
+   * LATEST board: the write may have taken a while, and in that time the squad may have been
+   * sent elsewhere or the route edited. Starts it only while it is still the stop the route
+   * would start (`startableNextStop`).
+   */
+  // The board as of the latest render, for decisions made after the completion write.
+  const latest = useRef({ operations, groups, startNextStop })
+  latest.current = { operations, groups, startNextStop }
+  /** The Auftrag `routeId` as the latest board has it, or null (deleted meanwhile). */
+  const latestRoute = useCallback(
+    (routeId: string) => latest.current.groups.find((group) => group.id === routeId) ?? null,
+    [],
+  )
+  const startConfirmedNextStop = useCallback((finishedId: string, routeId: string, stopId: string) => {
+    const { operations: board } = latest.current
+    // Still closed (not reopened meanwhile) and the stop still the one the route would start.
+    if (board.find((operation) => operation.id === finishedId)?.status !== "complete") return
+    const auftrag = latestRoute(routeId)
+    if (auftrag && startableNextStop(auftrag, board, finishedId)?.id === stopId) latest.current.startNextStop(stopId)
+  }, [latestRoute])
+
+  /**
+   * «Abschliessen» (and «Abschliessen & nächsten Stopp» with `startNextId`): closes the gate,
+   * makes a held completion, and – only once the server took it – books the material answers
+   * and starts the next stop. Resolves with what was booked, or null when the completion was
+   * refused: then nothing else is written, the card is back where it was and the store's
+   * status toast says so (hunt follow-up 25.11.).
+   */
+  const resolveMaterialDecision = useCallback(async (startNextId: string | null) => {
     if (!materialDecisionOperation) return { returned: [] as string[], kept: [] as string[] }
-    // A held completion happens now: the status first (the server frees crew and
-    // vehicles in that write), then the material answers below.
-    if (materialDecisionGate?.held) changeStatusToTop(materialDecisionOperation.id, "complete")
-    const returnedItems = materialDecisionItems.filter((item) => materialChoice(item) === "magazin")
-    const kept = materialDecisionItems
-      .filter((item) => materialChoice(item) === "vorort")
-      .map((item) => item.id)
+    // Read before the gate closes and before the completion write empties the card.
+    const operationId = materialDecisionOperation.id
+    const auftrag = findAuftragForStop(groups, materialDecisionOperation)
+    const answered = materialDecisionItems.map((item) => ({ item, choice: materialChoice(item) }))
+    setGate(null)
+
+    // A held completion happens now, and first: the server frees crew and vehicles in
+    // that write. A refused one leaves everything as it was.
+    if (materialDecisionGate?.held && !(await changeStatusToTop(operationId, "complete"))) return null
+
+    // Route-owned units are answered for the ROUTE — and only while the route is still done
+    // on the latest board: a stop added during the write keeps them, unanswered. The stop's
+    // own units are the stop's, and their answers stand.
+    // The route captured at «Abschliessen», as the latest board has it (the stop may have
+    // moved to another route meanwhile) – the same rule the gate asked by – and only while
+    // the stop is still closed (not reopened during the write).
+    const latestAuftrag = auftrag ? latestRoute(auftrag.id) : null
+    const stillClosed = latest.current.operations.find((operation) => operation.id === operationId)?.status === "complete"
+    const routeDone = Boolean(
+      stillClosed && latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0,
+    )
+    const standing = answered.filter(({ item }) => !(item.assignmentId && auftrag) || routeDone)
 
     // Write the confirmed answers back into the rapport: «Vor Ort» persists as
     // `left_on_site` (so the Restliste / Abholliste show the unit), «Magazin»
@@ -749,28 +820,31 @@ export function useIncidentStatusWorkflow({
     // `applied: false`), and the board release below is independent of it.
     // Consumables are excluded the same way the dialog excludes them: a used
     // consumable is gone and can never be "vor Ort".
-    const rapportDecisions = materialDecisionItems
-      .filter((item) => !item.consumable && materialChoice(item) !== null)
-      .map((item) => ({ material_id: item.id, left_on_site: materialChoice(item) === "vorort" }))
+    const rapportDecisions = standing
+      .filter(({ item, choice }) => !item.consumable && choice !== null)
+      .map(({ item, choice }) => ({ material_id: item.id, left_on_site: choice === "vorort" }))
     if (rapportDecisions.length > 0) {
       void apiClient
-        .applyRapportMaterialDecisions(materialDecisionOperation.id, rapportDecisions)
+        .applyRapportMaterialDecisions(operationId, rapportDecisions)
         .catch((error) => console.error("Failed to write material decisions back to the rapport:", error))
     }
 
     // Route-owned units are released from the ROUTE — and the route is the one
     // `materialDecisionItems` listed them from, so it is resolved the same way.
-    const auftrag = findAuftragForStop(groups, materialDecisionOperation)
+    const returnedItems = standing.filter(({ choice }) => choice === "magazin").map(({ item }) => item)
     for (const item of returnedItems) {
       if (item.assignmentId && auftrag) {
         void unassignGroupResource(auftrag.id, item.assignmentId)
       } else {
-        void removeMaterial(materialDecisionOperation.id, item.id)
+        void removeMaterial(operationId, item.id)
       }
     }
-    setGate(null)
+    const kept = standing.filter(({ choice }) => choice === "vorort").map(({ item }) => item.id)
+    // The completion is written first, then the squad is sent on — so an operator
+    // watching the board sees the stop leave before the next one runs.
+    if (startNextId && auftrag) startConfirmedNextStop(operationId, auftrag.id, startNextId)
     return { returned: returnedItems.map((item) => item.id), kept }
-  }, [changeStatusToTop, groups, materialChoice, materialDecisionGate, materialDecisionItems, materialDecisionOperation, removeMaterial, unassignGroupResource])
+  }, [changeStatusToTop, groups, latestRoute, materialChoice, materialDecisionGate, materialDecisionItems, materialDecisionOperation, removeMaterial, startConfirmedNextStop, unassignGroupResource])
 
   const returningVehicleOperation = gateOperation("returningVehicle")
   // Closes itself once a vehicle is on site after all (assigned meanwhile, or set to «bleibt vor Ort»).
@@ -805,7 +879,7 @@ export function useIncidentStatusWorkflow({
       if (gate?.kind === "missingResources") {
         setGate(null)
         // The held dispatch happens now, with «Disponieren» (see `holdStatusMove`).
-        if (gate.held) changeStatusToTop(gate.operationId, "enroute")
+        if (gate.held) void changeStatusToTop(gate.operationId, gate.dispatchTo)
       }
       setDisponiertRepeat(false)
       setDisponiertOperationId(operationId)
@@ -822,17 +896,8 @@ export function useIncidentStatusWorkflow({
     returningVehicleOperation: effectiveReturningVehicleOperation,
     nextStopPrompt,
     closeNextStopPrompt: () => setNextStopAfterId(null),
-    /**
-     * Put a stop on Einsatz — the ONE way the board starts the next stop of a
-     * route, called both from the «Nächsten Stopp starten?» prompt and from the
-     * same offer in the «Stopp abschliessen?» gate. The stop is passed in rather
-     * than re-derived here so the card that starts is provably the card the
-     * operator just read the name of.
-     */
-    startNextStop: (stopId: string) => {
-      setNextStopAfterId(null)
-      requestStatusChange(stopId, "active")
-    },
+    /** Put a stop on Einsatz – see `startNextStop`. */
+    startNextStop,
     /** The «Status korrigieren?» confirm, or null. Carries the operation so the
      *  dialog can name it, and the column it came from so it can be undone. */
     statusCorrectionPrompt: gate?.kind === "statusCorrection"
@@ -978,17 +1043,19 @@ export function IncidentStatusWorkflowDialogs({
    * differently. Starting the next stop goes through the controller's
    * `startNextStop`, the same call the «Nächsten Stopp starten?» prompt makes,
    * so both offers land the card in exactly the same state.
+   *
+   * The receipt waits for the completion write: a refused one has already said
+   * «Status nicht geändert» and booked nothing (`resolveMaterialDecision`).
    */
-  const confirmCompletion = (startNext: Operation | null) => {
+  const confirmCompletion = async (startNext: Operation | null) => {
     // Captured before resolving: `resolveMaterialDecision` clears the
     // gate, and the toast's «Rückgängig» has to outlive it.
     const completed = controller.materialDecisionOperation
     const location = completed ? operationLabel(completed) : ""
     const undoStatus = controller.completionReturnStatus
-    const { returned, kept } = controller.resolveMaterialDecision()
-    // The completion is written first, then the squad is sent on — so an
-    // operator watching the board sees the stop leave before the next one runs.
-    if (startNext) controller.startNextStop(startNext.id)
+    const resolved = await controller.resolveMaterialDecision(startNext?.id ?? null)
+    if (!resolved) return
+    const { returned, kept } = resolved
     const nameOf = (id: string) => controller.materials.find((material) => material.id === id)?.name ?? id
     const materialParts = [
       returned.length ? `${tMat("toastToMagazin")}: ${returned.map(nameOf).join(", ")}` : null,
@@ -1003,9 +1070,9 @@ export function IncidentStatusWorkflowDialogs({
       })
       return
     }
-    // Mid-route the gate never carries a material question (see
-    // `materialDecisionItems`), so `materialParts` is empty here and the toast
-    // says what actually happened: one stop off the route. On a standard
+    // Mid-route the gate asks only about the stop's own units (see
+    // `materialDecisionItems`), so `materialParts` is usually empty here and the
+    // toast says what actually happened: one stop off the route. On a standard
     // Auftrag there is no release either — crew and vehicles stayed with the
     // route — and the toast is then the stop line alone.
     const title = continuation ? tCompletion("stopToastTitle", { location }) : tCompletion("toastTitle", { location })
@@ -1089,11 +1156,12 @@ export function IncidentStatusWorkflowDialogs({
 
           On a stop with route still ahead of it, neither half is an Abschluss:
           the Auftrag runs on, so the window says «Stopp abschliessen» and names
-          where the squad goes next, and the material question is gone (the
-          Geräte drive on with them — `materialDecisionItems`). There it opens
-          for the route alone, with no release list and none promised: on a
-          standard Auftrag the Mittel belong to the route, so a stop hands
-          nothing back and the offer would otherwise never be seen. */}
+          where the squad goes next, and the route's Geräte are not asked about
+          (they drive on with them — `materialDecisionItems`); only the stop's
+          own units are. There it opens for the route alone, with no release list
+          and none promised: on a standard Auftrag the Mittel belong to the
+          route, so a stop hands nothing back and the offer would otherwise
+          never be seen. */}
       <ConfirmDialog
         open={!!controller.materialDecisionOperation}
         onCancel={() => controller.cancelGate("materialDecision")}
@@ -1106,12 +1174,12 @@ export function IncidentStatusWorkflowDialogs({
         )}
         title={continuation ? tCompletion("stopTitle") : release ? tCompletion("title") : tMat("title")}
         description={controller.materialDecisionOperation && (continuation
-          // Mid-route the release list is the only thing that can sit
-          // under this sentence (the material question is gone — see
-          // `materialDecisionItems`), so when there is no release the
-          // text must not promise one: on a standard Auftrag the Mittel
-          // belong to the route and the stop hands nothing back.
-          ? tCompletion.rich(release ? "stopDescription" : "stopDescriptionNoRelease", {
+          // Mid-route only the release list and the stop's own units can sit
+          // under this sentence (the route's Geräte are not asked about — see
+          // `materialDecisionItems`), so with neither the text must not promise
+          // anything: on a standard Auftrag the Mittel belong to the route and
+          // the stop hands nothing back.
+          ? tCompletion.rich(release || materialCount > 0 ? "stopDescription" : "stopDescriptionNoRelease", {
               location: operationLabel(controller.materialDecisionOperation),
               auftrag: continuation.auftrag.name,
               hl: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
@@ -1142,10 +1210,10 @@ export function IncidentStatusWorkflowDialogs({
         // answer and only appears mid-route: closing the stop stays the single
         // obvious click it was, because the squad may just as well be standing
         // down and the next stop may be one the KP dispatches deliberately.
-        // Same readiness as the main answer (mid-route the list is empty, so it is ready).
+        // Same readiness as the main answer.
         extraAction={nextStopOffer && !waitsForAnswers && controller.materialUnanswered === 0 ? {
           label: tCompletion("stopConfirmAndNext"),
-          onSelect: () => confirmCompletion(nextStopOffer),
+          onSelect: () => void confirmCompletion(nextStopOffer),
         } : undefined}
         cancelText={tMat("cancel")}
         confirmText={continuation
@@ -1156,7 +1224,7 @@ export function IncidentStatusWorkflowDialogs({
             : controller.materialRapportBy && controller.materialDecisionOpenCount === 0
               ? tMat("confirmRapport")
               : tMat("confirm")}
-        onConfirm={() => confirmCompletion(null)}
+        onConfirm={() => void confirmCompletion(null)}
         // Waits for the rapport's answers, then for every unit nobody answered: «Magazin»
         // is never assumed (hunt 2026-11-24).
         confirmDisabled={waitsForAnswers ? "waiting" : controller.materialUnanswered > 0}
@@ -1198,7 +1266,7 @@ export function IncidentStatusWorkflowDialogs({
                 <dd className="min-w-0">{release.vehicles.join(", ")}</dd>
               </div>
             )}
-            {release && materialCount > 0 && (
+            {(release || continuation) && materialCount > 0 && (
               <div className="flex gap-3 py-2">
                 <dt className="w-28 flex-shrink-0 text-muted-foreground">{tCompletion("materialLabel")}</dt>
                 <dd className="min-w-0">
@@ -1210,8 +1278,8 @@ export function IncidentStatusWorkflowDialogs({
           </dl>
         )}
         {/* The material question keeps its own heading once it sits under a
-            release list — two subjects in one window, each labelled. */}
-        {release && materialCount > 0 && (
+            release list or a stop's «Weiter zu» — two subjects in one window, each labelled. */}
+        {(release || continuation) && materialCount > 0 && (
           <p className="border-t pt-3 text-sm font-medium">{tMat("title")}</p>
         )}
         {/* …and only while there is material to say it about: a completion
@@ -1230,7 +1298,7 @@ export function IncidentStatusWorkflowDialogs({
         {controller.materialAnswersLoading && materialCount > 0 && (
           <p className="text-xs text-muted-foreground">{tMat("rapportLoading")}</p>
         )}
-        {/* Mid-route the list is empty (`materialDecisionItems`), and an empty
+        {/* Mid-route the list is often empty (`materialDecisionItems`), and an empty
             scroll area is padding pretending to be a section. */}
         {materialCount > 0 && (
           <div className="max-h-64 space-y-1.5 overflow-y-auto py-1">

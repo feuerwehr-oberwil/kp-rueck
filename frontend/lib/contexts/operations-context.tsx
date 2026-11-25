@@ -101,7 +101,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // Refs for debouncing and cooldowns. One debounce timer + pending-merge
   // buffer PER incident (a single shared timer made rapid edits to two
   // different incidents silently drop the first one's PATCH).
-  const updateBatcherRef = useRef<UpdateBatcher<Operation>>(new UpdateBatcher())
+  const updateBatcherRef = useRef<UpdateBatcher<Operation, Partial<Operation> | null>>(new UpdateBatcher())
   // …and one PATCH in flight per incident, in order — see KeyedSerialQueue.
   const patchQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
   const statusGuardRef = useRef<Map<string, StatusWriteGuard>>(new Map())

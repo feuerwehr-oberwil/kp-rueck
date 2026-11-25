@@ -30,7 +30,7 @@ export interface BoardMutationContext {
   criticalUpdateInProgress: MutableRefObject<boolean>
   mutationEpochRef: MutableRefObject<number>
   patchQueueRef: MutableRefObject<KeyedSerialQueue>
-  updateBatcherRef: MutableRefObject<UpdateBatcher<Operation>>
+  updateBatcherRef: MutableRefObject<UpdateBatcher<Operation, Partial<Operation> | null>>
   /** Per incident: the status the board showed when its pending status write was made
    *  (sent as `from_status`, see `updateOperation`). Set at the first status edit of a
    *  batch, taken when the batch is sent. */

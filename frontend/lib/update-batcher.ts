@@ -8,21 +8,29 @@
  * never cancel each other, and consecutive edits to the same key merge into
  * a single flush instead of the newest call replacing the whole payload.
  */
-export class UpdateBatcher<T> {
+export class UpdateBatcher<T, R = void> {
   private timers = new Map<string, ReturnType<typeof setTimeout>>()
   private pending = new Map<string, Partial<T>>()
   // Latest flush callback per key, kept so flushAll() can fire batches whose
   // timers haven't elapsed yet (page hide/unload would otherwise drop them).
-  private flushers = new Map<string, (merged: Partial<T>) => void>()
+  private flushers = new Map<string, (merged: Partial<T>) => R | PromiseLike<R>>()
+  // Everybody waiting on the key's pending batch: each edit merged into it.
+  private waiters = new Map<string, ((result: R | PromiseLike<R>) => void)[]>()
 
   /**
    * Merge `updates` into the key's pending batch and (re)arm its timer.
    * When the timer fires, `flush` receives the full merged batch. Re-scheduling
    * uses the latest `flush` closure and restarts the delay.
+   *
+   * Resolves with what `flush` answered for the batch this edit went out in –
+   * every edit merged into one batch gets the same answer.
    */
-  schedule(key: string, updates: Partial<T>, delayMs: number, flush: (merged: Partial<T>) => void): void {
+  schedule(key: string, updates: Partial<T>, delayMs: number, flush: (merged: Partial<T>) => R | PromiseLike<R>): Promise<R> {
     this.pending.set(key, { ...(this.pending.get(key) ?? {}), ...updates })
     this.flushers.set(key, flush)
+    const settled = new Promise<R>((resolve) => {
+      this.waiters.set(key, [...(this.waiters.get(key) ?? []), resolve])
+    })
 
     const existing = this.timers.get(key)
     if (existing) clearTimeout(existing)
@@ -34,6 +42,7 @@ export class UpdateBatcher<T> {
         this.flush(key)
       }, delayMs)
     )
+    return settled
   }
 
   /** Merged updates currently queued for `key`, if any. */
@@ -59,7 +68,11 @@ export class UpdateBatcher<T> {
     this.pending.delete(key)
     const flusher = this.flushers.get(key)
     this.flushers.delete(key)
-    if (batch && flusher) flusher(batch)
+    const waiters = this.waiters.get(key) ?? []
+    this.waiters.delete(key)
+    if (!batch || !flusher) return
+    const result = flusher(batch)
+    for (const resolve of waiters) resolve(result)
   }
 }
 

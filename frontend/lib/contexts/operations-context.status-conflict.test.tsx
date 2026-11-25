@@ -93,6 +93,7 @@ const api = vi.hoisted(() => ({
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
   updateIncident: vi.fn(),
+  reorderIncidents: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -136,6 +137,7 @@ beforeEach(() => {
         patches.push({ id, body, resolve, reject })
       }),
   )
+  api.reorderIncidents.mockReset().mockResolvedValue(undefined)
   refreshPersonnel.mockReset().mockResolvedValue([])
   refreshMaterials.mockReset().mockResolvedValue([])
   toastMock.error.mockReset()
@@ -166,8 +168,8 @@ describe("status moves from a stale board", () => {
   it("a move says which status the board showed – the first one, when two quick moves merge", async () => {
     const { result } = await renderLoaded()
 
-    act(() => result.current.updateOperation("1", { status: "enroute" }))
-    act(() => result.current.updateOperation("1", { status: "active" }))
+    act(() => { void result.current.updateOperation("1", { status: "enroute" }) })
+    act(() => { void result.current.updateOperation("1", { status: "active" }) })
 
     await waitFor(() => expect(patches).toHaveLength(1))
     expect(patches[0].body).toMatchObject({ status: "active", from_status: "reko_done" })
@@ -177,7 +179,7 @@ describe("status moves from a stale board", () => {
   it("a refusal opens «Gerade geändert» and the card goes back to where the server has it", async () => {
     const { result } = await renderLoaded()
 
-    act(() => result.current.updateOperation("1", { status: "enroute" }))
+    act(() => { void result.current.updateOperation("1", { status: "enroute" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     expect(result.current.operations[0].status).toBe("enroute")
 
@@ -199,11 +201,42 @@ describe("status moves from a stale board", () => {
     expect(toastMock.info).not.toHaveBeenCalled()
   })
 
+  it("a move answers whether the server took it", async () => {
+    // The completion gate books material and starts the next stop only on `true`
+    // (incident-status-workflow `resolveMaterialDecision`).
+    const { result } = await renderLoaded()
+
+    let refused: Promise<boolean> = Promise.resolve(true)
+    act(() => { refused = result.current.changeStatusToTop("1", "complete") })
+    await waitFor(() => expect(patches).toHaveLength(1))
+    await act(async () => patches[0].reject(refusal()))
+    await expect(refused).resolves.toBe(false)
+
+    let accepted: Promise<boolean> = Promise.resolve(false)
+    act(() => { accepted = result.current.changeStatusToTop("1", "active") })
+    await waitFor(() => expect(patches).toHaveLength(2))
+    await act(async () => patches[1].resolve())
+    await expect(accepted).resolves.toBe(true)
+  })
+
+  it("a move replaced by a later one in the same PATCH is not reported as made", async () => {
+    const { result } = await renderLoaded()
+
+    let replaced: Promise<boolean> = Promise.resolve(true)
+    let latest: Promise<boolean> = Promise.resolve(false)
+    act(() => { replaced = result.current.updateOperation("1", { status: "complete" }) })
+    act(() => { latest = result.current.updateOperation("1", { status: "active" }) })
+    await waitFor(() => expect(patches).toHaveLength(1))
+    await act(async () => patches[0].resolve())
+    await expect(replaced).resolves.toBe(false)
+    await expect(latest).resolves.toBe(true)
+  })
+
   it("«Trotzdem» sends the stale view it was made from and the state it overrides", async () => {
     serverIncidents = [incident("1", { status: "complete" })]
     const { result } = await renderLoaded()
 
-    act(() => result.current.updateOperation("1", { status: "enroute" }, { seen: "reko_done", override: "complete" }))
+    act(() => { void result.current.updateOperation("1", { status: "enroute" }, { seen: "reko_done", override: "complete" }) })
 
     await waitFor(() => expect(patches).toHaveLength(1))
     expect(patches[0].body).toMatchObject({ status: "enroute", from_status: "reko_done", override_status: "complete" })
@@ -211,7 +244,7 @@ describe("status moves from a stale board", () => {
 
   it("an edit without a status says nothing about one", async () => {
     const { result } = await renderLoaded()
-    act(() => result.current.updateOperation("1", { contact: "Frau Meier" }))
+    act(() => { void result.current.updateOperation("1", { contact: "Frau Meier" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     expect(patches[0].body).toEqual({ contact: "Frau Meier", text_base: { contact: "" } })
   })
