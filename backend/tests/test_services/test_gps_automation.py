@@ -820,3 +820,28 @@ async def test_a_failing_tick_is_logged_once_with_its_traceback_until_it_recover
         ("ERROR", "GPS automation tick failed (logged once until it recovers)", True),
         ("INFO", "GPS automation tick recovered", False),
     ]
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_a_standby_mirror_moves_cards_only_in_ereignisse_it_took_offline(
+    _bc, _msg, monkeypatch, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """The mirrored Ereignisse belong to the hosted board; the box acts once it has taken one over."""
+    from app.standby import install_guards
+
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
+    conn = (await (await db_session.connection()).get_raw_connection()).driver_connection
+    await install_guards(conn)
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert await _status(db_session, enroute_incident.id) == "enroute"
+
+    await conn.execute("INSERT INTO standby.detached_events (event_id) VALUES ($1)", enroute_incident.event_id)
+    for _ in range(3):
+        await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
+    assert await _status(db_session, enroute_incident.id) == "active"

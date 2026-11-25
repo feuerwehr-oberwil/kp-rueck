@@ -29,7 +29,8 @@ All automated actions go through ``crud.update_incident_status`` so status-trans
 side effects fire, and are attributed to a clearly-named system actor user
 (``gps-automation``) so the audit / Excel export shows "automatic (GPS)" vs operator
 actions. Also active in training events (so the rules can be exercised in Übungen);
-disabled only in demo mode.
+disabled only in demo mode. On a standby mirror it acts only in the Ereignisse that box
+has taken offline (``_own_events``); the mirrored ones belong to the hosted board.
 
 Debounce counters are kept in module-level memory and reset on any gap (missing/stale
 fix) so spotty GPS coverage can never accumulate a false positive.
@@ -42,11 +43,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, column, select, table, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings as app_settings
 from ..crud import incidents as incidents_crud
+from ..environment import ROLE_STANDBY, deployment_role
 from ..models import (
     Event,
     Incident,
@@ -355,6 +357,22 @@ def _suppressed_arrival_keys(
     return suppressed
 
 
+# app/standby.py's list of Ereignisse a standby box has taken offline.
+_DETACHED_EVENTS = table("detached_events", column("event_id"), schema="standby")
+
+
+def _own_events() -> ColumnElement[bool]:
+    """Filter for every automation query: the Ereignisse whose cards this box may move.
+
+    A standby mirror holds the hosted board's Ereignisse as a copy the sync alone writes;
+    the automation there acts only in the ones the box has taken offline. Anywhere else:
+    all of them.
+    """
+    if deployment_role() != ROLE_STANDBY:
+        return true()
+    return Event.id.in_(select(_DETACHED_EVENTS.c.event_id))
+
+
 async def _group_vehicle_targets(db: AsyncSession) -> list[dict[str, Any]]:
     """Expand active route-level (Auftrag) vehicle assignments into arrival targets.
 
@@ -381,6 +399,7 @@ async def _group_vehicle_targets(db: AsyncSession) -> list[dict[str, Any]]:
         .where(IncidentGroupAssignment.unassigned_at.is_(None))
         .where(IncidentGroup.deleted_at.is_(None))
         .where(Event.archived_at.is_(None))
+        .where(_own_events())
     )
     group_rows = result.all()
     if not group_rows:
@@ -493,6 +512,7 @@ async def _run_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) 
         .where(IncidentAssignment.unassigned_at.is_(None))
         .where(Incident.deleted_at.is_(None))
         .where(Event.archived_at.is_(None))
+        .where(_own_events())
     )
     # Snapshot the values we need as plain primitives BEFORE any mutation, because
     # each action below commits on its own, and a failed one rolls back and expires them.
@@ -725,6 +745,7 @@ async def _fire_unassigned_return_notification(db: AsyncSession, vehicle: Vehicl
             .where(IncidentAssignment.resource_id == vehicle.id)
             .where(IncidentAssignment.unassigned_at.isnot(None))
             .where(Event.archived_at.is_(None))
+            .where(_own_events())
             .order_by(IncidentAssignment.unassigned_at.desc())
             .limit(1)
         )
