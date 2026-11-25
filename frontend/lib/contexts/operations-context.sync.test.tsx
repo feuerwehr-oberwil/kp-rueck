@@ -61,8 +61,19 @@ vi.mock("./operations/use-resource-lists", () => ({
 // lets the test emit events.
 const ws = vi.hoisted(() => {
   const handlers = new Map<string, Set<(payload?: unknown) => void>>()
+  const statusListeners = new Set<(status: string) => void>()
+  const state = { status: "connected" }
   return {
-    reset: () => handlers.clear(),
+    reset: () => {
+      handlers.clear()
+      statusListeners.clear()
+      state.status = "connected"
+    },
+    /** The socket goes up or down: every `onStatusChange` subscriber hears it. */
+    setStatus(status: string) {
+      state.status = status
+      statusListeners.forEach((cb) => cb(status))
+    },
     emit(event: string, payload?: unknown) {
       handlers.get(event)?.forEach((cb) => cb(payload))
     },
@@ -73,8 +84,11 @@ const ws = vi.hoisted(() => {
         handlers.set(event, set)
         return () => set.delete(cb)
       },
-      onStatusChange: () => () => {},
-      getStatus: () => "connected",
+      onStatusChange(cb: (status: string) => void) {
+        statusListeners.add(cb)
+        return () => statusListeners.delete(cb)
+      },
+      getStatus: () => state.status,
       connect: () => {},
       disconnect: () => {},
     },
@@ -510,6 +524,60 @@ describe("OperationsProvider — the board never looks current when it is not", 
     await waitFor(() => expect(incidentCalls).toHaveLength(1))
     await answer([incident("1")])
     await expect(outcome).resolves.toBe(true)
+  })
+
+  it("a refresh that kept the old Restliste is not «Aktualisiert» and does not move the sync time", async () => {
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.sync.lastSyncAt).not.toBeNull())
+    const syncedAt = result.current.sync.lastSyncAt
+
+    api.getEventRestliste.mockRejectedValueOnce(new Error("500"))
+    let outcome: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      outcome = result.current.ops.refreshOperations()
+    })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1"), incident("2")])
+
+    await expect(outcome).resolves.toBe(false)
+    expect(result.current.ops.operations).toHaveLength(2)
+    expect(result.current.sync.lastSyncAt).toBe(syncedAt)
+  })
+
+  it("a failed load after a partial first one keeps the cards, not the «never loaded» panel", async () => {
+    api.getEventRestliste.mockRejectedValueOnce(new Error("500"))
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.ops.operations).toHaveLength(1))
+
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await act(async () => incidentCalls.shift()!.reject(new NetworkError()))
+
+    await waitFor(() => expect(result.current.sync.loadError).not.toBeNull())
+    expect(result.current.ops.boardNeverLoaded).toBe(false)
+    expect(result.current.ops.operations).toHaveLength(1)
+  })
+
+  it("a socket that drops after a partial load does not stamp the board as current", async () => {
+    const { result } = renderHook(() => ({ ops: useOperations(), sync: useBoardSyncStatus() }), { wrapper })
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    // The socket comes up while the first load is out; its resync queues behind it and
+    // keeps the old Restliste: partial.
+    api.getEventRestliste.mockRejectedValueOnce(new Error("500"))
+    act(() => ws.setStatus("connected"))
+    await answer([incident("1")])
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    await answer([incident("1")])
+    await waitFor(() => expect(result.current.sync.lastSyncAt).not.toBeNull())
+    const syncedAt = result.current.sync.lastSyncAt
+
+    act(() => ws.setStatus("disconnected"))
+
+    expect(result.current.sync.lastSyncAt).toBe(syncedAt)
   })
 
   it("a refresh whose snapshot a newer edit dropped waits for the snapshot that lands", async () => {

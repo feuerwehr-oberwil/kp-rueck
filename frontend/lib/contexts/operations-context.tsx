@@ -191,6 +191,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // Load, live updates, polling fallback and sync freshness — ./operations/use-board-sync.
   const {
     homeCity,
+    boardNeverLoaded,
     lastSyncAt,
     loadError,
     liveSince,
@@ -360,8 +361,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       deleteOperation: stable("deleteOperation"),
     }
   }, [])
-
-  const boardNeverLoaded = loadError !== null && lastSyncAt === null
 
   const value = useMemo<OperationsContextType>(
     () => ({

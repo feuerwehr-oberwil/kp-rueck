@@ -104,6 +104,9 @@ export function useBoardSync(input: BoardSyncInput) {
   }, [homeCity])
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null)
   const [loadError, setLoadError] = useState<Error | null>(null)
+  // A snapshot of this Ereignis is on screen – a partial one too, which does not move
+  // `lastSyncAt`. Without it, a failed load after a partial first one read as «never loaded».
+  const [painted, setPainted] = useState(false)
   const [liveSince, setLiveSince] = useState<Date | null>(null)
   // Mirrors for the socket status handler, which lives in the long-lived sync
   // effect and must not take these as dependencies.
@@ -194,6 +197,7 @@ export function useBoardSync(input: BoardSyncInput) {
       // No Ereignis, no board to be fresh or stale about.
       boardEventIdRef.current = null
       setLastSyncAt(null)
+      setPainted(false)
       setLoadError(null)
       setIsLoading(false)
       // Only declare "loaded" once events have actually resolved. While the
@@ -226,6 +230,7 @@ export function useBoardSync(input: BoardSyncInput) {
       setSpecialFunctions([])
       setIncidentTotal(null)
       setLastSyncAt(null)
+      setPainted(false)
       setLoadError(null)
       setIsLoaded(false)
       isInitialLoadRef.current = true
@@ -377,19 +382,19 @@ export function useBoardSync(input: BoardSyncInput) {
           rememberStationName(settings.firestation_name || "")
           setHomeCity(settings.home_city || "")
         }
+        // Settings or the Restliste failed and kept their previous value: the board is
+        // not the server's as a whole. Then the sync time stays (the banner ages as for
+        // a failed load), R / F5 do not say «Aktualisiert», and no version is stored –
+        // the poll goes on even with the socket up, as a quiet Ereignis sends no event
+        // to retry on. The version snapshot was taken before the data fetch (null forces
+        // the next poll tick to reload – fails toward freshness).
+        const complete = settings !== undefined && restliste !== undefined
         setIsLoaded(true)
-        setLastSyncAt(new Date())
+        setPainted(true)
+        if (complete) setLastSyncAt(new Date())
         setLoadError(null)
         isInitialLoadRef.current = false
-        lastLoadOutcomeRef.current = "applied"
-
-        // Store the version snapshot taken before the data fetch (null forces
-        // the next poll tick to reload — fails toward freshness). Only here: the
-        // version names the board ON SCREEN, so only an applied snapshot sets it –
-        // and not while the settings or the Restliste on screen are older than it
-        // (their fetch failed and the previous value stayed). Then polling goes on
-        // even with the socket up: a quiet Ereignis sends no event to retry on.
-        const complete = settings !== undefined && restliste !== undefined
+        lastLoadOutcomeRef.current = complete ? "applied" : "failed"
         lastSyncVersionRef.current = complete ? versionSnapshot?.version ?? null : null
         if (complete) stopPollingIfSocketCarries()
         else onLoadFailed()
@@ -590,8 +595,11 @@ export function useBoardSync(input: BoardSyncInput) {
           setLiveSince(liveSinceRef.current)
         }
       } else if (liveSinceRef.current !== null) {
+        // Only after an applied load: a failed, partial or dropped one was not the whole board.
         const confirmed = lastSyncAtRef.current
-        if (confirmed && confirmed.getTime() >= liveSinceRef.current.getTime()) setLastSyncAt(new Date())
+        if (confirmed && confirmed.getTime() >= liveSinceRef.current.getTime() && lastLoadOutcomeRef.current === "applied") {
+          setLastSyncAt(new Date())
+        }
         liveSinceRef.current = null
         setLiveSince(null)
       }
@@ -658,6 +666,8 @@ export function useBoardSync(input: BoardSyncInput) {
 
   return {
     homeCity,
+    /** A load failed and no snapshot of this Ereignis was ever on screen (`OperationsContextType`). */
+    boardNeverLoaded: loadError !== null && !painted,
     lastSyncAt,
     loadError,
     liveSince,
