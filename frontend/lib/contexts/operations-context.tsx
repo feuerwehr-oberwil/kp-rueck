@@ -71,10 +71,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // The roster and the depot: state of this provider, filled by the board load.
   const eventId = selectedEvent?.id ?? null
   const { personnel, setPersonnel, refreshPersonnel } = usePersonnelList(eventId)
-  const { materials, setMaterials, materialGroups, refreshMaterials, setMaterialOutOfService } = useMaterialList(
-    eventId,
-    !authLoading && isAuthenticated,
-  )
+  const { materials, setMaterials, materialGroups, setMaterialGroups, refreshMaterials, loadMaterialGroups, setMaterialOutOfService } =
+    useMaterialList(eventId)
 
   // Operations state (only operations-specific state here)
   const [operations, setOperations] = useState<Operation[]>([])
@@ -206,7 +204,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     isEventLoaded,
     refreshPersonnel,
     refreshMaterials,
+    loadMaterialGroups,
     setPersonnel,
+    setMaterialGroups,
     setMaterials,
     setOperations,
     setIsLoaded,

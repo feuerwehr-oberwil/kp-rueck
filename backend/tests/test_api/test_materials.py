@@ -520,3 +520,23 @@ async def test_material_response_structure(editor_client: AsyncClient, test_mate
     ]
     for field in expected_fields:
         assert field in data, f"Missing field: {field}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_modul_rename_tells_connected_boards(editor_client: AsyncClient, monkeypatch):
+    """A connected board does not poll /sync-version: the rename reaches it as a material
+    event, whose reload reads the Module (hunt follow-up 25.11.)."""
+    from unittest.mock import AsyncMock
+
+    broadcast = AsyncMock()
+    monkeypatch.setattr("app.api.materials.broadcast_material_update", broadcast)
+    created = await editor_client.post("/api/material-groups/", json={"name": "Modul 1"})
+    group_id = created.json()["id"]
+    broadcast.reset_mock()
+
+    renamed = await editor_client.put(f"/api/material-groups/{group_id}", json={"name": "Pumpenmodul"})
+
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "Pumpenmodul"
+    broadcast.assert_awaited_once_with({"group_id": group_id}, "update")

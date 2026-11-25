@@ -157,6 +157,55 @@ const emptyForm = () => ({
 
 type FormData = ReturnType<typeof emptyForm>
 
+/**
+ * The typed part of a create on its way, kept for this tab (hunt follow-up 25.11.): a 401
+ * signs out and unmounts the dialog, and the caller's address and number would go with it.
+ * Written when a create or merge starts, removed when the form is reset (created, merged,
+ * discarded) in that Ereignis; the next open there starts from it. One key per Ereignis.
+ * sessionStorage: it never outlives the tab. The Auftrag is not kept: it comes from how the
+ * dialog was opened («+ Stop» or not).
+ */
+const draftKey = (eventId: string | null) => `kp-new-incident-draft:${eventId ?? "none"}`
+
+/** The typed fields – a Date or Map would not survive JSON, and nothing else is typed. */
+function pickDraft({ location, coordinates, notes, incidentType, priority, source, contact, contactPhone }: FormData) {
+  return { location, coordinates, notes, incidentType, priority, source, contact, contactPhone }
+}
+type Draft = ReturnType<typeof pickDraft>
+
+/** Something typed that a discard would lose. */
+function hasTyped(form: Draft) {
+  return [form.location, form.notes, form.contact, form.contactPhone].some((value) => value.trim() !== "")
+}
+
+function saveDraft(eventId: string | null, form: FormData) {
+  try {
+    sessionStorage.setItem(draftKey(eventId), JSON.stringify(pickDraft(form)))
+  } catch {
+    // storage full or blocked: the open dialog still holds the form
+  }
+}
+
+function clearDraft(eventId: string | null) {
+  try {
+    sessionStorage.removeItem(draftKey(eventId))
+  } catch {
+    // nothing to clear
+  }
+}
+
+/** The kept draft for `eventId`, or null (none, or unreadable). */
+function readDraft(eventId: string | null): Draft | null {
+  try {
+    const stored: Partial<Draft> | null = JSON.parse(sessionStorage.getItem(draftKey(eventId)) ?? "null")
+    if (!stored) return null
+    const draft = { ...pickDraft(emptyForm()), ...stored }
+    return [draft.location, draft.notes, draft.contact, draft.contactPhone].every((text) => typeof text === "string") ? draft : null
+  } catch {
+    return null
+  }
+}
+
 export function NewEmergencyModal({
   open,
   onOpenChange,
@@ -169,6 +218,15 @@ export function NewEmergencyModal({
   const isMobile = useIsMobile()
   const isMac = useIsMac()
   const [formData, setFormData] = useState(emptyForm)
+  // The form as of the last edit, ahead of the render that shows it. Ctrl ↵ in the
+  // Einsatzort creates in the same key event the field commits the typed address in;
+  // reading `formData` there sent the address committed before (hunt follow-up 25.11.).
+  // Every edit goes through `updateForm`, and create / merge read this.
+  const latestForm = useRef(formData)
+  const updateForm = (change: (prev: FormData) => FormData) => {
+    latestForm.current = change(latestForm.current)
+    setFormData(latestForm.current)
+  }
 
   // Form validation state
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -176,11 +234,21 @@ export function NewEmergencyModal({
 
   // When opened as an Auftrag "+ Stop", stamp the preset group so the created
   // incident is attached at creation. Cleared again by the reset on submit/close.
+  // An empty form starts from a draft a sign-out took away (`readDraft`).
+  // The form belongs to one Ereignis: opened in another, what was typed for the first is
+  // kept as ITS draft and the form starts from the new one's (never creates there).
+  const formEventId = useRef(eventId)
   useEffect(() => {
-    if (open) {
-      setFormData((prev) => ({ ...prev, groupId: defaultGroupId }))
-    }
-  }, [open, defaultGroupId])
+    if (!open) return
+    const switched = formEventId.current !== eventId
+    if (switched && hasTyped(latestForm.current)) saveDraft(formEventId.current, latestForm.current)
+    formEventId.current = eventId
+    const draft = readDraft(eventId)
+    updateForm((prev) => {
+      const current = switched ? emptyForm() : prev
+      return { ...(draft && !hasTyped(current) ? { ...current, ...draft } : current), groupId: defaultGroupId }
+    })
+  }, [open, defaultGroupId, eventId])
 
   // Validation rules
   const isLocationValid = formData.location.trim().length > 0
@@ -194,7 +262,7 @@ export function NewEmergencyModal({
   // advice is said, never waited on. Both ways out start here.
   const validateForSubmit = () => {
     setShowValidationErrors(true)
-    if (!isLocationValid) {
+    if (!latestForm.current.location.trim()) {
       focusFirstBlockingField([LOCATION_FIELD_ID])
       return false
     }
@@ -226,7 +294,9 @@ export function NewEmergencyModal({
   const create = async (): Promise<boolean> => {
     if (inFlight.current || !validateForSubmit()) return false
     setCreateFailed(false)
-    const created = await whileLocked(() => onCreateOperation(formData))
+    const data = latestForm.current
+    saveDraft(eventId, data)
+    const created = await whileLocked(() => onCreateOperation(data))
     setCreateFailed(!created)
     return created
   }
@@ -245,19 +315,28 @@ export function NewEmergencyModal({
   const handleCreateAndNext = async () => {
     focusOrtAfterMenu.current = true
     if (!(await create())) return
-    resetForm({ incidentType: formData.incidentType, source: formData.source, groupId: formData.groupId })
+    const { incidentType, source, groupId } = latestForm.current
+    resetForm({ incidentType, source, groupId })
     focusFirstBlockingField([LOCATION_FIELD_ID])
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
+      // The Einsatzort emptied and not left yet commits nothing (LocationInput keeps an
+      // empty text as no answer): what is on screen is no address and no pin, so the
+      // create refuses instead of using the ones committed before.
+      const field = event.target
+      if (field instanceof HTMLInputElement && field.id === LOCATION_FIELD_ID && !field.value.trim()) {
+        updateForm((prev) => ({ ...prev, location: "", coordinates: null }))
+      }
       void handleCreateAndNext()
     }
   }
 
   const resetForm = (keep: Partial<Pick<FormData, "incidentType" | "source" | "groupId">> = {}) => {
-    setFormData({ ...emptyForm(), ...keep })
+    updateForm(() => ({ ...emptyForm(), ...keep }))
+    clearDraft(eventId)
     setTouched({})
     setShowValidationErrors(false)
     setDismissedKey(null)
@@ -272,9 +351,7 @@ export function NewEmergencyModal({
   // PHONE: a swipe, the backdrop or ✕ close the sheet through `onOpenChange`, and on a phone a
   // stray swipe is common — so with something typed it asks first. «Verwerfen» really discards;
   // a clean close keeps the form as it is for the next open (Einsatzart, Merkmale), as before.
-  const hasTypedInput = [formData.location, formData.notes, formData.contact, formData.contactPhone].some(
-    (value) => value.trim() !== "",
-  )
+  const hasTypedInput = hasTyped(formData)
   const closeGuard = useUnsavedChangesWarning({
     isDirty: hasTypedInput,
     isOpen: open && isMobile,
@@ -308,7 +385,9 @@ export function NewEmergencyModal({
     if (!onMergeInto || inFlight.current) return
     setMergingId(candidate.id)
     try {
-      if (await whileLocked(() => onMergeInto(formData, candidate.id))) resetAndClose()
+      const data = latestForm.current
+      saveDraft(eventId, data)
+      if (await whileLocked(() => onMergeInto(data, candidate.id))) resetAndClose()
     } finally {
       setMergingId(null)
     }
@@ -346,11 +425,11 @@ export function NewEmergencyModal({
                 // «Hier» on a phone or touch device: the operator may be standing at the place.
                 locateHere
                 onAddressChange={(address) => {
-                  setFormData(prev => ({ ...prev, location: address || "" }))
+                  updateForm(prev => ({ ...prev, location: address || "" }))
                   setTouched(prev => ({ ...prev, location: true }))
                 }}
                 onCoordinatesChange={(lat, lon) =>
-                  setFormData(prev => ({
+                  updateForm(prev => ({
                     ...prev,
                     coordinates: lat !== null && lon !== null ? [lat, lon] : null
                   }))
@@ -389,7 +468,7 @@ export function NewEmergencyModal({
                 id="notes"
                 placeholder={t('common.meldungPlaceholder')}
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) => updateForm((prev) => ({ ...prev, notes: e.target.value }))}
                 // Free text about the incident: no contact card, no address book.
                 autoComplete="off"
                 // Grows with what is in it, like the detail's Meldung.
@@ -402,7 +481,7 @@ export function NewEmergencyModal({
             <DetailField label={t('common.einsatzart')} htmlFor="incidentType">
               <Select
                 value={formData.incidentType}
-                onValueChange={(value) => setFormData({ ...formData, incidentType: value })}
+                onValueChange={(value) => updateForm((prev) => ({ ...prev, incidentType: value }))}
               >
                 <SelectTrigger id="incidentType" className="w-full">
                   <SelectValue placeholder={t('common.einsatzartPlaceholder')} />
@@ -422,7 +501,7 @@ export function NewEmergencyModal({
                 id="priority"
                 className="w-full"
                 value={formData.priority}
-                onValueChange={(priority) => setFormData({ ...formData, priority })}
+                onValueChange={(priority) => updateForm((prev) => ({ ...prev, priority }))}
               />
             </DetailField>
 
@@ -433,7 +512,7 @@ export function NewEmergencyModal({
                 id="contact"
                 placeholder={t('common.contactPlaceholder')}
                 value={formData.contact}
-                onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                onChange={(e) => updateForm((prev) => ({ ...prev, contact: e.target.value }))}
                 // The Melder is somebody else: never offer the operator's own contact card.
                 autoComplete="off"
                 enterKeyHint="next"
@@ -460,7 +539,7 @@ export function NewEmergencyModal({
                 placeholder={t('common.contactPhonePlaceholder')}
                 value={formData.contactPhone}
                 maxLength={CONTACT_PHONE_MAX}
-                onChange={(e) => setFormData({ ...formData, contactPhone: sanitizePhoneInput(e.target.value) })}
+                onChange={(e) => updateForm((prev) => ({ ...prev, contactPhone: sanitizePhoneInput(e.target.value) }))}
                 onBlur={() => setTouched((prev) => ({ ...prev, contactPhone: true }))}
                 className={cn(showPhoneAdvice && FIELD_ADVICE_CLASS)}
                 {...fieldMessageProps(PHONE_FIELD_ID, showPhoneAdvice ? 'advice' : null)}
@@ -481,7 +560,7 @@ export function NewEmergencyModal({
                   icon: <Phone className="h-3.5 w-3.5 shrink-0" />,
                   checked: formData.source === 'intake',
                   onToggle: (checked) =>
-                    setFormData((prev) => ({ ...prev, source: checked ? 'intake' : 'operator' })),
+                    updateForm((prev) => ({ ...prev, source: checked ? 'intake' : 'operator' })),
                 },
                 {
                   key: 'feld',
@@ -490,7 +569,7 @@ export function NewEmergencyModal({
                   icon: <Axe className="h-3.5 w-3.5 shrink-0" />,
                   checked: formData.source === 'feld',
                   onToggle: (checked) =>
-                    setFormData((prev) => ({ ...prev, source: checked ? 'feld' : 'operator' })),
+                    updateForm((prev) => ({ ...prev, source: checked ? 'feld' : 'operator' })),
                 },
               ]}
             />

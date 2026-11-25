@@ -238,7 +238,11 @@ async def get_sync_version(
     # A flag-only edit of a live assignment («bleibt vor Ort», a new EL, the Reko's purpose)
     # moves no count and no timestamp: a fingerprint of those fields does.
     ia, ga = models.IncidentAssignment, models.IncidentGroupAssignment
+    mg = models.MaterialGroup
     inputs += [
+        # The material groups (Module) the depot list is grouped by: a rename touches no
+        # material row (station-wide, like the depot).
+        _fingerprint(mg.id, [mg.name, mg.location, mg.location_sort_order]),
         _fingerprint(
             ia.id,
             [ia.driver_stay, ia.is_leader, ia.purpose, ia.reko_position],

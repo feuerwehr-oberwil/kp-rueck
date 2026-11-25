@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   personnelFormDefaults,
   personnelFormSchema,
+  personnelFormValuesFor,
+  personnelUpdateFor,
 } from "./personnel";
 
 describe("personnelFormSchema", () => {
@@ -65,5 +67,34 @@ describe("personnelFormSchema", () => {
     expect(personnelFormSchema.safeParse({ ...valid, name: "x".repeat(101) }).success).toBe(false);
     expect(personnelFormSchema.safeParse({ ...valid, role: "x".repeat(51) }).success).toBe(false);
     expect(personnelFormSchema.safeParse({ ...valid, kennung: "x".repeat(21) }).success).toBe(false);
+  });
+});
+
+describe("personnelUpdateFor (hunt follow-up 25.11.)", () => {
+  const opened = personnelFormValuesFor({
+    name: "Müller Stefan",
+    kennung: null,
+    role: "Offizier",
+    status: "available",
+    tags: ["Atemschutz"],
+  });
+
+  it("sends only the role when only the role changed – the status stays another desk's", () => {
+    expect(personnelUpdateFor(opened, { ...opened, role: "Wachtmeister" })).toEqual({ role: "Wachtmeister" });
+  });
+
+  it("sends nothing when nothing changed – a stored tag with spaces included", () => {
+    expect(personnelUpdateFor(opened, { ...opened, tags: ["Atemschutz"] })).toEqual({});
+    const spaced = personnelFormValuesFor({ name: "Müller Stefan", kennung: null, role: "Offizier", status: "available", tags: [" Atemschutz "] });
+    expect(personnelUpdateFor(spaced, { ...spaced, tags: ["Atemschutz"], role: "Wachtmeister" })).toEqual({ role: "Wachtmeister" });
+  });
+
+  it("sends a tag split in two, though the text stays the same", () => {
+    const joined = personnelFormValuesFor({ name: "Müller Stefan", kennung: null, role: "Offizier", status: "available", tags: ["EL\nReko"] });
+    expect(personnelUpdateFor(joined, { ...joined, tags: ["EL", "Reko"] })).toEqual({ tags: ["EL", "Reko"] });
+  });
+
+  it("sends the tags and the status when they were changed here", () => {
+    expect(personnelUpdateFor(opened, { ...opened, tags: [], status: "unavailable" })).toEqual({ tags: [], status: "unavailable" });
   });
 });
