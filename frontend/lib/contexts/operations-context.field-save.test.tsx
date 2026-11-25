@@ -159,7 +159,7 @@ describe("text field save state", () => {
   it("is «pending» through the debounce and «saving» until the server answers — then «saved»", async () => {
     const { result } = await renderLoaded()
 
-    act(() => result.current.updateOperation("1", { notes: "Keller unter Wasser, 40 cm" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Keller unter Wasser, 40 cm" }) })
     expect(notesState()?.status).toBe("pending")
     expect(notesState()?.draft).toBe("Keller unter Wasser, 40 cm")
 
@@ -171,7 +171,7 @@ describe("text field save state", () => {
 
     // Typing on while it is in flight keeps the field away from «saved» even
     // when the older request is confirmed.
-    act(() => result.current.updateOperation("1", { notes: "Keller unter Wasser, 40 cm, Pumpe läuft" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Keller unter Wasser, 40 cm, Pumpe läuft" }) })
     await act(async () => patches[0].resolve())
     expect(notesState()?.status).toBe("pending")
 
@@ -192,7 +192,7 @@ describe("text field save state", () => {
     const { result } = await renderLoaded()
     const unwatch = watchFieldSave("1")
 
-    act(() => result.current.updateOperation("1", { notes: "Pumpe läuft" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Pumpe läuft" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(new NetworkError()))
 
@@ -205,7 +205,7 @@ describe("text field save state", () => {
 
   it("still toasts when no field is on screen to say it", async () => {
     const { result } = await renderLoaded()
-    act(() => result.current.updateOperation("1", { notes: "Pumpe läuft" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Pumpe läuft" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(new NetworkError()))
     expect(toastMock.error).toHaveBeenCalled()
@@ -214,7 +214,7 @@ describe("text field save state", () => {
   it("a background reload does not replace the kept draft", async () => {
     const { result } = await renderLoaded()
 
-    act(() => result.current.updateOperation("1", { notes: "Pumpe läuft" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Pumpe läuft" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(new NetworkError()))
 
@@ -233,13 +233,13 @@ describe("text field save state", () => {
   it("«Erneut synchronisieren» sends exactly the kept field, and only that", async () => {
     const { result } = await renderLoaded()
 
-    act(() => result.current.updateOperation("1", { notes: "Pumpe läuft", contact: "Frau Meier" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Pumpe läuft", contact: "Frau Meier" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(new NetworkError()))
     expect(getFieldSave("1", "contact")?.status).toBe("failed")
 
     const draft = notesState()!.draft!
-    act(() => result.current.updateOperation("1", { notes: draft }))
+    act(() => { void result.current.updateOperation("1", { notes: draft }) })
     await waitFor(() => expect(patches).toHaveLength(2))
     expect(patches[1].body).toEqual({ description: "Pumpe läuft", text_base: { description: "Keller unter Wasser" } })
     await act(async () => patches[1].resolve())
@@ -253,13 +253,13 @@ describe("text field save state", () => {
     const { result, rerender } = await renderLoaded()
 
     // A failed draft…
-    act(() => result.current.updateOperation("1", { contact: "Frau Meier" }))
+    act(() => { void result.current.updateOperation("1", { contact: "Frau Meier" }) })
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(new NetworkError()))
     expect(getFieldSave("1", "contact")?.status).toBe("failed")
 
     // …and an edit still in the debounce when the session changes hands.
-    act(() => result.current.updateOperation("1", { notes: "Text von A" }))
+    act(() => { void result.current.updateOperation("1", { notes: "Text von A" }) })
     authState.user = { id: "user-b" }
     rerender()
 

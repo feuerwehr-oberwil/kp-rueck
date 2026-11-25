@@ -270,8 +270,9 @@ export interface OperationsContextType {
   /** The one funnel for incident edits. A status edit is sent with the status this board
    *  showed (`from_status`); `confirm` is only for «Trotzdem …» in «Gerade geändert»
    *  (lib/status-conflict.ts): the stale view it was made from and the server's status
-   *  the operator chose to override. */
-  updateOperation: (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => void
+   *  the operator chose to override. Resolves true once the server took the batch this
+   *  edit went out in, false when it was refused or failed (after the toast said so). */
+  updateOperation: (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => Promise<boolean>
   /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
   reorderColumn: (orderedIds: string[]) => void
   /** Board drag lifecycle. While a card is being dragged, remote updates are
@@ -279,8 +280,9 @@ export interface OperationsContextType {
    * aborts the native drag. Call with false when the drag ends (any outcome). */
   setBoardDragging: (dragging: boolean) => void
   /** Change an incident's status and move it to the TOP of the target column —
-   *  the one-click equivalent of dragging it across (mirrors the reko auto-move). */
-  changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
+   *  the one-click equivalent of dragging it across (mirrors the reko auto-move).
+   *  Resolves like `updateOperation`: true once the server took the status. */
+  changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => Promise<boolean>
   /** Resolves once the server answered: true when the board holds the new card, false when
    *  it was refused or the call failed (a toast already said so – the caller keeps its input). */
   createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<boolean>

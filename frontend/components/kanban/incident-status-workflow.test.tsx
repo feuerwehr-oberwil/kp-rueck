@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
-import type { Material, Operation } from "@/lib/contexts/operations-context"
+import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
 
@@ -14,6 +14,12 @@ const applyRapportMaterialDecisions = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/api-client", () => ({ apiClient: { getRapportMaterialReturn, applyRapportMaterialDecisions } }))
 
 const emptyGroupResources: GroupResources = { personnel: [], vehicles: [], materials: [] }
+// A route with its squad and Geräte: its next stop goes out without the dispatch gate.
+const squadOnRoute: GroupResources = {
+  personnel: [{ assignmentId: "sq-p", resourceId: "p-squad", name: "Roth Til" }],
+  vehicles: [{ assignmentId: "sq-v", resourceId: "v-squad", name: "TLF" }],
+  materials: [{ assignmentId: "sq-m", resourceId: "m-squad", name: "Schlauch" }],
+}
 
 function rapport(overrides: Partial<{
   returned: unknown[]
@@ -82,7 +88,10 @@ function renderWorkflow(
   /** The other stops of the route, when the test is about one. */
   siblings: Operation[] = [],
 ) {
-  const changeStatusToTop = vi.fn()
+  // Resolves like the store's: true once the server took the status.
+  const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
+    () => Promise.resolve(true),
+  )
   const getGroupResources = vi.fn(() => groupResources)
   const materials: Material[] = currentOperation.materials.map((id) => ({
     id,
@@ -170,6 +179,23 @@ describe("shared incident detail status workflow", () => {
     act(() => result.current.openDisponiert("incident-1"))
     expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "enroute")
     expect(result.current.disponiertOperation?.id).toBe("incident-1")
+  })
+
+  it("holds a first dispatch straight into «Im Einsatz» the same way (hunt follow-up 25.11.)", () => {
+    // Anfahrt is skippable, and the server prints the first Einsatzzettel on entering
+    // «Im Einsatz» too – so this move needs the same gate as «Disponiert / Anfahrt».
+    const { result, changeStatusToTop } = renderWorkflow(operation({ status: "reko_done" }))
+
+    act(() => result.current.requestStatusChange("incident-1", "active"))
+    expect(changeStatusToTop).not.toHaveBeenCalled()
+    expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
+
+    act(() => result.current.openDisponiert("incident-1"))
+    expect(changeStatusToTop).toHaveBeenCalledWith("incident-1", "active")
+
+    // Already out: «Anfahrt» → «Im Einsatz» is no dispatch, and asks nothing.
+    const out = renderWorkflow(operation({ status: "enroute" }))
+    expect(out.result.current.holdStatusMove("incident-1", "active")).toBe(false)
   })
 
   it("opens Disponiert directly when all effective resources are present", () => {
@@ -304,7 +330,7 @@ describe("shared incident detail status workflow", () => {
     expect(filed.result.current.holdStatusMove("incident-1", "reko_done")).toBe(false)
   })
 
-  it("holds the completion: nobody is freed before «Abschliessen», Abbrechen changes nothing", () => {
+  it("holds the completion: nobody is freed before «Abschliessen», Abbrechen changes nothing", async () => {
     const staffed = operation({ status: "active", crew: [crewMember("AdF Eins")], vehicles: [assignedVehicle("TLF")] })
     const cancelled = renderWorkflow(staffed)
     act(() => cancelled.result.current.requestCompletion("incident-1"))
@@ -317,9 +343,7 @@ describe("shared incident detail status workflow", () => {
 
     const confirmed = renderWorkflow(staffed)
     act(() => confirmed.result.current.requestCompletion("incident-1"))
-    act(() => {
-      confirmed.result.current.resolveMaterialDecision()
-    })
+    await act(() => confirmed.result.current.resolveMaterialDecision(null))
     expect(confirmed.changeStatusToTop).toHaveBeenCalledWith("incident-1", "complete")
   })
 
@@ -374,9 +398,7 @@ describe("shared incident detail status workflow", () => {
 
     act(() => result.current.setMaterialDecision("pumpe", "vorort"))
     expect(result.current.materialUnanswered).toBe(0)
-    act(() => {
-      result.current.resolveMaterialDecision()
-    })
+    await act(() => result.current.resolveMaterialDecision(null))
     expect(removeMaterial).not.toHaveBeenCalled()
     expect(applyRapportMaterialDecisions).toHaveBeenCalledWith("incident-1", [{ material_id: "pumpe", left_on_site: true }])
   })
@@ -426,6 +448,69 @@ describe("shared incident detail status workflow", () => {
 
     act(() => result.current.resumeGateAfterAssignment())
     expect(result.current.missingResourcesOperation?.id).toBe("incident-1")
+  })
+})
+
+describe("the completion write comes first (hunt follow-up 25.11.)", () => {
+  // «Abschliessen» used to fire the status write and, in the same tick, book the
+  // material and start the next stop. A refused completion then left a pump booked
+  // into the Magazin and the squad on the next stop of an Einsatz still open.
+
+  function deferred() {
+    let settle: (ok: boolean) => void = () => {}
+    const promise = new Promise<boolean>((resolve) => { settle = resolve })
+    return { promise, settle }
+  }
+
+  async function heldCompletion() {
+    const write = deferred()
+    const rendered = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")], materials: ["pumpe"] }),
+      squadOnRoute,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
+    )
+    rendered.changeStatusToTop.mockImplementation((_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)))
+    act(() => rendered.result.current.requestCompletion("stop-1"))
+    await waitFor(() => expect(rendered.result.current.materialAnswersLoading).toBe(false))
+    act(() => rendered.result.current.setMaterialDecision("pumpe", "magazin"))
+    return { ...rendered, write }
+  }
+
+  it("books the material and starts the next stop only once the completion is written", async () => {
+    const { result, changeStatusToTop, removeMaterial, write } = await heldCompletion()
+
+    let done: Promise<unknown> = Promise.resolve()
+    act(() => { done = result.current.resolveMaterialDecision("stop-2") })
+    expect(changeStatusToTop).toHaveBeenCalledWith("stop-1", "complete")
+    expect(removeMaterial).not.toHaveBeenCalled()
+    expect(applyRapportMaterialDecisions).not.toHaveBeenCalled()
+    expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
+
+    await act(async () => {
+      write.settle(true)
+      await done
+    })
+    expect(removeMaterial).toHaveBeenCalledWith("stop-1", "pumpe")
+    expect(applyRapportMaterialDecisions).toHaveBeenCalled()
+    expect(changeStatusToTop).toHaveBeenLastCalledWith("stop-2", "active")
+  })
+
+  it("a refused completion books nothing and starts nothing", async () => {
+    const { result, changeStatusToTop, removeMaterial, write } = await heldCompletion()
+
+    let done: Promise<unknown> = Promise.resolve()
+    act(() => { done = result.current.resolveMaterialDecision("stop-2") })
+    let outcome: unknown
+    await act(async () => {
+      write.settle(false)
+      outcome = await done
+    })
+    expect(outcome).toBeNull()
+    expect(removeMaterial).not.toHaveBeenCalled()
+    expect(applyRapportMaterialDecisions).not.toHaveBeenCalled()
+    expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
   })
 })
 
@@ -515,9 +600,9 @@ describe("the material gate takes the crew's word for it", () => {
     await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
     act(() => result.current.setMaterialDecision("pumpe", "magazin"))
 
-    let resolved: { returned: string[]; kept: string[] } | undefined
-    act(() => {
-      resolved = result.current.resolveMaterialDecision()
+    let resolved: { returned: string[]; kept: string[] } | null | undefined
+    await act(async () => {
+      resolved = await result.current.resolveMaterialDecision(null)
     })
     expect(resolved).toEqual({ returned: ["pumpe"], kept: [] })
     expect(removeMaterial).toHaveBeenCalledWith("incident-1", "pumpe")
@@ -536,9 +621,9 @@ describe("the material gate takes the crew's word for it", () => {
     act(() => result.current.requestCompletion("incident-1"))
     await waitFor(() => expect(result.current.materialRapportBy).toBe("Muster Hans"))
 
-    let resolved: { returned: string[]; kept: string[] } | undefined
-    act(() => {
-      resolved = result.current.resolveMaterialDecision()
+    let resolved: { returned: string[]; kept: string[] } | null | undefined
+    await act(async () => {
+      resolved = await result.current.resolveMaterialDecision(null)
     })
     expect(resolved).toEqual({ returned: ["pumpe"], kept: ["nasssauger"] })
     expect(removeMaterial).toHaveBeenCalledExactlyOnceWith("incident-1", "pumpe")
@@ -612,9 +697,9 @@ describe("the material gate takes the crew's word for it", () => {
     expect(result.current.completionContinuation?.next.id).toBe("stop-2")
     expect(result.current.materialDecisionItems).toEqual([])
 
-    let resolved: { returned: string[]; kept: string[] } | undefined
-    act(() => {
-      resolved = result.current.resolveMaterialDecision()
+    let resolved: { returned: string[]; kept: string[] } | null | undefined
+    await act(async () => {
+      resolved = await result.current.resolveMaterialDecision(null)
     })
     expect(resolved).toEqual({ returned: [], kept: [] })
     expect(unassignGroupResource).not.toHaveBeenCalled()
@@ -688,6 +773,44 @@ describe("the material gate takes the crew's word for it", () => {
     expect(lone.result.current.materialDecisionOperation).toBeNull()
   })
 
+  it("asks about a grouped stop's own equipment, on the way and at the end (hunt follow-up 25.11.)", async () => {
+    // A stop can hold Material of its own («Nur dieser Einsatz»); the server keeps it
+    // assigned on completion, so the gate must ask about it like on a lone incident.
+    const routeMaterial: GroupResources = {
+      personnel: [],
+      vehicles: [],
+      materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
+    }
+    const midRoute = renderWorkflow(
+      operation({ id: "stop-1", groupId: "g1", status: "returning", materials: ["pumpe"] }),
+      routeMaterial,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
+    )
+    act(() => midRoute.result.current.requestCompletion("stop-1"))
+    await waitFor(() => expect(midRoute.result.current.materialAnswersLoading).toBe(false))
+    // The route's Motorsäge drives on with the squad; the stop's own pump is asked about.
+    expect(midRoute.result.current.materialDecisionItems.map((item) => item.id)).toEqual(["pumpe"])
+
+    const lastStop = renderWorkflow(
+      operation({ id: "stop-2", groupId: "g1", status: "returning", materials: ["pumpe"] }),
+      routeMaterial,
+      [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+      [],
+      [operation({ id: "stop-1", groupId: "g1", status: "complete" })],
+    )
+    act(() => lastStop.result.current.requestCompletion("stop-2"))
+    await waitFor(() => expect(lastStop.result.current.materialAnswersLoading).toBe(false))
+    expect(lastStop.result.current.materialDecisionItems.map((item) => item.id)).toEqual(["motorsaege", "pumpe"])
+
+    act(() => lastStop.result.current.setMaterialDecision("motorsaege", "magazin"))
+    act(() => lastStop.result.current.setMaterialDecision("pumpe", "magazin"))
+    await act(() => lastStop.result.current.resolveMaterialDecision(null))
+    expect(lastStop.unassignGroupResource).toHaveBeenCalledWith("g1", "a1")
+    expect(lastStop.removeMaterial).toHaveBeenCalledWith("stop-2", "pumpe")
+  })
+
   it("asks about the route's material once the last open stop closes", async () => {
     const routeMaterial: GroupResources = {
       personnel: [],
@@ -707,9 +830,7 @@ describe("the material gate takes the crew's word for it", () => {
     expect(result.current.completionContinuation).toBeNull()
 
     act(() => result.current.setMaterialDecision("motorsaege", "magazin"))
-    act(() => {
-      result.current.resolveMaterialDecision()
-    })
+    await act(() => result.current.resolveMaterialDecision(null))
     expect(unassignGroupResource).toHaveBeenCalledWith("g1", "a1")
   })
 
@@ -719,7 +840,7 @@ describe("the material gate takes the crew's word for it", () => {
     // already NAMES the next stop, so it carries the same offer.
     const { result, changeStatusToTop } = renderWorkflow(
       operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
-      emptyGroupResources,
+      squadOnRoute,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
       [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],
@@ -772,7 +893,7 @@ describe("the material gate takes the crew's word for it", () => {
     // either way sends the squad to the same place.
     const { result, changeStatusToTop } = renderWorkflow(
       operation({ id: "stop-1", groupId: "g1", status: "active", zuFuss: true }),
-      emptyGroupResources,
+      squadOnRoute,
       [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
       [],
       [operation({ id: "stop-2", groupId: "g1", status: "incoming" })],

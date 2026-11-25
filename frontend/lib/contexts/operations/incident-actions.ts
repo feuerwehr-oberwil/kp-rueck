@@ -82,7 +82,7 @@ export function createIncidentActions(board: BoardMutationContext) {
     refreshOperations,
   } = board
 
-  const updateOperation = (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => {
+  const updateOperation = (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>): Promise<boolean> => {
     // LocationInput clears the address and coordinates together. Normalize both
     // legacy `coordinates: undefined` and address-only clear callbacks without
     // changing updates that simply omit coordinates.
@@ -206,7 +206,9 @@ export function createIncidentActions(board: BoardMutationContext) {
     }
 
     if (isLoaded) {
-      const performUpdate = async (batchedUpdates: Partial<Operation>) => {
+      // Resolves true when the server took the batch, false when it did not (refused,
+      // failed, or dropped because the session changed hands) – after the toasts.
+      const performUpdate = async (batchedUpdates: Partial<Operation>): Promise<boolean> => {
         const statusGuard = batchedUpdates.status !== undefined ? statusGuardRef.current.get(operationId) : undefined
         statusGuardRef.current.delete(operationId)
         const apiUpdates: Partial<ApiIncidentUpdate> = {}
@@ -259,23 +261,25 @@ export function createIncidentActions(board: BoardMutationContext) {
         const sent: { ticket?: FieldSaveTicket } = {}
 
         try {
-          await patchQueueRef.current.run(
+          const wrote = await patchQueueRef.current.run(
             operationId,
             async () => {
               // Signed out (or somebody else signed in) while this sat in the
               // debounce or behind an earlier PATCH: not this session's write.
               // The scope change has already dropped the drafts it carried.
-              if (fieldSaveUser(getFieldSaveScope()) !== userAtEdit) return
+              if (fieldSaveUser(getFieldSaveScope()) !== userAtEdit) return false
               sent.ticket = noteFieldSend(queued)
               const { textBase } = sent.ticket
               await apiClient.updateIncident(
                 operationId,
                 Object.keys(textBase).length > 0 ? { ...apiUpdates, text_base: textBase } : apiUpdates,
               )
+              return true
             },
           )
           if (sent.ticket) noteFieldSettled(sent.ticket, { ok: true })
           if (isReopeningOperation) await refreshOperations()
+          return wrote
         } catch (err) {
           // A 409 is somebody else's newer write – an answer the UI states, not a fault to log.
           if (!ApiError.isConflictError(err)) console.error("Failed to update operation:", err)
@@ -317,6 +321,7 @@ export function createIncidentActions(board: BoardMutationContext) {
           } else if (!failureShownAtField()) {
             toast.error(translateOutsideReact('notifications.operations.updateFailedTitle'), { description: translateOutsideReact('notifications.operations.updateFailedDescription') })
           }
+          return false
         } finally {
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
           releaseAssignmentCooldown()
@@ -333,10 +338,11 @@ export function createIncidentActions(board: BoardMutationContext) {
       const isCriticalUpdate =
         merged.location !== undefined || merged.coordinates !== undefined || merged.status !== undefined
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
-      updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? 50 : 500, performUpdate)
-    } else {
-      releaseAssignmentCooldown(3000)
+      return updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? 50 : 500, performUpdate)
     }
+    // Before the first load the edit is local only – nothing to wait for.
+    releaseAssignmentCooldown(3000)
+    return Promise.resolve(true)
   }
 
   // Persist the manual order of a status column. The optimistic reorder already
@@ -394,7 +400,7 @@ export function createIncidentActions(board: BoardMutationContext) {
     extraUpdates?: Partial<Operation>,
   ) => {
     // Persist the status (debounced backend update + completion side effects).
-    updateOperation(operationId, { status: newStatus, ...extraUpdates })
+    const written = updateOperation(operationId, { status: newStatus, ...extraUpdates })
     // Optimistically move the card to the front of the array so it renders at the
     // top of its (single-status) column immediately.
     setOperations((ops) => {
@@ -410,6 +416,7 @@ export function createIncidentActions(board: BoardMutationContext) {
         .map((o) => o.id),
     ]
     reorderColumn(ids)
+    return written
   }
 
   const getNextOperationId = () => {
