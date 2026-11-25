@@ -17,15 +17,9 @@ export * from './api/types'
 export { getRestReachable, onRestReachableChange } from './api/http'
 export type {
   ApiViewerIncident,
-  ApiViewerPersonnel,
-  ApiViewerMaterial,
-  ApiViewerAssignment,
-  ApiViewerSpecialFunction,
-  ApiViewerGroupAssignment,
   ApiViewerGroup,
   ApiViewerData,
 } from './api/resources/viewer'
-export type { PhotoUploadProgress } from './api/resources/upload'
 export { FeldUnlockError, type FeldUnlockFailure } from './api/resources/feld'
 
 import { SettingsApi } from './api/resources/settings'

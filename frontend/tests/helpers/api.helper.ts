@@ -221,33 +221,6 @@ export async function expectCardCount(
 }
 
 /**
- * Add `count` more incidents to an already-open board, over REST.
- *
- * For tests that need incidents to appear *while* the board is up; `setupBoard`
- * covers the commoner case of wanting them there from the start.
- */
-export async function addIncidents(
-  page: Page,
-  board: BoardFixture,
-  count: number,
-  prefix = 'Nachschub',
-): Promise<TestIncident[]> {
-  const cookieHeader = await cookieHeaderFor(page);
-  const before = board.incidents.length;
-  const added: TestIncident[] = [];
-  for (let i = 0; i < count; i += 1) {
-    added.push(
-      await createIncident(page.request, cookieHeader, board.eventId, {
-        location_address: `${prefix}weg ${before + i + 1} ${Date.now()}, 4104 Oberwil`,
-      }),
-    );
-  }
-  board.incidents.push(...added);
-  await expectCardCount(page, before + count);
-  return added;
-}
-
-/**
  * The whole arrangement most specs need: a fresh training event with `count`
  * incidents in it, selected, with the board open and nothing covering it.
  *
@@ -531,15 +504,6 @@ export async function assignResource(
   });
   expect(response.ok(), await response.text()).toBeTruthy();
   return response.json();
-}
-
-/** The first vehicle on the station's fleet — enough to make somebody a driver. */
-export async function firstVehicleId(request: APIRequestContext, cookieHeader: string): Promise<string> {
-  const response = await request.get(`${API_BASE}/api/vehicles/`, { headers: jsonHeaders(cookieHeader) });
-  expect(response.ok(), await response.text()).toBeTruthy();
-  const vehicles = await response.json();
-  expect(vehicles.length, 'the dev fleet is empty — seed it first').toBeGreaterThan(0);
-  return vehicles[0].id;
 }
 
 /** The first material — enough to put something "out" for the Magazin. */

@@ -32,9 +32,7 @@ import type {
 export type { Person, PersonStatus } from "./personnel-context"
 export type { Material } from "./materials-context"
 export type {
-  PersonRole,
   OperationStatus,
-  VehicleType,
   RekoSummary,
   Operation,
   CrewMember,

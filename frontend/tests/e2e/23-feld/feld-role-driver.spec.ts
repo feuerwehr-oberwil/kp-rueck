@@ -78,7 +78,7 @@ const created: { events: string[]; personnel: string[] } = { events: [], personn
 /**
  * Put SOME vehicle of the station fleet on `incidentId` and report which one.
  *
- * Not `firstVehicleId`: this spec needs the vehicle's NAME (the row prints it in
+ * Not simply the first fleet vehicle: this spec needs the vehicle's NAME (the row prints it in
  * both the tag and the reason line), and a fleet vehicle can already be bound to
  * another incident — the user's own board, or a sibling spec in the next worker
  * — which `POST /assign` answers with a 409. So it walks the fleet until one
