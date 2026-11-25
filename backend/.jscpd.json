@@ -1,0 +1,16 @@
+{
+  "threshold": 1,
+  "minTokens": 70,
+  "format": ["python"],
+  "gitignore": true,
+  "ignore": [
+    "**/.venv/**",
+    "**/__pycache__/**",
+    "alembic/versions/**",
+    "app/data/**",
+    "app/assets/**",
+    "uv.lock"
+  ],
+  "reporters": ["console"],
+  "absolute": false
+}

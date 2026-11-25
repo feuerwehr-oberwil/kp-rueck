@@ -1010,6 +1010,14 @@ lint:
     @echo "\033[1;34m→ Linting frontend...\033[0m"
     cd frontend && pnpm lint
 
+# (CI's static-analysis job. Baselines: frontend/knip.jsonc, backend/vulture_whitelist.py,
+# [tool.deptry] in backend/pyproject.toml, and `threshold` in each .jscpd.json.)
+# Dead code, unused dependencies and duplicates: knip, vulture, deptry, jscpd
+lint-dead:
+    cd frontend && pnpm lint:dead
+    cd backend && uv run vulture && uv run deptry .
+    cd backend && ../frontend/node_modules/.bin/jscpd .
+
 # Format all code (backend + frontend)
 fmt:
     @echo "\033[1;34m→ Formatting backend...\033[0m"

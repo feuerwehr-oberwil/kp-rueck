@@ -56,6 +56,7 @@ just test      # Backend + frontend unit + E2E (needs the dev stack)
 just check     # Format, lint, types – the fast gates CI runs
 just hooks     # Once per clone: every push runs `just ci-static` (check + frontend build)
 just lint      # Lint frontend + backend
+just lint-dead # Dead code, unused deps, duplicates (knip, vulture, deptry, jscpd) – CI's static-analysis job
 ```
 
 ## Code Style

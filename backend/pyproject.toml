@@ -148,6 +148,8 @@ extend-immutable-calls = [
 "app/telemetry/outbox.py" = ["RUF100"]
 "app/telemetry/forwarder.py" = ["RUF100"]
 "app/telemetry/recent.py" = ["RUF100"]
+# The vulture baseline is bare names that vulture parses and nothing runs.
+"vulture_whitelist.py" = ["F821", "B018"]
 # E402: Module import not at top - intentional for logging setup before imports
 "app/main.py" = ["E402"]
 # E402: Secondary routers defined after primary router in same file
@@ -168,6 +170,35 @@ extend-immutable-calls = [
 "app/services/training_steps.py" = ["S311"]
 "app/services/training_regie.py" = ["S311"]
 "app/seed_training.py" = ["S311"]
+
+# Dead code (vulture): `uv run vulture` – CI's static-analysis job runs it. At 60 % it also finds
+# unused functions and classes; framework hooks are ignored by decorator, and every other
+# known finding is in vulture_whitelist.py (the baseline of 2026-11-25) with its reason.
+[tool.vulture]
+paths = ["app", "scripts", "vulture_whitelist.py"]
+min_confidence = 60
+ignore_decorators = [
+    "@router.*",
+    "@*_router.*",
+    "@app.*",
+    "@sio.*",
+    "@limiter.limit",
+    "@field_validator",
+    "@model_validator",
+    "@field_serializer",
+    "@computed_field",
+    "@event.listens_for",
+]
+ignore_names = ["model_config"]
+
+# Unused and missing dependencies (deptry): `uv run deptry .` – also in the static-analysis job.
+[tool.deptry.per_rule_ignores]
+# Imported straight from Starlette, which FastAPI pins; a second pin could only drift.
+DEP003 = ["starlette"]
+# Optional: photo_storage.py imports it in a try/except and works without it.
+DEP001 = ["magic"]
+# uvicorn is the server start.sh runs; python-multipart is what FastAPI parses forms with.
+DEP002 = ["uvicorn", "python-multipart"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -214,6 +245,8 @@ dev = [
     "httpx>=0.28.1",
     "bandit>=1.7.0",
     "pypdf>=6.21.4",
+    "vulture==2.16",
+    "deptry==0.25.1",
 ]
 
 [tool.coverage.run]

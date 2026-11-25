@@ -26,6 +26,7 @@ just db migrate     # run pending migrations   (just db help: shell, status, his
 just dev-stop       # stop the dev stack (docker-compose.dev.yml only)
 just dev-clean      # DELETES the dev database and dev tiles – asks first
 just check          # format, lint, types, shared files – no stack needed
+just lint-dead      # dead code, unused deps, duplicates – CI's static-analysis job; baselines in its comment
 just ci-static      # frontend build + just check: what the pre-push hook runs
 just hooks          # once per clone: every push runs `just ci-static` first
 just test           # backend + frontend unit + E2E (services running)
