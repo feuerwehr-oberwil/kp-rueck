@@ -11,7 +11,7 @@ Tests cover:
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
@@ -871,6 +871,28 @@ async def test_webhook_auto_attaches_to_flagged_event(
     ).scalar_one()
     assert emergency.attached_to_event_id == auto_attach_event.id
     assert emergency.created_incident_id == incident.id
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_webhook_with_half_a_coordinate_still_makes_a_card(
+    client: AsyncClient, db_session: AsyncSession, auto_attach_event: Event, webhook_secret: str
+):
+    """Divera may send one axis alone: the card comes without a pin, the pool keeps what was sent."""
+    payload = {"id": 555009, "title": "STURM Baum auf Strasse", "lat": 47.51}
+    with patch("app.api.divera.broadcast_emergency_received", new_callable=AsyncMock):
+        response = await client.post("/api/divera/webhook", json=payload, params={"secret": webhook_secret})
+    assert response.status_code == 200
+    incident_id = response.json()["auto_attached_incident_id"]
+    assert incident_id is not None, "the alarm stayed in the pool"
+
+    from app.models import Incident
+
+    incident = await db_session.get(Incident, UUID(incident_id))
+    assert incident is not None
+    assert incident.location_lat is None and incident.location_lng is None
+    emergency = await db_session.get(DiveraEmergency, UUID(response.json()["emergency_id"]))
+    assert emergency is not None and float(emergency.latitude) == 47.51
 
 
 @pytest.mark.asyncio
