@@ -2244,7 +2244,8 @@
       "infoDragDrop": "Les véhicules, l’effectif et le matériel peuvent être attribués par glisser-⁠déposer une fois l’intervention créée.",
       "create": "Créer l’intervention",
       "createAndNext": "Créer et saisir la suivante",
-      "moreActions": "Autres actions"
+      "moreActions": "Autres actions",
+      "createFailed": "Pas créée – tes saisies sont toujours là. Vérifie la connexion et réessaie."
     },
     "detail": {
       "rekoAuftrag": "Reconnaissance",
@@ -3160,6 +3161,7 @@
       "amWartenClearedDescription": "L’intervention est en cours – la marque d’attente a été retirée automatiquement.",
       "statusNotChangedTitle": "Statut non modifié",
       "statusNotChangedDescription": "L’intervention a été ramenée à son dernier état.",
+      "statusNotChangedStaleDescription": "Le rechargement a échoué – la carte est peut-être encore dans la mauvaise colonne.",
       "updateFailedTitle": "Non enregistré",
       "updateFailedDescription": "L’intervention n’a pas pu être actualisée.",
       "reorderFailedTitle": "Ordre non enregistré",
@@ -3352,7 +3354,8 @@
         "elsewhere": "Entre-temps attribué à {where} – cette attribution plus récente est conservée.",
         "outOfService": "{resource} n’est pas opérationnel.",
         "resourceGone": "{resource} n’est plus sur le tableau.",
-        "unavailable": "{resource} est signalé comme indisponible."
+        "unavailable": "{resource} est signalé comme indisponible.",
+        "changedMeanwhile": "Entre-temps attribué ailleurs ou supprimé – l’attribution plus récente reste."
       }
     },
     "planned": {

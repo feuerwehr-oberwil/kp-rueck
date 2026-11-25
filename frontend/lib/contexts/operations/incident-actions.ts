@@ -300,11 +300,20 @@ export function createIncidentActions(board: BoardMutationContext) {
           } else if (batchedUpdates.status !== undefined) {
             // Status changes are usually drag-drops between columns. If the
             // backend rejects the change, the card visually sits in the wrong
-            // column until the next poll — refresh now so it snaps back.
-            toast.error(translateOutsideReact('notifications.operations.statusNotChangedTitle'), {
-              description: translateOutsideReact('notifications.operations.statusNotChangedDescription'),
+            // column until the next poll — refresh now so it snaps back. «Zurückgesetzt»
+            // only once that reload is on screen: a failed one leaves the card where
+            // it was dropped, and the toast must not say otherwise.
+            const title = translateOutsideReact('notifications.operations.statusNotChangedTitle')
+            const toastId = toast.error(title)
+            const reset = await refreshOperations()
+            toast.error(title, {
+              id: toastId,
+              description: translateOutsideReact(
+                reset
+                  ? 'notifications.operations.statusNotChangedDescription'
+                  : 'notifications.operations.statusNotChangedStaleDescription',
+              ),
             })
-            await refreshOperations()
           } else if (!failureShownAtField()) {
             toast.error(translateOutsideReact('notifications.operations.updateFailedTitle'), { description: translateOutsideReact('notifications.operations.updateFailedDescription') })
           }
@@ -408,83 +417,71 @@ export function createIncidentActions(board: BoardMutationContext) {
     return String(maxId + 1)
   }
 
-  const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">) => {
+  const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">): Promise<boolean> => {
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       console.error("Cannot create operation without valid selected event")
-      return
+      return false
     }
 
-    if (isLoaded) {
-      try {
-        const incidentData = operationToIncidentCreate(operation, selectedEvent.id)
+    // Always to the server, also while the board is still loading (an Ereignis switch): a
+    // card kept only in local state would vanish with the next load, and the modal would
+    // already have emptied the report on the strength of it.
+    try {
+      const incidentData = operationToIncidentCreate(operation, selectedEvent.id)
 
-        const apiIncident = await apiClient.createIncident(incidentData)
+      const apiIncident = await apiClient.createIncident(incidentData)
 
-        const newOperation: Operation = {
-          id: apiIncident.id,
-          location: apiIncident.location_address || apiIncident.title,
-          locationDisplay: apiIncident.location_display ?? undefined,
-          vehicle: operation.vehicle,
-          vehicles: [],
-          incidentType: operation.incidentType,
-          dispatchTime: new Date(apiIncident.created_at),
-          crew: [],
-          priority: apiIncident.priority as "low" | "medium" | "high",
-          status: "incoming",
-          coordinates: apiCoordinatesToTuple(apiIncident.location_lat, apiIncident.location_lng),
-          materials: [],
-          notes: apiIncident.description || "",
-          contact: apiIncident.contact || "",
-          contactPhone: apiIncident.contact_phone || "",
-          internalNotes: apiIncident.internal_notes || "",
-          nachbarhilfe: apiIncident.nachbarhilfe || false,
-          nachbarhilfeNote: apiIncident.nachbarhilfe_note || "",
-          amWarten: apiIncident.am_warten || false,
-          amWartenNote: apiIncident.am_warten_note || "",
-          zuFuss: apiIncident.zu_fuss || false,
-          source: apiIncident.source || "operator",
-          fromRealAlarm: apiIncident.from_real_alarm ?? false,
-          statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
-          hasCompletedReko: false,
-          rekoArrivedAt: null,
-          rekoSummary: null,
-          assignedReko: null,
-          leaderId: null,
-          leaderName: null,
-          materialAssignments: new Map(),
-          groupId: apiIncident.group_id ?? null,
-          groupPosition: apiIncident.group_position ?? 0,
-          number: apiIncident.number ?? null,
-        }
-        // Invalidate reloads that started before the POST landed — they'd
-        // overwrite the board without the new incident.
-        mutationEpochRef.current++
-        // A WS-triggered reload can already have delivered this incident
-        // between the POST and this write — don't render it twice.
-        setOperations((ops) =>
-          ops.some((op) => op.id === newOperation.id) ? ops : [newOperation, ...ops]
-        )
-      } catch (error) {
-        console.error("Failed to create operation:", error)
-        toast.error(translateOutsideReact('notifications.operations.createFailedTitle'), {
-          description: translateOutsideReact('notifications.operations.createFailedDescription'),
-        })
-      }
-    } else {
       const newOperation: Operation = {
-        ...operation,
-        id: getNextOperationId(),
-        dispatchTime: new Date(),
-        nachbarhilfe: operation.nachbarhilfe || false,
-        statusChangedAt: null,
+        id: apiIncident.id,
+        location: apiIncident.location_address || apiIncident.title,
+        locationDisplay: apiIncident.location_display ?? undefined,
+        vehicle: operation.vehicle,
+        vehicles: [],
+        incidentType: operation.incidentType,
+        dispatchTime: new Date(apiIncident.created_at),
+        crew: [],
+        priority: apiIncident.priority as "low" | "medium" | "high",
+        status: "incoming",
+        coordinates: apiCoordinatesToTuple(apiIncident.location_lat, apiIncident.location_lng),
+        materials: [],
+        notes: apiIncident.description || "",
+        contact: apiIncident.contact || "",
+        contactPhone: apiIncident.contact_phone || "",
+        internalNotes: apiIncident.internal_notes || "",
+        nachbarhilfe: apiIncident.nachbarhilfe || false,
+        nachbarhilfeNote: apiIncident.nachbarhilfe_note || "",
+        amWarten: apiIncident.am_warten || false,
+        amWartenNote: apiIncident.am_warten_note || "",
+        zuFuss: apiIncident.zu_fuss || false,
+        source: apiIncident.source || "operator",
+        fromRealAlarm: apiIncident.from_real_alarm ?? false,
+        statusChangedAt: apiIncident.status_changed_at ? new Date(apiIncident.status_changed_at) : null,
         hasCompletedReko: false,
         rekoArrivedAt: null,
         rekoSummary: null,
+        assignedReko: null,
         leaderId: null,
         leaderName: null,
         materialAssignments: new Map(),
+        groupId: apiIncident.group_id ?? null,
+        groupPosition: apiIncident.group_position ?? 0,
+        number: apiIncident.number ?? null,
       }
-      setOperations((ops) => [newOperation, ...ops])
+      // Invalidate reloads that started before the POST landed — they'd
+      // overwrite the board without the new incident.
+      mutationEpochRef.current++
+      // A WS-triggered reload can already have delivered this incident
+      // between the POST and this write — don't render it twice.
+      setOperations((ops) =>
+        ops.some((op) => op.id === newOperation.id) ? ops : [newOperation, ...ops]
+      )
+      return true
+    } catch (error) {
+      console.error("Failed to create operation:", error)
+      toast.error(translateOutsideReact('notifications.operations.createFailedTitle'), {
+        description: translateOutsideReact('notifications.operations.createFailedDescription'),
+      })
+      return false
     }
   }
 

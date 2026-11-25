@@ -37,7 +37,9 @@ import { rowState, rowStateRank, useArchivableInventory, useInventoryDialog } fr
 import {
   vehicleFormDefaults,
   vehicleFormSchema,
+  vehicleFormValuesFor,
   vehicleTypeFor,
+  vehicleUpdateFor,
   type VehicleFormValues,
 } from '@/lib/schemas/vehicle';
 import { toast } from 'sonner';
@@ -87,12 +89,13 @@ export function VehicleSettings() {
   const { sort } = inventory;
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const payload = { ...values, type: vehicleTypeFor(values) };
     try {
       if (dialog.editing) {
-        await apiClient.updateVehicle(dialog.editing.id, payload);
+        // Only what was changed here – see `vehicleUpdateFor`.
+        const update = vehicleUpdateFor(vehicleFormValuesFor(dialog.editing), values);
+        if (Object.keys(update).length > 0) await apiClient.updateVehicle(dialog.editing.id, update);
       } else {
-        await apiClient.createVehicle(payload);
+        await apiClient.createVehicle({ ...values, type: vehicleTypeFor(values) });
       }
       await inventory.reload();
       dialog.close();
@@ -105,16 +108,7 @@ export function VehicleSettings() {
   });
 
   const handleEdit = (vehicle: ApiVehicle) => {
-    dialog.open(vehicle, {
-      name: vehicle.name,
-      type: vehicle.type,
-      display_order: vehicle.display_order,
-      status:
-        vehicle.status === 'available' || vehicle.status === 'unavailable'
-          ? vehicle.status
-          : 'available',
-      radio_call_sign: vehicle.radio_call_sign,
-    });
+    dialog.open(vehicle, vehicleFormValuesFor(vehicle));
   };
 
   const handleOpenCreate = () => {

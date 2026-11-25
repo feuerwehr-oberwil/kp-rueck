@@ -19,9 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import feld as feld_crud
 from app.crud import incidents as incidents_crud
 from app.crud import reko as reko_crud
+from app.database import after_rollback
 from app.models import Incident, IncidentAssignment, RekoReport, User, Vehicle
 from app.schemas import RekoReportUpdate
 from app.services.gps_simulation import SimulatedDrive, gps_simulation
+from app.services.photo_storage import photo_storage
 from app.services.rapport_rows import STATUS_LABELS
 from app.services.reko_history import RekoAuthor
 from app.services.tokens import generate_form_token
@@ -83,6 +85,9 @@ async def file_reko_report(db: AsyncSession, incident: Incident) -> RekoReport:
             summary_text=photo_summary,
             depth_cm=photo_depth_cm,
         )
+        for filename in photo_filenames:
+            # Stored already: gone again if the filing rolls back.
+            after_rollback(db, photo_storage.delete_photo, incident.id, filename)
         if photo_filenames:
             # Part of the simulated filing, not an edit after it: no Chronik row of its own.
             updated.photos_json = (updated.photos_json or []) + photo_filenames

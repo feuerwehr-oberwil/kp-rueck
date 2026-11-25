@@ -6398,7 +6398,7 @@
           "incident-groups"
         ],
         "summary": "Add Stops",
-        "description": "Attach existing incidents to an Auftrag as stops (editor only).\n\nWith ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in\nan Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer.",
+        "description": "Attach existing incidents to an Auftrag as stops (editor only).\n\nWith ``via_vehicle_id`` the add is conditional (409 when an Einsatz is gone, closed or in\nan Auftrag meanwhile, or the vehicle left this one) – the #23 question's answer. With\n``only_unassigned`` (a release's «Rückgängig») it is 409 when a stop is gone or in\nanother Auftrag now.",
         "operationId": "add_stops_api_incident_groups__group_id__stops_post",
         "parameters": [
           {
@@ -18411,6 +18411,11 @@
               }
             ],
             "title": "Via Vehicle Id"
+          },
+          "only_unassigned": {
+            "type": "boolean",
+            "title": "Only Unassigned",
+            "default": false
           }
         },
         "type": "object",
@@ -18418,7 +18423,7 @@
           "incident_ids"
         ],
         "title": "AddStopsRequest",
-        "description": "Attach existing incidents to an Auftrag as stops (appended to the end).\n\n``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone\nEinsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every\nEinsatz is still live, open and in no Auftrag and the vehicle still on this one."
+        "description": "Attach existing incidents to an Auftrag as stops (appended to the end).\n\n``via_vehicle_id``: the vehicle that drives this Auftrag and was put on these lone\nEinsätze («In Auftrag aufnehmen», #23). Makes the add conditional – 409 unless every\nEinsatz is still live, open and in no Auftrag and the vehicle still on this one.\n\n``only_unassigned``: the undo of a released stop – 409 when a stop is gone or another\nAuftrag took it meanwhile, instead of pulling it out of that Auftrag."
       },
       "AddressSuggestion": {
         "properties": {

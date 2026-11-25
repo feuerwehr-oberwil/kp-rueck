@@ -24,6 +24,7 @@ function board(op: Partial<Operation>) {
     setOperations: (next: SetStateAction<Operation[]>) => {
       state.operations = typeof next === 'function' ? next(state.operations) : next
     },
+    refreshOperations: vi.fn(async () => true),
     armAssignmentCooldown: vi.fn(),
     releaseAssignmentCooldown: vi.fn(),
     beginAssignmentSettling: vi.fn(() => settled),
@@ -98,6 +99,33 @@ describe('Reko assign and release', () => {
     await first
 
     expect(state.operations[0].assignedReko).toMatchObject({ id: 'p-bea', assignmentId: 'b-2' })
+  })
+
+  it('a refused replacement leaves the card with the Reko it had, not with none', async () => {
+    api.assignRekoPersonnel.mockRejectedValue(new Error('502'))
+    const before = { id: 'p-bea', name: 'Brunner Bea', assignmentId: 'b-1', purpose: 'reko' as const }
+    const { state, actions } = board({ assignedReko: before })
+
+    await actions.assignRekoPersonToOperation('p-sina', 'Unternährer Sina', 'op-14')
+
+    expect(state.operations[0].assignedReko).toEqual(before)
+  })
+
+  it('reloads when the Reko it would go back to was itself still pending', async () => {
+    const posts = [deferred<{ id: string }>(), deferred<{ id: string }>()]
+    posts.forEach((post) => api.assignRekoPersonnel.mockReturnValueOnce(post.promise.then(() => Promise.reject(new Error('502')))))
+    const { fresh, context } = board({ assignedReko: { id: 'p-bea', name: 'Brunner Bea', assignmentId: 'b-1', purpose: 'reko' } })
+
+    const toSina = fresh().assignRekoPersonToOperation('p-sina', 'Unternährer Sina', 'op-14')
+    const backToBea = fresh().assignRekoPersonToOperation('p-bea', 'Brunner Bea', 'op-14')
+    posts[0].resolve({ id: 'unused' })
+    await toSina
+    expect(context.refreshOperations).not.toHaveBeenCalled()
+    posts[1].resolve({ id: 'unused' })
+    await backToBea
+
+    // The card would show Sina without a row id – unreleasable, and not what the server holds.
+    expect(context.refreshOperations).toHaveBeenCalledTimes(1)
   })
 
   it('sends no release while the row id is unknown (the assign POST may still be refused)', () => {

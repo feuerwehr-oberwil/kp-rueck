@@ -922,7 +922,7 @@ interface IncidentStatusWorkflowDialogsProps {
    *  kept while the pages still pass it (the map's detail modal hangs off it). */
   onOpenDetail?: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection) => void
   onSendDivera: (operation: Operation) => void
-  onRefresh: () => void | Promise<void>
+  onRefresh: () => unknown
   /** Who drives which vehicle – named in the dispatch gate's vehicle chips. */
   vehicleDrivers?: VehicleDrivers
   /** «bleibt vor Ort | kehrt zurück» in the dispatch gate; without it the rows show no toggle. */

@@ -80,7 +80,15 @@ export function useReleaseUndo() {
         return g.assignResource(r.groupId, r.resourceType, r.resourceId)
       case "stop": {
         const before = g.groups.find((x) => x.id === r.groupId)?.stopIds ?? []
-        if (!(await g.addStops(r.groupId, [r.incidentId]))) return false
+        // Only while the stop is in no Auftrag: our copy of the board can be older than
+        // another desk's move, and their newer assignment wins (checked by the server).
+        const outcome = await g.restoreStop(r.groupId, r.incidentId)
+        if (outcome === "changed") {
+          toast.error(translateOutsideReact("notifications.release.restoreFailedTitle", { resource: r.name }), {
+            description: translateOutsideReact("notifications.release.reason.changedMeanwhile"),
+          })
+        }
+        if (outcome !== "added") return false
         // addStops appends; put it back into its old slot — guarded like the
         // route undo, so if anybody touched the route meanwhile it simply stays
         // at the end rather than overwriting their order.
