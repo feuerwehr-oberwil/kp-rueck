@@ -35,7 +35,7 @@ only step 3, the person's row – the lock every writer of their Reko rows alrea
 and writes the leaf rows under it. Assigning a special function
 (``special_functions.create_special_function``) takes only step 3 too, so two assigns of
 the same function cannot both insert. A merge locks only incidents, in id order
-(``services/duplicates.lock_pair``).
+(``lock_incident`` / ``lock_pair`` below).
 """
 
 import uuid
@@ -115,6 +115,27 @@ async def lock_incident_with_group(
 ) -> Incident | None:
     """``lock_incidents_with_groups`` for one incident: its Auftrag (if any) first, then it."""
     return (await lock_incidents_with_groups(db, [incident_id], extra_group_ids)).get(incident_id)
+
+
+async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | None:
+    """Step 2 alone: row-lock an incident (deleted ones included) for a merge or its undo.
+
+    Two merges into the same card both append to its «Notizen»; without the
+    lock the second write would carry the first one's old text and drop its
+    Nachtrag.
+    """
+    incident: Incident | None = await db.scalar(
+        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
+    )
+    return incident
+
+
+async def lock_pair(
+    db: AsyncSession, first_id: uuid.UUID, second_id: uuid.UUID
+) -> tuple[Incident | None, Incident | None]:
+    """Both incidents of a merge, locked in id order so two opposite merges cannot deadlock."""
+    locked = {i: await lock_incident(db, i) for i in sorted({first_id, second_id})}
+    return locked.get(first_id), locked.get(second_id)
 
 
 @overload

@@ -32,7 +32,7 @@ from ..services.incident_leader import effective_leader_id
 from . import events as events_crud
 from . import feld as feld_crud
 from .active_resources import active_deployments
-from .locking import lock_incident_with_group, lock_resources
+from .locking import lock_groups, lock_incident_with_group, lock_resources
 
 
 class InvalidIncidentGroupError(ValueError):
@@ -546,13 +546,17 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 async def create_incident(
     db: AsyncSession,
     incident: schemas.IncidentCreate,
-    current_user: User,
-    request: Request,
+    current_user: User | None,
+    request: Request | None,
     *,
     source: str | None = None,
     source_ref: str | None = None,
+    audit_extra: dict[str, Any] | None = None,
 ) -> Incident:
     """Create new incident with audit logging. Flushes; the caller (the request) commits.
+
+    ``current_user=None`` is the system (the alarm auto-attach); ``audit_extra`` joins the
+    audit row's changes (``{"auto_attach_divera": True}``).
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
@@ -581,7 +585,7 @@ async def create_incident(
 
     db_incident = Incident(
         **incident_data,
-        created_by=current_user.id,
+        created_by=current_user.id if current_user else None,
         group_position=group_position,
         source=source or editor_source,
         source_ref=source_ref,
@@ -597,7 +601,7 @@ async def create_incident(
         resource_type="incident",
         resource_id=db_incident.id,
         user=current_user,
-        changes={"created": incident.model_dump(mode="json")},
+        changes={"created": incident.model_dump(mode="json"), **(audit_extra or {})},
         request=request,
     )
 
@@ -813,13 +817,9 @@ async def update_incident(
     leaving_group_id = incident.group_id if "group_id" in update_data else None
     if leaving_group_id is not None and leaving_group_id != update_data.get("group_id"):
         joining_group_id = update_data.get("group_id")
-        if joining_group_id is not None and joining_group_id < leaving_group_id:
-            await _validate_and_lock_group(db, joining_group_id, incident.event_id)
-            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
-        else:
-            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
-            if joining_group_id is not None:
-                await _validate_and_lock_group(db, joining_group_id, incident.event_id)
+        await lock_groups(db, [leaving_group_id, joining_group_id])
+        if joining_group_id is not None:
+            await _validate_and_lock_group(db, joining_group_id, incident.event_id)  # held already: a check
     elif update_data.get("group_id") is not None:
         await _validate_and_lock_group(db, update_data["group_id"], incident.event_id)
 
