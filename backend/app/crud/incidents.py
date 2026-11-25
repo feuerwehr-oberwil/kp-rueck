@@ -10,7 +10,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..database import after_commit
 from ..models import (
     AuditLog,
     EventAttendance,
@@ -929,7 +928,6 @@ async def update_incident(
     # Auto-print the assignment slip on the incident's FIRST dispatch — into `enroute`
     # OR straight into `active` (Anfahrt is skippable), never twice. The rule and its
     # history live in `_dispatch_print_due`.
-    queued_print = None
     if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -939,20 +937,14 @@ async def update_incident(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                queued_print = await print_crud.queue_assignment_print(db, incident_id)
+                # Wakes the agent after the commit itself (`print_crud.enqueue`).
+                await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.flush()
     await db.refresh(incident)
-
-    # The agent reads the slip from its own session, so the wake-up waits for the commit —
-    # this is the auto-print on dispatch, the one print whose latency anybody actually feels.
-    if queued_print is not None:
-        from ..services import print_signal
-
-        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 
@@ -1067,7 +1059,6 @@ async def update_incident_status(
     # Auto-print the assignment slip on the first dispatch — same rule as
     # update_incident above (`_dispatch_print_due`): into `enroute` or straight
     # into `active`, once per incident, ever.
-    queued_print = None
     if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -1077,18 +1068,14 @@ async def update_incident_status(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                queued_print = await print_crud.queue_assignment_print(db, incident_id)
+                # Wakes the agent after the commit itself (`print_crud.enqueue`).
+                await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.flush()
     await db.refresh(incident)
-
-    if queued_print is not None:
-        from ..services import print_signal
-
-        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 

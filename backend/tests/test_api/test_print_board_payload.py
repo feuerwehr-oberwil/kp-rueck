@@ -1,4 +1,4 @@
-"""The Fahrzeugstatus block on the printed board slip (`_build_board_payload`).
+"""The Fahrzeugstatus block on the printed board slip (`crud.print_jobs.build_board_payload`).
 
 The slip is read at the board when the screen is not, so it has to answer the
 same question the screen does — «was steht noch bereit» — with the same three
@@ -13,8 +13,8 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.print import _build_board_payload
 from app.crud.materials import apply_out_of_service
+from app.crud.print_jobs import build_board_payload
 from app.models import Event, Vehicle
 
 
@@ -40,7 +40,7 @@ async def test_archived_vehicles_are_not_printed(db_session: AsyncSession, test_
     sold.archived_at = datetime.now(UTC)
     await db_session.commit()
 
-    payload = await _build_board_payload(db_session, test_event.id)
+    payload = await build_board_payload(db_session, test_event)
 
     assert [row["name"] for row in payload["vehicle_status"]] == ["TLF 1"]
 
@@ -53,7 +53,7 @@ async def test_an_out_of_service_vehicle_prints_as_unavailable(db_session: Async
     apply_out_of_service(broken, True)
     await db_session.commit()
 
-    payload = await _build_board_payload(db_session, test_event.id)
+    payload = await build_board_payload(db_session, test_event)
     available = {row["name"]: row["available"] for row in payload["vehicle_status"]}
 
     assert available == {ready.name: True, broken.name: False}

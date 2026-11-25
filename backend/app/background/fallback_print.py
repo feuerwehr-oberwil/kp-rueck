@@ -24,9 +24,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud import print_jobs as print_crud
 from app.database import async_session_maker
 from app.models import Event, Incident, IncidentAssignment, PrintJob
-from app.services import print_signal
 from app.services import settings as settings_service
 
 logger = logging.getLogger(__name__)
@@ -138,24 +138,10 @@ class FallbackPrintTask:
             if last_job is not None and not await _board_changed_since(db, event.id, last_job.created_at):
                 continue
 
-            # Imported lazily: api.print pulls in the FastAPI router machinery,
-            # which must not load before the app module itself during startup.
-            from app.api.print import _build_board_payload
-
-            payload = await _build_board_payload(
-                db,
-                event.id,
-                include_incidents=True,
-                include_completed=False,
-                include_vehicles=True,
-                include_personnel=True,
-            )
+            payload = await print_crud.build_board_payload(db, event)
             payload["auto"] = True
-
-            job = PrintJob(job_type="board", status="pending", payload=payload, event_id=event.id)
-            db.add(job)
-            await db.commit()
-            print_signal.notify_job_queued()
+            await print_crud.enqueue(db, "board", payload, event_id=event.id)
+            await db.commit()  # this loop owns the transaction; the commit wakes the agent
             logger.info("Queued automatic fallback board snapshot for event %s", event.id)
 
 
