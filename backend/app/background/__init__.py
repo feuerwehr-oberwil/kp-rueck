@@ -71,6 +71,20 @@ def stop_divera_retention_scheduler() -> None:
     _stop()
 
 
+def start_photo_sweep_scheduler() -> None:
+    """Start the six-hourly removal of photo files no report points at (lazy import)."""
+    from .photo_orphans import start_photo_sweep_scheduler as _start
+
+    _start()
+
+
+def stop_photo_sweep_scheduler() -> None:
+    """Stop the orphan photo sweep (lazy import)."""
+    from .photo_orphans import stop_photo_sweep_scheduler as _stop
+
+    _stop()
+
+
 def start_weather_scheduler() -> None:
     """Start the weather-layer pollers (lazy import to avoid circular deps)."""
     from .weather import start_weather_scheduler as _start

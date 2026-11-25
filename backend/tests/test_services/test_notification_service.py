@@ -1719,7 +1719,10 @@ class TestFatigueNotificationConcurrency:
                         return result
 
                     session.execute = slow_execute  # type: ignore[method-assign]
-                    return await _sync_fatigue_notification(session, event_id, settings)
+                    notification = await _sync_fatigue_notification(session, event_id, settings)
+                    # The caller's commit releases the lock (the request's, or the watcher's).
+                    await session.commit()
+                    return notification
 
             results = await asyncio.gather(*(evaluate() for _ in range(4)))
             assert all(r is not None for r in results)

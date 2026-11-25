@@ -53,7 +53,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
 from .audit import log_action
-from .photo_storage import PhotoCopyError, photo_storage
+from .photo_storage import PhotoCopyError, lock_photo_files, photo_storage
 
 #: The order an Einsatz goes through. A merge never lowers the surviving card's
 #: place in it; «complete» is not here because closed cards cannot be merged.
@@ -78,8 +78,11 @@ class MergeWorkError(Exception):
         self.reason = reason
 
 
-async def _copy_photos(from_id: uuid.UUID, to_id: uuid.UUID, filenames: list[str]) -> None:
-    """Copy photo files off the event loop; a failed copy aborts the merge (it rolls back)."""
+async def _copy_photos(db: AsyncSession, from_id: uuid.UUID, to_id: uuid.UUID, filenames: list[str]) -> None:
+    """Copy photo files off the event loop; a failed copy aborts the merge (it rolls back).
+    Under the shared photo-files lock, held to the merge's commit: the orphan sweep never
+    removes a file this merge points a row at (`photo_storage.PHOTO_FILES_LOCK`)."""
+    await lock_photo_files(db, exclusive=False)
     try:
         await asyncio.to_thread(photo_storage.copy_photos, from_id, to_id, filenames)
     except PhotoCopyError as exc:
@@ -216,7 +219,7 @@ async def move_work_in(
             await db.execute(select(models.RekoReport.id).where(models.RekoReport.incident_id == target.id))
         ).scalar_one_or_none()
         if target_reko is None:
-            await _copy_photos(report.id, target.id, list(loser_reko.photos_json or []))
+            await _copy_photos(db, report.id, target.id, list(loser_reko.photos_json or []))
             loser_reko.incident_id = target.id
             rekos.append(loser_reko)
             items.append("Reko-Bericht")
@@ -238,7 +241,7 @@ async def move_work_in(
             )
         ).scalar_one_or_none()
         if target_rapport is None:
-            await _copy_photos(report.id, target.id, list(loser_rapport.photos_json or []))
+            await _copy_photos(db, report.id, target.id, list(loser_rapport.photos_json or []))
             loser_rapport.incident_id = target.id
             rapport_moved = str(loser_rapport.id)
             items.append("Rapport")
@@ -434,7 +437,7 @@ async def move_work_back(
         )
         for reko in rekos:
             # Photos added while merged were stored under the surviving card.
-            await _copy_photos(target.id, report.id, list(reko.photos_json or []))
+            await _copy_photos(db, target.id, report.id, list(reko.photos_json or []))
             reko.incident_id = report.id
         if rekos:
             items.append("Reko-Bericht" if len(rekos) == 1 else f"{len(rekos)} Reko-Berichte")
@@ -443,7 +446,7 @@ async def move_work_back(
     if merge_changes.get("moved_rapport_id"):
         rapport = await db.get(models.SchadenplatzReport, uuid.UUID(merge_changes["moved_rapport_id"]))
         if rapport is not None and rapport.incident_id == target.id:
-            await _copy_photos(target.id, report.id, list(rapport.photos_json or []))
+            await _copy_photos(db, target.id, report.id, list(rapport.photos_json or []))
             rapport.incident_id = report.id
             items.append("Rapport")
 

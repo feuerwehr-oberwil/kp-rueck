@@ -89,11 +89,6 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
         resource_notifications = await _check_resource_alerts(db, event_id, settings)
         notifications.extend(resource_notifications)
 
-    # Time on duty: ONE notification for the whole crew, kept up to date in place rather
-    # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
-    # so switching those off resolves it like the others.
-    await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
-
     # Somebody's planned «geht um» is near – a resource alert like time on duty.
     if settings.enabled_resource_alerts:
         notifications.extend(await _check_leaving_alerts(db, event_id))
@@ -112,6 +107,13 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     if settings.enabled_geofence_alerts:
         geofence_notifications = await _check_geofence_alerts(db, event_id, settings)
         notifications.extend(geofence_notifications)
+
+    # Time on duty: ONE notification for the whole crew, kept up to date in place rather
+    # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
+    # so switching those off resolves it like the others. Last of the rules on purpose: it
+    # takes the Ereignis's advisory lock, held until the caller commits, so every other
+    # board's evaluation queues only behind this tail.
+    await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
 
     # Deduplicate and save new notifications
     await _deduplicate_and_save(db, notifications, event_id)
@@ -416,17 +418,17 @@ async def _sync_fatigue_notification(
 
     Every board evaluates this on its own poll, so the whole read-decide-write runs under a
     transaction-scoped advisory lock per Ereignis: two concurrent evaluations would
-    otherwise both find no open row and both insert one (two rows, two toasts).
+    otherwise both find no open row and both insert one (two rows, two toasts). The lock
+    lasts until the caller commits – the request's one commit, or the watcher's. It used to
+    commit here to release it early, which also committed whatever the caller had written
+    before and released every lock the caller held (hunt follow-up 25.11.).
 
     ``fatigue_hours`` <= 0 switches the check off. Returns the open notification, if any.
     """
     await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"})
-    try:
-        notification = await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
-        await db.commit()  # releases the advisory lock early: every board's poll queues on it
-    except Exception:
-        await db.rollback()
-        raise
+    notification = await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
+    # Sessions do not autoflush: the lists read after this must see a resolved row resolved.
+    await db.flush()
     return notification
 
 
