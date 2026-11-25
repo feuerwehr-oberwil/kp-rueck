@@ -12,8 +12,12 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from ..traccar import VehiclePosition, traccar_client
+from ..utils.failure_latch import FailureLatch
 
 logger = logging.getLogger(__name__)
+_positions_failures = FailureLatch(logger, "Traccar position poll")
+_automation_failures = FailureLatch(logger, "GPS automation run")
+_trails_failures = FailureLatch(logger, "Traccar trails poll")
 
 POSITIONS_INTERVAL_SECONDS = 10
 TRAILS_INTERVAL_SECONDS = 30
@@ -133,7 +137,9 @@ class TraccarPoller:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.debug("Traccar position poll failed: %s", e)
+                _positions_failures.failed(e)
+            else:
+                _positions_failures.ok()
 
             try:
                 await asyncio.sleep(POSITIONS_INTERVAL_SECONDS)
@@ -159,8 +165,10 @@ class TraccarPoller:
         try:
             async with async_session_maker() as db:
                 await run_automation_tick(db, positions)
-        except Exception as e:
-            logger.debug("GPS automation invocation failed: %s", e)
+        except Exception as e:  # the session itself (the tick swallows its own)
+            _automation_failures.failed(e)
+        else:
+            _automation_failures.ok()
 
     async def _poll_trails(self) -> None:
         """Poll vehicle trails and broadcast."""
@@ -193,14 +201,16 @@ class TraccarPoller:
                                 ],
                             }
                         )
-                    except Exception as e:
+                    except Exception as e:  # expected: a device without history in the window
                         logger.debug("Failed to get trail for device %s: %s", device.name, e)
 
                 await broadcast_vehicle_trails(trails_data)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.debug("Traccar trails poll failed: %s", e)
+                _trails_failures.failed(e)
+            else:
+                _trails_failures.ok()
 
             try:
                 await asyncio.sleep(TRAILS_INTERVAL_SECONDS)

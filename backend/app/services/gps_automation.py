@@ -57,10 +57,12 @@ from ..models import (
     Vehicle,
 )
 from ..traccar import VehiclePosition
+from ..utils.failure_latch import FailureLatch
 from ..websocket_manager import broadcast_incident_update, broadcast_message
 from .settings import get_setting_value, get_station_coordinates
 
 logger = logging.getLogger(__name__)
+_tick_failures = FailureLatch(logger, "GPS automation tick")
 
 # Fixed UUID for the system actor so audit rows are consistently attributable and the
 # StatusTransition.user_id foreign key is always satisfied. Distinct from the dev/master
@@ -450,165 +452,170 @@ async def run_automation_tick(db: AsyncSession, vehicle_positions: list[VehicleP
     """Entry point invoked once per Traccar poll tick.
 
     ``vehicle_positions`` is the same ``list[VehiclePosition]`` the poller already
-    fetched, so this adds no extra Traccar calls. All failures are swallowed (logged at
-    debug) so automation can never break the position broadcast.
+    fetched, so this adds no extra Traccar calls. A failure never breaks the position
+    broadcast: it is logged once with its traceback, until a tick works again.
     """
     try:
-        if app_settings.demo_mode:
-            return
-        cfg = await _load_config(db)
-        # Vehicles on a simulated drive (Übungssteuerung) run the prompt rules
-        # regardless of the station's gps.* opt-ins — see _rule_active.
-        from .gps_simulation import gps_simulation
-
-        sim_names = {d.vehicle_name.lower() for d in gps_simulation.list_drives()}
-        if not sim_names and (not cfg.enabled or not (cfg.rule_arrival_enabled or cfg.rule_return_enabled)):
-            return
-
-        # Map vehicle name (lowercase) -> position, same scheme as the geofence alert.
-        # A VEHICLE maps to a Traccar device by matching device_name to vehicle.name;
-        # the driver's tracker is named after the vehicle in this deployment.
-        position_by_name = {p.device_name.lower(): p for p in vehicle_positions if p is not None}
-
-        now = _now()
-
-        # Active vehicle assignments for non-archived events. Training events are
-        # deliberately included — they're the natural place to exercise the rules.
-        result = await db.execute(
-            select(IncidentAssignment, Incident, Vehicle, Event)
-            .join(Incident, IncidentAssignment.incident_id == Incident.id)
-            .join(Vehicle, IncidentAssignment.resource_id == Vehicle.id)
-            .join(Event, Incident.event_id == Event.id)
-            .where(IncidentAssignment.resource_type == "vehicle")
-            .where(IncidentAssignment.unassigned_at.is_(None))
-            .where(Incident.deleted_at.is_(None))
-            .where(Event.archived_at.is_(None))
-        )
-        # Snapshot the values we need as plain primitives BEFORE any mutation, because
-        # each action below commits on its own, and a failed one rolls back and expires them.
-        targets = [
-            {
-                "assignment_id": assignment.id,
-                "incident_id": incident.id,
-                "incident_status": incident.status,
-                "incident_lat": incident.location_lat,
-                "incident_lng": incident.location_lng,
-                # Operators think in places, not titles — the board cards lead with the
-                # address too, so the prompts and toasts use it as the incident label.
-                "incident_label": incident.location_address or incident.title or "Einsatz",
-                "vehicle_id": vehicle.id,
-                "vehicle_name": vehicle.name,
-                "event_id": incident.event_id,
-                # Per-incident assignment: eligible for arrival (A), return (B) and
-                # counts toward the "assigned" set for Rule C.
-                "is_group": False,
-            }
-            for assignment, incident, vehicle, _event in result.all()
-        ]
-
-        # Route-level (Auftrag) vehicle assignments: a vehicle assigned to the
-        # Auftrag covers EVERY one of its stops. Expansion supports arrival at each
-        # stop and one route-level return prompt per group assignment.
-        targets.extend(await _group_vehicle_targets(db))
-
-        arrival_keys: set[tuple[uuid.UUID, uuid.UUID]] = set()
-        return_keys: set[uuid.UUID] = set()
-        actor = None  # lazily created only when an action actually fires
-
-        # Nearest-single-match guard: if a vehicle confirms arrival at several of its
-        # clustered route stops on this tick, only its nearest stop may fire (the rest
-        # are suppressed and behave as not-confirming). See _suppressed_arrival_keys.
-        suppressed_arrival = _suppressed_arrival_keys(targets, position_by_name, cfg, now, sim_names)
-
-        for t in targets:
-            vp = position_by_name.get(t["vehicle_name"].lower())
-
-            # ---- Rule A: arrival -> enroute -> active (silent) ----
-            if (
-                _rule_active(cfg.rule_arrival_enabled, cfg, t["vehicle_name"], sim_names)
-                and t["incident_status"] == "enroute"
-                and t["incident_lat"] is not None
-                and t["incident_lng"] is not None
-            ):
-                a_key = (t["incident_id"], t["vehicle_id"])
-                arrival_keys.add(a_key)
-                if (
-                    vp is not None
-                    and _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now)
-                    and a_key not in suppressed_arrival
-                ):
-                    if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
-                        # Silent advance only when the station genuinely opted in —
-                        # a sim-enabled rule never silently moves a card.
-                        if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
-                            # Dangerous opt-in: silently advance without operator confirm.
-                            actor = actor or await _get_system_actor(db)
-                            await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
-                        else:
-                            # Default: prompt the operator to confirm; do NOT change status.
-                            await _fire_arrival_prompt(
-                                db,
-                                t["event_id"],
-                                t["incident_id"],
-                                t["vehicle_id"],
-                                t["vehicle_name"],
-                                t["incident_label"],
-                            )
-                else:
-                    # Any missing/stale/too-far/too-fast fix resets the counter so a
-                    # single bad reading can never mis-advance a live incident.
-                    _reset_debounce(_state.arrival, a_key)
-
-            # ---- Rule B: return to station -> prompt operator to release ----
-            # Skip incidents the operator already closed out — the release prompt
-            # would only be noise there (the bell notification still covers it).
-            if (
-                _rule_active(cfg.rule_return_enabled, cfg, t["vehicle_name"], sim_names)
-                and t.get("return_eligible", True)
-                and cfg.station_lat is not None
-                and cfg.station_lng is not None
-                and t["incident_status"] != "complete"
-            ):
-                r_key = t["assignment_id"]
-                return_keys.add(r_key)
-                if vp is not None and _return_fix_confirms(vp, cfg, now):
-                    if _advance_debounce(_state.returns, r_key, vp.last_update, cfg):
-                        if t["is_group"]:
-                            await _fire_group_return_prompt(
-                                db,
-                                t["assignment_id"],
-                                t["group_id"],
-                                t["event_id"],
-                                t["incident_id"],
-                                t["vehicle_id"],
-                                t["vehicle_name"],
-                                t["incident_label"],
-                            )
-                        else:
-                            await _fire_return_prompt(
-                                db,
-                                t["event_id"],
-                                t["assignment_id"],
-                                t["incident_id"],
-                                t["vehicle_id"],
-                                t["vehicle_name"],
-                                t["incident_label"],
-                            )
-                else:
-                    _reset_debounce(_state.returns, r_key)
-
-        _state.prune(arrival_keys, return_keys)
-
-        # ---- Rule C: unassigned vehicle back home -> info notification ----
-        rule_c_configured = cfg.enabled and cfg.rule_return_enabled
-        if (rule_c_configured or sim_names) and cfg.station_lat is not None and cfg.station_lng is not None:
-            assigned_vehicle_ids = {t["vehicle_id"] for t in targets}
-            await _watch_unassigned_returns(
-                db, cfg, position_by_name, assigned_vehicle_ids, now, sim_names, rule_c_configured
-            )
-
+        await _run_tick(db, vehicle_positions)
     except Exception as e:  # never break the poll
-        logger.debug("GPS automation tick failed: %s", e)
+        _tick_failures.failed(e)
+    else:
+        _tick_failures.ok()
+
+
+async def _run_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) -> None:
+    if app_settings.demo_mode:
+        return
+    cfg = await _load_config(db)
+    # Vehicles on a simulated drive (Übungssteuerung) run the prompt rules
+    # regardless of the station's gps.* opt-ins — see _rule_active.
+    from .gps_simulation import gps_simulation
+
+    sim_names = {d.vehicle_name.lower() for d in gps_simulation.list_drives()}
+    if not sim_names and (not cfg.enabled or not (cfg.rule_arrival_enabled or cfg.rule_return_enabled)):
+        return
+
+    # Map vehicle name (lowercase) -> position, same scheme as the geofence alert.
+    # A VEHICLE maps to a Traccar device by matching device_name to vehicle.name;
+    # the driver's tracker is named after the vehicle in this deployment.
+    position_by_name = {p.device_name.lower(): p for p in vehicle_positions if p is not None}
+
+    now = _now()
+
+    # Active vehicle assignments for non-archived events. Training events are
+    # deliberately included — they're the natural place to exercise the rules.
+    result = await db.execute(
+        select(IncidentAssignment, Incident, Vehicle, Event)
+        .join(Incident, IncidentAssignment.incident_id == Incident.id)
+        .join(Vehicle, IncidentAssignment.resource_id == Vehicle.id)
+        .join(Event, Incident.event_id == Event.id)
+        .where(IncidentAssignment.resource_type == "vehicle")
+        .where(IncidentAssignment.unassigned_at.is_(None))
+        .where(Incident.deleted_at.is_(None))
+        .where(Event.archived_at.is_(None))
+    )
+    # Snapshot the values we need as plain primitives BEFORE any mutation, because
+    # each action below commits on its own, and a failed one rolls back and expires them.
+    targets = [
+        {
+            "assignment_id": assignment.id,
+            "incident_id": incident.id,
+            "incident_status": incident.status,
+            "incident_lat": incident.location_lat,
+            "incident_lng": incident.location_lng,
+            # Operators think in places, not titles — the board cards lead with the
+            # address too, so the prompts and toasts use it as the incident label.
+            "incident_label": incident.location_address or incident.title or "Einsatz",
+            "vehicle_id": vehicle.id,
+            "vehicle_name": vehicle.name,
+            "event_id": incident.event_id,
+            # Per-incident assignment: eligible for arrival (A), return (B) and
+            # counts toward the "assigned" set for Rule C.
+            "is_group": False,
+        }
+        for assignment, incident, vehicle, _event in result.all()
+    ]
+
+    # Route-level (Auftrag) vehicle assignments: a vehicle assigned to the
+    # Auftrag covers EVERY one of its stops. Expansion supports arrival at each
+    # stop and one route-level return prompt per group assignment.
+    targets.extend(await _group_vehicle_targets(db))
+
+    arrival_keys: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    return_keys: set[uuid.UUID] = set()
+    actor = None  # lazily created only when an action actually fires
+
+    # Nearest-single-match guard: if a vehicle confirms arrival at several of its
+    # clustered route stops on this tick, only its nearest stop may fire (the rest
+    # are suppressed and behave as not-confirming). See _suppressed_arrival_keys.
+    suppressed_arrival = _suppressed_arrival_keys(targets, position_by_name, cfg, now, sim_names)
+
+    for t in targets:
+        vp = position_by_name.get(t["vehicle_name"].lower())
+
+        # ---- Rule A: arrival -> enroute -> active (silent) ----
+        if (
+            _rule_active(cfg.rule_arrival_enabled, cfg, t["vehicle_name"], sim_names)
+            and t["incident_status"] == "enroute"
+            and t["incident_lat"] is not None
+            and t["incident_lng"] is not None
+        ):
+            a_key = (t["incident_id"], t["vehicle_id"])
+            arrival_keys.add(a_key)
+            if (
+                vp is not None
+                and _arrival_fix_confirms(vp, t["incident_lat"], t["incident_lng"], cfg, now)
+                and a_key not in suppressed_arrival
+            ):
+                if _advance_debounce(_state.arrival, a_key, vp.last_update, cfg):
+                    # Silent advance only when the station genuinely opted in —
+                    # a sim-enabled rule never silently moves a card.
+                    if cfg.rule_arrival_silent and cfg.enabled and cfg.rule_arrival_enabled:
+                        # Dangerous opt-in: silently advance without operator confirm.
+                        actor = actor or await _get_system_actor(db)
+                        await _fire_arrival(db, t["incident_id"], t["vehicle_name"], actor)
+                    else:
+                        # Default: prompt the operator to confirm; do NOT change status.
+                        await _fire_arrival_prompt(
+                            db,
+                            t["event_id"],
+                            t["incident_id"],
+                            t["vehicle_id"],
+                            t["vehicle_name"],
+                            t["incident_label"],
+                        )
+            else:
+                # Any missing/stale/too-far/too-fast fix resets the counter so a
+                # single bad reading can never mis-advance a live incident.
+                _reset_debounce(_state.arrival, a_key)
+
+        # ---- Rule B: return to station -> prompt operator to release ----
+        # Skip incidents the operator already closed out — the release prompt
+        # would only be noise there (the bell notification still covers it).
+        if (
+            _rule_active(cfg.rule_return_enabled, cfg, t["vehicle_name"], sim_names)
+            and t.get("return_eligible", True)
+            and cfg.station_lat is not None
+            and cfg.station_lng is not None
+            and t["incident_status"] != "complete"
+        ):
+            r_key = t["assignment_id"]
+            return_keys.add(r_key)
+            if vp is not None and _return_fix_confirms(vp, cfg, now):
+                if _advance_debounce(_state.returns, r_key, vp.last_update, cfg):
+                    if t["is_group"]:
+                        await _fire_group_return_prompt(
+                            db,
+                            t["assignment_id"],
+                            t["group_id"],
+                            t["event_id"],
+                            t["incident_id"],
+                            t["vehicle_id"],
+                            t["vehicle_name"],
+                            t["incident_label"],
+                        )
+                    else:
+                        await _fire_return_prompt(
+                            db,
+                            t["event_id"],
+                            t["assignment_id"],
+                            t["incident_id"],
+                            t["vehicle_id"],
+                            t["vehicle_name"],
+                            t["incident_label"],
+                        )
+            else:
+                _reset_debounce(_state.returns, r_key)
+
+    _state.prune(arrival_keys, return_keys)
+
+    # ---- Rule C: unassigned vehicle back home -> info notification ----
+    rule_c_configured = cfg.enabled and cfg.rule_return_enabled
+    if (rule_c_configured or sim_names) and cfg.station_lat is not None and cfg.station_lng is not None:
+        assigned_vehicle_ids = {t["vehicle_id"] for t in targets}
+        await _watch_unassigned_returns(
+            db, cfg, position_by_name, assigned_vehicle_ids, now, sim_names, rule_c_configured
+        )
 
 
 def _arrival_fix_confirms(

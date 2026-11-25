@@ -802,3 +802,21 @@ async def test_clustered_guard_noop_for_single_in_radius(
 
     assert await _status(db_session, enroute_incident.id) == "active"
     assert await _status(db_session, far.id) == "enroute"
+
+
+@pytest.mark.asyncio
+async def test_a_failing_tick_is_logged_once_with_its_traceback_until_it_recovers(caplog):
+    """Production logs at INFO: a tick that fails every 10 s must say so – once, not 360 times an hour."""
+    fail = AsyncMock(side_effect=RuntimeError("schema mismatch"))
+    with caplog.at_level("INFO", logger="app.services.gps_automation"):
+        with patch.object(gps_automation, "_run_tick", fail):
+            await gps_automation.run_automation_tick(AsyncMock(), [])
+            await gps_automation.run_automation_tick(AsyncMock(), [])
+        with patch.object(gps_automation, "_run_tick", AsyncMock()):
+            await gps_automation.run_automation_tick(AsyncMock(), [])
+
+    records = [(r.levelname, r.getMessage(), r.exc_info is not None) for r in caplog.records]
+    assert records == [
+        ("ERROR", "GPS automation tick failed (logged once until it recovers)", True),
+        ("INFO", "GPS automation tick recovered", False),
+    ]
