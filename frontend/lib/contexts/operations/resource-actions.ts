@@ -389,7 +389,9 @@ export function createResourceActions(board: BoardMutationContext) {
       } finally {
         settled()
         releaseAssignmentCooldown()
-        // After the hold is gone, so the reload is not discarded as older than this card.
+        // The hold itself lifts 500 ms later; the explicit reload does not wait for it. It
+        // reads after the refused POST, so its snapshot is newer than this rollback, and an
+        // edit that lands meanwhile still discards it (mutation epoch) and replays it.
         if (reloadAfter) void refreshOperations()
       }
     } else {
