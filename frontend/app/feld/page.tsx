@@ -19,6 +19,7 @@ import { SearchEmptyState } from "@/components/ui/empty-state"
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from 'react'
 import { useEffectEvent } from '@/lib/hooks/use-effect-event'
 import { useHistoryLevel } from '@/lib/hooks/use-history-level'
+import { usePolling } from '@/lib/hooks/use-polling'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Binoculars, CarTaxiFront, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, MessageSquare, MonitorCog, Navigation, Phone, Plus, Truck, User, Waypoints } from 'lucide-react'
@@ -31,7 +32,7 @@ import {
   type ApiFeldPersonnel,
   type ApiFeldUnlockResponse,
   type ApiFeldAssignment,
-  type ApiFeldPlanned,
+  type ApiFeldAssignmentsResponse,
   type ApiFeldMaterialItem,
   type ApiFeldOwnReport,
   type ApiFieldReportState,
@@ -103,6 +104,9 @@ const INCIDENT_COOKIE = 'feld-selected-incident'
  * the requests from a phone on mobile data.
  */
 const FELD_POLL_MS = 10000
+
+/** The empty list a field reads before the first answer: one instance, so memos keep. */
+const NONE: never[] = []
 
 /** The journey as a chip. «Vor Ort» carries the weight — it is the one of the
  *  three that means "this is what you are doing right now". */
@@ -277,9 +281,45 @@ function FeldSurface() {
 
   const [personnel, setPersonnel] = useState<ApiFeldPersonnel[]>([])
   const [selectedPerson, setSelectedPerson] = useState<ApiFeldPersonnel | null>(null)
-  const [assignments, setAssignments] = useState<ApiFeldAssignment[]>([])
+  /** The newest assignments answer for this person, whole – everything below that comes from
+   *  the list is read off it, and a local fold (a field report, a check-in) writes into it. */
+  const [feld, setFeld] = useState<ApiFeldAssignmentsResponse | null>(null)
+  const assignments = feld?.assignments ?? NONE
   // «Danach» (owner pick 5C): shown after the live rows, before «Früher».
-  const [planned, setPlanned] = useState<ApiFeldPlanned[]>([])
+  const planned = feld?.planned ?? NONE
+  // Station-configurable Freitext chips (decision 20), served with the list.
+  // Two sets: what a crew radios in, and what a DRIVER does — a driver may not
+  // report «Angekommen» or «Einsatz beendet» at all, so «fertig in ~30 Min»
+  // is not their sentence. The row's source picks, not the person's roles.
+  const messageChips = feld?.message_chips ?? NONE
+  const driverMessageChips = feld?.driver_message_chips ?? NONE
+  // «Material nötig» picks from the station's material names (R13).
+  const requestMaterials = feld?.request_materials ?? NONE
+  // Which roles this person holds here. The roles are data (decision 5); which
+  // sections they unlock stays code, deliberately.
+  const functions = feld?.functions ?? NONE
+  /** The vehicles this person drives here. Named, not just counted: see below. */
+  const driverVehicles = feld?.driver_vehicles ?? NONE
+  /**
+   * What this person has REPORTED — not what they were given to work on.
+   *
+   * Without «wir übernehmen das gleich» a Meldung vanishes the moment it is
+   * sent: it belongs to no Schadenplatz of theirs, so the visibility union
+   * correctly refuses it, and a wrong house number was only fixable by radio.
+   * This list is the other half of that sentence.
+   */
+  const reports = feld?.reports ?? NONE
+  // Attendance: the individual half of the roll call (decision 10). The door
+  // tablet stays its own page; this is somebody saying "ich bin da" from the
+  // vehicle, and — the part that was missing entirely — "ich rücke ab".
+  const checkedIn = Boolean(feld?.checked_in)
+  // Their own plan (#3): «Ich komme um …» before they are in, «Ich bin da bis …» after.
+  const planFrom = feld?.planned_from ?? null
+  const planUntil = feld?.planned_until ?? null
+  /** A local fold into the list, merged rather than refetched (see `applyFieldReport`). */
+  const updateAssignments = useCallback((update: (rows: ApiFeldAssignment[]) => ApiFeldAssignment[]) => {
+    setFeld(prev => prev && { ...prev, assignments: update(prev.assignments) })
+  }, [])
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   // The fixed footer's slot for the Rapport form's «Rapport abschliessen» (FeldActions hands
   // it over on the Rapport step; null while the footer shows another step or none).
@@ -287,17 +327,11 @@ function FeldSurface() {
   // The detail's address heading — when it has scrolled under the top bar,
   // `FeldPlaceLine` takes its place (owner pick 2A, 24.11.2026).
   const placeHeaderRef = useRef<HTMLDivElement>(null)
-  const [eventName, setEventName] = useState<string>('')
-  const [eventStartedAt, setEventStartedAt] = useState<string | null>(null)
+  // The unlock names the Ereignis before any list is in; the list's answer wins after.
+  const [doorEventName, setDoorEventName] = useState<string>('')
+  const eventName = feld?.event_name ?? doorEventName
+  const eventStartedAt = feld?.event_started_at ?? null
   const intlLocale = useIntlLocale()
-  // Station-configurable Freitext chips (decision 20), served with the list.
-  // Two sets: what a crew radios in, and what a DRIVER does — a driver may not
-  // report «Angekommen» or «Einsatz beendet» at all, so «fertig in ~30 Min»
-  // is not their sentence. The row's source picks, not the person's roles.
-  const [messageChips, setMessageChips] = useState<string[]>([])
-  // «Material nötig» picks from the station's material names (R13).
-  const [requestMaterials, setRequestMaterials] = useState<string[]>([])
-  const [driverMessageChips, setDriverMessageChips] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
@@ -327,23 +361,13 @@ function FeldSurface() {
   /** The load still out, if any: a poll never starts over it (on a link slower than the 10 s tick
    *  each poll would supersede the last and none would ever land). A deliberate load may. */
   const loadInFlight = useRef<number | null>(null)
+  /** The Magazin inventory read still out, by whose list (person and token) it was asked for.
+   *  One at a time – on a link slower than the poll, each read would be overtaken by the next
+   *  and no table would ever land – and its answer only while that list is still the page's. */
+  const inventoryRead = useRef<string | null>(null)
   /** Counts Reko opens: a link that comes back after a forget or a newer open goes nowhere. */
   const rekoAttempt = useRef(0)
   const [meldenOpen, setMeldenOpen] = useState(false)
-  // Which roles this person holds here. The roles are data (decision 5); which
-  // sections they unlock stays code, deliberately.
-  const [functions, setFunctions] = useState<string[]>([])
-  /** The vehicles this person drives here. Named, not just counted: see below. */
-  const [driverVehicles, setDriverVehicles] = useState<string[]>([])
-  /**
-   * What this person has REPORTED — not what they were given to work on.
-   *
-   * Without «wir übernehmen das gleich» a Meldung vanishes the moment it is
-   * sent: it belongs to no Schadenplatz of theirs, so the visibility union
-   * correctly refuses it, and a wrong house number was only fixable by radio.
-   * This list is the other half of that sentence.
-   */
-  const [reports, setReports] = useState<ApiFeldOwnReport[]>([])
   /** The Meldung being corrected, if any. */
   const [editingReport, setEditingReport] = useState<ApiFeldOwnReport | null>(null)
   /** Reporting a Schadenplatz is for whoever is standing in front of one. The
@@ -408,13 +432,7 @@ function FeldSurface() {
   // the endpoint 403s for anybody else, which is what makes it defensible to
   // serve the whole station's material through a login-less door.
   const [materials, setMaterials] = useState<ApiFeldMaterialItem[]>([])
-  // Attendance: the individual half of the roll call (decision 10). The door
-  // tablet stays its own page; this is somebody saying "ich bin da" from the
-  // vehicle, and — the part that was missing entirely — "ich rücke ab".
-  const [checkedIn, setCheckedIn] = useState(false)
   const [attendanceBusy, setAttendanceBusy] = useState(false)
-  // Their own plan (#3): «Ich komme um …» before they are in, «Ich bin da bis …» after.
-  const [plan, setPlan] = useState<{ from: string | null; until: string | null }>({ from: null, until: null })
   const restoredFromCookie = useRef(false)
   const restoredIncident = useRef(false)
   const preselectApplied = useRef(false)
@@ -439,8 +457,7 @@ function FeldSurface() {
   const forgetPersonAndPlace = useCallback(() => {
     setSelectedPerson(null)
     setPersonnel([])
-    setAssignments([])
-    setReports([])
+    setFeld(null)
     setSelectedIncidentId(null)
     setSearchTerm('')
     setViewMode('code')
@@ -449,6 +466,7 @@ function FeldSurface() {
     setLoadingAssignments(false)
     loadGeneration.current += 1
     loadInFlight.current = null
+    inventoryRead.current = null
     setRekoOpening(null)
     rekoAttempt.current += 1
     clearCookie(PERSON_COOKIE, FELD_COOKIE_SCOPE)
@@ -465,7 +483,7 @@ function FeldSurface() {
   /** An unlock (the code, or a Rück session) brings the picker with it. */
   const showPicker = useCallback((unlock: ApiFeldUnlockResponse) => {
     setPersonnel(unlock.personnel)
-    setEventName(unlock.event_name)
+    setDoorEventName(unlock.event_name)
     setViewMode('list')
   }, [])
 
@@ -505,29 +523,27 @@ function FeldSurface() {
     try {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
       if (superseded()) return
-      setAssignments(data.assignments)
-      setPlanned(data.planned ?? [])
-      setMessageChips(data.message_chips ?? [])
-      setDriverMessageChips(data.driver_message_chips ?? [])
-      setRequestMaterials(data.request_materials ?? [])
-      setEventName(data.event_name)
-      setEventStartedAt(data.event_started_at ?? null)
-      setCheckedIn(Boolean(data.checked_in))
-      setPlan({ from: data.planned_from ?? null, until: data.planned_until ?? null })
-      const roles = data.functions ?? []
-      setFunctions(roles)
-      setDriverVehicles(data.driver_vehicles ?? [])
-      setReports(data.reports ?? [])
+      // An offline GET resolves to nothing (`lib/api/http.ts`): a failure, not an answer.
+      if (!data) throw new NetworkError()
+      setFeld(data)
       setSyncedAt(new Date())
       setSyncFailed(false)
       // Chased rather than awaited: the inventory is a second section, and a
       // crew standing at an address must not wait on the Magazin's table for
-      // their own rows. A failure here leaves the last table standing.
-      if (roles.includes('magazin')) {
-        apiClient
-          .getFeldMaterial(personnelId, activeToken)
-          .then(result => setMaterials(result.materials))
-          .catch(error => console.error('Failed to load the material list:', error))
+      // their own rows. A failure here leaves the last table standing, and so
+      // does an answer for a list the page no longer shows (`inventoryRead`).
+      if (data.functions?.includes('magazin')) {
+        const scope = `${personnelId}:${activeToken}`
+        if (inventoryRead.current !== scope) {
+          inventoryRead.current = scope
+          apiClient
+            .getFeldMaterial(personnelId, activeToken)
+            .then(result => inventoryRead.current === scope && setMaterials(result.materials))
+            .catch(error => console.error('Failed to load the material list:', error))
+            .finally(() => {
+              if (inventoryRead.current === scope) inventoryRead.current = null
+            })
+        }
       } else {
         setMaterials([])
       }
@@ -560,7 +576,7 @@ function FeldSurface() {
       // on a silent poll, because a cellar losing one request must not blank
       // the Schadenplatz somebody is standing at.
       if (err instanceof ApiError && err.status === 403) {
-        setAssignments([])
+        updateAssignments(() => [])
         // The request skips the transport's toast (the band speaks for an outage), so the
         // server's reason is said here.
         toast.error(err.message)
@@ -568,7 +584,7 @@ function FeldSurface() {
       }
       // Any other failure keeps the rows, silent or not, and says so: the band shows the last
       // good time, and with nothing loaded yet the list says it could not load (never «kein
-      // Auftrag»). An offline GET resolves to nothing (`lib/api/http.ts`), so it lands here too.
+      // Auftrag»). An offline GET lands here too (see the NetworkError above).
       setSyncFailed(true)
     } finally {
       // Only the newest load ends the loading state: an older one settling first would show
@@ -578,7 +594,7 @@ function FeldSurface() {
         if (!silent) setLoadingAssignments(false)
       }
     }
-  }, [token, forgetDevice])
+  }, [token, forgetDevice, updateAssignments])
 
   // The one decision on mount: has this device already been through the door?
   // A stored token means yes, and it goes straight to the list — the code is
@@ -668,7 +684,7 @@ function FeldSurface() {
       writeFeldName(person.name)
       setSelectedPerson(person)
       setViewMode('assignments')
-      setAssignments([])
+      setFeld(null)
       setSelectedIncidentId(null)
       await loadAssignments(person.personnel_id, { token: claim.token })
     } catch (err) {
@@ -783,7 +799,8 @@ function FeldSurface() {
   }, [assignments, preselectIncidentId, openAssignment])
 
   // Coming back from another tab/app should show the current state, not what
-  // the board looked like when the phone went into the pocket.
+  // the board looked like when the phone went into the pocket. Declared before the
+  // poll: this load goes out first, and the poll's own run on «visible» then skips.
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState !== 'visible') return
@@ -822,15 +839,12 @@ function FeldSurface() {
    * so the server-side "visibility is only mine" two-step is unchanged and no
    * new door was opened for this.
    */
-  useEffect(() => {
-    if (!selectedPerson || !token) return
-    const tick = () => {
-      if (document.visibilityState !== 'visible') return
-      loadAssignments(selectedPerson.personnel_id, { silent: true })
-    }
-    const interval = setInterval(tick, FELD_POLL_MS)
-    return () => clearInterval(interval)
-  }, [selectedPerson, token, loadAssignments])
+  const polledPersonId = selectedPerson?.personnel_id
+  const pollAssignments = useCallback(() => {
+    if (polledPersonId) return loadAssignments(polledPersonId, { silent: true })
+  }, [polledPersonId, loadAssignments])
+  // Not immediate: every way onto the list (the door, a pick, «Erneut versuchen») loads it itself.
+  usePolling(pollAssignments, { intervalMs: FELD_POLL_MS, enabled: Boolean(polledPersonId && token), immediate: false })
 
   /** Say you are here. Only ever true — see the attendance block below. */
   const toggleAttendance = useCallback(async () => {
@@ -839,7 +853,7 @@ function FeldSurface() {
     const next = true
     try {
       await apiClient.setFeldAttendance(selectedPerson.personnel_id, token, next)
-      setCheckedIn(next)
+      setFeld(prev => prev && { ...prev, checked_in: next })
     } catch (err) {
       console.error('Attendance toggle failed:', err)
     } finally {
@@ -851,18 +865,18 @@ function FeldSurface() {
   const saveFrom = useCallback(async (iso: string | null) => {
     if (!token || !selectedPerson) return
     await apiClient.setFeldAttendancePlan(selectedPerson.personnel_id, token, { planned_from: iso })
-    setPlan(previous => ({ ...previous, from: iso }))
+    setFeld(prev => prev && { ...prev, planned_from: iso })
   }, [token, selectedPerson])
 
   /** «Ich komme um …»: one quiet button, the bottom sheet behind it. No «Ich bin da bis …» here
    *  (owner, 20.11.2026): somebody on /feld usually stays to the end, and the button only made
    *  them wonder whether they must answer it. The KP still sets «bis» in the Appell. */
-  const fromTime = formatTime(plan.from)
+  const fromTime = formatTime(planFrom)
   const fromButton = (
     <PlannedTimePicker
       kind="from"
-      value={plan.from}
-      other={plan.until}
+      value={planFrom}
+      other={planUntil}
       title={tPlan('selfFrom')}
       hint={tPlan('hintSelf')}
       fieldLabel={tPlan('selfFrom')}
@@ -974,7 +988,7 @@ function FeldSurface() {
    * a big button feel like it did not work.
    */
   const applyFieldReport = useCallback((state: ApiFieldReportState) => {
-    setAssignments(prev =>
+    updateAssignments(prev =>
       prev.map(a =>
         a.incident_id === state.incident_id
           ? {
@@ -989,7 +1003,7 @@ function FeldSurface() {
           : a,
       ),
     )
-  }, [])
+  }, [updateAssignments])
 
   /**
    * Fold a rapport save back into the list row's state chip.
@@ -999,14 +1013,14 @@ function FeldSurface() {
    * like it did not work.
    */
   const applyRapportState = useCallback((rapport: ApiSchadenplatzRapport) => {
-    setAssignments(prev =>
+    updateAssignments(prev =>
       prev.map(a =>
         a.incident_id === rapport.incident_id
           ? { ...a, rapport_state: rapport.is_draft ? 'draft' : 'submitted', arrived_at: rapport.arrived_at }
           : a,
       ),
     )
-  }, [])
+  }, [updateAssignments])
 
   /**
    * Does this person have work of their own on the page?
@@ -1890,7 +1904,10 @@ function FeldSurface() {
             // Fold it back locally so the row changes under the thumb, and
             // refetch for the board's side of the story (it may have been
             // disponiert in the meantime).
-            setReports(prev => prev.map(item => (item.incident_id === corrected.incident_id ? corrected : item)))
+            setFeld(prev => prev && {
+              ...prev,
+              reports: prev.reports?.map(item => (item.incident_id === corrected.incident_id ? corrected : item)),
+            })
             setEditingReport(null)
             loadAssignments(selectedPerson.personnel_id)
           }}

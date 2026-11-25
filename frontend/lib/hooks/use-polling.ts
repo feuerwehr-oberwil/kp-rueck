@@ -26,6 +26,11 @@ export interface UsePollingOptions {
    * ticking the moment it drops. Default false.
    */
   skipWhileWsConnected?: boolean
+  /**
+   * Run once the moment polling starts (and again when `callback` changes). Default true.
+   * False for a caller that loads on its own first: the first run is one interval in.
+   */
+  immediate?: boolean
 }
 
 /**
@@ -44,7 +49,7 @@ export interface UsePollingOptions {
  */
 export function usePolling(
   callback: () => unknown,
-  { intervalMs, enabled = true, pauseWhenHidden = true, skipWhileWsConnected = false }: UsePollingOptions,
+  { intervalMs, enabled = true, pauseWhenHidden = true, skipWhileWsConnected = false, immediate = true }: UsePollingOptions,
 ): void {
   useEffect(() => {
     if (!enabled) return
@@ -104,7 +109,8 @@ export function usePolling(
         })
       : () => {}
 
-    void run()
+    if (immediate) void run()
+    else schedule()
 
     return () => {
       disposed = true
@@ -112,5 +118,5 @@ export function usePolling(
       if (pauseWhenHidden) document.removeEventListener("visibilitychange", onVisibilityChange)
       unsubscribeStatus()
     }
-  }, [callback, intervalMs, enabled, pauseWhenHidden, skipWhileWsConnected])
+  }, [callback, intervalMs, enabled, pauseWhenHidden, skipWhileWsConnected, immediate])
 }
