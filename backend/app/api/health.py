@@ -5,7 +5,7 @@ import os
 import secrets
 import shutil
 from datetime import datetime
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select, text
@@ -285,7 +285,9 @@ async def create_demo_sandbox(
 
 @router.post("/api/demo/reset", response_model=None)
 @limiter.limit(RateLimits.DEMO_RESET)
-async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, str]:
+async def demo_reset(
+    request: Request, current_user: CurrentAdmin, db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict[str, str]:
     """Manually trigger a demo reset. Only available in demo mode, admin only.
 
     Requires admin auth: every demo visitor shares the demo-editor account, so
@@ -297,6 +299,9 @@ async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, 
 
     from ..background.demo_reset import reset_demo
 
+    # End the request's transaction first: the admin check read `users` in it, and the reset's
+    # TRUNCATE (its own connection) waits for that read lock – the request would wait on itself.
+    await db.rollback()
     try:
         await reset_demo()
     except Exception as e:
