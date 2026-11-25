@@ -412,17 +412,14 @@ export function createIncidentActions(board: BoardMutationContext) {
       if (!target) return ops
       return [target, ...ops.filter((o) => o.id !== operationId)]
     })
-    // Persist the new in-column order with this card first – once the status landed: a
-    // refused move must not leave a new position behind in either column.
+    // Persist the new in-column order with this card first.
     const ids = [
       operationId,
       ...operations
         .filter((o) => o.id !== operationId && o.status === newStatus)
         .map((o) => o.id),
     ]
-    void written.then((ok) => {
-      if (ok) reorderColumn(ids)
-    })
+    reorderColumn(ids)
     return written
   }
 

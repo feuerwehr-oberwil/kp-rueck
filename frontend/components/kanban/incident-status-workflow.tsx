@@ -765,15 +765,20 @@ export function useIncidentStatusWorkflow({
    * sent elsewhere or the route edited. Starts it only while it is still the stop the route
    * would start (`startableNextStop`).
    */
-  // The board as of the latest render, for a decision made after an await.
+  // The board as of the latest render, for decisions made after the completion write.
   const latest = useRef({ operations, groups, startNextStop })
   latest.current = { operations, groups, startNextStop }
-  const startConfirmedNextStop = useCallback((finishedId: string, stopId: string) => {
-    const { operations: board, groups: routes, startNextStop: start } = latest.current
-    const finished = board.find((operation) => operation.id === finishedId)
-    const auftrag = finished ? findAuftragForStop(routes, finished) : null
-    if (auftrag && startableNextStop(auftrag, board, finishedId)?.id === stopId) start(stopId)
+  /** The finished stop's Auftrag on the latest board, or null. */
+  const latestRoute = useCallback((finishedId: string) => {
+    const finished = latest.current.operations.find((operation) => operation.id === finishedId)
+    return finished ? findAuftragForStop(latest.current.groups, finished) : null
   }, [])
+  const startConfirmedNextStop = useCallback((finishedId: string, stopId: string) => {
+    const auftrag = latestRoute(finishedId)
+    if (auftrag && startableNextStop(auftrag, latest.current.operations, finishedId)?.id === stopId) {
+      latest.current.startNextStop(stopId)
+    }
+  }, [latestRoute])
 
   /**
    * «Abschliessen» (and «Abschliessen & nächsten Stopp» with `startNextId`): closes the gate,
@@ -815,10 +820,13 @@ export function useIncidentStatusWorkflow({
     }
 
     // Route-owned units are released from the ROUTE — and the route is the one
-    // `materialDecisionItems` listed them from, so it is resolved the same way.
+    // `materialDecisionItems` listed them from, so it is resolved the same way. Only while
+    // the route is still done on the latest board: a stop added during the write keeps them.
+    const latestAuftrag = latestRoute(operationId)
+    const routeDone = Boolean(latestAuftrag && remainingRouteStops(latestAuftrag, latest.current.operations, operationId).length === 0)
     for (const item of returnedItems) {
       if (item.assignmentId && auftrag) {
-        void unassignGroupResource(auftrag.id, item.assignmentId)
+        if (routeDone) void unassignGroupResource(auftrag.id, item.assignmentId)
       } else {
         void removeMaterial(operationId, item.id)
       }
@@ -827,7 +835,7 @@ export function useIncidentStatusWorkflow({
     // watching the board sees the stop leave before the next one runs.
     if (startNextId) startConfirmedNextStop(operationId, startNextId)
     return { returned: returnedItems.map((item) => item.id), kept }
-  }, [changeStatusToTop, groups, materialChoice, materialDecisionGate, materialDecisionItems, materialDecisionOperation, removeMaterial, startConfirmedNextStop, unassignGroupResource])
+  }, [changeStatusToTop, groups, latestRoute, materialChoice, materialDecisionGate, materialDecisionItems, materialDecisionOperation, removeMaterial, startConfirmedNextStop, unassignGroupResource])
 
   const returningVehicleOperation = gateOperation("returningVehicle")
   // Closes itself once a vehicle is on site after all (assigned meanwhile, or set to «bleibt vor Ort»).

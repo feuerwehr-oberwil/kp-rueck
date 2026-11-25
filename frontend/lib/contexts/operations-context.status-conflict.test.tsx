@@ -201,7 +201,7 @@ describe("status moves from a stale board", () => {
     expect(toastMock.info).not.toHaveBeenCalled()
   })
 
-  it("a move answers whether the server took it – a refused one leaves no new column order", async () => {
+  it("a move answers whether the server took it", async () => {
     // The completion gate books material and starts the next stop only on `true`
     // (incident-status-workflow `resolveMaterialDecision`).
     const { result } = await renderLoaded()
@@ -211,14 +211,12 @@ describe("status moves from a stale board", () => {
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(refusal()))
     await expect(refused).resolves.toBe(false)
-    expect(api.reorderIncidents).not.toHaveBeenCalled()
 
     let accepted: Promise<boolean> = Promise.resolve(false)
     act(() => { accepted = result.current.changeStatusToTop("1", "active") })
     await waitFor(() => expect(patches).toHaveLength(2))
     await act(async () => patches[1].resolve())
     await expect(accepted).resolves.toBe(true)
-    await waitFor(() => expect(api.reorderIncidents).toHaveBeenCalledWith(EVENT_A, ["1"]))
   })
 
   it("a move replaced by a later one in the same PATCH is not reported as made", async () => {

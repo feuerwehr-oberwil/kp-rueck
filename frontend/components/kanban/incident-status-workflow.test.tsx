@@ -548,6 +548,60 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
     })
     expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
   })
+
+  it("keeps the route's Geräte on the route when a stop was added during the write", async () => {
+    const write = deferred()
+    const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
+      (_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)),
+    )
+    const unassignGroupResource = vi.fn()
+    const removeMaterial = vi.fn()
+    const routeMaterial: GroupResources = {
+      ...emptyGroupResources,
+      materials: [{ assignmentId: "a1", resourceId: "motorsaege", name: "Motorsäge" }],
+    }
+    const lastStop = operation({ id: "stop-2", groupId: "g1", status: "returning", materials: ["pumpe"] })
+    const { result, rerender } = renderHook(
+      ({ operations, groups }: { operations: Operation[]; groups: { id: string; stopIds: string[] }[] }) =>
+        useIncidentStatusWorkflow({
+          operations,
+          materials: [],
+          groups: groups as never,
+          changeStatusToTop,
+          getGroupResources: () => routeMaterial,
+          removeMaterial,
+          unassignGroupResource,
+        }),
+      {
+        initialProps: {
+          operations: [operation({ id: "stop-1", groupId: "g1", status: "complete" }), lastStop],
+          groups: [{ id: "g1", stopIds: ["stop-1", "stop-2"] }],
+        },
+      },
+    )
+
+    act(() => result.current.requestCompletion("stop-2"))
+    await waitFor(() => expect(result.current.materialAnswersLoading).toBe(false))
+    act(() => result.current.setMaterialDecision("motorsaege", "magazin"))
+    act(() => result.current.setMaterialDecision("pumpe", "magazin"))
+    let done: Promise<unknown> = Promise.resolve()
+    act(() => { done = result.current.resolveMaterialDecision(null) })
+    rerender({
+      operations: [
+        operation({ id: "stop-1", groupId: "g1", status: "complete" }),
+        lastStop,
+        operation({ id: "stop-3", groupId: "g1", status: "incoming" }),
+      ],
+      groups: [{ id: "g1", stopIds: ["stop-1", "stop-2", "stop-3"] }],
+    })
+    await act(async () => {
+      write.settle(true)
+      await done
+    })
+    expect(unassignGroupResource).not.toHaveBeenCalled()
+    // The stop's own unit is the stop's: its answer stands.
+    expect(removeMaterial).toHaveBeenCalledWith("stop-2", "pumpe")
+  })
 })
 
 describe("the material gate takes the crew's word for it", () => {
