@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 
 from app.background import roster_snapshot as bg
@@ -56,8 +57,9 @@ async def _identities(db) -> set[tuple[str, str, str]]:
 
 async def test_without_a_source_nothing_is_scheduled(monkeypatch):
     monkeypatch.setattr(settings, "roster_snapshot_source", "")
-    bg.start_roster_snapshot_scheduler()
-    assert bg.scheduler is None
+    scheduler = AsyncIOScheduler()
+    bg.schedule(scheduler)
+    assert scheduler.get_jobs() == []
 
 
 async def test_a_first_run_creates_people_with_roles_and_identities(db_session, source):
@@ -412,8 +414,9 @@ async def test_a_roster_that_does_not_match_the_index_changes_nothing(db_session
 async def test_neither_setting_means_no_scheduler(monkeypatch):
     monkeypatch.setattr(settings, "roster_snapshot_source", "")
     monkeypatch.setattr(settings, "station_index_source", "")
-    bg.start_roster_snapshot_scheduler()
-    assert bg.scheduler is None
+    scheduler = AsyncIOScheduler()
+    bg.schedule(scheduler)
+    assert scheduler.get_jobs() == []
 
 
 async def test_two_people_of_one_name_are_both_created(db_session, source):

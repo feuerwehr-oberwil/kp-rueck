@@ -1,11 +1,13 @@
-"""WebSocket manager for real-time updates."""
+"""Socket.IO transport and the broadcast functions every writer calls.
+
+A leaf: it knows the connected sessions and their rooms, and nothing of the jobs that send
+through it (the pollers start from the lifespan job table, background/jobs.py).
+"""
 
 import asyncio
 import contextlib
 import logging
-import os
 import time
-from collections.abc import Callable
 from typing import Any
 
 import socketio
@@ -16,9 +18,6 @@ from .auth.socket_sessions import SocketIdentity, cookie_identity, current_socke
 from .config import settings
 
 logger = logging.getLogger(__name__)
-
-# Callback for handling polled alarms - set by main.py during startup
-_on_divera_poll_alarm: Callable[..., Any] | None = None
 
 # Session timeout constants
 STALE_SESSION_TIMEOUT_SECONDS = 300  # 5 minutes without activity
@@ -35,44 +34,12 @@ ADMIN_ROOM_ROLES = ("admin", "editor")
 ROLE_RECHECK_SECONDS = 2.0
 
 
-def get_websocket_cors_origins() -> list[str]:
-    """
-    Get allowed origins for WebSocket CORS.
-
-    Security: Use explicit whitelist instead of wildcard to prevent
-    Cross-Site WebSocket Hijacking (CSWSH) attacks.
-    """
-    origins = list(settings.cors_origins)
-
-    # Add Railway domains from environment (more restrictive than wildcard)
-    railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
-    railway_backend = os.getenv("RAILWAY_STATIC_URL", "")
-    frontend_url = os.getenv("FRONTEND_URL", "")
-
-    if railway_frontend:
-        origins.append(f"https://{railway_frontend}")
-    if railway_backend:
-        origins.append(f"https://{railway_backend}")
-    if frontend_url:
-        origins.append(frontend_url)
-
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_origins = []
-    for origin in origins:
-        if origin not in seen:
-            seen.add(origin)
-            unique_origins.append(origin)
-
-    return unique_origins
-
-
 # Create async Socket.IO server with explicit CORS whitelist
 # Security: Explicit origins prevent Cross-Site WebSocket Hijacking
 # Performance: Disable verbose logging in production to reduce noise
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=get_websocket_cors_origins(),
+    cors_allowed_origins=settings.allowed_origins,
     cors_credentials=True,
     logger=not is_production_environment(),  # Disable in production
     engineio_logger=not is_production_environment(),  # Disable in production
@@ -92,10 +59,6 @@ class WebSocketManager:
         # (checked at, identities checked, roles of those that passed) – see ROLE_RECHECK_SECONDS.
         self._roles_memo: tuple[float, frozenset[SocketIdentity], dict[SocketIdentity, str]] | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
-        # Any, not the real class: the whole point of the lazy import below is that this
-        # module must not import the pollers at definition time (circular dependency).
-        self._divera_poller: Any = None
-        self._traccar_poller: Any = None
 
     async def start_cleanup_task(self) -> None:
         """Start the background stale session cleanup task."""
@@ -174,10 +137,6 @@ class WebSocketManager:
             "role": role,
         }
 
-        # Start pollers when first user connects
-        await self._maybe_start_divera_polling()
-        await self._maybe_start_traccar_polling()
-
     async def disconnect(self, sid: str) -> None:
         """Handle WebSocket disconnection."""
         logger.info(f"Client {sid} disconnected")
@@ -187,69 +146,6 @@ class WebSocketManager:
         # Remove session info
         self.user_sessions.pop(sid, None)
         self.session_identities.pop(sid, None)
-
-        # Stop pollers when last user disconnects
-        await self._maybe_stop_divera_polling()
-        await self._maybe_stop_traccar_polling()
-
-    async def _maybe_start_divera_polling(self) -> None:
-        """Start Divera polling if users are connected and polling is configured."""
-        if self._divera_poller is None:
-            # Lazy import to avoid circular dependencies
-            try:
-                from .services.divera_poller import divera_poller
-
-                self._divera_poller = divera_poller
-            except ImportError:
-                logger.debug("Divera poller not available")
-                return
-
-        if not self._divera_poller.is_configured:
-            return
-
-        # First user connected, start polling
-        if self.get_connection_count() == 1 and not self._divera_poller.is_polling and _on_divera_poll_alarm:
-            await self._divera_poller.start_polling(_on_divera_poll_alarm)
-            logger.info("Started Divera polling (user connected)")
-
-    async def _maybe_stop_divera_polling(self) -> None:
-        """Stop Divera polling if no users are connected."""
-        if self._divera_poller is None or not self._divera_poller.is_polling:
-            return
-
-        if self.get_connection_count() == 0:
-            # Last user disconnected, stop polling
-            await self._divera_poller.stop_polling()
-            logger.info("Stopped Divera polling (no users connected)")
-
-    async def _maybe_start_traccar_polling(self) -> None:
-        """Start Traccar polling if users are connected and Traccar is configured."""
-        if self._traccar_poller is None:
-            try:
-                from .services.traccar_poller import traccar_poller
-
-                self._traccar_poller = traccar_poller
-            except ImportError:
-                logger.debug("Traccar poller not available")
-                return
-
-        from .services.demo_positions import demo_positions_active
-
-        # The public demo has no Traccar but pushes its fixed positions the same way.
-        if not self._traccar_poller.is_configured and not demo_positions_active():
-            return
-
-        if self.get_connection_count() == 1 and not self._traccar_poller.is_polling:
-            await self._traccar_poller.start_polling()
-
-    async def _maybe_stop_traccar_polling(self) -> None:
-        """Stop Traccar polling if no users are connected."""
-        if self._traccar_poller is None or not self._traccar_poller.is_polling:
-            return
-
-        if self.get_connection_count() == 0:
-            await self._traccar_poller.stop_polling()
-            logger.info("Stopped Traccar polling (no users connected)")
 
     async def _socket_roles(self, identities: list[SocketIdentity], *, fresh: bool) -> dict[SocketIdentity, str]:
         """`current_socket_roles`, answered from the last recheck while it is recent.
@@ -289,7 +185,7 @@ class WebSocketManager:
                     await self.disconnect(sid)
                     await sio.disconnect(sid)
                 except Exception:
-                    # Application membership is removed before transport/poller cleanup.
+                    # Application membership is removed before transport cleanup.
                     # Delivery uses that membership, even if transport cleanup fails.
                     logger.warning("Failed to close revoked socket %s", sid)
             elif sid in self.user_sessions:
@@ -560,32 +456,3 @@ async def broadcast_message(data: dict[str, Any], room: str = "operations") -> N
     """
     message_type = data.get("type", "update")
     await ws_manager.broadcast_update(message_type, data, room=room)
-
-
-def set_divera_poll_callback(callback: Callable[..., Any]) -> None:
-    """
-    Set the callback for processing polled Divera alarms.
-
-    This should be called during app startup with a callback that:
-    1. Creates a database session
-    2. Checks for duplicates via divera_id
-    3. Saves new alarms to the database
-    4. Broadcasts via WebSocket
-
-    Args:
-        callback: Async function with signature:
-                  async def callback(payload: DiveraWebhookPayload) -> bool
-    """
-    global _on_divera_poll_alarm
-    _on_divera_poll_alarm = callback
-    logger.info("Divera poll callback configured")
-
-
-def get_divera_poller_stats() -> dict[str, Any] | None:
-    """Get Divera poller statistics, or None if not available."""
-    try:
-        from .services.divera_poller import divera_poller
-
-        return divera_poller.stats
-    except ImportError:
-        return None

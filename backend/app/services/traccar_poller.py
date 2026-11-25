@@ -2,7 +2,8 @@
 
 Polls Traccar server-side and broadcasts positions/trails via WebSocket,
 replacing N independent client-side polls with a single server-side poll.
-Only runs when WebSocket clients are connected.
+Runs from boot (a job of background/jobs.py) whenever there is anything to poll, board
+open or not: the GPS automation it drives must not pause when nobody is looking.
 """
 
 import asyncio
@@ -64,6 +65,7 @@ class TraccarPoller:
 
     async def stop_polling(self) -> None:
         """Stop polling."""
+        was_polling = self.is_polling
         self._should_poll = False
         for task in (self._positions_task, self._trails_task):
             if task and not task.done():
@@ -77,7 +79,8 @@ class TraccarPoller:
         # be handed positions from before the gap.
         self._last_positions = []
         self._last_positions_at = None
-        logger.info("Stopped Traccar polling")
+        if was_polling:
+            logger.info("Stopped Traccar polling")
 
     def cached_positions(self, max_age_seconds: int = POSITION_CACHE_MAX_AGE_SECONDS) -> list[VehiclePosition]:
         """Positions from the last successful poll, or `[]` if none are recent enough.

@@ -20,10 +20,7 @@ logger = get_logger(__name__)
 # interval, so the reset time is predictable for visitors.
 DEMO_RESET_TZ = ZoneInfo("Europe/Zurich")
 
-# Global state
-scheduler: AsyncIOScheduler | None = None
 _next_reset_time: datetime | None = None
-_shutting_down: bool = False
 
 
 def _next_midnight_naive() -> datetime:
@@ -162,66 +159,58 @@ def _clear_photos() -> None:
         logger.info(f"Cleared photos directory: {photos_dir}")
 
 
-async def scheduled_demo_reset() -> None:
-    """Perform a scheduled demo reset: truncate data, re-seed, broadcast."""
+async def reset_demo() -> None:
+    """Truncate every table, clear the photos, re-seed the demo and tell the open boards.
+
+    Raises on failure. The nightly job (`scheduled_demo_reset`) and `POST /api/demo/reset` both
+    call it, so a manual reset is the same reset.
+    """
     global _next_reset_time
 
-    if _shutting_down:
-        logger.debug("Demo reset skipped: shutdown in progress")
-        return
-
-    logger.info("Starting scheduled demo reset...")
-
-    # Checked here as well as inside _truncate_all_tables: this is the function the
-    # documented force-reseed one-liner imports directly, so it must refuse on its own
-    # rather than trust that a scheduler vetted it.
+    # Checked here as well as inside _truncate_all_tables: the documented force-reseed one-liner
+    # imports this module directly, so it must refuse on its own rather than trust a caller.
     await assert_disposable_database()
 
+    await _truncate_all_tables()
+    _clear_photos()
+
+    from app.seed_demo import seed_demo_database
+
+    await seed_demo_database()
+    _next_reset_time = _next_midnight_naive()
+
     try:
-        # 1. Truncate all tables
-        await _truncate_all_tables()
+        from app.websocket_manager import broadcast_message
 
-        # 2. Clear photos
-        _clear_photos()
+        await broadcast_message({"type": "demo_reset"})
+        logger.info("Broadcasted demo_reset WebSocket message")
+    except Exception as e:
+        logger.warning(f"Failed to broadcast demo_reset message: {e}")
 
-        # 3. Re-seed demo data
-        from app.seed_demo import seed_demo_database
+    logger.info("Demo reset completed successfully. Next reset at %s", _next_reset_time.isoformat())
 
-        await seed_demo_database()
 
-        # 4. Update next reset time (next local midnight)
-        _next_reset_time = _next_midnight_naive()
-
-        # 5. Broadcast reset message via WebSocket
-        try:
-            from app.websocket_manager import broadcast_message
-
-            await broadcast_message({"type": "demo_reset"})
-            logger.info("Broadcasted demo_reset WebSocket message")
-        except Exception as e:
-            logger.warning(f"Failed to broadcast demo_reset message: {e}")
-
-        logger.info("Demo reset completed successfully. Next reset at %s", _next_reset_time.isoformat())
-
+async def scheduled_demo_reset() -> None:
+    """The nightly job: `reset_demo`, with a failure logged instead of raised."""
+    logger.info("Starting scheduled demo reset...")
+    try:
+        await reset_demo()
     except NotADisposableDatabaseError:
         # A refusal is not a failed reset — it means the guard stopped us from destroying
         # something. Never fold it into the generic error path, where it reads as a hiccup.
         raise
-    except Exception as e:
-        logger.error(f"Demo reset failed: {e}")
+    except Exception:
+        logger.exception("Demo reset failed")
 
 
-def start_demo_reset_scheduler() -> None:
-    """Start the demo reset scheduler."""
-    global scheduler, _next_reset_time
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add the nightly reset to the app's scheduler (background/jobs.py); demo mode only."""
+    global _next_reset_time
 
     _next_reset_time = _next_midnight_naive()
-
     logger.info(
-        f"Starting demo reset scheduler (daily at 00:00 {DEMO_RESET_TZ.key}, next reset: {_next_reset_time.isoformat()})"
+        f"Scheduling demo reset (daily at 00:00 {DEMO_RESET_TZ.key}, next reset: {_next_reset_time.isoformat()})"
     )
-
-    scheduler = AsyncIOScheduler()
     scheduler.add_job(
         scheduled_demo_reset,
         trigger=CronTrigger(hour=0, minute=0, timezone="Europe/Zurich"),
@@ -229,18 +218,3 @@ def start_demo_reset_scheduler() -> None:
         name="Demo database reset",
         replace_existing=True,
     )
-    scheduler.start()
-
-
-def stop_demo_reset_scheduler() -> None:
-    """Stop the demo reset scheduler."""
-    global scheduler, _shutting_down
-
-    _shutting_down = True
-    if scheduler and scheduler.running:
-        logger.info("Stopping demo reset scheduler...")
-        try:
-            scheduler.shutdown(wait=False)
-            logger.info("Demo reset scheduler stopped")
-        except Exception as e:
-            logger.warning(f"Demo reset scheduler shutdown error: {e}")

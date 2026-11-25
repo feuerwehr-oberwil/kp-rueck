@@ -122,8 +122,9 @@ graph TB
 | **API Routes** | 37 route modules covering incidents, resources, feld, journal, print, weather, integrations, setup, admin |
 | **Middleware Stack** | CORS, audit logging, security headers, rate limiting |
 | **CRUD Layer** | Async database operations with eager loading (prevents N+1 queries) |
-| **WebSocket Manager** | Socket.IO server with two fixed rooms (`operations`, `admin`); every board broadcast goes to `operations` and clients filter by Ereignis |
-| **Services** | Business logic: alarm intake + inference (`divera_intake`), outbound alerting providers (`alerting/`), Divera/Traccar polling and Divera Rückmeldungen (`divera_responses`), the Verlauf journal (`journal`), duplicate detection and merge (`duplicates`, `merge_work`), Reaktionszeiten/Kennzahlen (`reaction_times`), the weather layer (`weather/`), roster snapshot + station index sync, training auto-generation, photo storage, PDF/Excel exports |
+| **WebSocket Manager** | Socket.IO transport with two fixed rooms (`operations`, `admin`) and the broadcast functions; every board broadcast goes to `operations` and clients filter by Ereignis. It runs no jobs |
+| **Background jobs** | One table, `background/jobs.py`: every scheduler and loop (Divera and Traccar pollers, notification watch, retention sweeps, …) with where it runs (standby mirror, demo). The lifespan starts them in order and stops them in reverse |
+| **Services** | Business logic: alarm intake + inference (`divera_intake`), attaching an alarm to an Ereignis (`alarm_attach`: single, bulk, auto), outbound alerting providers (`alerting/`), Divera/Traccar polling and Divera Rückmeldungen (`divera_responses`), the Verlauf journal (`journal`), duplicate detection and merge (`duplicates`, `merge_work`), Reaktionszeiten/Kennzahlen (`reaction_times`), the weather layer (`weather/`), roster snapshot + station index sync, training auto-generation, photo storage, PDF/Excel exports |
 | **Auth / Tokens** | JWT generation, validation, blocklist, role-based access |
 
 ### Database (PostgreSQL 16)
@@ -462,7 +463,7 @@ sequenceDiagram
         B->>WS: Broadcast new alarm
         WS->>C: Alarmeingang reloads (count on its icon)
     else Divera polling (fallback)
-        loop Every 30s (when clients connected)
+        loop Every 30s (from boot, when DIVERA_ACCESS_KEY is set)
             B->>D: GET /api/v2/alarms
             D-->>B: Alarm list
             B->>B: Check for new alarms

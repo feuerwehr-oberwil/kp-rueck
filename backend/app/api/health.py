@@ -294,17 +294,11 @@ async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, 
     if not settings.demo_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    from ..background.demo_reset import _clear_photos, _truncate_all_tables
+    from ..background.demo_reset import reset_demo
 
     try:
-        await _truncate_all_tables()
-        _clear_photos()
-
-        from ..seed_demo import seed_demo_database
-
-        await seed_demo_database()
-
-        return {"status": "reset_complete"}
+        await reset_demo()
     except Exception as e:
-        logger.error(f"Demo reset failed: {e}")
+        logger.exception("Demo reset failed")
         raise HTTPException(status_code=500, detail="Zurücksetzen fehlgeschlagen") from e
+    return {"status": "reset_complete"}
