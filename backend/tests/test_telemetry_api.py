@@ -131,13 +131,10 @@ async def test_unknown_stored_consent_reads_as_off(db_session):
 
 
 async def test_consent_is_admin_only(client, editor_client):
-    # 401/403 either way — what matters is that a kiosk-level login cannot flip it. Consent
-    # is a deployment decision, and the Feuerwehr is the controller, not the logged-in user.
-    assert (await client.get("/api/diag/telemetry")).status_code in (401, 403)
-    assert (await editor_client.put("/api/diag/telemetry/consent", json={"consent": "errors"})).status_code in (
-        401,
-        403,
-    )
+    # A kiosk-level login cannot flip it. Consent is a deployment decision, and the
+    # Feuerwehr is the controller, not the logged-in user.
+    assert (await client.get("/api/diag/telemetry")).status_code == 403
+    assert (await editor_client.put("/api/diag/telemetry/consent", json={"consent": "errors"})).status_code == 403
 
 
 async def test_the_generic_settings_endpoint_cannot_reach_the_consent_key(editor_client):
@@ -161,7 +158,7 @@ async def test_the_manual_report_route_no_longer_exists(editor_client):
     # pair keeps the test about the route being gone rather than about which one the router
     # happens to pick.
     r = await editor_client.post("/api/diag/report", json={"message": "kaputt"})
-    assert r.status_code in (404, 405)
+    assert r.status_code == 404
 
 
 # --- Admin surface --------------------------------------------------------------------
@@ -339,7 +336,7 @@ async def test_the_buffer_holds_the_scrubbed_text_not_the_raw_crash(client):
 
 
 async def test_export_requires_a_logged_in_user(client):
-    assert (await client.get("/api/diag/export")).status_code in (401, 403)
+    assert (await client.get("/api/diag/export")).status_code == 401
 
 
 async def test_export_hands_over_the_buffered_errors(client, editor_client):

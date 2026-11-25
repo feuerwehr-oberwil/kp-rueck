@@ -104,7 +104,7 @@ async def test_invalid_uuid_handling(editor_client: AsyncClient):
     for invalid_uuid in invalid_uuids:
         response = await editor_client.get(f"/api/incidents/{invalid_uuid}")
         # Should return 422 (validation error) not 500
-        assert response.status_code in [404, 422], f"Unexpected status for UUID: {invalid_uuid}"
+        assert response.status_code == 422, f"Unexpected status for UUID: {invalid_uuid}"
 
         # Should have proper error response
         data = response.json()
@@ -233,13 +233,12 @@ async def test_double_assignment_conflict(
     )
     assert response.status_code == 200
 
-    # Second assignment to same incident should fail or be idempotent
+    # A second assignment to the same incident is a conflict
     response = await editor_client.post(
         f"/api/incidents/{test_incident.id}/assign",
         json={"resource_type": "personnel", "resource_id": personnel_id},
     )
-    # Should return 409 (conflict) or be idempotent (200)
-    assert response.status_code in [200, 409]
+    assert response.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -539,10 +538,9 @@ async def test_pagination_boundaries(editor_client: AsyncClient, test_event: Eve
 @pytest.mark.integration
 async def test_empty_update_body(editor_client: AsyncClient, test_incident: Incident):
     """Test handling of empty update body."""
-    # Empty object should be valid (no-op update)
+    # An empty object is a valid no-op update
     response = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={})
-    # Should either succeed or return validation error
-    assert response.status_code in [200, 422]
+    assert response.status_code == 200
 
 
 # ============================================

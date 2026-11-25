@@ -368,7 +368,7 @@ async def test_an_ereignis_created_on_the_mirror_is_offline_from_the_start(
 
     created = await editor_client.post("/api/events/", json={"name": "Brand Magazin", "training_flag": False})
 
-    assert created.status_code in (200, 201)
+    assert created.status_code == 201
     state = await mirror_state(await _driver(db_session))
     assert str(next(iter(state.detached))) == created.json()["id"]
     # Led here from its first row, so the sync takes it to the hosted board.

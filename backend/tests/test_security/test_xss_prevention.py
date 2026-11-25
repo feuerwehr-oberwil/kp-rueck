@@ -62,18 +62,17 @@ async def test_incident_title_xss_stored_safely(editor_client: AsyncClient, test
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        # Payload should be stored as literal text
-        assert data["title"] == payload.strip()
+    data = response.json()
+    # Payload should be stored as literal text
+    assert data["title"] == payload.strip()
 
-        # Fetch it back to verify storage
-        incident_id = data["id"]
-        get_response = await editor_client.get(f"/api/incidents/{incident_id}")
-        assert get_response.status_code == 200
-        assert get_response.json()["title"] == payload.strip()
+    # Fetch it back to verify storage
+    incident_id = data["id"]
+    get_response = await editor_client.get(f"/api/incidents/{incident_id}")
+    assert get_response.status_code == 200
+    assert get_response.json()["title"] == payload.strip()
 
 
 @pytest.mark.asyncio
@@ -90,11 +89,10 @@ async def test_incident_description_xss_stored_safely(editor_client: AsyncClient
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["description"] == payload
+    data = response.json()
+    assert data["description"] == payload
 
 
 @pytest.mark.asyncio
@@ -111,11 +109,10 @@ async def test_incident_location_xss_stored_safely(editor_client: AsyncClient, t
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["location_address"] == payload
+    data = response.json()
+    assert data["location_address"] == payload
 
 
 @pytest.mark.asyncio
@@ -132,11 +129,10 @@ async def test_incident_contact_xss_stored_safely(editor_client: AsyncClient, te
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["contact"] == payload
+    data = response.json()
+    assert data["contact"] == payload
 
 
 @pytest.mark.asyncio
@@ -153,11 +149,10 @@ async def test_incident_internal_notes_xss_stored_safely(editor_client: AsyncCli
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["internal_notes"] == payload
+    data = response.json()
+    assert data["internal_notes"] == payload
 
 
 # ============================================
@@ -176,13 +171,12 @@ async def test_personnel_name_xss_stored_safely(editor_client: AsyncClient, payl
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        # Name is normalized but content should be preserved
-        expected = " ".join(payload.split())  # Whitespace normalization
-        assert data["name"] == expected
+    data = response.json()
+    # Name is normalized but content should be preserved
+    expected = " ".join(payload.split())  # Whitespace normalization
+    assert data["name"] == expected
 
 
 @pytest.mark.asyncio
@@ -197,11 +191,10 @@ async def test_personnel_role_xss_stored_safely(editor_client: AsyncClient, payl
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["role"] == payload
+    data = response.json()
+    assert data["role"] == payload
 
 
 # ============================================
@@ -226,11 +219,10 @@ async def test_vehicle_name_xss_stored_safely(editor_client: AsyncClient, payloa
     }
     response = await editor_client.post("/api/vehicles/", json=vehicle_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["name"] == payload.strip()
+    data = response.json()
+    assert data["name"] == payload.strip()
 
 
 @pytest.mark.asyncio
@@ -250,11 +242,10 @@ async def test_vehicle_type_xss_stored_safely(editor_client: AsyncClient, payloa
     }
     response = await editor_client.post("/api/vehicles/", json=vehicle_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["type"] == payload
+    data = response.json()
+    assert data["type"] == payload
 
 
 # ============================================
@@ -275,11 +266,10 @@ async def test_material_name_xss_stored_safely(editor_client: AsyncClient, paylo
     }
     response = await editor_client.post("/api/materials/", json=material_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["name"] == payload.strip()
+    data = response.json()
+    assert data["name"] == payload.strip()
 
 
 @pytest.mark.asyncio
@@ -296,13 +286,12 @@ async def test_material_description_xss_stored_safely(editor_client: AsyncClient
     }
     response = await editor_client.post("/api/materials/", json=material_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        # Description whitespace is stripped
-        expected = payload.strip() if payload else payload
-        assert data["description"] == expected
+    data = response.json()
+    # Description whitespace is stripped
+    expected = payload.strip() if payload else payload
+    assert data["description"] == expected
 
 
 # ============================================
@@ -321,11 +310,10 @@ async def test_event_name_xss_stored_safely(editor_client: AsyncClient, payload:
     }
     response = await editor_client.post("/api/events/", json=event_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["name"] == payload
+    data = response.json()
+    assert data["name"] == payload
 
 
 # ============================================
@@ -397,11 +385,10 @@ async def test_update_incident_xss_stored_safely(editor_client: AsyncClient, tes
     update_data = {"title": payload}
     update_response = await editor_client.patch(f"/api/incidents/{incident_id}", json=update_data)
 
-    assert update_response.status_code in [200, 422]
+    assert update_response.status_code == 200
 
-    if update_response.status_code == 200:
-        data = update_response.json()
-        assert data["title"] == payload.strip()
+    data = update_response.json()
+    assert data["title"] == payload.strip()
 
 
 # ============================================
@@ -435,8 +422,8 @@ async def test_unicode_special_characters(editor_client: AsyncClient, test_event
         }
         response = await editor_client.post("/api/incidents/", json=incident_data)
 
-        # Should handle gracefully - either accept or reject with validation error
-        assert response.status_code in [201, 422, 400]
+        # Accepted and stored as given
+        assert response.status_code == 201
 
 
 @pytest.mark.asyncio
@@ -460,9 +447,8 @@ async def test_html_entities_preserved(editor_client: AsyncClient, test_event: E
         }
         response = await editor_client.post("/api/incidents/", json=incident_data)
 
-        assert response.status_code in [201, 422]
+        assert response.status_code == 201
 
-        if response.status_code == 201:
-            data = response.json()
-            # HTML entities should be preserved, not decoded
-            assert data["title"] == entity.strip()
+        data = response.json()
+        # HTML entities should be preserved, not decoded
+        assert data["title"] == entity.strip()

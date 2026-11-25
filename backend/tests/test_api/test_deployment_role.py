@@ -138,4 +138,4 @@ async def test_inbound_alarms_still_arrive_on_staging(client: AsyncClient, db_se
             "address": "Hauptstrasse 12",
         },
     )
-    assert resp.status_code in (200, 201)
+    assert resp.status_code == 200

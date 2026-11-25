@@ -233,7 +233,7 @@ async def test_checkin_success(client: AsyncClient, valid_token: str, test_perso
 async def test_checkin_not_found(client: AsyncClient, valid_token: str):
     """Test check-in for non-existent personnel."""
     response = await client.post(f"/api/personnel/check-in/{uuid4()}/in?token={valid_token}")
-    assert response.status_code in [400, 404]
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -246,9 +246,9 @@ async def test_checkin_twice(client: AsyncClient, valid_token: str, test_personn
     response1 = await client.post(f"/api/personnel/check-in/{person.id}/in?token={valid_token}")
     assert response1.status_code == 200
 
-    # Second check-in - should either succeed or return appropriate error
+    # Checking in again is idempotent
     response2 = await client.post(f"/api/personnel/check-in/{person.id}/in?token={valid_token}")
-    assert response2.status_code in [200, 400]
+    assert response2.status_code == 200
 
 
 # ============================================
@@ -290,8 +290,8 @@ async def test_checkout_not_checked_in(client: AsyncClient, valid_token: str, te
     """Test check-out for person who wasn't checked in."""
     person = test_personnel[0]
     response = await client.post(f"/api/personnel/check-in/{person.id}/out?token={valid_token}")
-    # Should handle gracefully
-    assert response.status_code in [200, 400, 404]
+    # Nothing to undo: answered, not refused
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio

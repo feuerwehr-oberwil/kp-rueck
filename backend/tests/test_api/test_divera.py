@@ -425,7 +425,7 @@ async def test_attach_emergency_again_after_its_card_was_deleted_is_refused(
         )
     assert response1.status_code == 201
     deleted = await editor_client.delete(f"/api/incidents/{response1.json()['id']}")
-    assert deleted.status_code in (200, 204), deleted.text
+    assert deleted.status_code == 204, deleted.text
 
     response2 = await editor_client.post(
         f"/api/divera/emergencies/{test_emergency.id}/attach",
@@ -596,9 +596,9 @@ async def test_archive_emergency_idempotent(editor_client: AsyncClient, db_sessi
     response1 = await editor_client.delete(f"/api/divera/emergencies/{emergency.id}")
     assert response1.status_code == 204
 
-    # Second archive - could be 204 (idempotent) or 404 (already archived)
+    # Archiving again is idempotent
     response2 = await editor_client.delete(f"/api/divera/emergencies/{emergency.id}")
-    assert response2.status_code in [204, 404]
+    assert response2.status_code == 204
 
 
 # ============================================

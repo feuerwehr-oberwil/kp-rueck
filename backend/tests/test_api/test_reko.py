@@ -667,7 +667,7 @@ async def test_generate_reko_link_is_editor_only(client: AsyncClient, test_incid
     session.
     """
     response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
-    assert response.status_code in (401, 403)
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

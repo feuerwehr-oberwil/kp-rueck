@@ -272,9 +272,8 @@ async def test_update_notification_settings_invalid_value(editor_client: AsyncCl
         "/api/notifications/settings/",
         json={"fatigue_hours": -1},
     )
-    # API might accept negative values - depends on validation
-    # This tests the boundary behavior
-    assert response.status_code in [200, 422]
+    # A negative fatigue window is refused by validation
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

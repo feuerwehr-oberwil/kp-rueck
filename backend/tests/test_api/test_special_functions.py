@@ -340,8 +340,8 @@ async def test_assign_special_function_duplicate(
         f"/api/events/{test_event.id}/special-functions/",
         json={"personnel_id": str(test_personnel.id), "function_type": "reko"},
     )
-    # Should either succeed or return appropriate error
-    assert response.status_code in [201, 400]
+    # Assigning the same function again is accepted
+    assert response.status_code == 201
 
 
 # ============================================

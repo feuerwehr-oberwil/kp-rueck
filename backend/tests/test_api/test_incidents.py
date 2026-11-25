@@ -911,7 +911,7 @@ async def test_participants_still_names_the_leader_after_completion(
             f"/api/incidents/{test_incident.id}/assign",
             json={"resource_type": "personnel", "resource_id": str(person.id)},
         )
-        assert response.status_code in (200, 201), response.text
+        assert response.status_code == 200, response.text
 
     # The Offizier outranks the Mannschaft, so the board auto-picks them.
     participants = (await editor_client.get(f"/api/incidents/{test_incident.id}/participants")).json()

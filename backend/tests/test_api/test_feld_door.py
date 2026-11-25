@@ -346,7 +346,7 @@ class TestAccessStateIsEditorOnly:
     @pytest.mark.api
     async def test_an_anonymous_caller_cannot_read_the_code(self, client: AsyncClient, test_event: Event):
         response = await client.get(f"/api/feld/access?event_id={test_event.id}")
-        assert response.status_code in (401, 403)
+        assert response.status_code == 401
 
 
 class TestRekoLink:
@@ -426,7 +426,7 @@ class TestBoardAssignedRekoReachesTheField:
             f"/api/reko/incidents/{incident_id}/assign-reko",
             json={"personnel_id": str(person.id)},
         )
-        assert response.status_code in (200, 201), response.text
+        assert response.status_code == 201, response.text
 
         rows = (
             (
@@ -854,7 +854,7 @@ class TestSessionInsteadOfCode:
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event
     ):
         await self._login(client, db_session, "editor")
-        assert (await client.post("/api/auth/logout")).status_code in (200, 204)
+        assert (await client.post("/api/auth/logout")).status_code == 200
         response = await client.post(f"/api/feld/unlock?token={generate_feld_token(test_event.id)}", json={})
         assert response.status_code == 403
         assert response.json()["detail"]["error"] == "code_required"
@@ -885,7 +885,7 @@ class TestSessionInsteadOfCode:
     ):
         # Without a link token there is no Ereignis to open — a login alone is not a Feld link.
         await self._login(client, db_session, "editor")
-        assert (await client.post("/api/feld/unlock", json={})).status_code in (401, 422)
+        assert (await client.post("/api/feld/unlock", json={})).status_code == 422
         # ... and an expired link stays expired, session or not
         expired = generate_feld_token(test_event.id, expires_hours=-1)
         assert (await client.post(f"/api/feld/unlock?token={expired}", json={})).status_code == 401

@@ -408,7 +408,7 @@ class TestTransferUndo:
             editor_client, db_session, test_event, test_editor, test_personnel, test_vehicle
         )
         released = await editor_client.post(f"/api/incidents/{target_id}/unassign/{moved_ids[0]}")
-        assert released.status_code in (200, 204)
+        assert released.status_code == 204
 
         undo = await editor_client.post(
             f"/api/incidents/{target_id}/transfer",
