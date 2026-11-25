@@ -149,6 +149,29 @@ async def drop_scratch_database(url: str) -> None:
         await run_admin_statements(f'DROP DATABASE IF EXISTS "{name}" (FORCE)')
 
 
+async def wait_until_blocked(sessions: async_sessionmaker[AsyncSession], count: int = 1) -> None:
+    """Until ``count`` other backends wait on a row lock – i.e. the tasks under test are queued.
+
+    For lock tests on committed sessions: start the task that must queue, await this, then
+    release the lock. Fails when nothing ever waits, so a dropped lock turns the test red
+    instead of a fixed sleep passing on a slow runner.
+    """
+    async with sessions() as probe:
+        for _ in range(100):
+            waiting = await probe.scalar(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                    " AND pid <> pg_backend_pid()"
+                )
+            )
+            # pg_stat_activity is a snapshot per transaction: end it to look again.
+            await probe.rollback()
+            if waiting >= count:
+                return
+            await asyncio.sleep(0.05)
+    raise AssertionError("nothing ever waited for a lock")
+
+
 # The database this worker actually runs against.
 WORKER_DATABASE_URL = worker_database_url()
 

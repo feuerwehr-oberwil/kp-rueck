@@ -51,6 +51,7 @@ from app.models import (
     Personnel,
     User,
 )
+from tests.conftest import wait_until_blocked
 
 
 def _request() -> MagicMock:
@@ -72,24 +73,6 @@ class Board:
     material_id: UUID
     second_material_id: UUID
     person_id: UUID
-
-
-async def _wait_until_blocked(sessions: async_sessionmaker[AsyncSession], count: int = 1) -> None:
-    """Until ``count`` other backends wait on a row lock – i.e. the tasks under test are queued."""
-    async with sessions() as probe:
-        for _ in range(100):
-            waiting = await probe.scalar(
-                text(
-                    "SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()"
-                    " AND pid <> pg_backend_pid()"
-                )
-            )
-            # pg_stat_activity is a snapshot per transaction: end it to look again.
-            await probe.rollback()
-            if waiting >= count:
-                return
-            await asyncio.sleep(0.05)
-    raise AssertionError("nothing ever waited for a lock")
 
 
 @pytest_asyncio.fixture
@@ -156,7 +139,7 @@ async def test_completing_a_stop_queues_behind_a_reorder_instead_of_deadlocking(
         completing = asyncio.create_task(
             incidents_crud.update_incident_status(completion, board.stop_id, "complete", user, _request())
         )
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
 
         # Completion must be waiting for the Auftrag, not sitting on the stop.
         await asyncio.wait_for(groups_crud.reorder_group_stops(reorder, board.group_id, [board.stop_id]), timeout=5)
@@ -180,7 +163,7 @@ async def test_a_field_report_on_a_stop_queues_behind_a_reorder_instead_of_deadl
         report = asyncio.create_task(
             feld_crud.record_field_complete(reporting, stop, actor=actor, at=datetime.now(UTC), request=_request())
         )
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
 
         await asyncio.wait_for(groups_crud.reorder_group_stops(reorder, board.group_id, [board.stop_id]), timeout=5)
         await reorder.commit()
@@ -200,7 +183,7 @@ async def test_a_stop_that_joins_an_auftrag_meanwhile_gets_that_auftrag_locked(b
 
         # Reads "no Auftrag", then queues for the incident behind the mover.
         locking = asyncio.create_task(lock_incident_with_group(locker, board.loose_id))
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
         await mover.commit()
         locked = await asyncio.wait_for(locking, timeout=10)
 
@@ -227,7 +210,7 @@ async def test_archive_waits_for_an_inflight_auftrag_assignment_and_refuses(boar
         archive = asyncio.create_task(
             materials_crud.archive_material(archiving, board.material_id, archive_user, _request())
         )
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
         await assigning.commit()
 
         outcome = await asyncio.wait_for(archive, timeout=10)
@@ -269,11 +252,11 @@ async def test_transfer_and_a_standard_auftrag_lock_shared_resources_in_one_orde
             transfer = asyncio.create_task(
                 assignments_crud.transfer_assignments(transferring, board.loose_id, board.stop_id, user, _request())
             )
-            await _wait_until_blocked(board.sessions)
+            await wait_until_blocked(board.sessions)
             templates = asyncio.create_task(
                 auftrag_templates_crud.instantiate_auto_templates(opening, board.event_id, board.user_id)
             )
-            await _wait_until_blocked(board.sessions, count=2)
+            await wait_until_blocked(board.sessions, count=2)
             await holder.rollback()
 
             moved = await asyncio.wait_for(transfer, timeout=10)
@@ -302,7 +285,7 @@ async def test_personnel_delete_locks_the_incidents_it_nulls_before_the_person(b
         user = await deleting.get(User, board.user_id)
         assert user is not None
         deletion = asyncio.create_task(personnel_crud.delete_personnel(deleting, board.person_id, user, _request()))
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
 
         # The delete must be queued for the incident, not sitting on the person.
         person = await asyncio.wait_for(lock_resource(assigning, "personnel", board.person_id), timeout=5)
@@ -323,7 +306,7 @@ async def test_clearing_attendance_waits_for_the_person_lock(board: Board):
     async with board.sessions() as undo, board.sessions() as clearing:
         await lock_resource(undo, "personnel", board.person_id)
         clear = asyncio.create_task(checkin_crud.clear_personnel_attendance(clearing, board.event_id, board.person_id))
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
         assert not clear.done()
         await undo.commit()
 
@@ -347,7 +330,7 @@ async def test_an_exact_reko_release_waits_for_the_incident_lock(board: Board):
                 releasing, board.loose_id, board.person_id, row.id
             )
         )
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
         held = await holder.get(IncidentAssignment, row.id)
         assert held is not None
         held.unassigned_at = datetime.now(UTC)
@@ -375,7 +358,7 @@ async def test_two_restores_serialize_and_recognize_their_shared_pump(board: Boa
         assert user is not None and second_user is not None
         assert await incidents_crud.restore_incident(first, ids[0], user, _request())
         restoring = asyncio.create_task(incidents_crud.restore_incident(second, ids[1], second_user, _request()))
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
         await first.commit()
         assert await asyncio.wait_for(restoring, timeout=10)
         await second.commit()
@@ -412,7 +395,7 @@ async def test_a_field_takeover_queues_behind_a_board_assignment_instead_of_dead
         # A board assignment holds the reporter's Auftrag and is about to lock the person.
         await lock_groups(assigning, [board.group_id])
         report = asyncio.create_task(_report_and_take_over(board, reporting))
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
 
         # The report must be queued for the Auftrag, not key-sharing the person already.
         person = await asyncio.wait_for(lock_resource(assigning, "personnel", board.person_id), timeout=5)
@@ -437,7 +420,7 @@ async def test_a_field_takeover_onto_an_auftrag_deleted_meanwhile_takes_it_on_al
         # The Auftrag is being deleted: it is locked and its stop already detached.
         assert await groups_crud.soft_delete_group(deleting, board.group_id, user, _request()) is not None
         report = asyncio.create_task(_report_and_take_over(board, reporting))
-        await _wait_until_blocked(board.sessions)
+        await wait_until_blocked(board.sessions)
         await deleting.commit()
 
         incident, mode = await asyncio.wait_for(report, timeout=10)
@@ -503,7 +486,7 @@ async def test_a_reko_replacement_locks_the_incoming_person_with_the_crew_it_may
                     _request(), BackgroundTasks(), user, outgoing_id, incoming_id, board.event_id, replacing
                 )
             replacement = asyncio.create_task(write)
-            await _wait_until_blocked(board.sessions)
+            await wait_until_blocked(board.sessions)
 
             assert await asyncio.wait_for(lock_resource(deleting, "personnel", incoming_id), timeout=5) is not None
             await deleting.commit()
