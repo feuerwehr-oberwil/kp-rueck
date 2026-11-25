@@ -206,9 +206,9 @@ export function createIncidentActions(board: BoardMutationContext) {
     }
 
     if (isLoaded) {
-      // Resolves true when the server took the batch, false when it did not (refused,
-      // failed, or dropped because the session changed hands) – after the toasts.
-      const performUpdate = async (batchedUpdates: Partial<Operation>): Promise<boolean> => {
+      // Resolves with the batch the server took, null when it did not (refused, failed,
+      // or dropped because the session changed hands) – after the toasts.
+      const performUpdate = async (batchedUpdates: Partial<Operation>): Promise<Partial<Operation> | null> => {
         const statusGuard = batchedUpdates.status !== undefined ? statusGuardRef.current.get(operationId) : undefined
         statusGuardRef.current.delete(operationId)
         const apiUpdates: Partial<ApiIncidentUpdate> = {}
@@ -279,7 +279,7 @@ export function createIncidentActions(board: BoardMutationContext) {
           )
           if (sent.ticket) noteFieldSettled(sent.ticket, { ok: true })
           if (isReopeningOperation) await refreshOperations()
-          return wrote
+          return wrote ? batchedUpdates : null
         } catch (err) {
           // A 409 is somebody else's newer write – an answer the UI states, not a fault to log.
           if (!ApiError.isConflictError(err)) console.error("Failed to update operation:", err)
@@ -321,7 +321,7 @@ export function createIncidentActions(board: BoardMutationContext) {
           } else if (!failureShownAtField()) {
             toast.error(translateOutsideReact('notifications.operations.updateFailedTitle'), { description: translateOutsideReact('notifications.operations.updateFailedDescription') })
           }
-          return false
+          return null
         } finally {
           if (criticalUpdateInProgress.current) criticalUpdateInProgress.current = false
           releaseAssignmentCooldown()
@@ -338,7 +338,11 @@ export function createIncidentActions(board: BoardMutationContext) {
       const isCriticalUpdate =
         merged.location !== undefined || merged.coordinates !== undefined || merged.status !== undefined
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
-      return updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? 50 : 500, performUpdate)
+      // True only when the batch that carried this edit landed AND still says what this
+      // edit said about the status: a later move merged into the same batch replaced it.
+      return updateBatcherRef.current
+        .schedule(operationId, normalizedUpdates, isCriticalUpdate ? 50 : 500, performUpdate)
+        .then((sent) => sent !== null && (normalizedUpdates.status === undefined || sent.status === normalizedUpdates.status))
     }
     // Before the first load the edit is local only – nothing to wait for.
     releaseAssignmentCooldown(3000)
@@ -408,14 +412,17 @@ export function createIncidentActions(board: BoardMutationContext) {
       if (!target) return ops
       return [target, ...ops.filter((o) => o.id !== operationId)]
     })
-    // Persist the new in-column order with this card first.
+    // Persist the new in-column order with this card first – once the status landed: a
+    // refused move must not leave a new position behind in either column.
     const ids = [
       operationId,
       ...operations
         .filter((o) => o.id !== operationId && o.status === newStatus)
         .map((o) => o.id),
     ]
-    reorderColumn(ids)
+    void written.then((ok) => {
+      if (ok) reorderColumn(ids)
+    })
     return written
   }
 

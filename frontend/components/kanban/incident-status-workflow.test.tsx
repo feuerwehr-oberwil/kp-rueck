@@ -512,6 +512,42 @@ describe("the completion write comes first (hunt follow-up 25.11.)", () => {
     expect(applyRapportMaterialDecisions).not.toHaveBeenCalled()
     expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
   })
+
+  it("starts the next stop only if it still is the next one once the write landed", async () => {
+    // A slow write: meanwhile the KP sent the squad to stop 3. Starting stop 2 as well
+    // would dispatch two stops for one squad.
+    const write = deferred()
+    const changeStatusToTop = vi.fn<(operationId: string, status: OperationStatus, extra?: Partial<Operation>) => Promise<boolean>>(
+      (_id, status) => (status === "complete" ? write.promise : Promise.resolve(true)),
+    )
+    const stops = (third: Operation["status"]) => [
+      operation({ id: "stop-1", groupId: "g1", status: "returning", crew: [crewMember("AdF Eins")] }),
+      operation({ id: "stop-2", groupId: "g1", status: "incoming" }),
+      operation({ id: "stop-3", groupId: "g1", status: third }),
+    ]
+    const { result, rerender } = renderHook(
+      ({ operations }: { operations: Operation[] }) => useIncidentStatusWorkflow({
+        operations,
+        materials: [],
+        groups: [{ id: "g1", stopIds: ["stop-1", "stop-2", "stop-3"] }] as never,
+        changeStatusToTop,
+        getGroupResources: () => squadOnRoute,
+        removeMaterial: vi.fn(),
+        unassignGroupResource: vi.fn(),
+      }),
+      { initialProps: { operations: stops("incoming") } },
+    )
+
+    act(() => result.current.requestCompletion("stop-1"))
+    let done: Promise<unknown> = Promise.resolve()
+    act(() => { done = result.current.resolveMaterialDecision("stop-2") })
+    rerender({ operations: stops("active") })
+    await act(async () => {
+      write.settle(true)
+      await done
+    })
+    expect(changeStatusToTop).not.toHaveBeenCalledWith("stop-2", "active")
+  })
 })
 
 describe("the material gate takes the crew's word for it", () => {

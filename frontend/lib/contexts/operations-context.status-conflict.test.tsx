@@ -93,6 +93,7 @@ const api = vi.hoisted(() => ({
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
   updateIncident: vi.fn(),
+  reorderIncidents: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -136,6 +137,7 @@ beforeEach(() => {
         patches.push({ id, body, resolve, reject })
       }),
   )
+  api.reorderIncidents.mockReset().mockResolvedValue(undefined)
   refreshPersonnel.mockReset().mockResolvedValue([])
   refreshMaterials.mockReset().mockResolvedValue([])
   toastMock.error.mockReset()
@@ -199,25 +201,37 @@ describe("status moves from a stale board", () => {
     expect(toastMock.info).not.toHaveBeenCalled()
   })
 
-  it("a move answers whether the server took it – every move merged into the PATCH hears it", async () => {
+  it("a move answers whether the server took it – a refused one leaves no new column order", async () => {
     // The completion gate books material and starts the next stop only on `true`
     // (incident-status-workflow `resolveMaterialDecision`).
     const { result } = await renderLoaded()
 
-    let first: Promise<boolean> = Promise.resolve(true)
-    let second: Promise<boolean> = Promise.resolve(true)
-    act(() => { first = result.current.updateOperation("1", { status: "enroute" }) })
-    act(() => { second = result.current.changeStatusToTop("1", "active") })
+    let refused: Promise<boolean> = Promise.resolve(true)
+    act(() => { refused = result.current.changeStatusToTop("1", "complete") })
     await waitFor(() => expect(patches).toHaveLength(1))
     await act(async () => patches[0].reject(refusal()))
-    await expect(first).resolves.toBe(false)
-    await expect(second).resolves.toBe(false)
+    await expect(refused).resolves.toBe(false)
+    expect(api.reorderIncidents).not.toHaveBeenCalled()
 
     let accepted: Promise<boolean> = Promise.resolve(false)
-    act(() => { accepted = result.current.updateOperation("1", { status: "active" }) })
+    act(() => { accepted = result.current.changeStatusToTop("1", "active") })
     await waitFor(() => expect(patches).toHaveLength(2))
     await act(async () => patches[1].resolve())
     await expect(accepted).resolves.toBe(true)
+    await waitFor(() => expect(api.reorderIncidents).toHaveBeenCalledWith(EVENT_A, ["1"]))
+  })
+
+  it("a move replaced by a later one in the same PATCH is not reported as made", async () => {
+    const { result } = await renderLoaded()
+
+    let replaced: Promise<boolean> = Promise.resolve(true)
+    let latest: Promise<boolean> = Promise.resolve(false)
+    act(() => { replaced = result.current.updateOperation("1", { status: "complete" }) })
+    act(() => { latest = result.current.updateOperation("1", { status: "active" }) })
+    await waitFor(() => expect(patches).toHaveLength(1))
+    await act(async () => patches[0].resolve())
+    await expect(replaced).resolves.toBe(false)
+    await expect(latest).resolves.toBe(true)
   })
 
   it("«Trotzdem» sends the stale view it was made from and the state it overrides", async () => {
