@@ -29,7 +29,6 @@ from ..models import AuditLog, User
 from .audit import log_action
 
 VehicleFact = Literal["vehicle_on_site", "vehicle_returned", "vehicle_down"]
-VEHICLE_FACT_ACTIONS: tuple[VehicleFact, ...] = ("vehicle_on_site", "vehicle_returned", "vehicle_down")
 
 
 async def record_vehicle_fact(

@@ -13,7 +13,6 @@ import { expect, type Page } from '@playwright/test';
 
 export {
   API_BASE,
-  SELECTED_EVENT_KEY,
   cookieHeaderFor,
   createEventWithIncident,
   dismissOverlays,

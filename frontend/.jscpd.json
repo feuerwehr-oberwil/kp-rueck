@@ -1,0 +1,20 @@
+{
+  "threshold": 1,
+  "minTokens": 70,
+  "format": ["typescript", "tsx", "javascript", "css"],
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/test-results/**",
+    "**/playwright-report/**",
+    "**/__screenshots__/**",
+    "**/*.snap",
+    "pnpm-lock.yaml",
+    "public/**"
+  ],
+  "reporters": ["console"],
+  "absolute": false
+}

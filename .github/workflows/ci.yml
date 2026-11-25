@@ -614,6 +614,68 @@ jobs:
         run: node site/build.mjs --check
 
   # ============================================
+  # Static analysis: dead code, unused dependencies, duplicates (`just lint-dead` locally).
+  # Today's findings are the baseline, so this fails only on new ones: frontend/knip.jsonc,
+  # backend/vulture_whitelist.py and [tool.deptry] in backend/pyproject.toml. jscpd fails when
+  # the duplicated-lines share goes above `threshold` in frontend/.jscpd.json or
+  # backend/.jscpd.json (JSON without comments: jscpd ignores a config it cannot parse).
+  # ============================================
+  static-analysis:
+    name: Static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --dev
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Frontend – unused files, exports and dependencies (knip)
+        working-directory: frontend
+        run: pnpm exec knip
+
+      - name: Frontend – duplicates (jscpd)
+        working-directory: frontend
+        run: pnpm exec jscpd .
+
+      - name: Backend – dead code (vulture)
+        working-directory: backend
+        run: uv run vulture
+
+      - name: Backend – unused and missing dependencies (deptry)
+        working-directory: backend
+        run: uv run deptry .
+
+      - name: Backend – duplicates (jscpd)
+        working-directory: backend
+        run: ../frontend/node_modules/.bin/jscpd .
+
+  # ============================================
   # E2E — the @smoke subset only.
   #
   # The full suite is ~300 specs at ~25 minutes and flaky enough that a red result had stopped

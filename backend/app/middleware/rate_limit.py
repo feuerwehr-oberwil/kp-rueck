@@ -125,8 +125,6 @@ class RateLimits:
     # username spraying from a single host, so it sits well above legitimate
     # command-post traffic. Tune via LOGIN_RATE_LIMIT_PER_IP.
     LOGIN = settings.login_rate_limit_per_ip
-    REGISTER = "3/minute"
-    PASSWORD_RESET = "3/minute"  # noqa: S105 – a rate limit, not a secret
 
     # Handing a credential back to an admin who asked for it (the alarm webhook secret).
     # Deliberately loose enough that an admin copying it into a dispatch provider's form,
@@ -143,13 +141,11 @@ class RateLimits:
     DEFAULT = "100/minute"
 
     # Demo mode - tighter limits
-    DEMO_DEFAULT = "60/minute"
     DEMO_RESET = "2/hour"
     DEMO_SANDBOX = "10/hour"
 
     # Resource-intensive endpoints
     EXPORT = "10/minute"
-    BULK_OPERATIONS = "20/minute"
 
     # File uploads
     PHOTO_UPLOAD = "30/minute"

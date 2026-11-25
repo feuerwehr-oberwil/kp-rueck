@@ -24,7 +24,6 @@ export enum AuthErrorType {
   NETWORK_ERROR = 'NETWORK_ERROR',
   TIMEOUT = 'TIMEOUT',
   SERVER_ERROR = 'SERVER_ERROR',
-  UNKNOWN = 'UNKNOWN',
 }
 
 export class AuthError extends Error {

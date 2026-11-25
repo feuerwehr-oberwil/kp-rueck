@@ -61,8 +61,6 @@ import { MoveMenuItems, ReorderMenu } from "@/components/ui/reorder-menu"
 import { ACCENT_BAR, stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/route-start"
 
-export type StopState = "erledigt" | "laeuft" | "offen"
-
 // ── Optimize-from wand ───────────────────────────────────────────────────────
 // A single wand icon button (shared by the Auftrags-Editor modal, the /map
 // Auftrags-Editor panel and the Aufträge sheet) that, on click, opens a dropdown of
@@ -149,14 +147,6 @@ export function RouteOptimizeMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
-
-/** Derived checklist state of a single stop, straight from its incident status. */
-export function deriveStopState(op: Operation | undefined): StopState {
-  if (!op) return "offen"
-  if (op.status === "returning" || op.status === "complete") return "erledigt"
-  if (op.status === "active") return "laeuft"
-  return "offen"
 }
 
 // ── Kanban-column mirror ─────────────────────────────────────────────────────

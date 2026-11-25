@@ -1,0 +1,33 @@
+// knip: unused files, exports, types and dependencies. Run `pnpm lint:dead` (knip + jscpd).
+// CI's static-analysis job runs the same. The ignoreIssues list is the baseline of 2026-11-25:
+// a new finding fails; remove an entry when its file is cleaned up.
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // An export its own file uses is API shape, not dead code.
+  "ignoreExportsUsedInFile": true,
+  "entry": ["scripts/*.mjs"],
+  "project": ["**/*.{ts,tsx,mjs,css}"],
+  "playwright": {
+    "config": ["playwright.config.ts", "playwright.*.config.ts"]
+  },
+  // Only a JSDoc type in postcss.config.mjs; it comes in with @tailwindcss/postcss.
+  "ignoreDependencies": ["postcss-load-config"],
+  "ignoreIssues": {
+    // shadcn/ui primitives keep the full part set of their Radix component.
+    "components/ui/alert-dialog.tsx": ["exports"],
+    "components/ui/alert.tsx": ["exports"],
+    "components/ui/card.tsx": ["exports"],
+    "components/ui/command.tsx": ["exports"],
+    "components/ui/context-menu.tsx": ["exports"],
+    "components/ui/dialog.tsx": ["exports"],
+    "components/ui/dropdown-menu.tsx": ["exports"],
+    "components/ui/form.tsx": ["exports"],
+    "components/ui/select.tsx": ["exports"],
+    "components/ui/sheet.tsx": ["exports"],
+    "components/ui/table.tsx": ["exports"],
+    // Files that open branches change; clean these up after they merge.
+    "components/ui/incident-time.tsx": ["types"],
+    "lib/contexts/operations/types.ts": ["types"],
+    "lib/priority.ts": ["duplicates"]
+  }
+}
