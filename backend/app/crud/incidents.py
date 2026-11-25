@@ -550,12 +550,14 @@ async def create_incident(
     *,
     source: str | None = None,
     source_ref: str | None = None,
+    possible_duplicate_of_id: uuid.UUID | None = None,
     audit_extra: dict[str, Any] | None = None,
 ) -> Incident:
     """Create new incident with audit logging. Flushes; the caller (the request) commits.
 
     ``current_user=None`` is the system (the alarm auto-attach); ``audit_extra`` joins the
-    audit row's changes (``{"auto_attach_divera": True}``).
+    audit row's changes (``{"auto_attach_divera": True}``). ``possible_duplicate_of_id`` is the
+    «mögliches Duplikat» flag an alarm attach found before the card existed.
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
@@ -588,6 +590,7 @@ async def create_incident(
         group_position=group_position,
         source=source or editor_source,
         source_ref=source_ref,
+        possible_duplicate_of_id=possible_duplicate_of_id,
     )
 
     db.add(db_incident)

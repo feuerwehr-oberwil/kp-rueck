@@ -64,26 +64,43 @@ async def attach(
     wraps it in a savepoint must not fail after it inside that savepoint.
     """
     previous_event_id = emergency.attached_to_event_id
+    card_data = incident_create_from_emergency(
+        emergency,
+        event_id,
+        description_filter_prefixes=await get_alarm_description_filter_prefixes(db),
+        description_label_prefixes=await get_alarm_description_label_prefixes(db),
+    )
+    duplicate_of: uuid.UUID | None = None
+    if merge_into is None:
+        # Nobody looked at a duplicate hint for this card (or it had not loaded before the
+        # click): the card itself says so and offers the one-click merge. Looked up before the
+        # card exists and stored with its INSERT, so the flag's foreign key takes the other
+        # card's lock before create_incident writes the Ereignis row – a status update holds a
+        # card and then writes the Ereignis, and the reverse order could deadlock with it.
+        candidates = await duplicates.find_duplicate_candidates(
+            db,
+            event_id,
+            lat=card_data.location_lat,
+            lng=card_data.location_lng,
+            address=card_data.location_address,
+            limit=1,
+        )
+        duplicate_of = candidates[0].incident.id if candidates else None
+    audit_extra: dict[str, object] = {"auto_attach_divera": True} if actor is None else {}
+    if duplicate_of is not None:
+        audit_extra["possible_duplicate_of_id"] = str(duplicate_of)
     incident = await incidents_crud.create_incident(
         db=db,
-        incident=incident_create_from_emergency(
-            emergency,
-            event_id,
-            description_filter_prefixes=await get_alarm_description_filter_prefixes(db),
-            description_label_prefixes=await get_alarm_description_label_prefixes(db),
-        ),
+        incident=card_data,
         current_user=actor,
         request=request,
         source=emergency.source or "divera",
         source_ref=emergency.source_id,
-        audit_extra={"auto_attach_divera": True} if actor is None else None,
+        possible_duplicate_of_id=duplicate_of,
+        audit_extra=audit_extra,
     )
     merged: duplicates.MergeResult | None = None
-    if merge_into is None:
-        # Nobody looked at a duplicate hint for this card (or it had not loaded before the
-        # click): the card itself says so and offers the one-click merge.
-        await duplicates.flag_possible_duplicate(db, incident)
-    else:
+    if merge_into is not None:
         # The alarm's report becomes a Nachtrag on the open card. Its own row is still written
         # and linked: it keeps source/source_ref, and it is what «Trennen» brings back.
         merged = await duplicates.merge_report(db, report=incident, target=merge_into, user=actor, request=request)
@@ -129,13 +146,15 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
     Never raises: a failed auto-attach must not fail the webhook ACK back to
     Divera — the emergency is already stored and stays manually attachable.
     """
+    # Read now: the savepoint's rollback expires the row, and a lazy load here is a MissingGreenlet.
+    provider_id = emergency.divera_id
     try:
         # A savepoint: the caller's transaction holds the emergency itself, which a failed
         # attach must not take down with it.
         async with db.begin_nested():
             return await _auto_attach(db, emergency)
     except Exception:
-        logger.exception("Auto-attach failed for Divera emergency %s", emergency.divera_id)
+        logger.exception("Auto-attach failed for Divera emergency %s", provider_id)
         # Leave the session usable for the caller's response handling. The
         # rollback expires loaded attributes, so re-load the emergency before
         # the caller serializes it (sync attribute access on an expired object
