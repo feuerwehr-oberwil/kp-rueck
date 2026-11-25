@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models import Event, Incident, Setting
 from app.standby import (
+    LOCAL_IDENTITY_START,
+    _lift_identities,
     event_links,
     install_guards,
     mirror_state,
@@ -210,6 +212,32 @@ async def test_the_boxs_own_journal_rows_never_take_a_seq_the_hosted_board_hands
     assert own >= 10**15
     await _as_replication(conn, mirrored, uuid4(), start + 3, a.id)
     assert own < 2**53  # still exact as a JavaScript number
+
+
+@pytest.mark.asyncio
+async def test_lifting_the_identities_never_hands_out_a_value_the_box_already_wrote(db_session):
+    """After a reset the box's sequence starts again, but the rows it wrote before are still there."""
+    event = Event(id=uuid4(), name="Unwetter", training_flag=False, created_at=datetime.now(UTC))
+    db_session.add(event)
+    await db_session.flush()
+    conn = await _driver(db_session)
+    written_before = LOCAL_IDENTITY_START + 50
+    await conn.execute(
+        "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, $2, $3, 'manual', 'vor dem Reset')",
+        uuid4(),
+        written_before,
+        event.id,
+    )
+    # The sequence back at its start (sequences outlive the test's rollback, so it is set here).
+    await conn.execute("SELECT setval(pg_get_serial_sequence('public.journal_entries', 'seq'), 1, false)")
+    insert = "INSERT INTO journal_entries (id, event_id, kind, text) VALUES ($1, $2, 'manual', 'x') RETURNING seq"
+
+    await _lift_identities(conn)
+    first = await conn.fetchval(insert, uuid4(), event.id)
+    await _lift_identities(conn)  # every setup round lifts again
+    second = await conn.fetchval(insert, uuid4(), event.id)
+
+    assert (first, second) == (written_before + 1, written_before + 2)
 
 
 @pytest.mark.asyncio
