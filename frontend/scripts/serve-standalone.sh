@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Serve the production bundle that ci.yml's frontend-build job packs (next-standalone.tgz), for
-# the browser jobs that run against it: unpack it, put the static files beside the server,
-# start `node server.js` in the background and wait until it answers.
+# Serve the production bundle that ci.yml's frontend-build job packs (next-standalone.tgz, with
+# the built public/), for the browser jobs that run against it: unpack it over the checkout, put
+# the static files beside the server, start `node server.js` in the background, and wait until
+# it answers.
 # Run from frontend/: `bash scripts/serve-standalone.sh <port> <api-url>`. The log is next-server.log.
 set -euo pipefail
 port=$1

@@ -622,8 +622,10 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
+      # public/ too: `prebuild` writes the MapLibre worker into it, and that file is gitignored,
+      # so a fresh checkout's public/ lacks it.
       - name: Pack the standalone server
-        run: tar -czf next-standalone.tgz .next/standalone .next/static
+        run: tar -czf next-standalone.tgz .next/standalone .next/static public
 
       - name: Upload the standalone server
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
