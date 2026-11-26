@@ -17,7 +17,7 @@ import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSPr
 import type { Map as MlMap } from "maplibre-gl"
 import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
-import type { IncidentStatus, StatusGroup } from "@/lib/types/incidents"
+import type { StatusGroup } from "@/lib/types/incidents"
 import type { MapIncident } from "@/lib/map-incident"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { BaseMap } from "./map/base-map"
@@ -133,11 +133,11 @@ function IncidentPin({
   // When a "Färben nach" dimension is active, the marker fill is overridden with
   // that group's colour; otherwise it falls back to the priority colour.
   const priorityColor =
-    PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? PRIORITY_MARKER_COLORS.low
+    PRIORITY_MARKER_COLORS[incident.priority] ?? PRIORITY_MARKER_COLORS.low
   const fillColor = accentColor || priorityColor
   const size = incidentPinSize(highlighted, compact)
 
-  const statusGroup = STATUS_TO_GROUP[incident.status as IncidentStatus] || 'open'
+  const statusGroup = STATUS_TO_GROUP[incident.status] || 'open'
   const borderStyle = STATUS_GROUP_BORDER_STYLE[statusGroup]
   const rings = incidentPinRings(size, compact, statusGroup)
 
@@ -860,7 +860,7 @@ function usePinClusters(
           x: point.x,
           y: point.y,
           priority: spot.lead.priority,
-          statusGroup: STATUS_TO_GROUP[spot.lead.status as IncidentStatus] || "open",
+          statusGroup: STATUS_TO_GROUP[spot.lead.status] || "open",
           count: spot.incidents.length,
         }
       })
@@ -943,7 +943,7 @@ function ClusterMarker({
         <ClusterBubble
           count={cluster.incidents.length}
           priority={priority}
-          group={STATUS_TO_GROUP[cluster.lead.status as IncidentStatus] || "open"}
+          group={STATUS_TO_GROUP[cluster.lead.status] || "open"}
           compact={compact}
         />
       </button>
@@ -1044,7 +1044,7 @@ function SpotListRow({
   const t = useTranslations("map")
   const tKanban = useTranslations("kanban")
   const doubleClickRef = useOpenOnDoubleClick(onOpen ? () => onOpen(incident.id) : undefined)
-  const color = PRIORITY_MARKER_COLORS[incident.priority as keyof typeof PRIORITY_MARKER_COLORS] ?? PRIORITY_MARKER_COLORS.low
+  const color = PRIORITY_MARKER_COLORS[incident.priority] ?? PRIORITY_MARKER_COLORS.low
   // What tells them apart at one address: the Meldung, else the Einsatzart. Not the title – that
   // is the address again (the board shows it only where an address is missing).
   const what = incident.description?.trim() || getIncidentTypeLabel(incident.type)
@@ -1608,7 +1608,7 @@ export default function MapView({
       incidents.filter((inc) => {
         if (inc.location_lat === null || inc.location_lng === null) return false
         if (inc.id === filterExceptionId) return true
-        const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+        const group = STATUS_TO_GROUP[inc.status]
         return group && statusFilters[group]
       }),
     [incidents, statusFilters, filterExceptionId]
@@ -1620,7 +1620,7 @@ export default function MapView({
       incidents.filter((inc) => {
         if (inc.location_lat !== null && inc.location_lng !== null) return false
         if (inc.id === filterExceptionId) return true
-        const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+        const group = STATUS_TO_GROUP[inc.status]
         return group && statusFilters[group]
       }),
     [incidents, statusFilters, filterExceptionId]
@@ -1801,7 +1801,7 @@ export default function MapView({
   const assignmentByVehicle = useMemo(() => {
     const byName = new Map<string, string>()
     for (const incident of incidents) {
-      if (STATUS_TO_GROUP[incident.status as IncidentStatus] === "completed") continue
+      if (STATUS_TO_GROUP[incident.status] === "completed") continue
       const label = `${incident.number ?? ""} ${shortAddressOf(incident)}`.trim()
       for (const vehicle of incident.assigned_vehicles) byName.set(normalizeVehicleName(vehicle.name), label)
     }

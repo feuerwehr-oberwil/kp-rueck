@@ -121,7 +121,7 @@ function installStorage() {
     get length() {
       return data.size
     },
-  } as Storage)
+  })
 }
 
 describe('per-device persistence', () => {

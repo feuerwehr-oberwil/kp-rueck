@@ -96,7 +96,7 @@ export function useFieldSave(incidentId: string, field: SavedTextField, serverVa
       value: draft ?? server,
       failed,
       draft,
-      changedOnServer: failed && draft !== null && server !== entry!.base && server !== draft,
+      changedOnServer: failed && draft !== null && server !== entry.base && server !== draft,
       serverValue: server,
     }
   }, [entry, server, incidentId, field])

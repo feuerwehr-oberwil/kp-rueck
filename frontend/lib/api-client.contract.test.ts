@@ -64,7 +64,7 @@ function sent(index = -1): Sent {
   const raw = init.body
   let body: unknown = undefined
   if (typeof raw === 'string') body = JSON.parse(raw)
-  else if (raw instanceof FormData) body = Object.fromEntries([...raw.entries()].map(([k, v]) => [k, typeof v === 'string' ? v : (v as File).name]))
+  else if (raw instanceof FormData) body = Object.fromEntries([...raw.entries()].map(([k, v]) => [k, typeof v === 'string' ? v : v.name]))
   return { method: init.method ?? 'GET', path: url.startsWith(BASE) ? url.slice(BASE.length) : url, body, init }
 }
 
@@ -147,7 +147,7 @@ const rows: Row[] = [
   ['getEvents', () => apiClient.getEvents(), 'GET', '/api/events/'],
   ['getEvents(archived)', () => apiClient.getEvents(true), 'GET', '/api/events/?include_archived=true'],
   ['archiveEvent', () => apiClient.archiveEvent('e1', { checkoutAttendees: true }), 'POST', '/api/events/e1/archive?checkout_attendees=true'],
-  ['unassignSpecialFunction', () => apiClient.unassignSpecialFunction('e1', { personnel_id: 'p1', function_type: 'driver' } as never), 'DELETE', '/api/events/e1/special-functions/', { personnel_id: 'p1', function_type: 'driver' }],
+  ['unassignSpecialFunction', () => apiClient.unassignSpecialFunction('e1', { personnel_id: 'p1', function_type: 'driver' }), 'DELETE', '/api/events/e1/special-functions/', { personnel_id: 'p1', function_type: 'driver' }],
   // Incidents
   ['getIncidents', () => apiClient.getIncidents('e1', { status: 'active', skip: 0, limit: 50 }), 'GET', '/api/incidents/?event_id=e1&status=active&skip=0&limit=50'],
   ['updateIncident', () => apiClient.updateIncident('i1', { priority: 'high' }, '2026-09-23T08:00:00+00:00'), 'PATCH', '/api/incidents/i1?expected_updated_at=2026-09-23T08%3A00%3A00%2B00%3A00', { priority: 'high' }],
@@ -179,7 +179,7 @@ const rows: Row[] = [
   ['getVehicles(archived)', () => apiClient.getVehicles({ includeArchived: true }), 'GET', '/api/vehicles/?include_archived=true'],
   ['deleteVehicle(permanent)', () => apiClient.deleteVehicle('v1', { permanent: true }), 'DELETE', '/api/vehicles/v1?permanent=true'],
   ['getVehicleStatuses', () => apiClient.getVehicleStatuses('e 1'), 'GET', '/api/vehicles/status?event_id=e%201'],
-  ['updateMaterialResource', () => apiClient.updateMaterialResource('m1', { out_of_service: true } as never), 'PUT', '/api/materials/m1', { out_of_service: true }],
+  ['updateMaterialResource', () => apiClient.updateMaterialResource('m1', { out_of_service: true }), 'PUT', '/api/materials/m1', { out_of_service: true }],
   ['assignResource', () => apiClient.assignResource('i1', { resource_type: 'personnel', resource_id: 'p1' } as never), 'POST', '/api/incidents/i1/assign', { resource_type: 'personnel', resource_id: 'p1' }],
   ['unassignResource', () => apiClient.unassignResource('i1', 'a1'), 'POST', '/api/incidents/i1/unassign/a1'],
   ['collectMaterial', () => apiClient.collectMaterial('i1', 'a1'), 'POST', '/api/incidents/i1/material-collected/a1'],
@@ -199,9 +199,9 @@ const rows: Row[] = [
   ['unassignRekoPersonnel(row)', () => apiClient.unassignRekoPersonnel('i1', 'p1', 'a1'), 'DELETE', '/api/reko/incidents/i1/unassign-reko/p1?assignment_id=a1'],
   ['generateRekoLink', () => apiClient.generateRekoLink('i1', 'p1'), 'POST', '/api/reko/generate-link?incident_id=i1&personnel_id=p1'],
   ['getRekoForm', () => apiClient.getRekoForm('i1', 'tok', 'p1'), 'GET', '/api/reko/form?incident_id=i1&token=tok&personnel_id=p1'],
-  ['submitRekoReport', () => apiClient.submitRekoReport('i1', 'tok', { is_relevant: true } as never), 'POST', '/api/reko/?submit=true', { is_relevant: true, incident_id: 'i1', token: 'tok' }],
-  ['saveRekoDraft', () => apiClient.saveRekoDraft('i1', 'tok', { is_relevant: true } as never), 'POST', '/api/reko/?submit=false', { is_relevant: true, incident_id: 'i1', token: 'tok' }],
-  ['updateRekoReport', () => apiClient.updateRekoReport('r1', { summary_text: 'x' } as never, { submit: true, token: 'tok' }), 'PATCH', '/api/reko/r1?submit=true', { summary_text: 'x' }],
+  ['submitRekoReport', () => apiClient.submitRekoReport('i1', 'tok', { is_relevant: true }), 'POST', '/api/reko/?submit=true', { is_relevant: true, incident_id: 'i1', token: 'tok' }],
+  ['saveRekoDraft', () => apiClient.saveRekoDraft('i1', 'tok', { is_relevant: true }), 'POST', '/api/reko/?submit=false', { is_relevant: true, incident_id: 'i1', token: 'tok' }],
+  ['updateRekoReport', () => apiClient.updateRekoReport('r1', { summary_text: 'x' }, { submit: true, token: 'tok' }), 'PATCH', '/api/reko/r1?submit=true', { summary_text: 'x' }],
   ['deleteRekoPhoto', () => apiClient.deleteRekoPhoto('i1', 'tok', 'a.jpg'), 'DELETE', '/api/reko/i1/photos/a.jpg'],
   // Audit
   ['getAuditLogs', () => apiClient.getAuditLogs({ resource_type: 'incident', limit: 100 }), 'GET', '/api/audit?resource_type=incident&limit=100'],
@@ -262,7 +262,7 @@ describe('apiClient — what each method sends', () => {
   })
 
   it('the Reko token travels as a header, never in the body', async () => {
-    await apiClient.updateRekoReport('r1', {} as never, { token: 'tok' })
+    await apiClient.updateRekoReport('r1', {}, { token: 'tok' })
     expect(sent().path).toBe('/api/reko/r1?submit=false')
     expect((sent().init.headers as Record<string, string>)['X-Reko-Token']).toBe('tok')
     await apiClient.deleteRekoPhoto('i1', 'tok', 'a.jpg')

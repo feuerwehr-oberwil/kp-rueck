@@ -36,7 +36,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
 import { AddressText } from "./address-text"
-import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
+import { PRIORITY_CARD_CLASSES } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { DEFAULT_CARD_VIEW, cardViewEquals, type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
@@ -375,7 +375,7 @@ function DraggableOperationBase({
 
 
   // Get priority styling configuration
-  const priority = (operation.priority || 'low') as Priority
+  const priority = operation.priority || 'low'
   // The heading. `getIncidentLocationLabel` prefers the server's
   // `location_display` and only falls back to formatting the raw address here —
   // which is what the map, the wall board and every list already do. The card

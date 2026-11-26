@@ -34,7 +34,6 @@ import { IncidentTimeRow } from "@/components/ui/incident-time"
 import { incidentTimeSource } from "@/lib/incident-time"
 import { useIncidentTimeMode } from "@/lib/hooks/use-incident-time-mode"
 import { sortForMapList } from "@/lib/map-list-order"
-import { type Priority } from "@/lib/priority"
 import { PriorityGlyph } from "@/components/ui/priority-glyph"
 import { statusGroupCaption } from "@/components/map-legend"
 import { getIncidentRefLabel, incidentSubject } from "@/lib/incident-types"
@@ -62,7 +61,7 @@ import { incidentDetailTarget } from "@/lib/incident-detail"
 import { type DetailTarget } from "@/lib/detail-target"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
-import { isIncidentStatus, isIncidentType, STATUS_TO_GROUP, type StatusGroup, type IncidentStatus } from "@/lib/types/incidents"
+import { isIncidentStatus, isIncidentType, STATUS_TO_GROUP, type StatusGroup } from "@/lib/types/incidents"
 import { Kbd } from "@/components/ui/kbd"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "sonner"
@@ -572,7 +571,7 @@ export default function MapPage() {
   const statusGroupCounts = useMemo(() => {
     const counts: Record<StatusGroup, number> = { open: 0, active: 0, completed: 0 }
     incidents.forEach((inc) => {
-      const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+      const group = STATUS_TO_GROUP[inc.status]
       if (group) counts[group]++
     })
     return counts
@@ -643,7 +642,7 @@ export default function MapPage() {
     () =>
       incidents.filter((inc) => {
         if (inc.id === deepLinkExceptionId) return true
-        const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+        const group = STATUS_TO_GROUP[inc.status]
         return group && statusFilters[group]
       }),
     [incidents, statusFilters, deepLinkExceptionId],
@@ -683,7 +682,7 @@ export default function MapPage() {
     const searched = !searchQuery ? incidents : incidents.filter(matchesSearch)
     const sections: Record<StatusGroup, typeof incidents> = { open: [], active: [], completed: [] }
     for (const inc of searched) {
-      const group = STATUS_TO_GROUP[inc.status as IncidentStatus]
+      const group = STATUS_TO_GROUP[inc.status]
       if (group) sections[group].push(inc)
     }
     for (const group of Object.keys(sections) as StatusGroup[]) sections[group] = sortForMapList(sections[group], timeMode)
@@ -1031,7 +1030,7 @@ export default function MapPage() {
                 onClick={() => pickSearchHit(incident.id)}
                 className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-muted"
               >
-                <PriorityGlyph priority={(incident.priority ?? 'low') as Priority} size="wall" />
+                <PriorityGlyph priority={incident.priority ?? 'low'} size="wall" />
                 <span
                   className="min-w-0 flex-1 truncate text-sm font-medium"
                   title={incident.location_address ? formatLocation(incident.location_address) : incident.title}
@@ -1329,7 +1328,7 @@ export default function MapPage() {
                         <div className="space-y-0.5">
                           {rows.map((incident) => {
                             const isSelected = selectedIncidentId === incident.id
-                            const priority = (incident.priority ?? 'low') as Priority
+                            const priority = incident.priority ?? 'low'
                             const priorityLabel = priority === 'high' ? t('common.priorityHigh') : priority === 'medium' ? t('common.priorityMedium') : t('common.priorityLow')
                             // Pickup flags live on the Operation, one lookup away.
                             const operation = operationsById.get(incident.id)

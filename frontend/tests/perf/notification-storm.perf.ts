@@ -74,7 +74,7 @@ test('open an Ereignis with a notification storm', async ({ page, browserName })
     }), 'incident')
     incidentIds.push((await res.json()).id)
   }
-  if (STORM) execFileSync('docker', ['exec', '-i', PG, 'psql', '-q', '-U', 'kprueck', '-d', 'kprueck'], { input: stormSql(event.id, incidentIds, STORM!) })
+  if (STORM) execFileSync('docker', ['exec', '-i', PG, 'psql', '-q', '-U', 'kprueck', '-d', 'kprueck'], { input: stormSql(event.id, incidentIds, STORM) })
   // what the board will actually be handed – the same evaluation the browser's first fetch runs
   const served: { dismissed: boolean; severity: string }[] = await (await ok(await api.get(`/api/notifications/?event_id=${event.id}`), 'notifications')).json()
   const active = served.filter((n) => !n.dismissed)

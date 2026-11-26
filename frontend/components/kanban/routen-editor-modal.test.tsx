@@ -45,12 +45,15 @@ const makeOp = (id: string): Operation =>
 
 // --- Mocks for the useRoutePlanning hook ------------------------------------
 
-const rp = vi.hoisted(() => ({
-  groups: [] as unknown[],
-  operations: [] as unknown[],
-  settings: {} as Record<string, string>,
-  positions: [] as unknown[],
-}))
+const rp = vi.hoisted(() => {
+  const settings: Record<string, string> = {}
+  return {
+    groups: [] as unknown[],
+    operations: [] as unknown[],
+    settings,
+    positions: [] as unknown[],
+  }
+})
 const reorderGroupStops = vi.hoisted(() => vi.fn(async () => true))
 const createOperation = vi.hoisted(() => vi.fn())
 const refreshOperations = vi.hoisted(() => vi.fn(async () => {}))

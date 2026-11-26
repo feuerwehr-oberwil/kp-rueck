@@ -10,7 +10,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 const setSelectedEvent = vi.hoisted(() => vi.fn())
 const requestLogout = vi.hoisted(() => vi.fn())
 const pathname = vi.hoisted(() => ({ current: '/' }))
-const role = vi.hoisted(() => ({ current: 'editor' as 'editor' | 'viewer' }))
+const role = vi.hoisted((): { current: 'editor' | 'viewer' } => ({ current: 'editor' }))
 
 const ev = (id: string, name: string, training_flag: boolean, incident_count: number, activity: string) => ({
   id,

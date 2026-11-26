@@ -51,7 +51,7 @@ function installStorage() {
     get length() {
       return data.size
     },
-  } as Storage)
+  })
 }
 
 const HOUR_AGO = new Date(Date.now() - 90 * 60 * 1000)

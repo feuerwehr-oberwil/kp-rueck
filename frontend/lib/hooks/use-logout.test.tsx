@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from "next-intl"
 import de from "@/messages/de.json"
 
 const auth = vi.hoisted(() => ({
-  user: { username: "editor", display_name: "Maja Berger", role: "editor" } as { username: string; display_name: string; role: string },
+  user: { username: "editor", display_name: "Maja Berger", role: "editor" },
   isEditor: true,
   logout: vi.fn(async () => {}),
 }))

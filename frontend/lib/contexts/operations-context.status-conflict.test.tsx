@@ -30,10 +30,10 @@ const incident = (id: string, overrides: Partial<ApiIncident> = {}): ApiIncident
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
   loading: false,
-  user: { id: "user-a" } as { id: string } | null,
+  user: { id: "user-a" },
 }))
 const eventState = vi.hoisted(() => ({
-  selectedEvent: { id: "11111111-1111-1111-1111-111111111111" } as { id: string },
+  selectedEvent: { id: "11111111-1111-1111-1111-111111111111" },
   isEventLoaded: true,
 }))
 vi.mock("./auth-context", () => ({ useAuth: () => authState }))

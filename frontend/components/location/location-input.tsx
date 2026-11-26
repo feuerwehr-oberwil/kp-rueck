@@ -594,7 +594,7 @@ export function LocationInput({
                     // Focus moving into the suggestion list is a pick in progress: that
                     // pick commits, not the half-typed query behind it. (The rows keep
                     // the focus in the field on mousedown, so this is the rare path.)
-                    if (optionsRef.current?.contains(e.relatedTarget as Node | null)) return
+                    if (optionsRef.current?.contains(e.relatedTarget)) return
                     setEditing(false)
                     // Leaving the field with text nobody committed — a tap on «Einsatz
                     // erstellen», «Weiter», the next field, anywhere — takes it as freetext

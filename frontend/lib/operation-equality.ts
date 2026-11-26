@@ -59,8 +59,8 @@ function valuesEqual(a: unknown, b: unknown): boolean {
 
   // Plain objects — `coordinates`, `rekoSummary`, `assignedReko`.
   if (typeof a === "object" && typeof b === "object") {
-    const aKeys = Object.keys(a as Record<string, unknown>)
-    const bKeys = Object.keys(b as Record<string, unknown>)
+    const aKeys = Object.keys(a)
+    const bKeys = Object.keys(b)
     if (aKeys.length !== bKeys.length) return false
     return aKeys.every(
       (key) =>

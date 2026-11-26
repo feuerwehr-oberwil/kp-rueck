@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   getStandby: vi.fn(),
   takeOverEvent: vi.fn(),
   takeBackEvent: vi.fn(),
-  selectedEvent: { id: 'ev-1', name: 'Unwetter Beispielhausen' } as { id: string; name: string } | null,
+  selectedEvent: { id: 'ev-1', name: 'Unwetter Beispielhausen' },
 }))
 
 vi.mock('@/lib/api-client', () => ({
@@ -40,7 +40,7 @@ function authAs(role: 'editor' | 'viewer'): AuthContextType {
     isEditor: role === 'editor',
     isViewer: role === 'viewer',
     isAuthenticated: true,
-  } as AuthContextType
+  }
 }
 
 /** What every control below the provider sees: may it edit? */

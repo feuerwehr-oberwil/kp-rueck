@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { Material, Operation } from '@/lib/contexts/operations-context'
+import type { Operation } from '@/lib/contexts/operations-context'
 import { PRIORITY_EDGE_CLASSES } from '@/lib/priority'
 
 /**
@@ -58,7 +58,7 @@ function renderBoardCard(op: Operation) {
       onClick={vi.fn()}
       onHover={vi.fn()}
       isDraggingRef={{ current: false }}
-      materials={[] as unknown as Material[]}
+      materials={[]}
       index={0}
       formatLocation={(address: string) => address}
     />,

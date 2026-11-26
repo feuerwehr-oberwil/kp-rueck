@@ -14,7 +14,7 @@ import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/context
 import { auftragOccupancy, reconcileEvent, withAuftragCrew } from "@/lib/contexts/operations/reconcile"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material, withAuftragDeployment } from "@/lib/contexts/materials-context"
-import { type GroupResourceType, type IncidentGroup } from "@/lib/types/groups"
+import { type IncidentGroup } from "@/lib/types/groups"
 import { type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns } from "@/lib/kanban-utils"
 import { darkenForWhiteText } from "@/lib/map-colors"
@@ -136,7 +136,7 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
     stopIds: group.stop_ids.map(String),
     assignments: liveGroupAssignments(group).map((a) => ({
       id: String(a.id),
-      resourceType: a.resource_type as GroupResourceType,
+      resourceType: a.resource_type,
       resourceId: String(a.resource_id),
       driverStay: a.driver_stay,
       isLeader: a.is_leader,

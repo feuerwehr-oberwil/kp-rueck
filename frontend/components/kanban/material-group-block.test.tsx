@@ -60,7 +60,7 @@ function material(overrides: Partial<Material> = {}): Material {
     consumable: false,
     groupId: 'mod-1',
     ...overrides,
-  } as Material
+  }
 }
 
 function renderBlock(onMaterialClick = vi.fn(), materials: Material[] = [material()]) {

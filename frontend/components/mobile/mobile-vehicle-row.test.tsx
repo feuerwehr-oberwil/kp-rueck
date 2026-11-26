@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { Material, Operation } from '@/lib/contexts/operations-context'
+import type { Operation } from '@/lib/contexts/operations-context'
 
 /**
  * The vehicle row of the phone's incident sheet.
@@ -59,7 +59,7 @@ function sheet(op: Operation) {
       operation={op}
       open
       onOpenChange={vi.fn()}
-      materials={[] as unknown as Material[]}
+      materials={[]}
       formatLocation={(a) => a}
     />
   )

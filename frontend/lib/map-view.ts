@@ -121,7 +121,7 @@ export const EMPTY_STYLE: StyleSpecification = { version: 8, sources: {}, layers
  * instead makes react-map-gl re-append it on the next `styledata`, which lands it back ON TOP
  * of everything drawn after it.
  */
-export const vis = (on: boolean) => ({ visibility: (on ? 'visible' : 'none') as 'visible' | 'none' })
+export const vis = (on: boolean): { visibility: 'visible' | 'none' } => ({ visibility: on ? 'visible' : 'none' })
 
 /** A point in the order the app speaks it – `[lat, lng]`, which is MapLibre's reversed. */
 export type LatLngPoint = readonly [number, number]

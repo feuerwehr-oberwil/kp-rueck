@@ -17,7 +17,7 @@ const EVENT = "11111111-1111-1111-1111-111111111111"
 
 const authState = vi.hoisted(() => ({ isAuthenticated: true, loading: false }))
 const eventState = vi.hoisted(() => ({
-  selectedEvent: { id: "11111111-1111-1111-1111-111111111111" } as { id: string },
+  selectedEvent: { id: "11111111-1111-1111-1111-111111111111" },
   isEventLoaded: true,
 }))
 vi.mock("./auth-context", () => ({ useAuth: () => authState }))

@@ -12,9 +12,10 @@ import type { Material } from '@/lib/contexts/operations-context'
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
 // One Auftrag at most, with the resources it owns; empty unless a test sets it.
-const route = vi.hoisted(() => ({
-  groups: [] as { id: string; name: string; color: string | null }[],
-  resources: { vehicles: [], personnel: [], materials: [] } as import('@/lib/types/groups').GroupResources,
+type Route = { groups: { id: string; name: string; color: string | null }[]; resources: import('@/lib/types/groups').GroupResources }
+const route = vi.hoisted((): Route => ({
+  groups: [],
+  resources: { vehicles: [], personnel: [], materials: [] },
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
   useGroups: () => ({ groups: route.groups, getGroupResources: () => route.resources }),

@@ -42,7 +42,7 @@ const MERGE_ACTIONS = new Set(["merge", "merged_into", "unmerge", "items_moved",
  */
 export function detailTargetForJournalEntry(entry: Pick<ApiJournalEntry, "kind" | "data">): DetailTarget | undefined {
   const data = entry.data ?? {}
-  const str = (key: string) => (typeof data[key] === "string" ? (data[key] as string) : "")
+  const str = (key: string) => (typeof data[key] === "string" ? data[key] : "")
   switch (entry.kind) {
     case "reko":
       return REKO_TARGET

@@ -700,7 +700,7 @@ function plan(
         target,
         alreadyHere: target.incidentIds.includes(incident.id),
         elsewhere: target.incidentIds
-          .filter((id) => id !== incident!.id)
+          .filter((id) => id !== incident.id)
           .map((id) => numbers.get(id))
           .filter((n): n is number => typeof n === "number")
           .sort((a, b) => a - b),

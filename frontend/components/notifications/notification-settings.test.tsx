@@ -3,11 +3,10 @@ import { act, screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { DEFAULT_NOTIFICATION_SETTINGS, type NotificationSettings } from '@/lib/types/notification'
 
-const mocks = vi.hoisted(() => ({
-  settings: null as unknown as NotificationSettings,
-  updateSettings: vi.fn(async () => {}),
-  resolveMaterials: (() => {}) as (materials: Array<{ location: string }>) => void,
-}))
+const mocks = vi.hoisted(() => {
+  const resolveMaterials: (materials: Array<{ location: string }>) => void = () => {}
+  return { settings: null as unknown as NotificationSettings, updateSettings: vi.fn(async () => {}), resolveMaterials }
+})
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/contexts/notification-context', () => ({

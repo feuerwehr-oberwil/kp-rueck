@@ -25,7 +25,7 @@ import type { CSSProperties } from "react"
 import type { MapIncident } from "@/lib/map-incident"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { ApiVehiclePosition } from "@/lib/api-client"
-import { STATUS_TO_GROUP, type IncidentStatus } from "@/lib/types/incidents"
+import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import { vis, Z, type FeatureCollectionData } from "@/lib/map-view"
 import { MapTooltip } from "./map-tooltip"
 import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
@@ -146,7 +146,7 @@ function currentStop(group: IncidentGroup, byId: Map<string, MapIncident>): MapI
   const located = stops.filter(stop => stop.location_lat != null && stop.location_lng != null)
   return (
     located.find(stop => stop.status === "active")
-    ?? located.find(stop => STATUS_TO_GROUP[stop.status as IncidentStatus] !== "completed")
+    ?? located.find(stop => STATUS_TO_GROUP[stop.status] !== "completed")
   )
 }
 
@@ -220,7 +220,7 @@ export function AssignmentLines({
 
       // Skip the whole completed group, Rückfahrt included — a drive-home
       // line was tried and dropped: the beendet column is noise on this layer.
-      if (STATUS_TO_GROUP[incident.status as IncidentStatus] === "completed") continue
+      if (STATUS_TO_GROUP[incident.status] === "completed") continue
 
       for (const vehicle of incident.assigned_vehicles) {
         addLine(vehicle.name, incident)

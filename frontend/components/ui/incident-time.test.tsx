@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import de from "@/messages/de.json"
 
-const mode = vi.hoisted(() => ({ value: "column" as "start" | "column" | "total" }))
+const mode = vi.hoisted((): { value: "start" | "column" | "total" } => ({ value: "column" }))
 vi.mock("@/lib/hooks/use-incident-time-mode", () => ({
   useIncidentTimeMode: () => ({ mode: mode.value, setMode: vi.fn() }),
 }))
