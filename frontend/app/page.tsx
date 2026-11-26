@@ -77,7 +77,6 @@ import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView, type MobileOpenRequest } from "@/components/mobile/mobile-incident-list-view"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
-import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
@@ -136,7 +135,7 @@ export default function FireStationDashboard() {
   } = useOperations()
   // The board's roster is "everybody checked in", so the Appell writing an
   // attendance row changes it — see `onAttendanceChange` on the modal below.
-  const { refreshPersonnel } = usePersonnel()
+  const { personnel, refreshPersonnel } = usePersonnel()
   const {
     groups,
     addStops: addStopsToGroup,
@@ -158,9 +157,6 @@ export default function FireStationDashboard() {
   // The right-click actions and two views as commands (Ctrl K) – same early
   // registration, filled in below once the dialogs and the checklist exist.
   const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
-
-  // The roster the board draws, with «steht auf einem Auftrag» folded in.
-  const personnel = useAuftragRoster()
 
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)

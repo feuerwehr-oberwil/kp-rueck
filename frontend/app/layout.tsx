@@ -12,7 +12,6 @@ import { AuthProvider } from '@/lib/contexts/auth-context'
 import { EventProvider } from '@/lib/contexts/event-context'
 import { StandbyProvider } from '@/lib/contexts/standby-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
-import { GroupsProvider } from '@/lib/contexts/groups-context'
 import { PlannedProvider } from '@/lib/contexts/planned-context'
 import { NotificationProvider } from '@/lib/contexts/notification-context'
 import { CommandPaletteProvider } from '@/lib/contexts/command-palette-context'
@@ -149,7 +148,6 @@ export default async function RootLayout({
             <EventProvider>
               <StandbyProvider>
               <OperationsProvider>
-                <GroupsProvider>
                   <PlannedProvider>
                   <NotificationProvider>
                     <CommandPaletteProvider>
@@ -171,7 +169,6 @@ export default async function RootLayout({
                     </CommandPaletteProvider>
                   </NotificationProvider>
                   </PlannedProvider>
-                </GroupsProvider>
               </OperationsProvider>
               </StandbyProvider>
             </EventProvider>

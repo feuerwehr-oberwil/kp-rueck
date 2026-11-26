@@ -7,9 +7,13 @@ import type {
   ApiEventSpecialFunctionResponse,
   AssignmentPurpose,
   ApiFieldRequest,
+  ApiIncidentGroupCreate,
+  ApiIncidentGroupUpdate,
   ApiVehicle,
+  GroupResourceType,
   IncidentStatus,
 } from "@/lib/api-client"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { IncidentCoordinates } from "@/lib/coordinate-parser"
 import type { Person } from "../personnel-context"
 import type { Material, MaterialGroup } from "../materials-context"
@@ -216,7 +220,7 @@ export interface VehicleNeedingDriver {
  * (`usePersonnel()` / `useMaterials()` select from here).
  */
 export interface OperationsContextType {
-  // Roster — the board load writes the event-scoped list
+  // Roster — the board load writes the event-scoped list; `isOnAuftrag` is folded in
   personnel: Person[]
   setPersonnel: React.Dispatch<React.SetStateAction<Person[]>>
   /** Fetch the roster; without `skipStateUpdate` the raw list goes into state
@@ -377,6 +381,15 @@ export interface OperationsContextType {
   vehicles: ApiVehicle[]
   /** All settings as of the last load that got them (kept through a failed fetch). */
   settings: Record<string, string>
+  /** The Aufträge of the selected Ereignis, in `position` order – loaded with the board
+   *  snapshot, written by `groupActions`. */
+  groups: IncidentGroup[]
+  /** Auftrag id → its route-owned resources, named (`deriveAuftragState`). */
+  auftragResources: ReadonlyMap<string, GroupResources>
+  /** Every resource that stands on some Auftrag, by kind. */
+  occupiedResourceIds: Record<GroupResourceType, ReadonlySet<string>>
+  /** Stable across renders, like the board's own actions. */
+  groupActions: GroupActions
   resolveResourceConflict: (action: "move" | "plan") => void
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
@@ -392,6 +405,64 @@ export interface OperationsContextType {
   beginAssignmentSettling: () => () => void
   isAssignmentSettling: () => boolean
   deleteOperation: (operationId: string) => Promise<void>
+}
+
+/** Fields the UI supplies when creating an Auftrag (event scope is injected). */
+export type CreateGroupInput = Omit<ApiIncidentGroupCreate, "event_id">
+/** Partial PATCH payload for an Auftrag (name / color / notes). */
+export type UpdateGroupInput = ApiIncidentGroupUpdate
+
+/** What the client just read out over the radio for a route. */
+export interface AnnouncementInput {
+  /** Digest of the route's resources at that moment (see `radioFingerprint`). */
+  fingerprint: string
+  /** The stop the announcement was about. */
+  stopId: string | null
+  /** True for the full announcement, false for the short continuation. */
+  full: boolean
+}
+
+export type StopRestoreResult = "restored" | "conflict" | "failed"
+/** `changed`: the guarded add found the Einsatz or the vehicle's Auftrag changed (409) or
+ *  the Auftrag gone (404, or no longer on this board). */
+export type VehicleStopAddResult = "added" | "changed" | "failed"
+
+/** The Auftrag actions (`./group-actions`), handed out by `useGroups()`. */
+export interface GroupActions {
+  createGroup: (input: CreateGroupInput) => Promise<IncidentGroup | null>
+  updateGroup: (id: string, input: UpdateGroupInput) => Promise<boolean>
+  /** Note the Funkdurchsage just made for a route (drives full vs. short next time). */
+  recordAnnouncement: (id: string, announcement: AnnouncementInput) => Promise<boolean>
+  deleteGroup: (id: string) => Promise<boolean>
+  reorderGroups: (orderedIds: string[]) => Promise<boolean>
+  reorderGroupStops: (groupId: string, orderedIds: string[]) => Promise<boolean>
+  /**
+   * Conditional stop reorder for undo: applied only if the route's order on the SERVER is
+   * still `expectedIds` (checked under the Auftrag lock). "conflict" = somebody changed the
+   * route meanwhile; the board is reloaded. Not optimistic and never toasts – the caller
+   * words the outcome.
+   */
+  restoreGroupStops: (groupId: string, orderedIds: string[], expectedIds: string[]) => Promise<StopRestoreResult>
+  addStops: (groupId: string, incidentIds: string[]) => Promise<boolean>
+  /**
+   * #23 «In Auftrag aufnehmen»: the lone Einsatz becomes the Auftrag's last stop – only if it
+   * is still live and in no Auftrag and the vehicle still drives this one, checked under the
+   * server's locks. "changed" is not toasted here: the caller says it.
+   */
+  addStopForVehicle: (groupId: string, incidentId: string, vehicleId: string) => Promise<VehicleStopAddResult>
+  /**
+   * «Rückgängig» of a released stop: back onto `groupId` only if it is still in no Auftrag –
+   * another board may have put it on its own meanwhile. "changed" is not toasted here.
+   */
+  restoreStop: (groupId: string, incidentId: string) => Promise<VehicleStopAddResult>
+  removeStop: (groupId: string, incidentId: string) => Promise<boolean>
+  /** Attach a vehicle / personnel / material to the ROUTE (not a single stop). */
+  assignResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
+  /** Release a route-owned resource by its group-assignment id. True also when the server
+   *  answers 404: the assignment or the Auftrag is gone, so the resource is free already. */
+  unassignResource: (groupId: string, assignmentId: string) => Promise<boolean>
+  /** «bleibt vor Ort» / «kehrt zurück» for a route vehicle – optimistic, reverts with a toast. */
+  setRouteDriverStay: (groupId: string, assignmentId: string, driverStay: boolean) => Promise<boolean>
 }
 
 /** The actions the provider hands out through stable wrappers — see the value memo. */

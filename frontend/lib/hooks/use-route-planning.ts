@@ -56,7 +56,7 @@ export interface OrderedStop {
 }
 
 export function useRoutePlanning(groupId: string | null | undefined) {
-  const { groups, reorderGroupStops, refreshGroups, getGroupResources } = useGroups()
+  const { groups, reorderGroupStops, getGroupResources } = useGroups()
   const { operations, createOperation, refreshOperations } = useOperations()
 
   const [magazin, setMagazin] = useState<MagazinAnchor | null>(null)
@@ -173,14 +173,13 @@ export function useRoutePlanning(groupId: string | null | undefined) {
           leaderName: null,
           materialAssignments: new Map(),
         })
-        // The new stop rides the incident WS path into operations-context; pull the
-        // group so its stopIds pick up the freshly-attached member.
-        await Promise.all([refreshGroups(), refreshOperations()])
+        // Pull the board so the route's stopIds pick up the freshly-attached member.
+        await refreshOperations()
       } finally {
         setIsAddingStop(false)
       }
     },
-    [group, createOperation, refreshGroups, refreshOperations],
+    [group, createOperation, refreshOperations],
   )
 
   const anchors = useMemo<RouteStartAnchors>(() => {

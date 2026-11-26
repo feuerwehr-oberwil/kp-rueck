@@ -46,6 +46,8 @@ const refreshMaterials = vi.hoisted(() => vi.fn())
 const NO_GROUPS = vi.hoisted(() => [] as unknown[])
 const setMaterialOutOfService = vi.hoisted(() => vi.fn())
 vi.mock("./operations/use-resource-lists", () => ({
+  // One map for every render: a fresh one would change the board value on each.
+  useRosterNames: ((names: ReadonlyMap<string, string>) => () => names)(new Map()),
   usePersonnelList: () => {
     const [personnel, setPersonnel] = useState<unknown[]>([])
     return { personnel, setPersonnel, refreshPersonnel }
@@ -92,6 +94,7 @@ const api = vi.hoisted(() => ({
   getEventSpecialFunctions: vi.fn(),
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
+  getIncidentGroups: vi.fn(),
   updateIncident: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
@@ -130,6 +133,7 @@ beforeEach(() => {
   api.getEventSpecialFunctions.mockReset().mockResolvedValue([])
   api.getAssignmentsByEvent.mockReset().mockResolvedValue({})
   api.getEventRekoSummaries.mockReset().mockResolvedValue({ summaries: {} })
+  api.getIncidentGroups.mockReset().mockResolvedValue([])
   api.updateIncident.mockReset().mockImplementation(
     (id: string, body: Record<string, unknown>) =>
       new Promise<void>((resolve, reject) => {

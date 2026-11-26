@@ -33,6 +33,7 @@ function snapshot(overrides: Partial<EventSnapshot> = {}): EventSnapshot {
       { id: "v-1", name: "TLF", display_order: 1, radio_call_sign: "Omega 1" },
     ] as EventSnapshot["vehiclesList"],
     specialFunctions: [{ personnel_id: "p-reko", function_type: "reko" }] as EventSnapshot["specialFunctions"],
+    apiGroups: [],
     assignmentsByIncident: {
       "i-1": [
         row("a-1", "personnel", "p-1"),

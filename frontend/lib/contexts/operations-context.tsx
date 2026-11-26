@@ -1,7 +1,9 @@
 "use client"
 
-import { useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback } from "react"
+import { useContext, useState, useEffect, useMemo, ReactNode, useRef, useCallback, type SetStateAction } from "react"
 import { formatLocationForDisplay } from "@/lib/utils"
+import { translateOutsideReact } from "@/lib/i18n-messages"
+import type { IncidentGroup } from "@/lib/types/groups"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 import type { RecentRemovals } from "@/lib/recent-removals"
@@ -10,14 +12,17 @@ import { fieldSaveScope, setFieldSaveScope, unsavedFieldDrafts } from "@/lib/fie
 import { OperationsContext, BoardSyncStatusContext } from "./operations/contexts"
 import { useAlertAudio } from "./operations/use-alert-audio"
 import { useBoardSync } from "./operations/use-board-sync"
-import { useMaterialList, usePersonnelList } from "./operations/use-resource-lists"
+import { useMaterialList, usePersonnelList, useRosterNames } from "./operations/use-resource-lists"
 import { MUTATION_COOLDOWN_GRACE_MS, type BoardMutationContext } from "./operations/board-context"
 import { createResourceActions } from "./operations/resource-actions"
 import { PersonNamingProvider } from "@/components/person-name"
 import { createIncidentActions } from "./operations/incident-actions"
+import { createGroupActions } from "./operations/group-actions"
+import { deriveAuftragState, withAuftragCrew } from "./operations/reconcile"
 import type {
   BoardActions,
   BoardSyncStatus,
+  GroupActions,
   Operation,
   OperationsContextType,
   StatusWriteGuard,
@@ -84,6 +89,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // would otherwise close over a stale snapshot (e.g. the post-assign driver prompt).
   const operationsRef = useRef<Operation[]>([])
   operationsRef.current = operations
+  // The Aufträge, in the board's snapshot and under its epoch like the cards. The ref is
+  // written with the state, ahead of the render: an action that awaits a reload reads it at once.
+  const [groups, setGroupsState] = useState<IncidentGroup[]>([])
+  const groupsRef = useRef<IncidentGroup[]>([])
+  const setGroups = useCallback((update: SetStateAction<IncidentGroup[]>) => {
+    const next = typeof update === "function" ? update(groupsRef.current) : update
+    groupsRef.current = next
+    setGroupsState(next)
+  }, [])
+  const rosterNames = useRosterNames(eventId, !authLoading && isAuthenticated)
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   // Mirror for reads inside the long-lived sync effect: having isLoading in
@@ -107,6 +122,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // …and one PATCH in flight per incident, in order — see KeyedSerialQueue.
   const patchQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
   const rekoOrderQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
+  const stopOrderQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
   const statusGuardRef = useRef<Map<string, StatusWriteGuard>>(new Map())
   const criticalUpdateInProgress = useRef<boolean>(false)
   // Refcounted cooldown: every optimistic mutation takes a hold when it
@@ -213,6 +229,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setPersonnel,
     setMaterials,
     setOperations,
+    setGroups,
     setIsLoaded,
     setIsLoading,
     isLoadingRef,
@@ -251,6 +268,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     selectedEvent,
     resourceConflict,
     outOfServiceVehicleIds,
+    vehicles,
+    groupsRef,
+    setGroups,
     setOperations,
     setPersonnel,
     setMaterials,
@@ -263,6 +283,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     mutationEpochRef,
     patchQueueRef,
     rekoOrderQueueRef,
+    stopOrderQueueRef,
     updateBatcherRef,
     statusGuardRef,
     reorderInFlightRef,
@@ -296,6 +317,50 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     mergeExistingOperation,
     deleteOperation,
   } = createIncidentActions(board)
+
+  // The Auftrag actions, behind stable wrappers like the board's own (see below).
+  const groupActionsNow = createGroupActions(board)
+  const latestGroupActionsRef = useRef(groupActionsNow)
+  latestGroupActionsRef.current = groupActionsNow
+  const groupActions = useMemo<GroupActions>(() => {
+    const stable = <K extends keyof GroupActions>(key: K): GroupActions[K] =>
+      ((...args: unknown[]) =>
+        (latestGroupActionsRef.current[key] as (...a: unknown[]) => unknown)(...args)) as GroupActions[K]
+    return {
+      createGroup: stable("createGroup"),
+      updateGroup: stable("updateGroup"),
+      recordAnnouncement: stable("recordAnnouncement"),
+      deleteGroup: stable("deleteGroup"),
+      reorderGroups: stable("reorderGroups"),
+      reorderGroupStops: stable("reorderGroupStops"),
+      restoreGroupStops: stable("restoreGroupStops"),
+      addStops: stable("addStops"),
+      addStopForVehicle: stable("addStopForVehicle"),
+      restoreStop: stable("restoreStop"),
+      removeStop: stable("removeStop"),
+      assignResource: stable("assignResource"),
+      unassignResource: stable("unassignResource"),
+      setRouteDriverStay: stable("setRouteDriverStay"),
+    }
+  }, [])
+
+  // What the Aufträge mean for the rest of the board, derived once per change: each route's
+  // resources by name, who and what stands on a route, and the roster with `isOnAuftrag`.
+  // The live roster names win over the full one (a rename lands there first).
+  const auftragState = useMemo(() => {
+    const personnelNames = new Map(rosterNames)
+    for (const person of personnel) personnelNames.set(person.id, person.name)
+    return deriveAuftragState(groups, {
+      vehicles,
+      personnelNames,
+      materials,
+      unknown: translateOutsideReact("kanban.common.unknownResource"),
+    })
+  }, [groups, vehicles, rosterNames, personnel, materials])
+  const personnelOnBoard = useMemo(
+    () => withAuftragCrew(personnel, auftragState.occupiedResourceIds.personnel),
+    [personnel, auftragState],
+  )
 
   // Prefer the server-computed labels (location_display) so first paint shows
   // the final string; the client formatter only covers addresses the server
@@ -372,7 +437,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<OperationsContextType>(
     () => ({
-      personnel,
+      personnel: personnelOnBoard,
       setPersonnel,
       refreshPersonnel,
       materials,
@@ -397,6 +462,10 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       specialFunctions,
       vehicles,
       settings,
+      groups,
+      auftragResources: auftragState.resourcesByGroup,
+      occupiedResourceIds: auftragState.occupiedResourceIds,
+      groupActions,
       cancelResourceConflict,
       requestResourceConflict,
       beginAssignmentSettling,
@@ -404,7 +473,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       ...stableActions,
     }),
     [
-      personnel,
+      personnelOnBoard,
       setPersonnel,
       refreshPersonnel,
       materials,
@@ -429,6 +498,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       specialFunctions,
       vehicles,
       settings,
+      groups,
+      auftragState,
+      groupActions,
       cancelResourceConflict,
       requestResourceConflict,
       beginAssignmentSettling,

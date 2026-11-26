@@ -1,13 +1,17 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { act, renderHook, waitFor } from "@testing-library/react"
+import type { ReactNode } from "react"
 
 import type { ApiGroupAssignment, ApiIncidentGroup } from "@/lib/api-client"
+
+// The Auftrag actions against the real board store: the routes load with the board
+// snapshot and every action writes them under the board's one mutation epoch.
 
 // --- Fixtures ---------------------------------------------------------------
 
 const EVENT_ID = "11111111-1111-1111-1111-111111111111"
 const GROUP_ID = "22222222-2222-2222-2222-222222222222"
-const EVENT_ID_2 = "33333333-3333-3333-3333-333333333333"
 
 const apiAssignment = (overrides: Partial<ApiGroupAssignment> = {}): ApiGroupAssignment => ({
   id: "a1",
@@ -42,10 +46,11 @@ const apiGroup = (overrides: Partial<ApiIncidentGroup> = {}): ApiIncidentGroup =
   ...overrides,
 })
 
+const TLF = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
+
 // --- Mocks ------------------------------------------------------------------
 
-// Stable auth/event objects: the mount effect keys off `selectedEvent` identity,
-// so returning a fresh object per render would re-fire the initial load.
+// Stable objects: the sync effect keys off `selectedEvent` identity.
 const authState = vi.hoisted(() => ({ isAuthenticated: true, loading: false }))
 const eventState = vi.hoisted(() => ({
   selectedEvent: { id: "11111111-1111-1111-1111-111111111111" },
@@ -53,43 +58,13 @@ const eventState = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => authState }))
 vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => eventState }))
-// The provider resolves resource names via these sibling contexts.
-vi.mock("@/lib/contexts/personnel-context", () => ({ usePersonnel: () => ({ personnel: [] }) }))
-// Readiness («Nicht einsatzbereit») comes from the operations context — the
-// assign guard reads this set. Mutable so a test can flag a vehicle.
-const operationsState = vi.hoisted(() => {
-  const settling = { count: 0 }
-  return {
-    outOfServiceVehicleIds: new Set<string>(),
-    vehicles: [] as { id: string; name: string }[],
-    materials: [] as { id: string; name: string }[],
-    requestVehicleDriver: vi.fn(),
-    settling,
-    beginAssignmentSettling: () => {
-      settling.count++
-      let ended = false
-      return () => {
-        if (!ended) settling.count--
-        ended = true
-      }
-    },
-  }
-})
-vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => operationsState }))
+vi.mock("@/components/ui/top-loading-bar", () => ({ topLoading: { start: () => {}, done: () => {} } }))
 
-// Controllable WebSocket stub mirroring the shape operations-context uses:
-// on(event, cb) / onStatusChange(cb) / getStatus(). `getStatus` reports
-// "connected" so the polling fallback never arms (no timers in the test).
+// A socket that reports "connected" (so the polling fallback never arms) and lets the test emit.
 const ws = vi.hoisted(() => {
   const handlers = new Map<string, Set<(payload?: unknown) => void>>()
-  const statusHandlers = new Set<(status: string) => void>()
   return {
-    handlers,
-    statusHandlers,
-    reset() {
-      handlers.clear()
-      statusHandlers.clear()
-    },
+    reset: () => handlers.clear(),
     emit(event: string, payload?: unknown) {
       handlers.get(event)?.forEach((cb) => cb(payload))
     },
@@ -100,528 +75,343 @@ const ws = vi.hoisted(() => {
         handlers.set(event, set)
         return () => set.delete(cb)
       },
-      onStatusChange(cb: (status: string) => void) {
-        statusHandlers.add(cb)
-        return () => statusHandlers.delete(cb)
-      },
+      onStatusChange: () => () => {},
       getStatus: () => "connected",
+      connect: () => {},
+      disconnect: () => {},
     },
   }
 })
 vi.mock("@/lib/websocket-client", () => ({ wsClient: ws.client }))
 
-const getIncidentGroups = vi.fn()
-const getSyncVersion = vi.fn()
-const createIncidentGroup = vi.fn()
-const updateIncidentGroup = vi.fn()
-const deleteIncidentGroup = vi.fn()
-const reorderIncidentGroups = vi.fn()
-const reorderGroupStops = vi.fn()
-const addStopsToGroup = vi.fn()
-const removeStopFromGroup = vi.fn()
-const getAllPersonnel = vi.fn()
-const assignGroupResource = vi.fn()
-const unassignGroupResource = vi.fn()
-const getEventSpecialFunctions = vi.fn()
-
-vi.mock("@/lib/api-client", async () => ({
-  ApiError: (await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")).ApiError,
-  apiClient: {
-    getIncidentGroups: (...a: unknown[]) => getIncidentGroups(...a),
-    getSyncVersion: (...a: unknown[]) => getSyncVersion(...a),
-    getAllPersonnel: (...a: unknown[]) => getAllPersonnel(...a),
-    createIncidentGroup: (...a: unknown[]) => createIncidentGroup(...a),
-    updateIncidentGroup: (...a: unknown[]) => updateIncidentGroup(...a),
-    deleteIncidentGroup: (...a: unknown[]) => deleteIncidentGroup(...a),
-    reorderIncidentGroups: (...a: unknown[]) => reorderIncidentGroups(...a),
-    reorderGroupStops: (...a: unknown[]) => reorderGroupStops(...a),
-    addStopsToGroup: (...a: unknown[]) => addStopsToGroup(...a),
-    removeStopFromGroup: (...a: unknown[]) => removeStopFromGroup(...a),
-    assignGroupResource: (...a: unknown[]) => assignGroupResource(...a),
-    unassignGroupResource: (...a: unknown[]) => unassignGroupResource(...a),
-    getEventSpecialFunctions: (...a: unknown[]) => getEventSpecialFunctions(...a),
-  },
+const api = vi.hoisted(() => ({
+  // The board snapshot
+  getSyncVersion: vi.fn(),
+  getIncidentsWithTotal: vi.fn(),
+  getAllPersonnel: vi.fn(),
+  getAllMaterials: vi.fn(),
+  getMaterialGroups: vi.fn(),
+  getAllSettings: vi.fn(),
+  getVehicles: vi.fn(),
+  getEventRestliste: vi.fn(),
+  getEventSpecialFunctions: vi.fn(),
+  getAssignmentsByEvent: vi.fn(),
+  getEventRekoSummaries: vi.fn(),
+  getIncidentGroups: vi.fn(),
+  // The Auftrag actions
+  createIncidentGroup: vi.fn(),
+  reorderGroupStops: vi.fn(),
+  addStopsToGroup: vi.fn(),
+  assignGroupResource: vi.fn(),
+  unassignGroupResource: vi.fn(),
+}))
+vi.mock("@/lib/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api-client")>()),
+  apiClient: api,
 }))
 
-const toastError = vi.fn()
-const toastSuccess = vi.fn()
-vi.mock("sonner", () => ({
-  toast: {
-    error: (...a: unknown[]) => toastError(...a),
-    success: (...a: unknown[]) => toastSuccess(...a),
-  },
-}))
+const toastError = vi.hoisted(() => vi.fn())
+vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn(), info: vi.fn() } }))
 
-import { GroupsProvider, useGroups } from "@/lib/contexts/groups-context"
+import { ApiError } from "@/lib/api-client"
+import { OperationsProvider, useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 
-const wrapper = ({ children }: { children: React.ReactNode }) => <GroupsProvider>{children}</GroupsProvider>
+const wrapper = ({ children }: { children: ReactNode }) => <OperationsProvider>{children}</OperationsProvider>
 
 beforeEach(() => {
   eventState.selectedEvent = { id: EVENT_ID }
-  operationsState.outOfServiceVehicleIds = new Set()
-  operationsState.vehicles = []
-  operationsState.requestVehicleDriver.mockReset()
-  operationsState.settling.count = 0
-  getEventSpecialFunctions.mockReset().mockResolvedValue([])
   ws.reset()
-  getIncidentGroups.mockReset().mockResolvedValue([])
-  getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
-  getAllPersonnel.mockReset().mockResolvedValue([])
-  createIncidentGroup.mockReset()
-  updateIncidentGroup.mockReset()
-  deleteIncidentGroup.mockReset()
-  reorderIncidentGroups.mockReset()
-  reorderGroupStops.mockReset()
-  addStopsToGroup.mockReset()
-  removeStopFromGroup.mockReset()
-  assignGroupResource.mockReset()
-  unassignGroupResource.mockReset()
+  api.getSyncVersion.mockReset().mockResolvedValue({ version: "v1" })
+  api.getIncidentsWithTotal.mockReset().mockResolvedValue({ incidents: [], total: 0 })
+  api.getAllPersonnel.mockReset().mockResolvedValue([])
+  api.getAllMaterials.mockReset().mockResolvedValue([])
+  api.getMaterialGroups.mockReset().mockResolvedValue([])
+  api.getAllSettings.mockReset().mockResolvedValue({ home_city: "" })
+  api.getVehicles.mockReset().mockResolvedValue([TLF])
+  api.getEventRestliste.mockReset().mockResolvedValue(null)
+  api.getEventSpecialFunctions.mockReset().mockResolvedValue([])
+  api.getAssignmentsByEvent.mockReset().mockResolvedValue({})
+  api.getEventRekoSummaries.mockReset().mockResolvedValue({ summaries: {} })
+  api.getIncidentGroups.mockReset().mockResolvedValue([])
+  api.createIncidentGroup.mockReset()
+  api.reorderGroupStops.mockReset()
+  api.addStopsToGroup.mockReset()
+  api.assignGroupResource.mockReset()
+  api.unassignGroupResource.mockReset()
   toastError.mockReset()
-  toastSuccess.mockReset()
 })
 
-// Mount the provider and wait for the initial load to resolve.
+// Mount the board and wait for its first load.
 async function renderLoaded() {
-  const rendered = renderHook(() => useGroups(), { wrapper })
+  const rendered = renderHook(() => ({ ...useGroups(), board: useOperations() }), { wrapper })
   await waitFor(() => expect(rendered.result.current.isLoaded).toBe(true))
   return rendered
 }
 
-describe("GroupsProvider — createGroup optimistic + reconcile", () => {
-  it("adds a placeholder immediately, then reconciles it with the API result", async () => {
+/** The next Aufträge fetch hangs until the test answers it. */
+function holdNextGroupsFetch() {
+  let answer: (groups: ApiIncidentGroup[]) => void = () => {}
+  api.getIncidentGroups.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)))
+  return (groups: ApiIncidentGroup[]) => act(async () => answer(groups))
+}
+
+describe("Aufträge in the board snapshot", () => {
+  it("load with the board, and a group_update reloads it", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
+    expect(result.current.groups.map((g) => g.name)).toEqual(["Sturm-Route West"])
 
-    let resolveCreate!: (g: ApiIncidentGroup) => void
-    createIncidentGroup.mockReturnValue(
-      new Promise<ApiIncidentGroup>((resolve) => {
-        resolveCreate = resolve
-      }),
-    )
-
-    // Fire without awaiting: the synchronous optimistic setState must land first.
-    let pending!: Promise<unknown>
-    await act(async () => {
-      pending = result.current.createGroup({ name: "Sturm-Route West", color: "#ef4444" })
-    })
-
-    expect(result.current.groups).toHaveLength(1)
-    expect(result.current.groups[0].id).toMatch(/^temp-/)
-    expect(result.current.groups[0].name).toBe("Sturm-Route West")
-
-    // Resolve the API call — the temp row is replaced by the reconciled server row.
-    await act(async () => {
-      resolveCreate(apiGroup({ id: "99999999-9999-9999-9999-999999999999", name: "Sturm-Route West" }))
-      await pending
-    })
-
-    expect(result.current.groups).toHaveLength(1)
-    expect(result.current.groups[0].id).toBe("99999999-9999-9999-9999-999999999999")
-    expect(toastError).not.toHaveBeenCalled()
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ name: "Nach WS" })])
+    act(() => ws.emit("group_update", { action: "update", group_id: GROUP_ID }))
+    await waitFor(() => expect(result.current.groups.map((g) => g.name)).toEqual(["Nach WS"]))
   })
 
-  it("rolls the optimistic group back and toasts when the API errors", async () => {
+  it("a route order set here is not turned back by a reload that read before it", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["a", "b"] })])
     const { result } = await renderLoaded()
-    createIncidentGroup.mockRejectedValue(new Error("boom"))
+    const order = () => result.current.groups[0].stopIds
 
+    // A reload is out and has already read the old order.
+    const answerReload = holdNextGroupsFetch()
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(api.getIncidentGroups).toHaveBeenCalledTimes(2))
+    api.reorderGroupStops.mockResolvedValue(undefined)
+    await act(async () => {
+      await result.current.reorderGroupStops(GROUP_ID, ["b", "a"])
+    })
+
+    await answerReload([apiGroup({ stop_ids: ["a", "b"] })])
+    expect(order()).toEqual(["b", "a"])
+  })
+
+  it("a failed first load says so, and a refresh that gets through clears it", async () => {
+    api.getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
+    const { result } = await renderLoaded()
+    expect(result.current.loadFailed).toBe(true)
+
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
+    await act(async () => {
+      await result.current.board.refreshOperations()
+    })
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.groups).toHaveLength(1)
+  })
+})
+
+describe("createGroup", () => {
+  it("adds a placeholder at once, then takes the server's row", async () => {
+    const { result } = await renderLoaded()
+    let resolveCreate: (g: ApiIncidentGroup) => void = () => {}
+    api.createIncidentGroup.mockReturnValue(new Promise<ApiIncidentGroup>((resolve) => (resolveCreate = resolve)))
+
+    let pending: Promise<unknown> = Promise.resolve()
+    act(() => {
+      pending = result.current.createGroup({ name: "Sturm-Route West", color: "#ef4444" })
+    })
+    expect(result.current.groups[0].id).toMatch(/^temp-/)
+
+    await act(async () => {
+      resolveCreate(apiGroup({ id: "99999999-9999-9999-9999-999999999999" }))
+      await pending
+    })
+    expect(result.current.groups.map((g) => g.id)).toEqual(["99999999-9999-9999-9999-999999999999"])
+  })
+
+  it("rolls the placeholder back and toasts when the API refuses", async () => {
+    const { result } = await renderLoaded()
+    api.createIncidentGroup.mockRejectedValue(new Error("boom"))
     await act(async () => {
       await result.current.createGroup({ name: "Sturm-Route West", color: "#ef4444" })
     })
-
     expect(result.current.groups).toHaveLength(0)
     expect(toastError).toHaveBeenCalledTimes(1)
   })
 })
 
-// Sol review B round 3: `isLoaded` turns true after a failed load too, so the GPS prompt
-// read an Auftrag that never arrived as «not on the board».
-describe("GroupsProvider — loadFailed", () => {
-  it("is set while no load got through, and cleared by a refresh that does", async () => {
-    getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
-    const { result } = await renderLoaded()
-    expect(result.current.loadFailed).toBe(true)
-
-    getIncidentGroups.mockResolvedValueOnce([apiGroup()])
-    await act(async () => {
-      await result.current.refreshGroups()
-    })
-    expect(result.current.loadFailed).toBe(false)
-    expect(result.current.groups).toHaveLength(1)
-  })
-
-  it("stays clear when a later reload fails – the loaded Aufträge still stand", async () => {
-    getIncidentGroups.mockResolvedValueOnce([apiGroup()])
-    const { result } = await renderLoaded()
-    getIncidentGroups.mockRejectedValueOnce(new Error("offline"))
-    await act(async () => {
-      await result.current.refreshGroups()
-    })
-    expect(result.current.loadFailed).toBe(false)
-  })
-})
-
-describe("GroupsProvider — group_update WS event", () => {
-  it("refreshes the list when a group_update broadcast arrives", async () => {
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
-
-    // The refresh reload returns a populated list so we can observe the fold-in.
-    getIncidentGroups.mockResolvedValueOnce([apiGroup({ name: "Nach WS" })])
-
-    await act(async () => {
-      ws.emit("group_update", { action: "update", group_id: "x" })
-    })
-
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(result.current.groups.map((g) => g.name)).toContain("Nach WS"))
-  })
-
-  it.each(["assignment_update", "incident_update"])("refreshes on %s", async (event) => {
-    await renderLoaded()
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
-    ws.emit(event, {})
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
-  })
-})
-
-describe("GroupsProvider — socket back up", () => {
-  const reconnect = async () => {
-    await act(async () => {
-      ws.statusHandlers.forEach((cb) => cb("disconnected"))
-      ws.statusHandlers.forEach((cb) => cb("connected"))
-    })
-  }
-
-  it("re-reads the routes when the sync version moved while it was down", async () => {
-    await renderLoaded()
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
-    getSyncVersion.mockResolvedValue({ version: "v2" })
-    await reconnect()
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(2))
-  })
-
-  it("asks only for the version when nothing changed", async () => {
-    await renderLoaded()
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledTimes(1))
-    const versionCalls = getSyncVersion.mock.calls.length
-    await reconnect()
-    await waitFor(() => expect(getSyncVersion.mock.calls.length).toBeGreaterThan(versionCalls))
-    expect(getIncidentGroups).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe("GroupsProvider — stop reorder sequencing", () => {
+describe("stop order", () => {
   it("does not send a newer order until the older request settles", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["a", "b", "c"] })])
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["a", "b", "c"] })])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    let resolveFirst!: () => void
-    let resolveSecond!: () => void
-    reorderGroupStops
-      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirst = resolve }))
-      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveSecond = resolve }))
+    let resolveFirst = () => {}
+    let resolveSecond = () => {}
+    api.reorderGroupStops
+      .mockReturnValueOnce(new Promise<void>((resolve) => (resolveFirst = resolve)))
+      .mockReturnValueOnce(new Promise<void>((resolve) => (resolveSecond = resolve)))
 
-    let first!: Promise<boolean>
-    let second!: Promise<boolean>
-    act(() => { first = result.current.reorderGroupStops(GROUP_ID, ["b", "a", "c"]) })
-    act(() => { second = result.current.reorderGroupStops(GROUP_ID, ["c", "b", "a"]) })
-    await waitFor(() => expect(reorderGroupStops).toHaveBeenCalledTimes(1))
-    await act(async () => { resolveFirst(); await first })
-    expect(reorderGroupStops).toHaveBeenCalledTimes(2)
-    await act(async () => { resolveSecond(); await second })
+    let first: Promise<boolean> = Promise.resolve(true)
+    let second: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      first = result.current.reorderGroupStops(GROUP_ID, ["b", "a", "c"])
+    })
+    act(() => {
+      second = result.current.reorderGroupStops(GROUP_ID, ["c", "b", "a"])
+    })
+    await waitFor(() => expect(api.reorderGroupStops).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      resolveFirst()
+      await first
+    })
+    expect(api.reorderGroupStops).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      resolveSecond()
+      await second
+    })
     expect(result.current.groups[0].stopIds).toEqual(["c", "b", "a"])
   })
-})
 
-describe("GroupsProvider — guarded stop restore (route undo)", () => {
-  it("sends the expected order and applies the restore when the server accepts", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["c", "a", "b"] })])
+  it("an undo against a route somebody changed reports a conflict, quietly, and reloads", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["b", "c", "a"] })])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    reorderGroupStops.mockResolvedValueOnce(undefined)
+    const loads = api.getIncidentGroups.mock.calls.length
+    api.reorderGroupStops.mockRejectedValueOnce(new ApiError("Auftrag wurde inzwischen geändert", 409, true))
 
-    let outcome!: string
+    let outcome = ""
     await act(async () => {
       outcome = await result.current.restoreGroupStops(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
     })
 
-    expect(reorderGroupStops).toHaveBeenCalledWith(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
-    expect(outcome).toBe("restored")
-    expect(result.current.groups[0].stopIds).toEqual(["a", "b", "c"])
-  })
-
-  it("reports a conflict on 409, keeps the newer order and re-reads the route", async () => {
-    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
-    getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["b", "c", "a"] })])
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    const loads = getIncidentGroups.mock.calls.length
-    reorderGroupStops.mockRejectedValueOnce(new ApiError("Auftrag wurde inzwischen geändert", 409, true))
-
-    let outcome!: string
-    await act(async () => {
-      outcome = await result.current.restoreGroupStops(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
-    })
-
+    expect(api.reorderGroupStops).toHaveBeenCalledWith(GROUP_ID, ["a", "b", "c"], ["c", "a", "b"])
     expect(outcome).toBe("conflict")
     expect(result.current.groups[0].stopIds).toEqual(["b", "c", "a"])
-    await waitFor(() => expect(getIncidentGroups.mock.calls.length).toBeGreaterThan(loads))
-    // The caller words the outcome; the context itself stays quiet.
+    await waitFor(() => expect(api.getIncidentGroups.mock.calls.length).toBeGreaterThan(loads))
     expect(toastError).not.toHaveBeenCalled()
   })
 })
 
-describe("GroupsProvider — #23 stop add for a vehicle (pass 2, S8)", () => {
-  it("calls an Auftrag the server no longer has «changed», quietly, and re-reads", async () => {
-    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
-    getIncidentGroups.mockResolvedValue([apiGroup()])
+describe("#23 stop add for a vehicle", () => {
+  it("calls an Auftrag the server no longer has «changed», quietly", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    addStopsToGroup.mockRejectedValueOnce(new ApiError("Auftrag nicht gefunden", 404))
+    api.addStopsToGroup.mockRejectedValueOnce(new ApiError("Auftrag nicht gefunden", 404))
 
-    let outcome!: string
+    let outcome = ""
     await act(async () => {
       outcome = await result.current.addStopForVehicle(GROUP_ID, "op-1", "v1")
     })
-
     expect(outcome).toBe("changed")
     expect(toastError).not.toHaveBeenCalled()
   })
 
   it("calls an Auftrag this board already dropped «changed» without a request", async () => {
     const { result } = await renderLoaded()
-
-    let outcome!: string
+    let outcome = ""
     await act(async () => {
       outcome = await result.current.addStopForVehicle(GROUP_ID, "op-1", "v1")
     })
-
     expect(outcome).toBe("changed")
-    expect(addStopsToGroup).not.toHaveBeenCalled()
+    expect(api.addStopsToGroup).not.toHaveBeenCalled()
   })
 })
 
-describe("GroupsProvider — event scope", () => {
-  it("clears the old scope and ignores an out-of-order event load", async () => {
-    let resolveFirst!: (groups: ApiIncidentGroup[]) => void
-    getIncidentGroups.mockImplementation((eventId: string) => {
-      if (eventId === EVENT_ID) return new Promise<ApiIncidentGroup[]>((resolve) => { resolveFirst = resolve })
-      return Promise.resolve([apiGroup({ event_id: EVENT_ID_2, name: "Event 2" })])
-    })
-    const rendered = renderHook(() => useGroups(), { wrapper })
-    await waitFor(() => expect(getIncidentGroups).toHaveBeenCalledWith(EVENT_ID))
-
-    eventState.selectedEvent = { id: EVENT_ID_2 }
-    rendered.rerender()
-    expect(rendered.result.current.groups).toEqual([])
-    expect(rendered.result.current.isLoaded).toBe(false)
-    await waitFor(() => expect(rendered.result.current.groups.map((g) => g.name)).toEqual(["Event 2"]))
-
-    await act(async () => { resolveFirst([apiGroup({ name: "Stale Event 1" })]) })
-    expect(rendered.result.current.groups.map((g) => g.name)).toEqual(["Event 2"])
-  })
-
-  it("derives route-occupied resource ids without mutating resource contexts", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [
-      apiAssignment({ resource_type: "vehicle", resource_id: "v1" }),
-      apiAssignment({ id: "a2", resource_type: "personnel", resource_id: "p1" }),
-      apiAssignment({ id: "a3", resource_type: "material", resource_id: "m1" }),
-    ] })])
+describe("route resources", () => {
+  it("assigns optimistically, then takes the server's row from the reload", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    expect(result.current.occupiedResourceIds.vehicle.has("v1")).toBe(true)
-    expect(result.current.occupiedResourceIds.personnel.has("p1")).toBe(true)
-    expect(result.current.occupiedResourceIds.material.has("m1")).toBe(true)
-  })
-})
-
-describe("GroupsProvider — assign / unassign route resources", () => {
-  it("optimistically adds an assignment then reconciles from the server", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
-
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-
-    // The reconciling refresh returns the persisted assignment.
-    getIncidentGroups.mockResolvedValueOnce([
-      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" })] }),
-    ])
+    api.assignGroupResource.mockResolvedValue(apiAssignment())
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [apiAssignment()] })])
 
     await act(async () => {
       await result.current.assignResource(GROUP_ID, "vehicle", "v1")
     })
-
-    expect(assignGroupResource).toHaveBeenCalledWith(GROUP_ID, { resource_type: "vehicle", resource_id: "v1" })
-    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
-    expect(result.current.groups[0].assignments[0].resourceId).toBe("v1")
+    expect(api.assignGroupResource).toHaveBeenCalledWith(GROUP_ID, { resource_type: "vehicle", resource_id: "v1" })
+    expect(result.current.groups[0].assignments.map((a) => a.id)).toEqual(["a1"])
   })
 
-  it("opens the driver prompt for a route vehicle nobody drives (same rule as an Einsatz)", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    operationsState.vehicles = [{ id: "v1", name: "TLF" }]
-    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
+  it("asks for a driver for a route vehicle nobody drives, and stays «settling» until it asked", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-    getIncidentGroups.mockResolvedValue([
-      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" })] }),
-    ])
+    api.assignGroupResource.mockResolvedValue(apiAssignment())
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [apiAssignment()] })])
+    // The reload after the assign reads the special functions first, then the driver check.
+    let answerDrivers: (functions: unknown[]) => void = () => {}
+    api.getEventSpecialFunctions
+      .mockResolvedValueOnce([])
+      .mockImplementationOnce(() => new Promise((resolve) => (answerDrivers = resolve)))
 
     await act(async () => {
       await result.current.assignResource(GROUP_ID, "vehicle", "v1")
     })
+    await waitFor(() => expect(result.current.board.isAssignmentSettling()).toBe(true))
 
-    await waitFor(() =>
-      expect(operationsState.requestVehicleDriver).toHaveBeenCalledWith({ vehicleId: "v1", vehicleName: "TLF", groupId: GROUP_ID }),
-    )
-    expect(getEventSpecialFunctions).toHaveBeenCalledWith(EVENT_ID)
-  })
-
-  it("a route vehicle stays «settling» until its driver check has answered (⌘K waits on it)", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    operationsState.vehicles = [{ id: "v1", name: "TLF" }]
-    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
-    let answer: (functions: unknown[]) => void = () => {}
-    getEventSpecialFunctions.mockImplementation(() => new Promise((resolve) => (answer = resolve)))
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-
-    await act(async () => {
-      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
-    })
-    // Assigned, but the driver question may still come.
-    await waitFor(() => expect(getEventSpecialFunctions).toHaveBeenCalled())
-    expect(operationsState.settling.count).toBe(1)
-
-    await act(async () => answer([]))
-    await waitFor(() => expect(operationsState.settling.count).toBe(0))
-  })
-
-  it("does not prompt when the vehicle already has a driver", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    getEventSpecialFunctions.mockResolvedValue([{ function_type: "driver", vehicle_id: "v1" }])
-    assignGroupResource.mockResolvedValue(apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }))
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-
-    await act(async () => {
-      await result.current.assignResource(GROUP_ID, "vehicle", "v1")
-    })
-
-    await waitFor(() => expect(getEventSpecialFunctions).toHaveBeenCalled())
-    expect(operationsState.requestVehicleDriver).not.toHaveBeenCalled()
+    await act(async () => answerDrivers([]))
+    await waitFor(() => expect(result.current.board.isAssignmentSettling()).toBe(false))
+    expect(result.current.board.vehicleNeedingDriver).toEqual({ vehicleId: "v1", vehicleName: "TLF", groupId: GROUP_ID })
   })
 
   it("refuses an out-of-service vehicle before it reaches the route", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    operationsState.outOfServiceVehicleIds = new Set(["v1"])
-
+    api.getVehicles.mockResolvedValue([{ ...TLF, out_of_service: true }])
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
 
     let ok = true
     await act(async () => {
       ok = await result.current.assignResource(GROUP_ID, "vehicle", "v1")
     })
-
-    // No API call, no optimistic assignment — the same lock the incident path
-    // enforces, surfaced as the same error toast.
     expect(ok).toBe(false)
-    expect(assignGroupResource).not.toHaveBeenCalled()
+    expect(api.assignGroupResource).not.toHaveBeenCalled()
     expect(result.current.groups[0].assignments).toHaveLength(0)
     expect(toastError).toHaveBeenCalledTimes(1)
   })
 
   it("rolls back and toasts when the assign fails", async () => {
-    getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [] })])
-    assignGroupResource.mockRejectedValue(new Error("boom"))
-
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups).toHaveLength(1))
-
+    api.assignGroupResource.mockRejectedValue(new Error("boom"))
     await act(async () => {
       await result.current.assignResource(GROUP_ID, "vehicle", "v1")
     })
-
     expect(result.current.groups[0].assignments).toHaveLength(0)
     expect(toastError).toHaveBeenCalledTimes(1)
   })
 
-  it("optimistically removes an assignment on unassign", async () => {
-    getIncidentGroups.mockResolvedValue([
-      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "personnel", resource_id: "p1" })] }),
-    ])
-    unassignGroupResource.mockResolvedValue(undefined)
-
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
-
-    getIncidentGroups.mockResolvedValueOnce([apiGroup({ assignments: [] })])
-
-    await act(async () => {
-      await result.current.unassignResource(GROUP_ID, "a1")
-    })
-
-    expect(unassignGroupResource).toHaveBeenCalledWith(GROUP_ID, "a1")
-    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
-  })
-
-  // Sol review E round 3: a staged «Jetzt verschieben» whose Auftrag holder was released
-  // elsewhere meanwhile goes on with the assign – the 404 says the resource is free already.
+  // A staged «Jetzt verschieben» whose Auftrag holder was released elsewhere meanwhile goes on
+  // with the assign – the 404 says the resource is free already.
   it("counts a 404 on unassign as released, without a toast", async () => {
-    const { ApiError } = await vi.importActual<typeof import("@/lib/api/types/common")>("@/lib/api/types/common")
-    getIncidentGroups.mockResolvedValue([
-      apiGroup({ assignments: [apiAssignment({ id: "a1", resource_type: "personnel", resource_id: "p1" })] }),
-    ])
-    unassignGroupResource.mockRejectedValueOnce(new ApiError("Zuweisung nicht gefunden", 404, true))
-
+    const onRoute = apiAssignment({ resource_type: "personnel", resource_id: "p1" })
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [onRoute] })])
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(1))
+    api.unassignGroupResource.mockRejectedValueOnce(new ApiError("Zuweisung nicht gefunden", 404, true))
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
 
-    getIncidentGroups.mockResolvedValueOnce([apiGroup({ assignments: [] })])
     let ok: boolean | undefined
     await act(async () => {
       ok = await result.current.unassignResource(GROUP_ID, "a1")
     })
-
     expect(ok).toBe(true)
     expect(toastError).not.toHaveBeenCalled()
-    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(0))
+    expect(result.current.groups[0].assignments).toHaveLength(0)
   })
+})
 
-  it("getGroupResources splits the route's assignments by kind", async () => {
-    getIncidentGroups.mockResolvedValue([
+describe("what the routes mean for the board", () => {
+  it("names each route's resources once, never by id, and marks its crew «auf Auftrag»", async () => {
+    // The roster call that knows checked-out people too (no `checked_in_only`).
+    api.getAllPersonnel.mockImplementation(async (params?: { checked_in_only?: boolean }) =>
+      params?.checked_in_only
+        ? [{ id: "p2", name: "MEIER Anna", role: "AdF", status: "available", tags: [], role_sort_order: 0 }]
+        : [{ id: "p1", name: "BRUNNER Marco" }],
+    )
+    api.getIncidentGroups.mockResolvedValue([
       apiGroup({
         assignments: [
-          apiAssignment({ id: "a1", resource_type: "vehicle", resource_id: "v1" }),
+          apiAssignment({ resource_type: "vehicle", resource_id: "v-unknown" }),
           apiAssignment({ id: "a2", resource_type: "personnel", resource_id: "p1" }),
-          apiAssignment({ id: "a3", resource_type: "material", resource_id: "m1" }),
+          apiAssignment({ id: "a3", resource_type: "personnel", resource_id: "p2" }),
         ],
       }),
     ])
-
     const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.groups[0].assignments).toHaveLength(3))
 
-    const res = result.current.getGroupResources(GROUP_ID)
-    expect(res.vehicles.map((v) => v.resourceId)).toEqual(["v1"])
-    expect(res.personnel.map((p) => p.resourceId)).toEqual(["p1"])
-    expect(res.materials.map((m) => m.resourceId)).toEqual(["m1"])
-    // A name that could not be resolved is NEVER the raw id — that string also
-    // goes into the Funkspruch, the WhatsApp text and the printout.
-    expect(res.vehicles[0].name).toBe("Unbekannt")
-    expect(res.vehicles[0].assignmentId).toBe("a1")
-  })
-
-  it("names a route member who has checked out", async () => {
-    // The staging bug: `usePersonnel()` only carries checked-IN people, a route
-    // assignment deliberately outlives a check-out, and the chip fell back to
-    // the raw UUID. The roster is the list that still knows the name.
-    getAllPersonnel.mockResolvedValue([{ id: "p1", name: "BRUNNER Marco" }])
-    getIncidentGroups.mockResolvedValue([
-      apiGroup({ assignments: [apiAssignment({ id: "a2", resource_type: "personnel", resource_id: "p1" })] }),
-    ])
-
-    const { result } = await renderLoaded()
-    await waitFor(() => expect(result.current.getGroupResources(GROUP_ID).personnel[0]?.name).toBe("BRUNNER Marco"))
+    await waitFor(() =>
+      expect(result.current.getGroupResources(GROUP_ID).personnel.map((p) => p.name)).toEqual([
+        "BRUNNER Marco",
+        "MEIER Anna",
+      ]),
+    )
+    // A name nobody knows is «Unbekannt» – this string also goes into the Funkspruch.
+    expect(result.current.getGroupResources(GROUP_ID).vehicles[0].name).toBe("Unbekannt")
+    expect(result.current.occupiedResourceIds.personnel.has("p1")).toBe(true)
+    expect(result.current.board.personnel.find((p) => p.id === "p2")?.isOnAuftrag).toBe(true)
   })
 })

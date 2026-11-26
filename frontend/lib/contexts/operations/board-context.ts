@@ -1,4 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react"
+import type { ApiVehicle } from "@/lib/api-client"
+import type { IncidentGroup } from "@/lib/types/groups"
 import type { useEvent } from "../event-context"
 import type { RecentRemovals } from "@/lib/recent-removals"
 import type { KeyedSerialQueue, UpdateBatcher } from "@/lib/update-batcher"
@@ -24,6 +26,10 @@ export interface BoardMutationContext {
   selectedEvent: ReturnType<typeof useEvent>["selectedEvent"]
   resourceConflict: OperationsContextType["resourceConflict"]
   outOfServiceVehicleIds: Set<string>
+  vehicles: ApiVehicle[]
+  /** The Aufträge as written last (ahead of the render) – `setGroups` keeps it current. */
+  groupsRef: MutableRefObject<IncidentGroup[]>
+  setGroups: Dispatch<SetStateAction<IncidentGroup[]>>
   setOperations: Dispatch<SetStateAction<Operation[]>>
   setPersonnel: Dispatch<SetStateAction<Person[]>>
   setMaterials: Dispatch<SetStateAction<Material[]>>
@@ -38,6 +44,8 @@ export interface BoardMutationContext {
   patchQueueRef: MutableRefObject<KeyedSerialQueue>
   /** One Reko-order POST in flight per Reko person (`reorderRekos`). */
   rekoOrderQueueRef: MutableRefObject<KeyedSerialQueue>
+  /** One stop-order request in flight per Auftrag (`reorderGroupStops`, `restoreGroupStops`). */
+  stopOrderQueueRef: MutableRefObject<KeyedSerialQueue>
   updateBatcherRef: MutableRefObject<UpdateBatcher<Operation>>
   /** Per incident: the status the board showed when its pending status write was made
    *  (sent as `from_status`, see `updateOperation`). Set at the first status edit of a

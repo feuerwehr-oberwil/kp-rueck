@@ -57,7 +57,6 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     groups: groupsState.groups,
     getGroupResources: () => groupsState.resources,
     unassignResource: vi.fn(),
-    refreshGroups: vi.fn(async () => {}),
   }),
 }))
 vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({

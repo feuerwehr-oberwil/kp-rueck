@@ -2,7 +2,6 @@
 
 import { useContext, useMemo } from "react"
 import { OperationsContext } from "./operations/contexts"
-import { useGroups } from "./groups-context"
 
 // Types
 export interface Material {
@@ -39,12 +38,11 @@ export interface MaterialGroup {
 
 /**
  * Material held by an Auftrag is deployed, exactly like material on an Einsatz
- * (owner pick D2, 08.11.2026). A route's resources live on the group, and
- * `GroupsProvider` sits inside `OperationsProvider`, so the board load's
- * reconciliation (`buildEventState`) only ever sees the incident assignments –
+ * (owner pick D2, 08.11.2026). A route's resources live on the route, and the
+ * board load's reconciliation (`buildEventState`) reads the incident assignments –
  * a Tauchpumpe out on «Sturmtour Nord» read as frei in the sidebar, its counter
  * and on the wall. The same fold `isOnAuftrag` gives a person
- * (`useAuftragRoster`), here straight into `status`, so every reader of
+ * (`withAuftragCrew`), here straight into `status`, so every reader of
  * `materialResourceState` follows. Unchanged rows keep their identity.
  */
 export function withAuftragDeployment(materials: Material[], onAuftrag: ReadonlySet<string>): Material[] {
@@ -58,7 +56,7 @@ export function withAuftragDeployment(materials: Material[], onAuftrag: Readonly
  * The depot with this Ereignis's deployment folded in – incident assignments
  * and Aufträge alike – its material groups and the one write path for «Nicht
  * einsatzbereit». A selector over the board provider (the depot is its state,
- * `lib/contexts/operations/use-resource-lists.ts`) and the groups provider;
+ * `lib/contexts/operations/use-resource-lists.ts`) and its Aufträge;
  * every surface that draws availability (board sidebar and its counter, the
  * Status wall) reads material through here. `useOperations().materials` is the
  * incident-only half – fine for names, wrong for frei/gebunden.
@@ -68,7 +66,7 @@ export function useMaterials() {
   if (context === undefined) {
     throw new Error("useMaterials must be used within an OperationsProvider")
   }
-  const { occupiedResourceIds } = useGroups()
+  const { occupiedResourceIds } = context
   const depot = context.materials
   const materials = useMemo(
     () => withAuftragDeployment(depot, occupiedResourceIds.material),

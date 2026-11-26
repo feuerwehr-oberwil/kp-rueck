@@ -52,7 +52,6 @@ const rp = vi.hoisted(() => ({
   positions: [] as unknown[],
 }))
 const reorderGroupStops = vi.hoisted(() => vi.fn(async () => true))
-const refreshGroups = vi.hoisted(() => vi.fn(async () => {}))
 const createOperation = vi.hoisted(() => vi.fn())
 const refreshOperations = vi.hoisted(() => vi.fn(async () => {}))
 
@@ -60,7 +59,6 @@ vi.mock("@/lib/contexts/groups-context", () => ({
   useGroups: () => ({
     groups: rp.groups,
     reorderGroupStops,
-    refreshGroups,
     getGroupResources: (groupId: string) => ({
       vehicles:
         (rp.groups as { id: string; vehicles?: unknown[] }[]).find((g) => g.id === groupId)

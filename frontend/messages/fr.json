@@ -3155,8 +3155,6 @@
       "outOfServiceBlockedDescription": "Marqué comme non prêt dans la gestion – le libérer là d'abord."
     },
     "groups": {
-      "loadFailedTitle": "Les missions n’ont pas pu être chargées",
-      "loadFailedDescription": "La liste des missions est peut-être périmée.",
       "createFailed": "La mission n’a pas pu être créée",
       "updateFailed": "La mission n’a pas pu être actualisée",
       "deleteFailed": "La mission n’a pas pu être supprimée",

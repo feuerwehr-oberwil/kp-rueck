@@ -53,17 +53,17 @@ export function usePromoteToLeader() {
  */
 export function usePromoteRouteLeader() {
   const t = useTranslations("kanban")
-  const { refreshGroups } = useGroups()
+  const { refreshOperations } = useOperations()
 
   return useCallback(
     async (groupId: string, assignmentId: string) => {
       try {
         await apiClient.updateGroupAssignment(groupId, assignmentId, { is_leader: true })
-        await refreshGroups()
+        await refreshOperations()
       } catch {
         toast.error(t("detail.leaderFailed"))
       }
     },
-    [refreshGroups, t],
+    [refreshOperations, t],
   )
 }
