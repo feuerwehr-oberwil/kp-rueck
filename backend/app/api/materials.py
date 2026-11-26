@@ -2,7 +2,6 @@
 
 import uuid
 from collections.abc import Sequence
-from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, update
@@ -210,12 +209,12 @@ async def delete_material(
     background_tasks.add_task(broadcast_material_update, {"id": str(material_id)}, "delete")
 
 
-@router.post("/categories/sort-order", status_code=status.HTTP_200_OK, response_model=None)
+@router.post("/categories/sort-order", status_code=status.HTTP_200_OK, response_model=schemas.CategorySortOrderResult)
 async def update_location_sort_orders(
     sort_update: schemas.BulkCategorySortOrderUpdate,
     current_user: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.CategorySortOrderResult:
     """
     Update sort orders for material location categories (editor only).
 
@@ -230,7 +229,7 @@ async def update_location_sort_orders(
             .values(location_sort_order=category_update.sort_order)
         )
 
-    return {"status": "success", "updated_categories": len(sort_update.categories)}
+    return schemas.CategorySortOrderResult(updated_categories=len(sort_update.categories))
 
 
 # ============================================

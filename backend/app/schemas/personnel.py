@@ -6,7 +6,6 @@ from typing import Annotated
 from uuid import UUID
 
 from pydantic import (
-    AfterValidator,
     AwareDatetime,
     BaseModel,
     BeforeValidator,
@@ -16,25 +15,19 @@ from pydantic import (
     model_validator,
 )
 
+from .common import AvailabilityStatus, legacy_status
 from .fields import OptionalText50, PersonName, SortOrder, reject_null
 
-
-def _personnel_status(v: str) -> str:
-    """Map the legacy duty statuses onto the two the column holds, refuse anything else."""
-    valid_statuses = {"available", "unavailable"}
-    status_mapping = {
-        "assigned": "available",
-        "off_duty": "unavailable",
-        "inactive": "unavailable",
-    }
-    if v in status_mapping:
-        return status_mapping[v]
-    if v not in valid_statuses:
-        raise ValueError(f"Status must be one of: {', '.join(sorted(valid_statuses))}")
-    return v
-
-
-PersonnelStatus = Annotated[str, AfterValidator(_personnel_status)]
+PersonnelStatus = Annotated[
+    AvailabilityStatus,
+    legacy_status(
+        {
+            "assigned": "available",
+            "off_duty": "unavailable",
+            "inactive": "unavailable",
+        }
+    ),
+]
 
 
 def _blank_to_none(value: object) -> object:
@@ -124,7 +117,7 @@ class PersonnelCheckInResponse(BaseModel):
     name: str
     kennung: str | None = None
     role: str | None = None
-    status: str
+    status: AvailabilityStatus
     tags: list[str] | None = None
     checked_in: bool
     checked_in_at: datetime | None = None
@@ -190,7 +183,7 @@ class PersonnelListItem(BaseModel):
     name: str
     kennung: str | None = None
     role: str | None = None
-    status: str = "available"
+    status: AvailabilityStatus = "available"
     tags: list[str] | None = None
     checked_in: bool
     # The board's roll-call distinguishes "never came" from "came and went", which needs

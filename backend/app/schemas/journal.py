@@ -1,12 +1,24 @@
 """Einsatztagebuch (journal) schemas — see models.JournalEntry and services/journal.py."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-__all__ = ["JournalCorrectionCreate", "JournalEntryCreate", "JournalEntryOut", "JournalPage"]
+__all__ = [
+    "JournalCategory",
+    "JournalCorrectionCreate",
+    "JournalEntryCreate",
+    "JournalEntryOut",
+    "JournalKind",
+    "JournalPage",
+]
+
+# CHECK `valid_journal_kind`.
+JournalKind = Literal["manual", "status", "incident", "assignment", "message", "field", "reko", "alarm"]
+# The filter chip a kind belongs to (`services/journal.KIND_CATEGORY`).
+JournalCategory = Literal["manual", "field", "status", "resources"]
 
 
 class JournalEntryOut(BaseModel):
@@ -21,9 +33,9 @@ class JournalEntryOut(BaseModel):
     incident_title: str | None = None
     #: The Einsatz has been deleted since (or purged) — its lines stay, marked.
     incident_deleted: bool = False
-    kind: str
-    #: Filter group: manual | field | status | resources
-    category: str
+    kind: JournalKind
+    #: Filter group
+    category: JournalCategory
     text: str | None
     data: dict[str, Any] | None
     occurred_at: datetime

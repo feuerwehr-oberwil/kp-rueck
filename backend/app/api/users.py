@@ -91,10 +91,6 @@ async def create_user(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Benutzername bereits vergeben")
 
-    # Validate role
-    if user_data.role not in ("admin", "editor", "viewer"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ungültige Rolle. Erlaubt: admin, editor")
-
     # Create user
     user = User(
         username=user_data.username,
@@ -163,10 +159,6 @@ async def update_user(
         existing = await db.execute(select(User).where(User.username == user_data.username))
         if existing.scalar_one_or_none():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Benutzername bereits vergeben")
-
-    # Validate role if provided
-    if user_data.role and user_data.role not in ("admin", "editor", "viewer"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ungültige Rolle. Erlaubt: admin, editor")
 
     if user.is_active and user_data.is_active is False:
         await db.execute(update(User).where(User.id == user_id).values(session_version=User.session_version + 1))

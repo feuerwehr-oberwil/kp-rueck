@@ -290,7 +290,14 @@ async def test_the_box_revokes_share_links_only_for_an_ereignis_it_leads(
 @pytest.mark.asyncio
 async def test_a_hosted_board_is_no_mirror_and_has_nothing_to_take_over(editor_client: AsyncClient, two_events):
     a, *_ = two_events
-    assert (await editor_client.get("/api/standby")).json() == {"mirror": False, "leads": []}
+    assert (await editor_client.get("/api/standby")).json() == {
+        "mirror": False,
+        "configured": None,
+        "current": None,
+        "last_received_at": None,
+        "detached": None,
+        "leads": [],
+    }
     assert (await editor_client.post(f"/api/standby/events/{a.id}/takeover")).status_code == 404
 
 

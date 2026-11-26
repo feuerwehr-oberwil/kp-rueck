@@ -5,8 +5,11 @@ change; the architecture behind them is [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one you touch:
 
-- Backend output is German-only, except notifications and the `/feld` errors (stable `code`,
-  `CodedHTTPException`): «i18n».
+- Backend output is German-only, except notifications and coded errors (stable `code` beside the
+  German `detail`): «i18n». CRUD and services refuse with `DomainError(ErrorCode.…, "<German>")`
+  (409 unless said otherwise), a route with `CodedHTTPException`; one handler answers both. Do
+  not raise `ValueError` for a refusal and do not catch `ValueError` in a route: a stray one is a
+  bug and must answer 500.
 - Every notification row comes from `services/notification_params.py` (`type` + `params` + the
   German `message`): «Notification text».
 - An undo is a new write that must still be valid now (409 on a change, `expected_ids` under the

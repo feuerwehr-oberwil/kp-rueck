@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,11 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor, CurrentUser
-from ..config import settings
 from ..database import get_db
 from ..models import (
-    Event,
-    Incident,
     Vehicle,
 )
 from ..utils.errors import ErrorMessages
@@ -34,20 +31,8 @@ router = APIRouter(prefix="/training", tags=["training"])
 # ---------------------------------------------------------------------------
 
 
-class GpsSimStartRequest(BaseModel):
-    vehicle_id: UUID
-    target: Literal["incident", "magazin"]
-    incident_id: UUID | None = None
-    speed_kmh: float = 30.0
-
-
 class GpsSimStopRequest(BaseModel):
     vehicle_id: UUID | None = None  # None stops all drives
-
-
-class GpsSimSpeedRequest(BaseModel):
-    vehicle_id: UUID
-    speed_kmh: float
 
 
 class GpsSimDriveResponse(BaseModel):
@@ -81,68 +66,6 @@ async def list_gps_simulations(current_user: CurrentUser) -> list[GpsSimDriveRes
 
     now = gps_simulation.clock()
     return [_drive_response(d, now) for d in gps_simulation.list_drives()]
-
-
-@router.post("/gps-sim/start", response_model=GpsSimDriveResponse)
-async def start_gps_simulation(
-    request: GpsSimStartRequest,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db),
-) -> GpsSimDriveResponse:
-    """Start a simulated GPS drive for a vehicle (training use).
-
-    The simulated positions feed the exact same pipeline as real Traccar data,
-    so trainees get the real deal: map movement, distance labels, geofence
-    notification and the arrival/return prompts.
-    """
-    from ..services.gps_simulation import gps_simulation
-    from ..services.training_steps import StepRefusedError, start_vehicle_drive
-
-    if settings.demo_mode:
-        raise HTTPException(status_code=403, detail="Im Demo-Modus nicht verfügbar")
-
-    vehicle = await db.get(Vehicle, request.vehicle_id)
-    if not vehicle:
-        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
-
-    # Drives to a training incident are always allowed — an open Ernstfall
-    # event elsewhere does not lock the Übungssteuerung. The only target-side
-    # rail is here: you can only drive to incidents of a training event.
-    incident = None
-    if request.target == "incident" and request.incident_id:
-        incident = await db.get(Incident, request.incident_id)
-        if not incident or incident.deleted_at is not None:
-            raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
-        event = await db.get(Event, incident.event_id)
-        if not event or not event.training_flag:
-            raise HTTPException(status_code=400, detail="Nur Einsätze aus Übungen können angefahren werden")
-
-    try:
-        drive = await start_vehicle_drive(
-            db, vehicle, target=request.target, incident=incident, speed_kmh=request.speed_kmh
-        )
-    except StepRefusedError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _drive_response(drive, gps_simulation.clock())
-
-
-@router.post("/gps-sim/speed", response_model=GpsSimDriveResponse)
-async def set_gps_simulation_speed(
-    request: GpsSimSpeedRequest,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db),
-) -> GpsSimDriveResponse:
-    """Change the cruise speed of a vehicle's active simulated drive."""
-    from ..services.gps_simulation import gps_simulation
-
-    vehicle = await db.get(Vehicle, request.vehicle_id)
-    if not vehicle:
-        raise HTTPException(status_code=404, detail=ErrorMessages.VEHICLE_NOT_FOUND)
-
-    drive = await gps_simulation.set_speed(vehicle.name, max(10.0, min(100.0, request.speed_kmh)))
-    if drive is None:
-        raise HTTPException(status_code=404, detail="Keine aktive Fahrt für dieses Fahrzeug")
-    return _drive_response(drive, gps_simulation.clock())
 
 
 @router.post("/gps-sim/stop", response_model=None)

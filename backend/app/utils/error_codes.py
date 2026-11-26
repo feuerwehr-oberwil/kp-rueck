@@ -20,8 +20,15 @@ string in the frontend catalogues.
 
 The Feld door's own three answers (``locked`` / ``code_required`` / ``wrong_code``)
 already carried a code in ``detail.error`` before this existed and are read that way.
+
+Two ways to raise one. A route raises ``CodedHTTPException``. CRUD and services raise
+``DomainError`` – a refusal of the domain (a closed Einsatz, a released assignment), not an
+HTTP concern – and ``coded_error_handler`` (registered in ``main.py``) answers both with the
+same body. Do not catch a ``DomainError`` in a route just to re-raise it; catch it only
+where the route says something else. A plain ``ValueError`` is a bug and answers 500.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
 
 from fastapi import HTTPException, Request
@@ -46,7 +53,7 @@ class ErrorCode(StrEnum):
     FELD_REPORT_NOT_YOURS = "feld_report_not_yours"
     FELD_REPORT_TAKEN_OVER = "feld_report_taken_over"
     FELD_TOKEN_OTHER_PERSON = "feld_token_other_person"  # noqa: S105 — an error code, not a secret
-    # «Ich bin da bis …» that ends before it starts, or a person who is not available
+    # «Ich bin da bis …» that ends before it starts (/feld and the board's Appell)
     FELD_PLAN_INVALID = "feld_plan_invalid"
     # «Zusammenführen» from /feld (R2)
     FELD_MERGE_TARGET_CLOSED = "feld_merge_target_closed"
@@ -91,6 +98,45 @@ class ErrorCode(StrEnum):
     PHOTO_TOO_LARGE = "photo_too_large"
     PHOTO_TOO_MANY_PIXELS = "photo_too_many_pixels"
     PHOTO_LIMIT = "photo_limit"
+    # A write on the standby box while the hosted board leads (middleware/standby_readonly.py).
+    STANDBY_READ_ONLY = "standby_read_only"
+    # `assignments.ensure_assignable`: why a resource may not go onto an Einsatz or Auftrag
+    # (409; params: name where the sentence names the resource).
+    RESOURCE_ARCHIVED = "resource_archived"
+    RESOURCE_OUT_OF_SERVICE = "resource_out_of_service"
+    EVENT_ARCHIVED = "event_archived"
+    PERSON_GUEST_ELSEWHERE = "person_guest_elsewhere"
+    INCIDENT_CLOSED = "incident_closed"
+    AUFTRAG_CLOSED = "auftrag_closed"
+    # An edit of an assignment whose resource was released meanwhile (409).
+    ASSIGNMENT_RELEASED = "assignment_released"
+    # 422s: the Einsatzleiter flag on a vehicle or material, «bleibt vor Ort» on a non-vehicle.
+    LEADER_NOT_PERSONNEL = "leader_not_personnel"
+    DRIVER_STAY_NOT_VEHICLE = "driver_stay_not_vehicle"
+    # An id that is no resource (404), or a resource of another type than declared (422).
+    RESOURCE_NOT_FOUND = "resource_not_found"
+    RESOURCE_TYPE_MISMATCH = "resource_type_mismatch"
+    # «Übertragen» and its undo (409; params: names for the conflict).
+    TRANSFER_CHANGED = "transfer_changed"
+    TRANSFER_SOURCE_CLOSED = "transfer_source_closed"
+    TRANSFER_ALREADY_STOP = "transfer_already_stop"
+    TRANSFER_AUFTRAG_CLOSED = "transfer_auftrag_closed"
+    TRANSFER_NOTHING = "transfer_nothing"
+    TRANSFER_CONFLICT = "transfer_conflict"
+    # An Einsatz of another Ereignis as a stop or a transfer target (409).
+    INCIDENT_OTHER_EVENT = "incident_other_event"
+    # Sonderfunktionen: a driver needs a vehicle, a key the station does not have (422); a
+    # vehicle has one driver (409; params: function for the unknown key).
+    DRIVER_NEEDS_VEHICLE = "driver_needs_vehicle"
+    FUNCTION_UNKNOWN = "function_unknown"
+    VEHICLE_HAS_DRIVER = "vehicle_has_driver"
+    # Check-in, check-out and the attendance plan (409).
+    PERSON_UNAVAILABLE = "person_unavailable"
+    PERSON_STILL_ASSIGNED = "person_still_assigned"
+    # An assign onto an Einsatz that was deleted or merged meanwhile (409).
+    INCIDENT_NOT_ON_BOARD = "incident_not_on_board"
+    # Delete before archive (409).
+    EVENT_NOT_ARCHIVED = "event_not_archived"
 
 
 class CodedHTTPException(HTTPException):
@@ -109,11 +155,36 @@ class CodedHTTPException(HTTPException):
         self.params = params
 
 
-async def coded_http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+class DomainError(Exception):
+    """A refusal CRUD or a service raises: a code, the German sentence, a status (409 default).
+
+    ``raise DomainError(ErrorCode.INCIDENT_CLOSED, "Der Einsatz ist abgeschlossen …")``.
+    ``coded_error_handler`` answers it like a ``CodedHTTPException``. Subclass it only where
+    a caller must tell one refusal from another (``except ResourceNotAssignableError``).
+    ``str()`` is the German sentence.
+    """
+
+    def __init__(
+        self,
+        code: ErrorCode,
+        detail: str,
+        *,
+        status_code: int = 409,
+        params: Mapping[str, str | int | float] | None = None,
+    ) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
+        self.status_code = status_code
+        self.params = params
+
+
+async def coded_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """FastAPI's own ``{"detail": …}`` body, plus ``code`` (and ``params`` when it has any)."""
-    if not isinstance(exc, CodedHTTPException):  # registered for that class only
+    if not isinstance(exc, CodedHTTPException | DomainError):  # registered for these two only
         raise exc
     content: dict[str, object] = {"detail": exc.detail, "code": exc.code.value}
     if exc.params:
         content["params"] = exc.params
-    return JSONResponse(status_code=exc.status_code, content=content, headers=exc.headers)
+    headers = exc.headers if isinstance(exc, CodedHTTPException) else None
+    return JSONResponse(status_code=exc.status_code, content=content, headers=headers)

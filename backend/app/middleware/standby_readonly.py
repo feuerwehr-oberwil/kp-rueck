@@ -24,6 +24,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..database import async_session_maker
 from ..environment import ROLE_STANDBY, deployment_role
+from ..utils.error_codes import ErrorCode
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 # Logging in and out, the first-run claim, and the takeover must work on a mirror – and so must
@@ -74,7 +75,7 @@ class StandbyReadOnlyMiddleware:
         ):
             await self.app(scope, receive, send)
             return
-        body = json.dumps({"detail": DETAIL, "code": "standby_read_only"}).encode()
+        body = json.dumps({"detail": DETAIL, "code": ErrorCode.STANDBY_READ_ONLY.value}).encode()
         await send(
             {
                 "type": "http.response.start",

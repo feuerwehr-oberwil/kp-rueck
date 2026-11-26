@@ -182,12 +182,11 @@ async def require_feld_person(
     return person
 
 
-@router.post("/generate-link", response_model=dict)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_feld_link(
-    request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for the field surface"),
-) -> dict[str, str]:
+) -> schemas.ShareLinkResponse:
     """
     Generate the `/feld` link with QR code (editor only).
 
@@ -200,17 +199,7 @@ async def generate_feld_link(
     """
     valid_until = datetime.now(UTC) + timedelta(hours=FELD_LINK_VALID_HOURS)
     token = generate_feld_token(event_id, expires_hours=FELD_LINK_VALID_HOURS)
-    link = f"/feld?token={token}"
-
-    base_url = str(request.base_url).rstrip("/")
-
-    return {
-        "token": token,
-        "link": link,
-        "full_url": f"{base_url}{link}",
-        "qr_code_data": link,  # Frontend generates the QR code from this
-        "valid_until": valid_until.isoformat(),
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/feld?token={token}", valid_until)
 
 
 @router.get("/access", response_model=schemas.FeldAccessState)
@@ -845,10 +834,7 @@ async def set_own_attendance_plan(
     """
     person = await require_feld_person(db, claims, personnel_id, require_access=False)
     event = await _load_event(db, claims.event_id)
-    try:
-        result = await personnel_checkin_crud.set_attendance_plan(db, event.id, person.id, plan, None, request)
-    except ValueError as e:
-        raise CodedHTTPException(400, ErrorCode.FELD_PLAN_INVALID, "Diese Zeit geht nicht. Bitte neu wählen.") from e
+    result = await personnel_checkin_crud.set_attendance_plan(db, event.id, person.id, plan, None, request)
     if result is None:
         raise CodedHTTPException(404, ErrorCode.FELD_PERSON_NOT_FOUND, "Person nicht gefunden")
     after_commit(
@@ -1067,7 +1053,7 @@ async def correct_own_report(
     )
 
 
-@router.post("/incidents/{incident_id}/reko-link", response_model=dict)
+@router.post("/incidents/{incident_id}/reko-link", response_model=schemas.ShareLinkResponse)
 @limiter.limit(RateLimits.FELD)
 async def mint_reko_link(
     request: Request,
@@ -1075,7 +1061,7 @@ async def mint_reko_link(
     claims: FeldClaims,
     personnel_id: uuid.UUID = Query(..., description="The person filing"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.ShareLinkResponse:
     """A short-lived form token so the Reko form can mount inside `/feld`.
 
     The alternative was to widen ``validate_form_token`` to accept feld tokens,
@@ -1101,11 +1087,9 @@ async def mint_reko_link(
         "reko",
         field_binding=FormTokenBinding(claims.claim_id, claims.event_id, person.id),
     )
-    return {
-        "incident_id": str(incident.id),
-        "token": token,
-        "link": f"/reko?incident_id={incident.id}&token={token}&personnel_id={person.id}",
-    }
+    return schemas.ShareLinkResponse.for_link(
+        token, f"/reko?incident_id={incident.id}&token={token}&personnel_id={person.id}"
+    )
 
 
 @router.get("/incidents/{incident_id}/rapport", response_model=schemas.SchadenplatzRapport)

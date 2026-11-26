@@ -1124,25 +1124,6 @@ async def get_event_divera_responses(
     return await _responses_summary(db, emergencies, event_id)
 
 
-@router.get("/incidents/{incident_id}/responses", response_model=schemas.DiveraResponsesSummary)
-async def get_incident_divera_responses(
-    incident_id: UUID,
-    current_user: CurrentEditor,
-    db: AsyncSession = Depends(get_db),
-) -> schemas.DiveraResponsesSummary:
-    """Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).
-
-    Editors and admins only, like the Ereignis endpoint; a viewer gets 403.
-    """
-    incident = await incidents_crud.get_incident(db, incident_id)
-    if incident is None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
-    if not settings.divera_access_key:
-        return await _responses_summary(db, [], incident.event_id)
-    emergencies = await divera_responses.emergencies_for_incident(db, incident)
-    return await _responses_summary(db, emergencies, incident.event_id)
-
-
 @router.get("/polling/status", response_model=None)
 async def get_polling_status(
     current_user: CurrentUser,

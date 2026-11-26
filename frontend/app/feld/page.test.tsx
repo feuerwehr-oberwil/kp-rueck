@@ -28,6 +28,7 @@ const mintFeldRekoLink = vi.hoisted(() => vi.fn())
 const getFeldMaterial = vi.hoisted(() => vi.fn())
 const logoutFeld = vi.hoisted(() => vi.fn())
 const setFeldAttendancePlan = vi.hoisted(() => vi.fn())
+const setFeldAttendance = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
 
 vi.mock('sonner', () => ({ toast: { error: toastError } }))
@@ -59,6 +60,7 @@ vi.mock('@/lib/api-client', () => ({
     getFeldMaterial,
     logoutFeld,
     setFeldAttendancePlan,
+    setFeldAttendance,
     // The door's proof-of-place fetch; null = render without the proof.
     getFeldContext: vi.fn().mockResolvedValue(null),
   },
@@ -1219,6 +1221,19 @@ describe('/feld · the own plan', () => {
     const [id, token, plan] = setFeldAttendancePlan.mock.calls[0]
     expect([id, token, Object.keys(plan)]).toEqual(['p-1', 'bound-token', ['planned_from']])
     expect(await screen.findByRole('button', { name: /^Komme um 20:00$/ })).toBeInTheDocument()
+  })
+
+  it('a refused check-in says why and keeps «Einchecken»', async () => {
+    answer({ checked_in: false })
+    setFeldAttendance.mockRejectedValue(
+      new ApiError('Diese Person ist als nicht verfügbar gemeldet.', 409, true, 'person_unavailable'),
+    )
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Einchecken' }))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Diese Person ist als nicht verfügbar gemeldet.'))
+    expect(screen.getByRole('button', { name: 'Einchecken' })).toBeInTheDocument()
   })
 
   it('in: offers no «Ich bin da bis …» – people on /feld stay to the end', async () => {

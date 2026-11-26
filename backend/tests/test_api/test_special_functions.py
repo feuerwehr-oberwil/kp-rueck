@@ -345,6 +345,29 @@ async def test_assign_special_function_with_vehicle(
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_a_second_driver_on_a_vehicle_is_refused_with_its_code(
+    editor_client: AsyncClient,
+    db_session: AsyncSession,
+    test_event: Event,
+    test_personnel: Personnel,
+    test_vehicle: Vehicle,
+):
+    """The refusal reaches the board as a coded 409 the client says in its language –
+    it used to be a 400 «Ungültige Anfrage» that hid the reason."""
+    other = Personnel(id=uuid4(), name="Zweiter Fahrer", role="atemschutz", status="available")
+    db_session.add(other)
+    await db_session.commit()
+    url = f"/api/events/{test_event.id}/special-functions/"
+    first = {"personnel_id": str(test_personnel.id), "function_type": "driver", "vehicle_id": str(test_vehicle.id)}
+    assert (await editor_client.post(url, json=first)).status_code == 201
+
+    response = await editor_client.post(url, json={**first, "personnel_id": str(other.id)})
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Dieses Fahrzeug hat bereits einen Fahrer.", "code": "vehicle_has_driver"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_assign_special_function_duplicate(
     editor_client: AsyncClient, test_event: Event, test_personnel: Personnel, test_assignment: EventSpecialFunction
 ):

@@ -19,6 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, HTTPExcep
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..config import settings
 from ..database import get_db
@@ -48,32 +49,40 @@ def _side() -> str:
     return STANDBY if deployment_role() == ROLE_STANDBY else HOSTED
 
 
-def _lead_json(event_id: uuid.UUID, lead: Lead) -> dict[str, Any]:
+def _lead(event_id: uuid.UUID, lead: Lead) -> schemas.StandbyLead:
     contact_at, pending = lead.contact_at, lead.pending
     if _side() == HOSTED and event_id in _contact:
         contact_at, pending = _contact[event_id]
-    return {
-        "event_id": str(event_id),
-        "holder": lead.holder,
-        "since": lead.since,
-        "pending": pending,
-        "contact_at": contact_at,
-        "open_conflicts": lead.open_conflicts,
-    }
+    return schemas.StandbyLead.model_validate(
+        {
+            "event_id": event_id,
+            "holder": lead.holder,
+            "since": lead.since,
+            "pending": pending,
+            "contact_at": contact_at,
+            "open_conflicts": lead.open_conflicts,
+        }
+    )
 
 
-def _payload(state: MirrorState) -> dict[str, Any]:
-    return {
-        "mirror": True,
-        "configured": state.configured,
-        "current": state.current,
-        "last_received_at": state.last_received_at,
-        "detached": [
-            {"event_id": str(event_id), "detached_at": at}
+def _payload(state: MirrorState) -> schemas.StandbyStatus:
+    """The box's own status: the mirror and every Ereignis it took over."""
+    return schemas.StandbyStatus(
+        mirror=True,
+        configured=state.configured,
+        current=state.current,
+        last_received_at=state.last_received_at,
+        detached=[
+            schemas.StandbyDetached(event_id=event_id, detached_at=at)
             for event_id, at in sorted(state.detached.items(), key=lambda kv: kv[1])
         ],
-        "leads": [_lead_json(event_id, lead) for event_id, lead in state.leads.items()],
-    }
+        leads=[_lead(event_id, lead) for event_id, lead in state.leads.items()],
+    )
+
+
+def _hosted_payload(leads: dict[uuid.UUID, Lead]) -> schemas.StandbyStatus:
+    """The hosted board's status: no mirror, the Ereignisse a box took over."""
+    return schemas.StandbyStatus(mirror=False, leads=[_lead(event_id, lead) for event_id, lead in leads.items()])
 
 
 def _refresh(background_tasks: BackgroundTasks) -> None:
@@ -94,8 +103,8 @@ def _journal(db: AsyncSession, event_id: uuid.UUID, user: User, text: str) -> No
     )
 
 
-@router.get("", response_model=None)
-async def standby_status(db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, Any]:
+@router.get("", response_model=schemas.StandbyStatus)
+async def standby_status(db: Annotated[AsyncSession, Depends(get_db)]) -> schemas.StandbyStatus:
     """Is this a mirror, how current, and which Ereignisse are led where.
 
     Unauthenticated, like `/api/deployment`: the band speaks on the login screen too. It carries
@@ -105,17 +114,16 @@ async def standby_status(db: Annotated[AsyncSession, Depends(get_db)]) -> dict[s
     conn = await _driver(db)
     if deployment_role() == ROLE_STANDBY:
         return _payload(await mirror_state(conn))
-    leads = await hosted_leads(conn)
-    return {"mirror": False, "leads": [_lead_json(event_id, lead) for event_id, lead in leads.items()]}
+    return _hosted_payload(await hosted_leads(conn))
 
 
-@router.post("/events/{event_id}/takeover", response_model=None)
+@router.post("/events/{event_id}/takeover", response_model=schemas.StandbyStatus)
 async def take_event_offline(
     event_id: uuid.UUID,
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> schemas.StandbyStatus:
     """«Dieses Ereignis offline übernehmen» on the box. Editors and admins.
 
     From now on the Ereignis is led here; the sidecar syncs it with the hosted board both ways
@@ -138,13 +146,13 @@ async def take_event_offline(
     return _payload(await mirror_state(conn))
 
 
-@router.post("/events/{event_id}/lead", response_model=None)
+@router.post("/events/{event_id}/lead", response_model=schemas.StandbyStatus)
 async def take_event_back(
     event_id: uuid.UUID,
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> schemas.StandbyStatus:
     """«Hier übernehmen» on the hosted board: take an Ereignis back from the box. Editors and admins.
 
     The box learns it with its next sync round and becomes a mirror of it again; what it changed
@@ -164,8 +172,7 @@ async def take_event_back(
     _journal(db, event_id, current_user, "Führung übernommen auf KP Rück Online")
     await db.flush()
     _refresh(background_tasks)
-    leads = await hosted_leads(conn)
-    return {"mirror": False, "leads": [_lead_json(e, lead) for e, lead in leads.items()]}
+    return _hosted_payload(await hosted_leads(conn))
 
 
 # --- the box's way in (hosted board, token) --------------------------------------------------
@@ -278,10 +285,10 @@ async def photo_from_box(
 # --- conflicts (both) --------------------------------------------------------------------------
 
 
-@router.get("/events/{event_id}/conflicts", response_model=None)
+@router.get("/events/{event_id}/conflicts", response_model=schemas.StandbyConflicts)
 async def list_conflicts(
     event_id: uuid.UUID, _user: CurrentEditor, db: Annotated[AsyncSession, Depends(get_db)]
-) -> dict[str, Any]:
+) -> schemas.StandbyConflicts:
     """The conflicts of one Ereignis, open ones first, and whether they can be decided here."""
     conn = await _driver(db)
     rows = await conn.fetch(
@@ -294,21 +301,20 @@ async def list_conflicts(
         event_id,
     )
     leader = await conn.fetchval("SELECT holder FROM public.event_leads WHERE event_id = $1", event_id) or HOSTED
-    return {
-        "decidable": leader == _side(),
-        "conflicts": [
-            {
-                **{k: r[k] for k in ("table_name", "kind", "kept_on", "deleted_on", "lost_at", "detected_at")},
-                **{k: r[k] for k in ("resolved_at", "resolved_by", "resolution")},
-                "id": str(r["id"]),
-                "row_id": str(r["row_id"]),
-                "columns": json.loads(r["columns"]) if r["columns"] else None,
-                "row": json.loads(r["row"]) if r["row"] else None,
-                "subject": json.loads(r["subject"]) if r["subject"] else None,
-            }
+    return schemas.StandbyConflicts(
+        decidable=leader == _side(),
+        conflicts=[
+            schemas.StandbyConflict.model_validate(
+                {
+                    **dict(r),
+                    "columns": json.loads(r["columns"]) if r["columns"] else None,
+                    "row": json.loads(r["row"]) if r["row"] else None,
+                    "subject": json.loads(r["subject"]) if r["subject"] else None,
+                }
+            )
             for r in rows
         ],
-    }
+    )
 
 
 class ResolveIn(BaseModel):
@@ -317,14 +323,14 @@ class ResolveIn(BaseModel):
     text: dict[str, str] | None = None
 
 
-@router.post("/conflicts/{conflict_id}/resolve", response_model=None)
+@router.post("/conflicts/{conflict_id}/resolve", response_model=schemas.StandbyResolved)
 async def resolve_conflict(
     conflict_id: uuid.UUID,
     body: ResolveIn,
     current_user: CurrentEditor,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> dict[str, Any]:
+) -> schemas.StandbyResolved:
     """Decide a conflict – on the system that leads its Ereignis. Editors and admins.
 
     The write is an ordinary one here, so the sync carries it to the other system.
@@ -364,7 +370,7 @@ async def resolve_conflict(
         body.choice,
     )
     _refresh(background_tasks)
-    return {"resolved": str(conflict_id), "choice": body.choice}
+    return schemas.StandbyResolved(resolved=conflict_id, choice=body.choice)
 
 
 def _resolution(conflict: asyncpg.Record, body: ResolveIn) -> Op | None:

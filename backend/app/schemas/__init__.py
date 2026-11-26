@@ -23,6 +23,7 @@ from .personnel import *  # noqa: F403
 from .printing import *  # noqa: F403
 from .reko import *  # noqa: F403
 from .setup import *  # noqa: F403
+from .standby import *  # noqa: F403
 from .training import *  # noqa: F403
 from .user import *  # noqa: F403
 from .vehicles import *  # noqa: F403

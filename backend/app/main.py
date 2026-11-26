@@ -81,7 +81,7 @@ from .middleware.standby_readonly import StandbyReadOnlyMiddleware
 from .services.alerting import AlarmBlockedError
 from .services.journal_backfill import backfill_on_boot
 from .services.settings import initialize_default_settings
-from .utils.error_codes import CodedHTTPException, coded_http_exception_handler
+from .utils.error_codes import CodedHTTPException, DomainError, coded_error_handler
 from .websocket_manager import sio as socket_server
 
 # Read the deployment role once, here, at import – the same place and the same moment a missing
@@ -221,9 +221,11 @@ async def alarm_blocked_handler(request: Request, exc: Exception) -> JSONRespons
 
 
 app.add_exception_handler(AlarmBlockedError, alarm_blocked_handler)
-# `/feld` errors carry a stable code beside the German detail (`utils/error_codes.py`).
+# Coded errors (a route's CodedHTTPException, a CRUD DomainError) carry a stable code beside
+# the German detail (`utils/error_codes.py`).
 # Looked up by class, so it wins over FastAPI's HTTPException handler for this subclass.
-app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
+app.add_exception_handler(CodedHTTPException, coded_error_handler)
+app.add_exception_handler(DomainError, coded_error_handler)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

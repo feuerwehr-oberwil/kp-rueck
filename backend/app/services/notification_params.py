@@ -178,8 +178,8 @@ def gps_release_todo(vehicle: str, place: str) -> Built:
 
 # --- Reko -------------------------------------------------------------------------------
 
-#: Reko danger flags (``RekoReport.dangers_json`` keys) as the German sentence names them.
-#: The client has its own labels for the same keys (``reko.reportSection.dangerBadges``).
+#: Reko danger flags (``RekoReport.dangers_json`` keys) in the board's words – the bell
+#: sentence and the Lageblatt. ``test_rapport_rows`` ties them to ``reko.reportSection.dangerBadges``.
 DANGER_LABELS_DE = {
     "fire": "Feuer",
     "explosion": "Explosion",

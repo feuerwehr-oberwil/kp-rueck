@@ -2512,66 +2512,6 @@
         }
       }
     },
-    "/api/divera/incidents/{incident_id}/responses": {
-      "get": {
-        "tags": [
-          "divera"
-        ],
-        "summary": "Get Incident Divera Responses",
-        "description": "Divera Rückmeldungen for the alarm(s) behind one incident (same shape as the Ereignis one).\n\nEditors and admins only, like the Ereignis endpoint; a viewer gets 403.",
-        "operationId": "get_incident_divera_responses_api_divera_incidents__incident_id__responses_get",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiveraResponsesSummary"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/divera/polling/status": {
       "get": {
         "tags": [
@@ -4055,7 +3995,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SyncVersion"
+                }
               }
             }
           },
@@ -5899,7 +5841,7 @@
           "incidents"
         ],
         "summary": "Transfer Assignments",
-        "description": "Transfer all active assignments from this incident to another incident (editor only).\n\nThis will:\n1. Move all personnel, vehicle, and material assignments\n2. Block if any resource is already assigned to target\n3. Log the transfer action\n4. Broadcast WebSocket updates",
+        "description": "Transfer all active assignments from this incident to another incident (editor only).\n\nThis will:\n1. Move all personnel, vehicle, and material assignments\n2. Block if any resource is already assigned to target\n3. Log the transfer action\n4. Broadcast WebSocket updates\n\nEvery refusal is a ``DomainError`` (404 for a missing Einsatz, 409 otherwise) the handler answers.",
         "operationId": "transfer_assignments_api_incidents__incident_id__transfer_post",
         "parameters": [
           {
@@ -7565,7 +7507,19 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/AssignmentResponse"
+                    }
+                  },
+                  "propertyNames": {
+                    "format": "uuid"
+                  },
+                  "title": "Response Get Assignments By Event Api Assignments By Event  Event Id  Get"
+                }
               }
             }
           },
@@ -8252,7 +8206,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CategorySortOrderResult"
+                }
               }
             }
           },
@@ -8313,9 +8269,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate Checkin Link Api Personnel Check In Generate Link Post"
+                  "$ref": "#/components/schemas/ShareLinkResponse"
                 }
               }
             }
@@ -10718,7 +10672,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CategorySortOrderResult"
+                }
               }
             }
           },
@@ -11465,7 +11421,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLinkResponse"
+                }
               }
             }
           },
@@ -12112,9 +12070,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate Feld Link Api Feld Generate Link Post"
+                  "$ref": "#/components/schemas/ShareLinkResponse"
                 }
               }
             }
@@ -13330,9 +13286,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Mint Reko Link Api Feld Incidents  Incident Id  Reko Link Post"
+                  "$ref": "#/components/schemas/ShareLinkResponse"
                 }
               }
             }
@@ -14715,7 +14669,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StandbyStatus"
+                }
               }
             }
           }
@@ -14763,7 +14719,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StandbyStatus"
+                }
               }
             }
           },
@@ -14821,7 +14779,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StandbyStatus"
+                }
               }
             }
           },
@@ -14879,7 +14839,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StandbyConflicts"
+                }
               }
             }
           },
@@ -14947,7 +14909,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StandbyResolved"
+                }
               }
             }
           },
@@ -15755,56 +15719,6 @@
         }
       }
     },
-    "/api/training/autogen": {
-      "get": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Get Autogen",
-        "description": "The Automatik: on or off, and the run – which Übung it feeds, since when, why it stopped.",
-        "operationId": "get_autogen_api_training_autogen_get",
-        "parameters": [
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AutogenStateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/training/events/{event_id}/autogen": {
       "put": {
         "tags": [
@@ -15986,303 +15900,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SimulateCheckinStopResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/events/{event_id}/simulate/field-complete/{incident_id}": {
-      "post": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Simulate Field Complete",
-        "description": "Field crew reports the incident finished (\"Einsatz beendet\") — plus the\nfollow-up the field actually gets: *\"Kommt ihr selbst zurück?\"*\n\nInformational only: stamps ``field_complete_reported_at`` so the operator\nsees a \"Feld meldet: beendet\" badge on the card and can decide to close the\nincident. Deliberately does NOT change the status — closing is the\noperator's board action, mimicking the real command-post split.\n\nGoes through the same CRUD calls as the **KP-parity endpoint**\n(`POST /api/incidents/{id}/field-report`) – `services.training_steps.report_field_complete`,\nshared with the Regie – audit entry and notification included.\n\nThe Abholung answer (decision 24) follows the «bleibt vor Ort» pill, the\nsuggestion /feld makes (``crud.feld.vehicle_on_site``, owner 23.11.2026): a\nvehicle on site → «fährt selbst», none → «Abholung nötig». The Übungsleiter\ncan always override it by sending it explicitly. It goes to\n``crud.feld.record_pickup`` as that answer (``self_drive``) under the same\nKP actor: through the parity PATCH a KP «nein» reads «Abholung disponiert».",
-        "operationId": "simulate_field_complete_api_training_events__event_id__simulate_field_complete__incident_id__post",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/SimulateFieldCompleteRequest"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Payload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IncidentResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/events/{event_id}/simulate/reko-arrived/{incident_id}": {
-      "post": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Simulate Reko Arrived",
-        "description": "Mark the Reko crew as \"vor Ort\" (arrived on scene) for a training incident.\n\nThis is the first half of the Reko arc — it sets ``arrived_at`` without\nsubmitting a report, so the conductor console can walk an incident through\n\"Reko vor Ort\" → \"Reko-Meldung\" as two separate, realistically-timed steps\n(the one-shot ``simulate_reko`` below still does both at once).",
-        "operationId": "simulate_reko_arrived_api_training_events__event_id__simulate_reko_arrived__incident_id__post",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IncidentResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/events/{event_id}/simulate/reko/{incident_id}": {
-      "post": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Simulate Reko",
-        "description": "Simulate a reko report submission for a training incident.\n\nMarks arrival, generates random report data, and submits it.\nTriggers the same status transitions and notifications as a real submission.",
-        "operationId": "simulate_reko_api_training_events__event_id__simulate_reko__incident_id__post",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RekoReportResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/events/{event_id}/simulate/divera": {
-      "post": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Simulate Divera Alarm",
-        "description": "Inject a simulated Divera alarm into the emergency pool.\n\nTrainees then run the real alarm-intake workflow: alert sound and toast on\nthe pool page, review, attach to the exercise. The entry is training-marked\n(ÜBUNG badge), excluded from auto-attach and only attachable to training\nevents — it never touches real operations or Divera itself.",
-        "operationId": "simulate_divera_alarm_api_training_events__event_id__simulate_divera_post",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SimulateDiveraRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiveraEmergencyResponse"
                 }
               }
             }
@@ -16984,126 +16601,6 @@
                     "$ref": "#/components/schemas/GpsSimDriveResponse"
                   },
                   "title": "Response List Gps Simulations Api Training Gps Sim  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/gps-sim/start": {
-      "post": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Start Gps Simulation",
-        "description": "Start a simulated GPS drive for a vehicle (training use).\n\nThe simulated positions feed the exact same pipeline as real Traccar data,\nso trainees get the real deal: map movement, distance labels, geofence\nnotification and the arrival/return prompts.",
-        "operationId": "start_gps_simulation_api_training_gps_sim_start_post",
-        "parameters": [
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GpsSimStartRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GpsSimDriveResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/training/gps-sim/speed": {
-      "post": {
-        "tags": [
-          "training"
-        ],
-        "summary": "Set Gps Simulation Speed",
-        "description": "Change the cruise speed of a vehicle's active simulated drive.",
-        "operationId": "set_gps_simulation_speed_api_training_gps_sim_speed_post",
-        "parameters": [
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GpsSimSpeedRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GpsSimDriveResponse"
                 }
               }
             }
@@ -17875,9 +17372,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate Viewer Link Api Viewer Generate Link Post"
+                  "$ref": "#/components/schemas/ShareLinkResponse"
                 }
               }
             }
@@ -17922,9 +17417,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Viewer Data Api Viewer Data Get"
+                  "$ref": "#/components/schemas/ViewerData"
                 }
               }
             }
@@ -18096,9 +17589,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate Alarm Link Api Intake Generate Link Post"
+                  "$ref": "#/components/schemas/ShareLinkResponse"
                 }
               }
             }
@@ -18143,9 +17634,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Intake Context Api Intake Context Get"
+                  "$ref": "#/components/schemas/IntakeContext"
                 }
               }
             }
@@ -18200,9 +17689,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Create Intake Alarm Api Intake Alarm Post"
+                  "$ref": "#/components/schemas/IntakeAlarmCreated"
                 }
               }
             }
@@ -18268,9 +17755,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Intake Alarm State Api Intake Alarm  Incident Id  Get"
+                  "$ref": "#/components/schemas/IntakeReceiptState"
                 }
               }
             }
@@ -18344,9 +17829,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Correct Intake Alarm Api Intake Alarm  Incident Id  Put"
+                  "$ref": "#/components/schemas/IntakeReceiptState"
                 }
               }
             }
@@ -19675,6 +19158,26 @@
         ],
         "title": "CategorySortOrder",
         "description": "Schema for updating category sort orders."
+      },
+      "CategorySortOrderResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success",
+            "title": "Status",
+            "default": "success"
+          },
+          "updated_categories": {
+            "type": "integer",
+            "title": "Updated Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "updated_categories"
+        ],
+        "title": "CategorySortOrderResult",
+        "description": "The answer to a category sort-order update: how many categories were written."
       },
       "CheckInGuest": {
         "properties": {
@@ -24001,65 +23504,6 @@
         ],
         "title": "GpsSimDriveResponse"
       },
-      "GpsSimSpeedRequest": {
-        "properties": {
-          "vehicle_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Vehicle Id"
-          },
-          "speed_kmh": {
-            "type": "number",
-            "title": "Speed Kmh"
-          }
-        },
-        "type": "object",
-        "required": [
-          "vehicle_id",
-          "speed_kmh"
-        ],
-        "title": "GpsSimSpeedRequest"
-      },
-      "GpsSimStartRequest": {
-        "properties": {
-          "vehicle_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Vehicle Id"
-          },
-          "target": {
-            "type": "string",
-            "enum": [
-              "incident",
-              "magazin"
-            ],
-            "title": "Target"
-          },
-          "incident_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Incident Id"
-          },
-          "speed_kmh": {
-            "type": "number",
-            "title": "Speed Kmh",
-            "default": 30.0
-          }
-        },
-        "type": "object",
-        "required": [
-          "vehicle_id",
-          "target"
-        ],
-        "title": "GpsSimStartRequest"
-      },
       "GpsSimStopRequest": {
         "properties": {
           "vehicle_id": {
@@ -25840,6 +25284,26 @@
         "title": "IncidentUpdate",
         "description": "Schema for updating incident: the create rules (`IncidentFields`), every field optional.\n\nThe free-text fields, the coordinates, `group_id` and the two move fields may be sent\nas null; the other columns cannot be emptied. `internal_notes` carries no length cap:\nmerges and `/feld` append to it on the server, so a note may already be past any\nlimit a form would set."
       },
+      "IntakeAlarmCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "receipt_token": {
+            "type": "string",
+            "title": "Receipt Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "receipt_token"
+        ],
+        "title": "IntakeAlarmCreated",
+        "description": "`POST /api/intake/alarm`: the new card and the receipt that lets THIS caller read it back.\n\n``receipt_token`` is handed out once, at the only moment the server can be sure who\nreported it – there is no login to ask later."
+      },
       "IntakeAlarmUpdate": {
         "properties": {
           "title": {
@@ -25961,6 +25425,76 @@
         "type": "object",
         "title": "IntakeAlarmUpdate",
         "description": "A correction to an alarm that has not been disponiert yet.\n\nField-for-field ``FeldIncidentUpdate`` (`schemas/feld.py`), including its\nsemantics: every field is optional, ``None`` means *unchanged* rather than\n*clear it*, and clearing a text field is done with ``\"\"``. The phone sends\nthe whole form back and a Meldung whose Meldungstext was fixed must not lose\nits address to an omitted key.\n\nThe two coordinates cannot play by that rule — there is no ``\"\"`` for a\nNumeric column, so ``None`` has to carry both meanings and the payload's\n``model_fields_set`` tells them apart: a coordinate field *sent* as null\nclears it (the caller un-pins a wrong map pin), a field *omitted* leaves it\nuntouched.\n\n``internal_notes`` is the one exception to \"the field is the value\": it is\n*appended* to «Notizen» rather than assigned (see ``append_reporter_note``),\nbecause that column is shared with the operator and the read half does not\nhand it back.\n\nThe validators are ``PublicIncidentCreate``'s, not ``FeldIncidentUpdate``'s:\nthis is the same login-less door the create path is, so the same 2000-char\ncap on the two free-text columns applies on the way back in.\n\nNo ``status`` and no operator flags — this is the reporter's own words, not\na second way onto the board."
+      },
+      "IntakeContext": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/IntakeEventContext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event"
+        ],
+        "title": "IntakeContext",
+        "description": "`GET /api/intake/context`: just enough to say «Alarm erfassen – {name}»."
+      },
+      "IntakeEventContext": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "training_flag": {
+            "type": "boolean",
+            "title": "Training Flag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "training_flag"
+        ],
+        "title": "IntakeEventContext",
+        "description": "The Ereignis the public intake form names in its header."
+      },
+      "IntakeReceiptState": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IncidentStatus"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          },
+          "vehicles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Vehicles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "editable",
+          "vehicles"
+        ],
+        "title": "IntakeReceiptState",
+        "description": "What the receipt may know: the status, whether it may still be fixed, the vehicles on it.\n\nDeliberately no content: the reporter's words are on their own screen already, and\nechoing the columns back would echo whatever an operator has since typed into them."
       },
       "IntegrationsResponse": {
         "properties": {
@@ -26113,10 +25647,26 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "manual",
+              "status",
+              "incident",
+              "assignment",
+              "message",
+              "field",
+              "reko",
+              "alarm"
+            ],
             "title": "Kind"
           },
           "category": {
             "type": "string",
+            "enum": [
+              "manual",
+              "field",
+              "status",
+              "resources"
+            ],
             "title": "Category"
           },
           "text": {
@@ -26428,6 +25978,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status",
             "default": "available"
           },
@@ -26583,6 +26137,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status",
             "default": "available"
           },
@@ -26970,7 +26528,11 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"
@@ -27733,6 +27295,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "tags": {
@@ -27943,6 +27509,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "tags": {
@@ -28074,6 +27644,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "tags": {
@@ -28146,6 +27720,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status",
             "default": "available"
           },
@@ -28286,7 +27864,11 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"
@@ -30380,7 +29962,13 @@
           "power_supply": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "available",
+                  "unavailable",
+                  "emergency_needed"
+                ]
               },
               {
                 "type": "null"
@@ -30470,7 +30058,13 @@
           "power_supply": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "available",
+                  "unavailable",
+                  "emergency_needed"
+                ]
               },
               {
                 "type": "null"
@@ -30706,7 +30300,13 @@
           "power_supply": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "available",
+                  "unavailable",
+                  "emergency_needed"
+                ]
               },
               {
                 "type": "null"
@@ -31472,6 +31072,42 @@
         "title": "SetupStatusResponse",
         "description": "Whether this board has been claimed (= at least one user account exists)."
       },
+      "ShareLinkResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "link": {
+            "type": "string",
+            "title": "Link"
+          },
+          "qr_code_data": {
+            "type": "string",
+            "title": "Qr Code Data"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "link",
+          "qr_code_data"
+        ],
+        "title": "ShareLinkResponse",
+        "description": "A link the board hands out (check-in, viewer, alarm intake, `/feld`, Reko).\n\n``link`` is relative: the client prefixes its own origin – the backend's\n``request.base_url`` is the wrong host behind Railway's proxy. ``qr_code_data`` is\nwhat the QR code encodes (the link). ``valid_until`` is set where the slip prints its\nown expiry (the `/feld` poster)."
+      },
       "SimulateBulkRapportResponse": {
         "properties": {
           "candidates": {
@@ -31579,53 +31215,6 @@
         ],
         "title": "SimulateCheckinStopResponse",
         "description": "Result of stopping a trickled check-in: how many people will no longer arrive."
-      },
-      "SimulateDiveraRequest": {
-        "properties": {
-          "category": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Category"
-          }
-        },
-        "type": "object",
-        "title": "SimulateDiveraRequest",
-        "description": "Schema for injecting a simulated Divera alarm into the pool."
-      },
-      "SimulateFieldCompleteRequest": {
-        "properties": {
-          "pickup_needed": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pickup Needed"
-          },
-          "pickup_note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pickup Note"
-          }
-        },
-        "type": "object",
-        "title": "SimulateFieldCompleteRequest",
-        "description": "The follow-up \"Einsatz beendet\" asks in the field (decision 24).\n\n``pickup_needed=None`` is the default and means *die Lage entscheidet*: the\nsimulator rolls it from the situation — a crew that walked there or whose\nvehicle drove on is usually stranded. The Übungsleiter can always override\nby sending the answer explicitly, which is the same choice the crew has on\n`/feld`."
       },
       "SimulateFieldReportRequest": {
         "properties": {
@@ -31808,6 +31397,405 @@
         "title": "StageFigures",
         "description": "Median and nearest-rank P90 of one stage time, over ``count`` incidents."
       },
+      "StandbyConflict": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "table_name": {
+            "type": "string",
+            "title": "Table Name"
+          },
+          "row_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Row Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "field",
+              "deleted",
+              "duplicate"
+            ],
+            "title": "Kind"
+          },
+          "kept_on": {
+            "type": "string",
+            "enum": [
+              "hosted",
+              "standby"
+            ],
+            "title": "Kept On"
+          },
+          "deleted_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "hosted",
+                  "standby"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted On"
+          },
+          "columns": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StandbyConflictSubject"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lost_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lost At"
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Detected At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved By"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kept",
+                  "other",
+                  "both"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "table_name",
+          "row_id",
+          "kind",
+          "kept_on",
+          "deleted_on",
+          "columns",
+          "row",
+          "subject",
+          "lost_at",
+          "detected_at",
+          "resolved_at",
+          "resolved_by",
+          "resolution"
+        ],
+        "title": "StandbyConflict",
+        "description": "Something both systems changed while they could not talk; the leader's version stands."
+      },
+      "StandbyConflictSubject": {
+        "properties": {
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_id",
+          "number",
+          "address"
+        ],
+        "title": "StandbyConflictSubject",
+        "description": "The Einsatz a conflicting row belongs to, for its label."
+      },
+      "StandbyConflicts": {
+        "properties": {
+          "decidable": {
+            "type": "boolean",
+            "title": "Decidable"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/StandbyConflict"
+            },
+            "type": "array",
+            "title": "Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decidable",
+          "conflicts"
+        ],
+        "title": "StandbyConflicts",
+        "description": "`GET /api/standby/events/{id}/conflicts`, open ones first."
+      },
+      "StandbyDetached": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "detached_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Detached At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "detached_at"
+        ],
+        "title": "StandbyDetached",
+        "description": "An Ereignis that left the mirror for the two-way sync, and since when."
+      },
+      "StandbyLead": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "holder": {
+            "type": "string",
+            "enum": [
+              "hosted",
+              "standby"
+            ],
+            "title": "Holder"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Since"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "contact_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact At"
+          },
+          "open_conflicts": {
+            "type": "integer",
+            "title": "Open Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "holder",
+          "since",
+          "pending",
+          "contact_at",
+          "open_conflicts"
+        ],
+        "title": "StandbyLead",
+        "description": "An Ereignis a box took over at some point, and how its two-way sync stands."
+      },
+      "StandbyResolved": {
+        "properties": {
+          "resolved": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resolved"
+          },
+          "choice": {
+            "type": "string",
+            "enum": [
+              "kept",
+              "other",
+              "both"
+            ],
+            "title": "Choice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resolved",
+          "choice"
+        ],
+        "title": "StandbyResolved",
+        "description": "The answer to a decided conflict."
+      },
+      "StandbyStatus": {
+        "properties": {
+          "mirror": {
+            "type": "boolean",
+            "title": "Mirror"
+          },
+          "configured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "last_received_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Received At"
+          },
+          "detached": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/StandbyDetached"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detached"
+          },
+          "leads": {
+            "items": {
+              "$ref": "#/components/schemas/StandbyLead"
+            },
+            "type": "array",
+            "title": "Leads"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mirror",
+          "leads"
+        ],
+        "title": "StandbyStatus",
+        "description": "`GET /api/standby` (and the takeover answers). The mirror fields are null on the hosted board."
+      },
       "StatusTransitionCreate": {
         "properties": {
           "from_status": {
@@ -31845,6 +31833,20 @@
         ],
         "title": "StatusTransitionCreate",
         "description": "Body of POST /incidents/{id}/status.\n\n`from_status` is the status the client SAW. When the card has moved since\n(somebody else's move landed first), the server refuses with 409\n`incident_status_changed` and changes nothing. Sending the move again with\n`override_status` = the status that answer named applies it anyway; the\ntransition then keeps `from_status` as its `seen_status` («war schon …»)."
+      },
+      "SyncVersion": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "SyncVersion",
+        "description": "`GET /api/incidents/sync-version`: a fingerprint of the board; a change means «reload»."
       },
       "TraccarStatusResponse": {
         "properties": {
@@ -32149,6 +32151,11 @@
           },
           "role": {
             "type": "string",
+            "enum": [
+              "admin",
+              "editor",
+              "viewer"
+            ],
             "title": "Role"
           },
           "display_name": {
@@ -32202,6 +32209,11 @@
           },
           "role": {
             "type": "string",
+            "enum": [
+              "admin",
+              "editor",
+              "viewer"
+            ],
             "title": "Role"
           },
           "display_name": {
@@ -32253,7 +32265,12 @@
           "role": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "editor",
+                  "viewer"
+                ]
               },
               {
                 "type": "null"
@@ -32348,6 +32365,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "radio_call_sign": {
@@ -32519,6 +32540,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "radio_call_sign": {
@@ -32703,6 +32728,10 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
             "title": "Status"
           },
           "out_of_service": {
@@ -32866,7 +32895,11 @@
           "status": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"
@@ -32902,6 +32935,859 @@
         "type": "object",
         "title": "VehicleUpdate",
         "description": "Schema for updating vehicle: same field rules as create, every field optional.\n\n`out_of_service` and `status` write the same readiness flag; when both are\npresent in the payload, `out_of_service` wins, and a null in either means \"not\nsent\" (`crud.materials.resolve_out_of_service`). The other columns cannot be\nemptied. `archived_at` is not settable here — archiving goes through\nPOST /vehicles/{id}/archive and /restore."
+      },
+      "ViewerAssignment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "driver_stay": {
+            "type": "boolean",
+            "title": "Driver Stay",
+            "default": false
+          },
+          "is_leader": {
+            "type": "boolean",
+            "title": "Is Leader",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "resource_type",
+          "resource_id"
+        ],
+        "title": "ViewerAssignment",
+        "description": "One resource on one incident — the shape the display reconciles with.\n\n`driver_stay` rides along because the board draws the \"Fahrer bleibt\" marker\nfrom it, and `is_leader` because the display sorts the crew leader-first —\nit names nobody new, it only marks one of the names already on the wire.\nWho assigned it, and when, do not."
+      },
+      "ViewerData": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/EventResponse"
+          },
+          "incidents": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerIncident"
+            },
+            "type": "array",
+            "title": "Incidents"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerGroup"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "personnel": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerPersonnel"
+            },
+            "type": "array",
+            "title": "Personnel"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerMaterial"
+            },
+            "type": "array",
+            "title": "Materials"
+          },
+          "vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/Vehicle"
+            },
+            "type": "array",
+            "title": "Vehicles"
+          },
+          "vehicle_positions": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerVehiclePosition"
+            },
+            "type": "array",
+            "title": "Vehicle Positions"
+          },
+          "assignments": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ViewerAssignment"
+              },
+              "type": "array"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Assignments"
+          },
+          "special_functions": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerSpecialFunction"
+            },
+            "type": "array",
+            "title": "Special Functions"
+          },
+          "figures": {
+            "$ref": "#/components/schemas/EventFigures"
+          },
+          "reko_summaries": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ViewerRekoSummary"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Reko Summaries"
+          },
+          "gps_stale_minutes": {
+            "type": "number",
+            "title": "Gps Stale Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event",
+          "incidents",
+          "groups",
+          "personnel",
+          "materials",
+          "vehicles",
+          "vehicle_positions",
+          "assignments",
+          "special_functions",
+          "figures",
+          "reko_summaries",
+          "gps_stale_minutes"
+        ],
+        "title": "ViewerData",
+        "description": "`GET /api/viewer/data`: everything a shared display reads, one allowlist envelope.\n\nEvery row type is one of the narrow `Viewer*` shapes above; FastAPI filters the\npayload through this model, so a field the board has and the link must not carry\ncannot ride along by accident."
+      },
+      "ViewerGroup": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "stop_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Stop Ids",
+            "default": []
+          },
+          "progress": {
+            "$ref": "#/components/schemas/GroupProgress"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ViewerGroupAssignment"
+            },
+            "type": "array",
+            "title": "Assignments",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ViewerGroup",
+        "description": "An Auftrag (route) as a display draws it: name, colour, stops, progress."
+      },
+      "ViewerGroupAssignment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "unassigned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unassigned At"
+          },
+          "driver_stay": {
+            "type": "boolean",
+            "title": "Driver Stay",
+            "default": false
+          },
+          "is_leader": {
+            "type": "boolean",
+            "title": "Is Leader",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "resource_type",
+          "resource_id"
+        ],
+        "title": "ViewerGroupAssignment",
+        "description": "A resource the route owns — the shared board names them under the Auftrag."
+      },
+      "ViewerIncident": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "type": {
+            "$ref": "#/components/schemas/IncidentType"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/IncidentPriority"
+          },
+          "status": {
+            "$ref": "#/components/schemas/IncidentStatus"
+          },
+          "location_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Address"
+          },
+          "location_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Display"
+          },
+          "location_lat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lat"
+          },
+          "location_lng": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Lng"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "default": "operator"
+          },
+          "nachbarhilfe": {
+            "type": "boolean",
+            "title": "Nachbarhilfe",
+            "default": false
+          },
+          "nachbarhilfe_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachbarhilfe Note"
+          },
+          "am_warten": {
+            "type": "boolean",
+            "title": "Am Warten",
+            "default": false
+          },
+          "am_warten_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Am Warten Note"
+          },
+          "zu_fuss": {
+            "type": "boolean",
+            "title": "Zu Fuss",
+            "default": false
+          },
+          "pickup_needed": {
+            "type": "boolean",
+            "title": "Pickup Needed",
+            "default": false
+          },
+          "pickup_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Requested At"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "group_position": {
+            "type": "integer",
+            "title": "Group Position",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
+          },
+          "assigned_vehicles": {
+            "items": {
+              "$ref": "#/components/schemas/AssignedVehicle"
+            },
+            "type": "array",
+            "title": "Assigned Vehicles",
+            "default": []
+          },
+          "has_completed_reko": {
+            "type": "boolean",
+            "title": "Has Completed Reko",
+            "default": false
+          },
+          "reko_arrived_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reko Arrived At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "event_id",
+          "title",
+          "type",
+          "priority",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ViewerIncident",
+        "description": "One card on a shared board / map / status display.\n\nThe situation — where, what, how urgent, how far along — and nothing about\nthe person who reported it. See the module docstring for the full omission\nlist; the two that the audit found rendered are `contact`/`contact_phone`\n(the Melder block) and `internal_notes` (the detail dialog)."
+      },
+      "ViewerMaterial": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "location_sort_order": {
+            "type": "integer",
+            "title": "Location Sort Order",
+            "default": 0
+          },
+          "consumable": {
+            "type": "boolean",
+            "title": "Consumable",
+            "default": false
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "out_of_service": {
+            "type": "boolean",
+            "title": "Out Of Service",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "location"
+        ],
+        "title": "ViewerMaterial",
+        "description": "A unit of equipment on the shared material panel."
+      },
+      "ViewerPersonnel": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kennung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kennung"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "role_sort_order": {
+            "type": "integer",
+            "title": "Role Sort Order",
+            "default": 0
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ViewerPersonnel",
+        "description": "A checked-in person on the shared roster — name, role, sorting.\n\nEnough to draw the roster panel and to sort it the way the board does. The\navailability the display shows is derived from this event's assignments, so\nthe raw `status` column is not carried; nor is any external account id."
+      },
+      "ViewerRekoDangers": {
+        "properties": {
+          "fire": {
+            "type": "boolean",
+            "title": "Fire",
+            "default": false
+          },
+          "fire_danger": {
+            "type": "boolean",
+            "title": "Fire Danger",
+            "default": false
+          },
+          "explosion": {
+            "type": "boolean",
+            "title": "Explosion",
+            "default": false
+          },
+          "collapse": {
+            "type": "boolean",
+            "title": "Collapse",
+            "default": false
+          },
+          "chemical": {
+            "type": "boolean",
+            "title": "Chemical",
+            "default": false
+          },
+          "electrical": {
+            "type": "boolean",
+            "title": "Electrical",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ViewerRekoDangers",
+        "description": "The danger checklist without its free-text note (see ViewerRekoSummary)."
+      },
+      "ViewerRekoSummary": {
+        "properties": {
+          "is_relevant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Relevant"
+          },
+          "dangers_json": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ViewerRekoDangers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary Text"
+          },
+          "personnel_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Personnel Count"
+          },
+          "estimated_duration_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Duration Hours"
+          },
+          "photos_json": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Photos Json",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "ViewerRekoSummary",
+        "description": "What a share link may show of a Reko result — deliberately narrower than RekoSummary.\n\nThe /viewer/data endpoint has no session behind it: the token in the URL is\nthe only gate, and a URL gets forwarded. So this drops\n\n* ``other_notes`` on the dangers — free text the Reko dictated about the\n  site, which can name people who live there;\n* the submitter's name and the submission time — nothing on the display\n  renders them, and who reported it is not part of the situation.\n\n``photos_json`` **is** carried, and that is a deliberate widening of the\nboundary: a picture of the damage is the most useful part of a Reko result,\nand the detail dialog on the share board drew an empty grid without it.\n/api/photos/{incident}/{file} therefore takes the same viewer token as a\nsecond door, scoped to the token's own event and to files a submitted report\nlists (see ``serve_photo``). Filenames only — the URL is built client-side.\n\nWhat is left is what the card and the detail dialog actually draw."
+      },
+      "ViewerSpecialFunction": {
+        "properties": {
+          "personnel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Personnel Id"
+          },
+          "function_type": {
+            "type": "string",
+            "title": "Function Type"
+          },
+          "vehicle_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Id"
+          },
+          "vehicle_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "personnel_id",
+          "function_type"
+        ],
+        "title": "ViewerSpecialFunction",
+        "description": "A Reko / driver / Magazin role for the event, as the display reads it.\n\nThe display resolves the person from the roster it already has, so the\ndenormalised `personnel_name` is dropped; the vehicle name is kept because a\ndriver's vehicle is drawn next to their name."
+      },
+      "ViewerVehiclePosition": {
+        "properties": {
+          "device_id": {
+            "type": "integer",
+            "title": "Device Id"
+          },
+          "device_name": {
+            "type": "string",
+            "title": "Device Name"
+          },
+          "unique_id": {
+            "type": "string",
+            "title": "Unique Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "speed": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speed"
+          },
+          "course": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course"
+          },
+          "last_update": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Update"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_id",
+          "device_name",
+          "unique_id",
+          "status",
+          "latitude",
+          "longitude"
+        ],
+        "title": "ViewerVehiclePosition",
+        "description": "A vehicle's last GPS fix on a shared display."
       },
       "WarningText": {
         "properties": {

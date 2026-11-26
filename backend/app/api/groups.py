@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
-from ..crud import assignments as assignments_crud
 from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
@@ -213,9 +212,6 @@ async def add_stops(
             via_vehicle_id=body.via_vehicle_id,
             only_unassigned=body.only_unassigned,
         )
-    except ValueError as e:
-        logger.warning("Add stops rejected for Auftrag %s: %s", group_id, e)
-        raise HTTPException(status_code=400, detail=str(e)) from e
     except crud.StopsChangedError:
         # Nothing was written; get_db rolls back. German like every API detail; the
         # board says it in its own words.
@@ -255,8 +251,6 @@ async def transfer_to_auftrag(
         result = await crud.transfer_to_auftrag(db, group_id, body.incident_id, current_user, request)
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
-    except (assignments_crud.TransferRefusedError, assignments_crud.ResourceNotAssignableError) as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
     await _broadcast_membership(background_tasks, db, group_id)
     return schemas.TransferToAuftragResponse.model_validate(result)
 
@@ -283,8 +277,6 @@ async def undo_transfer_to_auftrag(
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
-    except (assignments_crud.TransferChangedError, assignments_crud.ResourceNotAssignableError) as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
     await _broadcast_membership(background_tasks, db, group_id)
 
 
@@ -353,17 +345,8 @@ async def assign_group_resource(
     except LookupError as e:
         # The Auftrag was deleted between the check above and the lock.
         raise HTTPException(status_code=404, detail=ErrorMessages.AUFTRAG_NOT_FOUND) from e
-    except ga_crud.ResourceNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except ga_crud.ResourceTypeMismatchError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
     except ResourceBusyError as e:
         raise CodedHTTPException(409, ErrorCode.RESOURCE_BUSY, str(e), params={"holders": ", ".join(e.holders)}) from e
-    except assignments_crud.ResourceNotAssignableError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except ValueError as e:
-        logger.warning("Group assignment conflict for Auftrag %s: %s", group_id, e)
-        raise HTTPException(status_code=409, detail=str(e)) from e
 
     response = schemas.GroupAssignmentResponse.model_validate(result)
 
@@ -437,10 +420,6 @@ async def update_group_assignment(
 
     try:
         assignment = await ga_crud.update_group_assignment(db, group_id, assignment_id, update)
-    except assignments_crud.AssignmentReleasedError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
     except IntegrityError as e:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorMessages.CONFLICT) from e

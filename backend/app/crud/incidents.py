@@ -28,6 +28,7 @@ from ..models import (
 from ..services.audit import calculate_changes, log_action
 from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from ..services.incident_leader import effective_leader_id
+from ..utils.error_codes import DomainError, ErrorCode
 from . import events as events_crud
 from . import feld as feld_crud
 from .active_resources import active_deployments
@@ -1196,12 +1197,12 @@ async def delete_incident(
     return True
 
 
-class IncidentAlreadyRestoredError(ValueError):
-    """Another board already restored this card."""
-
-
-class RestoreResourceConflictError(ValueError):
-    """Restoring the old assignments would conflict with current deployment or inventory."""
+def _restore_conflict(name: str) -> DomainError:
+    return DomainError(
+        ErrorCode.INCIDENT_RESTORE_RESOURCE_CONFLICT,
+        f"«{name}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
+        params={"name": name},
+    )
 
 
 async def restore_incident(
@@ -1219,22 +1220,25 @@ async def restore_incident(
         The restored incident on success.
         ``None`` if the incident does not exist (endpoint maps to 404).
 
-    Raises:
-        ValueError: If the incident is not deleted (endpoint maps to 409). This
-            makes a double-click on the undo toast harmless — the second call
-            409s instead of mutating anything.
+    Raises ``DomainError`` (409): the incident is not deleted (``incident_already_restored`` –
+    a double-click on the undo toast is harmless), it was merged (``incident_restore_merged``),
+    or an old assignment would conflict with the current deployment or inventory
+    (``incident_restore_resource_conflict``).
     """
     incident = await lock_incident_with_group(db, incident_id)
     if incident is None:
         return None
 
     if incident.deleted_at is None:
-        raise IncidentAlreadyRestoredError("Incident is not deleted")
+        raise DomainError(ErrorCode.INCIDENT_ALREADY_RESTORED, "Der Einsatz ist bereits wiederhergestellt.")
     # A merged report comes back through «Trennen» (POST /unmerge), which also
     # takes its Nachtrag back out of the card it went into. A plain restore
     # would leave the same report on the board twice.
     if incident.merged_into_id is not None:
-        raise ValueError("Incident was merged; unmerge it instead")
+        raise DomainError(
+            ErrorCode.INCIDENT_RESTORE_MERGED,
+            "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
+        )
 
     # The undo preserves the old assignment rows. Verify inventory under the same
     # locks as assignment and archival before making those rows visible again.
@@ -1286,9 +1290,9 @@ async def restore_incident(
                     isinstance(resource, Personnel) and (resource.id in checked_out or resource.status == "unavailable")
                 )
             ):
-                raise RestoreResourceConflictError(resource.name if resource else str(ref[1]))
+                raise _restore_conflict(resource.name if resource else str(ref[1]))
             if ref in busy and not (isinstance(resource, Material) and resource.consumable):
-                raise RestoreResourceConflictError(resource.name)
+                raise _restore_conflict(resource.name)
 
     # If the delete stamped `completed_at` as a side effect (both timestamps set
     # to the same `now`), clear it so the restored incident isn't wrongly

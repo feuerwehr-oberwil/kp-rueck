@@ -27,6 +27,8 @@ from ..models import (
 from ..services.audit import log_action
 from ..services.ranks import rank_tier
 from ..services.rapport_rows import left_on_site_assignment_ids
+from ..utils.error_codes import DomainError, ErrorCode
+from ..utils.errors import ErrorMessages
 from .locking import (
     AssignableResource,
     lock_incident_crew,
@@ -38,20 +40,32 @@ from .locking import (
 from .planned_assignments import ensure_not_busy, fulfil
 
 
-class IncidentNotOnBoardError(Exception):
-    """The incident was deleted or merged into another card — nothing goes onto it any more."""
+def not_on_board_error() -> DomainError:
+    """The incident was deleted or merged into another card — nothing goes onto it any more (409)."""
+    return DomainError(
+        ErrorCode.INCIDENT_NOT_ON_BOARD,
+        "Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt).",
+    )
 
 
-class AssignmentReleasedError(ValueError):
-    """A stale edit reached an assignment after its responder was released."""
+class ResourceNotAssignableError(DomainError):
+    """``ensure_assignable`` refused the resource (409). ``str()`` is the German sentence.
 
-
-class ResourceNotAssignableError(ValueError):
-    """The resource exists but may not be assigned right now. ``str()`` is the German 409 detail.
-
-    A ``ValueError`` so a route that only maps ``ValueError`` (the transfer) answers 4xx,
-    not 500; the assign routes catch it first and answer 409.
+    Callers that skip a refused resource instead of failing (a template's equipment, a
+    `/feld` report) catch it; a route lets the handler answer it.
     """
+
+
+def released_error() -> DomainError:
+    """A stale edit reached an assignment after its responder was released (409)."""
+    return DomainError(ErrorCode.ASSIGNMENT_RELEASED, "Diese Zuweisung wurde bereits freigegeben.")
+
+
+def leader_not_personnel_error() -> DomainError:
+    """The Einsatzleiter flag on a vehicle or material (422) – Einsatz and Auftrag alike."""
+    return DomainError(
+        ErrorCode.LEADER_NOT_PERSONNEL, "Nur Personal kann als Einsatzleiter markiert werden", status_code=422
+    )
 
 
 def ensure_assignable(
@@ -87,21 +101,36 @@ def ensure_assignable(
     are, and the internal re-openers (the completion undo, merges, imports, seed, the
     `/feld` route mirror) write rows directly and do not ask.
     """
+    name = {"name": resource.name}
     if isinstance(resource, Vehicle | Material):
-        label = f"{'Fahrzeug' if isinstance(resource, Vehicle) else 'Material'} «{resource.name}»"
         if resource.archived_at is not None:
-            raise ResourceNotAssignableError(f"{label} ist archiviert und kann nicht zugewiesen werden.")
+            raise ResourceNotAssignableError(
+                ErrorCode.RESOURCE_ARCHIVED,
+                f"«{resource.name}» ist archiviert und kann nicht zugewiesen werden.",
+                params=name,
+            )
         if resource.out_of_service_since is not None:
-            raise ResourceNotAssignableError(f"{label} ist nicht einsatzbereit und kann nicht zugewiesen werden.")
+            raise ResourceNotAssignableError(
+                ErrorCode.RESOURCE_OUT_OF_SERVICE,
+                f"«{resource.name}» ist nicht einsatzbereit und kann nicht zugewiesen werden.",
+                params=name,
+            )
     if event.archived_at is not None:
-        raise ResourceNotAssignableError("Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden.")
+        raise ResourceNotAssignableError(
+            ErrorCode.EVENT_ARCHIVED, "Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden."
+        )
     if isinstance(resource, Personnel) and resource.guest_event_id not in (None, event.id):
-        raise ResourceNotAssignableError(f"«{resource.name}» ist Gast eines anderen Ereignisses.")
+        raise ResourceNotAssignableError(
+            ErrorCode.PERSON_GUEST_ELSEWHERE, f"«{resource.name}» ist Gast eines anderen Ereignisses.", params=name
+        )
     if incident is not None and incident.status == "complete":
-        raise ResourceNotAssignableError("Der Einsatz ist abgeschlossen – es kann nichts mehr zugewiesen werden.")
+        raise ResourceNotAssignableError(
+            ErrorCode.INCIDENT_CLOSED, "Der Einsatz ist abgeschlossen – es kann nichts mehr zugewiesen werden."
+        )
     if auftrag_closed:
         raise ResourceNotAssignableError(
-            "Alle Stopps des Auftrags sind abgeschlossen – es kann nichts mehr zugewiesen werden."
+            ErrorCode.AUFTRAG_CLOSED,
+            "Alle Stopps des Auftrags sind abgeschlossen – es kann nichts mehr zugewiesen werden.",
         )
 
 
@@ -123,14 +152,14 @@ async def lock_for_new_assignment(
 
     Raises:
         LookupError: the Einsatz or the resource does not exist.
-        IncidentNotOnBoardError: the Einsatz is deleted or merged.
+        DomainError: ``incident_not_on_board`` – the Einsatz is deleted or merged.
         ResourceNotAssignableError: ``ensure_assignable`` refused the resource.
     """
     incident = await lock_incident_with_group(db, incident_id)
     if incident is None:
         raise LookupError(f"incident {incident_id} does not exist")
     if incident.deleted_at is not None or incident.merged_into_id is not None:
-        raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
+        raise not_on_board_error()
     if with_crew:
         await lock_incident_crew(db, [incident_id], [resource_id])
     resource = await lock_resource(db, resource_type, resource_id)  # held already with_crew: a fresh read
@@ -174,7 +203,7 @@ async def assign_resource(
         Created assignment
 
     Raises:
-        ValueError: If resource already assigned to this incident
+        DomainError: ``assignment_race`` – the resource is on this incident already
         LookupError: If the incident or the resource does not exist
         ResourceNotAssignableError: ``ensure_assignable`` refused the resource
         ResourceBusyError: ``exclusive`` and the resource is Jetzt elsewhere
@@ -198,7 +227,7 @@ async def assign_resource(
     if incident is None:
         raise LookupError(f"incident {incident_id} does not exist")
     if incident.deleted_at is not None or incident.merged_into_id is not None:
-        raise IncidentNotOnBoardError(f"incident {incident_id} is deleted or merged")
+        raise not_on_board_error()
 
     resource = await lock_resource(db, resource_type, resource_id)
     if resource is None:
@@ -230,7 +259,7 @@ async def assign_resource(
     # Check if already assigned to THIS incident
     already_assigned_to_this = any(assignment.incident_id == incident_id for assignment in existing_assignments)
     if already_assigned_to_this:
-        raise ValueError("Ressource ist diesem Einsatz bereits zugewiesen")
+        raise DomainError(ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED)
 
     # Check if assigned to OTHER incidents (conflict)
     # Note: We allow override with warning (UI should show warning to user before calling this)
@@ -253,7 +282,7 @@ async def assign_resource(
         # and the loser lands here. Same outcome the check above produces, so say the same
         # thing — the resource IS on the incident, the caller just did not win the insert.
         await db.rollback()
-        raise ValueError("Ressource ist diesem Einsatz bereits zugewiesen") from exc
+        raise DomainError(ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from exc
     await fulfil(db, resource_type, resource_id, incident_id=incident_id)
 
     # Note: We no longer update resource base status - assignment is tracked via incident_assignments table
@@ -315,7 +344,7 @@ async def update_assignment(
     if assignment is None:
         return None
     if assignment.unassigned_at is not None:
-        raise AssignmentReleasedError("Diese Zuweisung wurde bereits freigegeben.")
+        raise released_error()
 
     update_data = update.model_dump(exclude_unset=True)
 
@@ -327,7 +356,7 @@ async def update_assignment(
         # nor clear it. The incident is then stuck with a truck as its
         # Einsatzleiter and no way back through the UI.
         if assignment.resource_type != "personnel":
-            raise ValueError("Nur Personal kann als Einsatzleiter markiert werden")
+            raise leader_not_personnel_error()
 
         if update_data["is_leader"]:
             # A hand-picked leader pins the choice: automatic re-selection stops
@@ -929,17 +958,24 @@ async def _resolve_resource_label(db: AsyncSession, resource_type: str, resource
     return f"{type_label} {obj.name}" if obj is not None else f"{type_label} {resource_id}"
 
 
-class TransferChangedError(ValueError):
-    """An undo named assignments that are no longer all active on the incident."""
+def transfer_changed_error() -> DomainError:
+    """The undo of a transfer found its rows changed meanwhile (409) – Einsatz and Auftrag alike."""
+    return DomainError(ErrorCode.TRANSFER_CHANGED, "Nicht mehr rückgängig machbar – inzwischen geändert.")
 
 
-class TransferRefusedError(ValueError):
-    """«Übertragen» cannot start from this Einsatz or onto this target (→ 409). ``str()`` is German."""
+def closed_source_error() -> DomainError:
+    """Lead's call on review B (24.11.2026): a closed Einsatz is no transfer source (409).
+
+    Its material left on site would move, and «Rückgängig» could not put it back onto the
+    closed Einsatz.
+    """
+    return DomainError(
+        ErrorCode.TRANSFER_SOURCE_CLOSED, "Der Einsatz ist abgeschlossen – seine Ressourcen werden nicht übertragen."
+    )
 
 
-# Lead's call on review B (24.11.2026): a closed Einsatz is no transfer source. Its material
-# left on site would move, and «Rückgängig» could not put it back onto the closed Einsatz.
-CLOSED_SOURCE_REFUSED = "Der Einsatz ist abgeschlossen – seine Ressourcen werden nicht übertragen."
+def _incident_not_found() -> DomainError:
+    return DomainError(ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND, status_code=404)
 
 
 async def transfer_assignments(
@@ -974,7 +1010,7 @@ async def transfer_assignments(
 
     The rows are NEW assignments on the target, so ``ensure_assignable`` applies to
     each resource (a closed or archived target, a vehicle now «nicht einsatzbereit»)
-    and refuses the whole transfer. A closed source is refused too (``CLOSED_SOURCE_REFUSED``).
+    and refuses the whole transfer. A closed source is refused too (``closed_source_error``).
     Lock order (``crud/locking.py``): both Einsätze
     with their Aufträge, then all resource rows (``lock_resources``).
 
@@ -982,22 +1018,20 @@ async def transfer_assignments(
     if every one of them is still active on the source – an undo is a new write that must
     still be valid now, so a crew somebody has since released or re-sorted stays put.
 
-    Raises:
-        ValueError: If source has no assignments or if conflicts exist
-        TransferChangedError: (a ``ValueError``) the undo's rows are no longer all there
-        TransferRefusedError: (a ``ValueError``) the source is closed
-        ResourceNotAssignableError: (a ``ValueError``) the policy refused a resource
+    Raises ``DomainError``: an Einsatz is gone (404), the source is closed or has nothing to
+    move, a resource is on the target already, the undo's rows are no longer all there, or
+    ``ensure_assignable`` refused a resource (``ResourceNotAssignableError``).
     """
     locked = await lock_incidents_with_groups(db, [source_incident_id, target_incident_id])
     source_incident = locked.get(source_incident_id)
     if source_incident is None:
-        raise ValueError("Quell-Einsatz nicht gefunden")
+        raise _incident_not_found()
     if source_incident.status == "complete":
-        raise TransferRefusedError(CLOSED_SOURCE_REFUSED)
+        raise closed_source_error()
 
     target_incident = locked.get(target_incident_id)
     if target_incident is None or target_incident.deleted_at is not None or target_incident.merged_into_id is not None:
-        raise ValueError("Ziel-Einsatz nicht gefunden")
+        raise _incident_not_found()
 
     # Get all active assignments from source
     source_assignments = await get_incident_assignments(db, source_incident_id)
@@ -1025,10 +1059,10 @@ async def transfer_assignments(
         wanted = set(only_assignment_ids)
         source_assignments = [a for a in source_assignments if a.id in wanted]
         if len(source_assignments) != len(wanted):
-            raise TransferChangedError("Nicht mehr rückgängig machbar – die Zuweisungen wurden inzwischen geändert.")
+            raise transfer_changed_error()
 
     if not source_assignments:
-        raise ValueError("Quell-Einsatz hat keine aktiven Ressourcen zum Übertragen.")
+        raise DomainError(ErrorCode.TRANSFER_NOTHING, "Der Einsatz hat keine aktiven Ressourcen zum Übertragen.")
 
     # Check for conflicts - resources already assigned to target
     target_assignments = await get_incident_assignments(db, target_incident_id)
@@ -1041,18 +1075,20 @@ async def transfer_assignments(
             conflicts.append(await _resolve_resource_label(db, assignment.resource_type, assignment.resource_id))
 
     if conflicts:
-        raise ValueError("Übertragen nicht möglich – im Ziel-Einsatz bereits zugewiesen: " + ", ".join(conflicts))
+        names = ", ".join(conflicts)
+        raise DomainError(
+            ErrorCode.TRANSFER_CONFLICT,
+            f"Übertragen nicht möglich – im Ziel-Einsatz bereits zugewiesen: {names}",
+            params={"names": names},
+        )
 
     target_event = await db.get(Event, target_incident.event_id)
     if target_event is None:
-        raise ValueError("Ziel-Einsatz nicht gefunden")
+        raise _incident_not_found()
     resources = await lock_resources(db, [(a.resource_type, a.resource_id) for a in source_assignments])
     # A row pointing at a deleted resource is absent here and moves as it is.
     for resource in resources.values():
-        try:
-            ensure_assignable(resource, event=target_event, incident=target_incident)
-        except ResourceNotAssignableError as refused:
-            raise ResourceNotAssignableError(f"Übertragen nicht möglich – {refused}") from refused
+        ensure_assignable(resource, event=target_event, incident=target_incident)
 
     # Transfer assignments
     new_assignment_ids = []

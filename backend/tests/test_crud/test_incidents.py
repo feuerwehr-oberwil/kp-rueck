@@ -21,6 +21,7 @@ from app.models import (
     User,
     Vehicle,
 )
+from app.utils.error_codes import DomainError
 
 
 @pytest.fixture
@@ -405,15 +406,15 @@ class TestRestoreIncident:
         )
         assert result is None
 
-    async def test_restore_not_deleted_raises_value_error(
+    async def test_restore_not_deleted_is_refused(
         self,
         db_session: AsyncSession,
         test_incident: Incident,
         test_user: User,
         mock_request,
     ):
-        """Restoring a non-deleted incident raises ValueError (endpoint maps to 409)."""
-        with pytest.raises(ValueError):
+        """Restoring a non-deleted incident is refused (409 ``incident_already_restored``)."""
+        with pytest.raises(DomainError, match="bereits wiederhergestellt"):
             await incident_crud.restore_incident(
                 db=db_session,
                 incident_id=test_incident.id,

@@ -15,6 +15,7 @@ import type {
   ApiPersonnelCreate,
   ApiPersonnelUpdate,
   ApiAttendancePlan,
+  ApiShareLink,
 } from '../types'
 
 export class PersonnelApi {
@@ -59,8 +60,8 @@ export class PersonnelApi {
   }
 
   // Personnel Check-In
-  async generateCheckInLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
-    return httpRequest<{ token: string; link: string; full_url: string; qr_code_data: string }>(`/api/personnel/check-in/generate-link?event_id=${encodeURIComponent(eventId)}`, {
+  async generateCheckInLink(eventId: string): Promise<ApiShareLink> {
+    return httpRequest<ApiShareLink>(`/api/personnel/check-in/generate-link?event_id=${encodeURIComponent(eventId)}`, {
       method: 'POST',
     })
   }

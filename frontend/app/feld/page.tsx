@@ -841,7 +841,9 @@ function FeldSurface() {
       await apiClient.setFeldAttendance(selectedPerson.personnel_id, token, next)
       setCheckedIn(next)
     } catch (err) {
-      console.error('Attendance toggle failed:', err)
+      // A refusal («als nicht verfügbar gemeldet») is a 409, which skips the transport's toast.
+      if (ApiError.isConflictError(err)) toast.error(err.message)
+      else console.error('Attendance toggle failed:', err)
     } finally {
       setAttendanceBusy(false)
     }

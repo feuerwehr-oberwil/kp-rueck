@@ -30,17 +30,11 @@ from ..models import (
     Vehicle,
 )
 from ..services.audit import log_action
-from .assignments import AssignmentReleasedError, _reko_personnel_ids, ensure_assignable, leader_rank
+from ..utils.error_codes import DomainError, ErrorCode
+from ..utils.errors import ErrorMessages
+from .assignments import _reko_personnel_ids, ensure_assignable, leader_not_personnel_error, leader_rank, released_error
 from .locking import lock_groups, lock_resource
 from .planned_assignments import ensure_not_busy, fulfil
-
-
-class ResourceNotFoundError(ValueError):
-    """Requested resource id does not exist."""
-
-
-class ResourceTypeMismatchError(ValueError):
-    """Requested id exists, but not as the declared resource type."""
 
 
 async def mirror_to_auftrag(
@@ -164,10 +158,9 @@ async def assign_group_resource(
 
     Raises:
         LookupError: the Auftrag is gone (deleted meanwhile).
-        ResourceNotFoundError / ResourceTypeMismatchError: unknown id, or the id of
-            another resource kind.
+        DomainError: unknown id (``resource_not_found``), the id of another resource kind
+            (``resource_type_mismatch``), already on this Auftrag (``assignment_race``).
         ResourceNotAssignableError: ``assignments.ensure_assignable`` refused it.
-        ValueError: If the resource is already actively assigned to this Auftrag.
     """
     group = await db.scalar(
         select(IncidentGroup)
@@ -185,8 +178,10 @@ async def assign_group_resource(
                 candidate_type != resource_type
                 and await db.scalar(select(model.id).where(model.id == resource_id)) is not None
             ):
-                raise ResourceTypeMismatchError("Ressource passt nicht zum Ressourcentyp")
-        raise ResourceNotFoundError("Ressource nicht gefunden")
+                raise DomainError(
+                    ErrorCode.RESOURCE_TYPE_MISMATCH, "Ressource passt nicht zum Ressourcentyp", status_code=422
+                )
+        raise DomainError(ErrorCode.RESOURCE_NOT_FOUND, "Ressource nicht gefunden", status_code=404)
     event = await db.get(Event, group.event_id)
     if event is None:
         raise LookupError(f"event {group.event_id} does not exist")
@@ -209,7 +204,7 @@ async def assign_group_resource(
         .with_for_update()  # Row-level locking for transaction isolation
     )
     if existing.scalar_one_or_none() is not None:
-        raise ValueError("Ressource ist diesem Auftrag bereits zugewiesen")
+        raise DomainError(ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED)
 
     assignment = IncidentGroupAssignment(
         incident_group_id=group_id,
@@ -222,7 +217,7 @@ async def assign_group_resource(
         await db.flush()
     except IntegrityError as exc:
         await db.rollback()
-        raise ValueError("Ressource ist diesem Auftrag bereits zugewiesen") from exc
+        raise DomainError(ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from exc
     await fulfil(db, resource_type, resource_id, group_id=group_id)
 
     await log_action(
@@ -503,17 +498,19 @@ async def update_group_assignment(
     if assignment is None:
         return None
     if assignment.unassigned_at is not None:
-        raise AssignmentReleasedError("Diese Zuweisung wurde bereits freigegeben.")
+        raise released_error()
 
     update_data = update.model_dump(exclude_unset=True)
 
     if "driver_stay" in update_data and assignment.resource_type != "vehicle":
-        raise ValueError("Nur ein Fahrzeug hat einen Fahrer, der vor Ort bleibt")
+        raise DomainError(
+            ErrorCode.DRIVER_STAY_NOT_VEHICLE, "Nur ein Fahrzeug hat einen Fahrer, der vor Ort bleibt", status_code=422
+        )
 
     if "is_leader" in update_data:
         # Only a person can lead a route — see `crud.assignments.update_assignment`.
         if assignment.resource_type != "personnel":
-            raise ValueError("Nur Personal kann als Einsatzleiter markiert werden")
+            raise leader_not_personnel_error()
 
         if not update_data["is_leader"]:
             # Explicit demote hands the choice back to the board.

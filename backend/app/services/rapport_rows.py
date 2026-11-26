@@ -266,9 +266,9 @@ PRIORITY_LABELS: dict[str, str] = {
     "high": "Hoch",
 }
 
-# Reko power-supply answers. Mirrors the frontend's reko.power* strings
-# (frontend/messages/de.json); an unmapped value prints as-is rather than
-# vanishing, but "emergency_needed" must never reach an archived report.
+# Reko power-supply answers in the board's words (`reko.reportSection.power*`, the form's
+# `powerLabels.unknown`; tied by test_rapport_rows). An unmapped value prints as-is rather
+# than vanishing, but "emergency_needed" must never reach an archived report.
 POWER_LABELS: dict[str, str] = {
     "unknown": "Unbekannt",
     "available": "Vorhanden",
