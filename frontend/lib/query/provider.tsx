@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
-import { QueryClientProvider } from "@tanstack/react-query"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { QueryClientProvider, type Query } from "@tanstack/react-query"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { makeQueryClient } from "./client"
 import { queryKeys } from "./keys"
@@ -17,6 +17,9 @@ import { bridgeSocketToQueries } from "./socket-bridge"
  * frame (a token refresh can hand this tab another account without a sign-out).
  * How to write a read: docs/FRONTEND.md › «Server reads».
  */
+/** Every read but the public deployment role belongs to the signed-in user. */
+const isPrivate = (query: Query) => query.queryKey[0] !== queryKeys.deployment[0]
+
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [client] = useState(makeQueryClient)
   const userId = useAuth().user?.id ?? null
@@ -24,7 +27,16 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   const [readsFor, setReadsFor] = useState(userId)
   if (readsFor !== userId) {
     setReadsFor(userId)
-    void client.resetQueries({ predicate: (query) => query.queryKey[0] !== queryKeys.deployment[0] })
+    // Cancels a read that is out, too.
+    for (const query of client.getQueryCache().findAll({ predicate: isPrivate })) query.reset()
   }
+  const firstUser = useRef(true)
+  useEffect(() => {
+    if (firstUser.current) {
+      firstUser.current = false
+      return
+    }
+    void client.refetchQueries({ type: "active", predicate: isPrivate })
+  }, [client, readsFor])
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
