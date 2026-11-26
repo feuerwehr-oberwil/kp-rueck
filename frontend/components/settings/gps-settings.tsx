@@ -34,7 +34,8 @@ interface Props {
   settings: Record<string, string>
   serverSettings: Record<string, string>
   setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>
-  updateSetting: (key: string, value: string) => void | Promise<void>
+  /** The settings store's save: never rejects, a refusal is its toast. */
+  updateSetting: (key: string, value: string) => Promise<void>
   isEditor: boolean
   isSaving: (key: string) => boolean
   /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
@@ -133,7 +134,7 @@ export function GpsSettingsCard({
           onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
           onBlur={(e) => {
             if (e.target.value !== (serverSettings[key] ?? fallback)) {
-              updateSetting(key, e.target.value)
+              void updateSetting(key, e.target.value)
             }
           }}
           disabled={!isEditor || isCurrentlySaving}
@@ -164,7 +165,7 @@ export function GpsSettingsCard({
           checked={enabled}
           title={trackerMissing ?? undefined}
           disabled={!isEditor || Boolean(trackerMissing) || isSaving(MASTER_KEY)}
-          onCheckedChange={(v) => updateSetting(MASTER_KEY, v ? "true" : "false")}
+          onCheckedChange={(v) => void updateSetting(MASTER_KEY, v ? "true" : "false")}
         />
       }
     >
@@ -187,7 +188,7 @@ export function GpsSettingsCard({
               id="gps-rule-arrival"
               checked={arrivalEnabled}
               disabled={!isEditor || isSaving(ARRIVAL_KEY)}
-              onCheckedChange={(v) => updateSetting(ARRIVAL_KEY, v ? "true" : "false")}
+              onCheckedChange={(v) => void updateSetting(ARRIVAL_KEY, v ? "true" : "false")}
             />
           </SettingRow>
 
@@ -214,7 +215,7 @@ export function GpsSettingsCard({
                 id="gps-rule-arrival-silent"
                 checked={settings[ARRIVAL_SILENT_KEY] === "true"}
                 disabled={!isEditor || isSaving(ARRIVAL_SILENT_KEY)}
-                onCheckedChange={(v) => updateSetting(ARRIVAL_SILENT_KEY, v ? "true" : "false")}
+                onCheckedChange={(v) => void updateSetting(ARRIVAL_SILENT_KEY, v ? "true" : "false")}
               />
             </SettingRow>
           )}
@@ -232,7 +233,7 @@ export function GpsSettingsCard({
               checked={settings[RETURN_KEY] === "true"}
               title={!stationConfigured ? t("gps.returnUnavailable") : undefined}
               disabled={!isEditor || !stationConfigured || isSaving(RETURN_KEY)}
-              onCheckedChange={(v) => updateSetting(RETURN_KEY, v ? "true" : "false")}
+              onCheckedChange={(v) => void updateSetting(RETURN_KEY, v ? "true" : "false")}
             />
           </SettingRow>
 
@@ -343,7 +344,7 @@ export function GpsMapSettingsCard({
                   return
                 }
                 if (next !== value) setSettings((prev) => ({ ...prev, [GPS_STALE_SETTING]: next }))
-                if (next !== (serverSettings[GPS_STALE_SETTING] ?? fallback)) updateSetting(GPS_STALE_SETTING, next)
+                if (next !== (serverSettings[GPS_STALE_SETTING] ?? fallback)) void updateSetting(GPS_STALE_SETTING, next)
               }}
               disabled={!isEditor || isSaving(GPS_STALE_SETTING)}
             />

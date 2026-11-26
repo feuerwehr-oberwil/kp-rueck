@@ -346,7 +346,7 @@ export function createIncidentActions(board: BoardMutationContext) {
       const isCriticalUpdate =
         merged.location !== undefined || merged.coordinates !== undefined || merged.status !== undefined
       if (isCriticalUpdate) criticalUpdateInProgress.current = true
-      updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? EDIT_DEBOUNCE_MS.critical : EDIT_DEBOUNCE_MS.text, performUpdate)
+      updateBatcherRef.current.schedule(operationId, normalizedUpdates, isCriticalUpdate ? EDIT_DEBOUNCE_MS.critical : EDIT_DEBOUNCE_MS.text, (batch) => void performUpdate(batch))
     } else {
       releaseAssignmentCooldown(3000)
     }

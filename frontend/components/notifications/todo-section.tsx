@@ -68,7 +68,8 @@ function TodoRow({ todo, now, readOnly }: { todo: Todo; now: number; readOnly: b
   const closes = todo.kind === 'gps_release' && !todo.groupId && todo.incidentId ? todo.incidentId : ''
   const readiness = useCompletionReadiness(closes, undefined)
 
-  /** Run an answer once; a GPS row is closed (dismissed) after it went through. */
+  /** Run an answer once; a GPS row is closed (dismissed) after it went through. Never rejects:
+   *  every `act` and the bell dismissal say their own failure. */
   const run = (action: () => Promise<boolean>) => async () => {
     setBusy(true)
     try {
@@ -214,7 +215,7 @@ function TodoRow({ todo, now, readOnly }: { todo: Todo; now: number; readOnly: b
         // sign-off 24.11.2026). The main answer is the last one, the others stand before it.
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {!todo.dismissed && (
-            <Button size="xs" variant="ghost" className="mr-auto" disabled={busy} onClick={dismiss}>
+            <Button size="xs" variant="ghost" className="mr-auto" disabled={busy} onClick={() => void dismiss()}>
               {t('dismiss')}
             </Button>
           )}
@@ -227,7 +228,7 @@ function TodoRow({ todo, now, readOnly }: { todo: Todo; now: number; readOnly: b
                 size="xs"
                 variant={main ? 'default' : 'outline'}
                 disabled={busy || answer.disabled}
-                onClick={run(answer.act)}
+                onClick={() => void run(answer.act)()}
               >
                 {main && <CircleCheck className="size-3.5" aria-hidden="true" />}
                 {answer.label}

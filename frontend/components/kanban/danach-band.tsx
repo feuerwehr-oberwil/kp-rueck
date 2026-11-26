@@ -38,6 +38,11 @@ function DanachBandBody({ plans, className }: { plans: PlannedAssignment[]; clas
   }
   const ready = plans.filter((plan) => plan.ready)
   const anyReady = ready.length > 0
+  /** «Zuteilen» for every ready plan, one after the other: each promote locks the same holder.
+   *  Never rejects – a refused promote is its own toast. */
+  const promoteReady = async () => {
+    for (const plan of ready) await promote(plan.id)
+  }
 
   return (
     <div
@@ -87,10 +92,7 @@ function DanachBandBody({ plans, className }: { plans: PlannedAssignment[]; clas
         <button
           type="button"
           className="justify-self-start rounded-md bg-foreground px-2 py-0.5 text-[11px] font-semibold text-background"
-          onClick={async () => {
-            // One after the other: each promote locks the same holder.
-            for (const plan of ready) await promote(plan.id)
-          }}
+          onClick={() => void promoteReady()}
         >
           {t("assign")}
         </button>

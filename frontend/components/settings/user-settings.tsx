@@ -177,7 +177,7 @@ export function UserSettings() {
       });
       setCreateDialogOpen(false);
       setFormData({ username: '', password: '', role: 'editor', display_name: '' });
-      fetchUsers();
+      void fetchUsers();
     } catch (err) {
       console.error('Failed to create user:', err);
       toast.error(err instanceof Error ? err.message : t('users.toasts.createError'), { description: t('common.checkInputRetry') });
@@ -198,7 +198,7 @@ export function UserSettings() {
       await apiClient.updateUser(selectedUser.id, updateData);
       setEditDialogOpen(false);
       setSelectedUser(null);
-      fetchUsers();
+      void fetchUsers();
     } catch (err) {
       console.error('Failed to update user:', err);
       toast.error(err instanceof Error ? err.message : t('users.toasts.updateError'), { description: t('common.checkInputRetry') });
@@ -230,7 +230,7 @@ export function UserSettings() {
       await apiClient.deleteUser(selectedUser.id);
       setDeleteDialogOpen(false);
       setSelectedUser(null);
-      fetchUsers();
+      void fetchUsers();
     } catch (err) {
       console.error('Failed to delete user:', err);
       toast.error(err instanceof Error ? err.message : t('users.toasts.deactivateError'), { description: t('users.toasts.deactivateErrorDescription') });
@@ -243,7 +243,7 @@ export function UserSettings() {
     setSubmitting(true);
     try {
       await apiClient.updateUser(user.id, { is_active: true });
-      fetchUsers();
+      void fetchUsers();
     } catch (err) {
       console.error('Failed to reactivate user:', err);
       toast.error(err instanceof Error ? err.message : t('users.toasts.reactivateError'), { description: t('users.toasts.reactivateErrorDescription') });
@@ -259,7 +259,7 @@ export function UserSettings() {
       await apiClient.deleteUser(selectedUser.id, true);
       setPermanentDeleteDialogOpen(false);
       setSelectedUser(null);
-      fetchUsers();
+      void fetchUsers();
     } catch (err) {
       console.error('Failed to permanently delete user:', err);
       toast.error(err instanceof Error ? err.message : t('users.toasts.deleteError'), { description: t('users.toasts.deleteErrorDescription') });
@@ -325,7 +325,7 @@ export function UserSettings() {
     return (
       <SettingCard>
         <p className="text-destructive">{error}</p>
-        <Button onClick={fetchUsers} className="mt-4">{t('common.retry')}</Button>
+        <Button onClick={() => void fetchUsers()} className="mt-4">{t('common.retry')}</Button>
       </SettingCard>
     );
   }
@@ -421,7 +421,7 @@ export function UserSettings() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleReactivate(user)}
+                        onClick={() => void handleReactivate(user)}
                         title={t('users.reactivateTooltip')}
                         aria-label={t('users.reactivateAria', { name: user.display_name || user.username })}
                         className="text-success hover:text-success"

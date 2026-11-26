@@ -120,7 +120,7 @@ export function AlarmWebhookSecretCard() {
                 <code className="flex-1 min-w-0 truncate rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs">
                   {secret.secret}
                 </code>
-                <Button variant="outline" size="sm" onClick={copy}>
+                <Button variant="outline" size="sm" onClick={() => void copy()}>
                   {copied ? <Check className="size-3.5 text-success" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
                   {copied ? t('copied') : t('copy')}
                 </Button>
@@ -150,7 +150,7 @@ export function AlarmWebhookSecretCard() {
             {pinnedToEnv && <p className="text-xs text-muted-foreground">{t('rotateDisabledHint')}</p>}
           </div>
         ) : (
-          <Button variant="outline" size="sm" onClick={reveal} disabled={revealing}>
+          <Button variant="outline" size="sm" onClick={() => void reveal()} disabled={revealing}>
             {revealing ? <ShellLoader className="size-3.5" /> : <Eye className="size-3.5" aria-hidden="true" />}
             {t('reveal')}
           </Button>

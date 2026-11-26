@@ -372,7 +372,7 @@ export function NewEmergencyModal({
               <DuplicateHint
                 candidates={shownCandidates}
                 origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
-                onMerge={handleMerge}
+                onMerge={(candidate) => void handleMerge(candidate)}
                 onDismiss={() => setDismissedKey(duplicateKey)}
                 mergingId={mergingId}
                 showSketch={!isMobile}

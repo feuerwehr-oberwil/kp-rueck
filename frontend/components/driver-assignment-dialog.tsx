@@ -504,7 +504,7 @@ export function DriverAssignmentDialog({
             value={newPersonName}
             onChange={(e) => { setNewPersonName(e.target.value); setNewPersonError(null) }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); addWalkInDriver() }
+              if (e.key === 'Enter') { e.preventDefault(); void addWalkInDriver() }
               if (e.key === 'Escape') { setShowAddForm(false); setNewPersonName(""); setNewPersonError(null) }
             }}
             {...fieldMessageProps(WALK_IN_NAME_ID, newPersonError ? 'error' : null)}
@@ -512,7 +512,7 @@ export function DriverAssignmentDialog({
           <FormMessage id={formMessageId(WALK_IN_NAME_ID)}>{newPersonError}</FormMessage>
           <div className="flex gap-2">
             <Button
-              onClick={addWalkInDriver}
+              onClick={() => void addWalkInDriver()}
               disabled={isAddingPerson}
               className="flex-1"
               size="sm"

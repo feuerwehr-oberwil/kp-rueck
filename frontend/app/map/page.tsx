@@ -241,7 +241,7 @@ export default function MapPage() {
           nextId: person.id,
           nextName: person.name,
         })
-      } else assignRekoPersonToOperation(person.id, person.name, incidentId)
+      } else void assignRekoPersonToOperation(person.id, person.name, incidentId)
       return
     }
     if (incidentId === selectedIncidentId) {
@@ -445,7 +445,7 @@ export default function MapPage() {
 
   // Refresh incidents immediately when map page loads
   useEffect(() => {
-    refreshIncidents()
+    void refreshIncidents()
   }, [refreshIncidents])
 
   useEffect(() => {
@@ -689,9 +689,9 @@ export default function MapPage() {
           onUpdate={handleOperationUpdate}
           onDelete={isEditor ? handleOperationDelete : undefined}
           materials={materials}
-          onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
-          onRemoveCrew={isEditor ? release.releaseCrew : undefined}
-          onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
+          onRemoveVehicle={isEditor ? (operationId, vehicleId) => void release.releaseVehicle(operationId, vehicleId) : undefined}
+          onRemoveCrew={isEditor ? (operationId, personnelId) => void release.releaseCrew(operationId, personnelId) : undefined}
+          onRemoveMaterial={isEditor ? (operationId, materialId) => void release.releaseMaterial(operationId, materialId) : undefined}
           canEdit={isEditor}
           diveraEnabled={isEditor && diveraEnabled}
           {...dialogs.detailActions}
@@ -724,7 +724,7 @@ export default function MapPage() {
           question={rekoOverwrite}
           incident={rekoOverwriteIncident}
           onClose={() => setRekoOverwrite(null)}
-          onConfirm={(question) => assignRekoPersonToOperation(question.nextId, question.nextName, question.operationId)}
+          onConfirm={(question) => void assignRekoPersonToOperation(question.nextId, question.nextName, question.operationId)}
         />
       </div>
 

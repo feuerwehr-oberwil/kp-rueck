@@ -42,8 +42,9 @@ export function useOpenFieldRequests(): {
   }, [operations])
 }
 
-/** offen → in Arbeit → erledigt (and back), with the board and the bell refreshed. */
-export function useFieldRequestActions(onChanged?: () => void) {
+/** offen → in Arbeit → erledigt (and back), with the board and the bell refreshed, then
+ *  `onChanged` (awaited – a reload that must not reject). */
+export function useFieldRequestActions(onChanged?: () => Promise<void> | void) {
   const t = useTranslations('feld.requests')
   const { refreshOperations } = useOperations()
   const notifications = useOptionalNotifications()
@@ -51,7 +52,7 @@ export function useFieldRequestActions(onChanged?: () => void) {
 
   const refresh = useCallback(async () => {
     await Promise.all([refreshOperations(), notifications?.refetchNotifications()])
-    onChanged?.()
+    await onChanged?.()
   }, [notifications, onChanged, refreshOperations])
 
   const setStatus = useCallback(

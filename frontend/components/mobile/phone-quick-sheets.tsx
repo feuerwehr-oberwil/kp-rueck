@@ -102,7 +102,7 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
           eventId={selectedEvent.id}
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelFor}
-          onAttendanceChange={refreshPersonnel}
+          onAttendanceChange={() => void refreshPersonnel()}
           canCheckIn
         />
       )}
@@ -155,7 +155,7 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
           <PrintHubSheet
             open={open === 'print'}
             onOpenChange={closes('print')}
-            onThermoPrint={print}
+            onThermoPrint={(options) => void print(options)}
             isThermoPrinting={printing}
             printerEnabled={printerEnabled}
           />

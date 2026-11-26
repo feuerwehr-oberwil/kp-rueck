@@ -55,11 +55,11 @@ export function DemoBanner() {
     }
     const start = () => {
       if (statusInterval) return
-      statusInterval = setInterval(fetchStatus, 30000) // every 30s
+      statusInterval = setInterval(() => void fetchStatus(), 30000) // every 30s
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchStatus()
+        void fetchStatus()
         start()
       } else {
         stop()

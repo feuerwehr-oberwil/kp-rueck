@@ -215,7 +215,7 @@ export function PrintHubSheet({
         setIsLoading(false)
       }
     }
-    loadData()
+    void loadData()
   }, [open, selectedEvent, tRoles])
 
   // Auftrag context per stop. Resolved here rather than in the print view so
@@ -429,7 +429,7 @@ export function PrintHubSheet({
                     size="sm"
                     variant="outline"
                     className="w-full max-w-[260px] justify-start"
-                    onClick={() => handleExport(kind)}
+                    onClick={() => void handleExport(kind)}
                     disabled={!selectedEvent || exporting !== null}
                   >
                     {exporting === kind ? (

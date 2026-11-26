@@ -5,7 +5,8 @@ import type { Operation } from '@/lib/contexts/operations-context'
 interface UseOperationHandlersProps {
   selectedOperation: Operation | null
   updateOperation: (id: string, updates: Partial<Operation>) => void
-  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => void
+  /** Never rejects: a refusal or a failure toasts inside (`BoardActions`). */
+  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
   deleteOperation: (operationId: string) => Promise<void>
 }
 
@@ -32,18 +33,16 @@ export function useOperationHandlers({
   const handleVehicleAssign = (vehicleId: string, vehicleName: string, operationId: string) => {
     if (!selectedOperation) return
     // Assign vehicle - derived selectedOperation will auto-update
-    assignVehicleToOperation(vehicleId, vehicleName, operationId)
+    void assignVehicleToOperation(vehicleId, vehicleName, operationId)
   }
 
-  const handleOperationDelete = async (operationId: string) => {
-    try {
-      await deleteOperation(operationId)
-    } catch (error) {
+  const handleOperationDelete = (operationId: string) => {
+    deleteOperation(operationId).catch((error: unknown) => {
       console.error('Failed to delete operation:', error)
       toast.error(translateOutsideReact('notifications.operations.deleteFailedTitle'), {
         description: translateOutsideReact('notifications.operations.deleteFailedDescription'),
       })
-    }
+    })
   }
 
   return {

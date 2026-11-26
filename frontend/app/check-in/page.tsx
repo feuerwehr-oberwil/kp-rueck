@@ -85,8 +85,9 @@ function CheckInKiosk({ token }: { token: string | null }) {
   usePolling(loadPersonnel, { intervalMs: 5000, enabled: !!token && !invalid })
   useEffect(() => {
     if (!token || invalid) return
-    window.addEventListener('online', loadPersonnel)
-    return () => window.removeEventListener('online', loadPersonnel)
+    const onOnline = () => void loadPersonnel()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
   }, [loadPersonnel, token, invalid])
 
   const toggleCheckIn = async (person: ApiPersonnelListItem) => {
@@ -341,7 +342,7 @@ function CheckInKiosk({ token }: { token: string | null }) {
                 <StateGlyph present={person.checked_in} locked={isDisabled} />
                 <button
                   type="button"
-                  onClick={() => toggleCheckIn(person)}
+                  onClick={() => void toggleCheckIn(person)}
                   disabled={isDisabled || retrying}
                   aria-describedby={stateId}
                   className="min-w-0 flex-1 break-words text-left font-semibold leading-tight after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring disabled:cursor-not-allowed"

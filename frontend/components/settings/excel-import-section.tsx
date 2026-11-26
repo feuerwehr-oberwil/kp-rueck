@@ -122,7 +122,7 @@ export function ExcelImportSection({
         title={t('page.import.exportTitle')}
         subtitle={t('page.import.exportDescription')}
         action={
-          <Button onClick={handleExport} disabled={importLoading}>
+          <Button onClick={() => void handleExport()} disabled={importLoading}>
             <Download className="size-4" />
             {t('page.import.exportButton')}
           </Button>
@@ -244,7 +244,7 @@ export function ExcelImportSection({
               <p className="text-sm font-medium">{t('page.import.step1Title')}</p>
               <p className="text-xs text-muted-foreground">{t('page.import.step1Description')}</p>
             </div>
-            <Button onClick={handleDownloadTemplate} disabled={importLoading} variant="outline" size="sm">
+            <Button onClick={() => void handleDownloadTemplate()} disabled={importLoading} variant="outline" size="sm">
               <FileSpreadsheet className="size-3.5" />
               {t('page.import.templateButton')}
             </Button>
@@ -281,7 +281,7 @@ export function ExcelImportSection({
           {/* Step 4: Actions (only if file selected) */}
           {selectedFile && (
             <div className={`flex items-center gap-3 pt-3 border-t ${isReplace ? 'border-destructive/30' : ''}`}>
-              <Button onClick={handlePreview} disabled={importLoading || !!preview} variant="outline">
+              <Button onClick={() => void handlePreview()} disabled={importLoading || !!preview} variant="outline">
                 {t('page.import.showPreview')}
               </Button>
               {preview && (
@@ -303,7 +303,7 @@ export function ExcelImportSection({
                       if (isReplace) {
                         setReplaceConfirmOpen(true);
                       } else {
-                        handleImport();
+                        void handleImport();
                       }
                     }}
                     disabled={importLoading}

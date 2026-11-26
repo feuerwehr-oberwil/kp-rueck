@@ -30,7 +30,8 @@ interface Props {
   settings: Record<string, string>;
   serverSettings: Record<string, string>;
   setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  updateSetting: (key: string, value: string) => void | Promise<void>;
+  /** The settings store's save: never rejects, a refusal is its toast. */
+  updateSetting: (key: string, value: string) => Promise<void>;
   isEditor: boolean;
   isSaving: (key: string) => boolean;
   /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
@@ -59,7 +60,7 @@ export function AlarmDescriptionFilterSettings({
         onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
         onBlur={(e) => {
           if (e.target.value !== (serverSettings[key] ?? '')) {
-            updateSetting(key, e.target.value);
+            void updateSetting(key, e.target.value);
           }
         }}
         disabled={!isEditor || isSaving(key)}

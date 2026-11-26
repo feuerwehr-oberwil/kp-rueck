@@ -22,20 +22,16 @@ export function useAlertAudio() {
       const audio = alertAudioRef.current
       if (!audio) return
       audio.volume = 0.7
-      const prime = audio.play()
-      if (prime && typeof prime.then === 'function') {
-        prime
-          .then(() => {
-            audio.pause()
-            audio.currentTime = 0
-            alertAudioUnlockedRef.current = true
-          })
-          .catch(() => {
-            // Some browsers still refuse — leave unlocked=false; we'll retry on the next gesture.
-          })
-      } else {
-        alertAudioUnlockedRef.current = true
-      }
+      // `Promise.resolve`: older WebKit answers `play()` with undefined (it played – unlocked).
+      Promise.resolve(audio.play())
+        .then(() => {
+          audio.pause()
+          audio.currentTime = 0
+          alertAudioUnlockedRef.current = true
+        })
+        .catch(() => {
+          // Some browsers still refuse — leave unlocked=false; we'll retry on the next gesture.
+        })
     }
     const opts: AddEventListenerOptions = { once: false, passive: true }
     const handler = () => {

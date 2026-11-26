@@ -273,7 +273,7 @@ export function AuftraegeSheet({
         if (targetIndex === -1) return
         if (edge === "bottom") targetIndex += 1
         const reordered = [...without.slice(0, targetIndex), fromId, ...without.slice(targetIndex)]
-        reorderGroupStops(group.id, reordered)
+        void reorderGroupStops(group.id, reordered)
       },
     })
   }, [open, canEdit, groups, reorderGroupStops])
@@ -394,7 +394,7 @@ export function AuftraegeSheet({
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") confirmCreate()
+                      if (e.key === "Enter") void confirmCreate()
                       if (e.key === "Escape") setCreating(false)
                     }}
                     className="h-8 flex-1"
@@ -415,7 +415,7 @@ export function AuftraegeSheet({
                       />
                     ))}
                   </div>
-                  <Button size="sm" className="h-8" onClick={confirmCreate}>
+                  <Button size="sm" className="h-8" onClick={() => void confirmCreate()}>
                     {t("create")}
                   </Button>
                   <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>
@@ -454,20 +454,20 @@ export function AuftraegeSheet({
                 }}
                 onCommitRename={() => {
                   const v = renameValue.trim()
-                  if (v && v !== group.name) updateGroup(group.id, { name: v })
+                  if (v && v !== group.name) void updateGroup(group.id, { name: v })
                   setRenamingId(null)
                 }}
                 onCancelRename={() => setRenamingId(null)}
-                onChangeColor={(color) => updateGroup(group.id, { color })}
+                onChangeColor={(color) => void updateGroup(group.id, { color })}
                 onRequestDelete={() => setDeleteId(group.id)}
                 onRepeatRadio={() => setRadioGroupId(group.id)}
                 onAddStop={() => onAddStop(group.id)}
                 onOpenRoutenEditor={(focusIncidentId) => onOpenRoutenEditor?.(group.id, focusIncidentId)}
                 onAssignRouteResource={(resourceType) => onAssignRouteResource(resourceType, group.id)}
-                onUnassignResource={(assignmentId) => release.releaseRouteResource(group.id, assignmentId)}
+                onUnassignResource={(assignmentId) => void release.releaseRouteResource(group.id, assignmentId)}
                 onPromoteLeader={(assignmentId) => void promoteLeader(group.id, assignmentId)}
                 onOpenDetail={onOpenDetail}
-                onRemoveStop={(incidentId) => release.releaseStop(group.id, incidentId)}
+                onRemoveStop={(incidentId) => void release.releaseStop(group.id, incidentId)}
                 onReorderStops={(orderedIds) => void reorderGroupStops(group.id, orderedIds)}
                 registerRowRef={(el) => rowRefs.current.set(group.id, el)}
                 canEdit={canEdit}

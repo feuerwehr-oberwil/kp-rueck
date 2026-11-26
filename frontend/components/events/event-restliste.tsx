@@ -185,7 +185,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
               <Button
                 variant="ghost"
                 size="xs"
-                onClick={handlePrintAbholliste}
+                onClick={() => void handlePrintAbholliste()}
                 disabled={printing}
                 title={t('printAbholliste')}
                 aria-label={t('printAbholliste')}

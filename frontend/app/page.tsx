@@ -327,7 +327,7 @@ export default function FireStationDashboard() {
   // `refreshOperations` has later.
   const refreshOnMount = useEffectEvent(() => refreshOperations())
   useEffect(() => {
-    refreshOnMount()
+    void refreshOnMount()
   }, [])
 
   const drops = useBoardDrops({
@@ -606,7 +606,7 @@ export default function FireStationDashboard() {
               personnel={personnel}
               checkInUrl={checkInUrl}
               copied={copied}
-              copyCheckInUrlToClipboard={copyCheckInUrlToClipboard}
+              copyCheckInUrlToClipboard={() => void copyCheckInUrlToClipboard()}
               filteredPersonnel={filteredPersonnel}
               effectivePersonnelQuery={effectivePersonnelQuery}
               bindingsPopover={bindingsPopover}
@@ -675,9 +675,9 @@ export default function FireStationDashboard() {
                       key={column.id}
                       column={column}
                       operations={columnOps}
-                      onRemoveCrew={release.releaseCrew}
-                      onRemoveMaterial={release.releaseMaterial}
-                      onRemoveVehicle={release.releaseVehicle}
+                      onRemoveCrew={(operationId, personnelId) => void release.releaseCrew(operationId, personnelId)}
+                      onRemoveMaterial={(operationId, materialId) => void release.releaseMaterial(operationId, materialId)}
+                      onRemoveVehicle={(operationId, vehicleId) => void release.releaseVehicle(operationId, vehicleId)}
                       onToggleDriverStay={handleToggleDriverStay}
                       onRemoveReko={removeReko}
                       onCardClick={handleCardClick}
@@ -695,9 +695,9 @@ export default function FireStationDashboard() {
                       onToggleAmWarten={handleToggleAmWarten}
                       onToggleZuFuss={handleToggleZuFuss}
                       onRequestComplete={isEditor ? statusWorkflow.requestCompletion : undefined}
-                      onRequestDelete={isEditor ? handleRequestDelete : undefined}
+                      onRequestDelete={isEditor ? (operationId) => void handleRequestDelete(operationId) : undefined}
                       onMoveInColumn={isEditor ? moveInColumn : undefined}
-                      onTransfer={isEditor ? dialogs.openTransfer : undefined}
+                      onTransfer={isEditor ? (operationId) => void dialogs.openTransfer(operationId) : undefined}
                       onDistributeToAuftrag={isEditor ? dialogs.openAuftragPicker : undefined}
                       onRepeatRadio={isEditor ? dialogs.statusWorkflow.repeatDisponiert : undefined}
                       cardView={cardView}
@@ -799,19 +799,18 @@ export default function FireStationDashboard() {
                 updateOperation(selectedOperation.id, updates)
               }
             }}
-            onDelete={isEditor ? async (operationId) => {
-              try {
-                await deleteOperation(operationId)
-                setSelectedOperationId(null)
-              } catch (error) {
-                console.error('Failed to delete operation:', error)
-                toast.error(tCommon('deleteFailed'))
-              }
+            onDelete={isEditor ? (operationId) => {
+              deleteOperation(operationId)
+                .then(() => setSelectedOperationId(null))
+                .catch((error: unknown) => {
+                  console.error('Failed to delete operation:', error)
+                  toast.error(tCommon('deleteFailed'))
+                })
             } : undefined}
-            onAssignVehicle={isEditor ? assignVehicleToOperation : undefined}
-            onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
-            onRemoveCrew={isEditor ? release.releaseCrew : undefined}
-            onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
+            onAssignVehicle={isEditor ? (vehicleId, vehicleName, operationId) => void assignVehicleToOperation(vehicleId, vehicleName, operationId) : undefined}
+            onRemoveVehicle={isEditor ? (operationId, vehicleId) => void release.releaseVehicle(operationId, vehicleId) : undefined}
+            onRemoveCrew={isEditor ? (operationId, personnelId) => void release.releaseCrew(operationId, personnelId) : undefined}
+            onRemoveMaterial={isEditor ? (operationId, materialId) => void release.releaseMaterial(operationId, materialId) : undefined}
             canEdit={isEditor}
             diveraEnabled={isEditor && diveraEnabled}
             {...dialogs.detailActions}

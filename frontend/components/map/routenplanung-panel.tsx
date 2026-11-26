@@ -192,7 +192,7 @@ export function RoutenplanungPanel({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") confirmCreate()
+                if (e.key === "Enter") void confirmCreate()
                 if (e.key === "Escape") setCreating(false)
               }}
               className="h-8 min-w-[8rem] flex-1"
@@ -218,7 +218,7 @@ export function RoutenplanungPanel({
               ))}
             </div>
             <div className="ml-auto flex gap-2">
-              <Button size="sm" className="h-8" onClick={confirmCreate}>
+              <Button size="sm" className="h-8" onClick={() => void confirmCreate()}>
                 {t("create")}
               </Button>
               <Button size="sm" variant="ghost" className="h-8" onClick={() => setCreating(false)}>

@@ -237,16 +237,18 @@ export function LocationInput({
     setIsSearching(true)
     setAddressResults([])
     setActiveIndex(-1)
-    searchTimeoutRef.current = setTimeout(async () => {
-      // Pass the station's coordinates to prioritize results near it
-      const results = await searchAddress(addressSearchQuery, {
+    searchTimeoutRef.current = setTimeout(() => {
+      // Pass the station's coordinates to prioritize results near it. Never rejects: a
+      // failed search is `null`.
+      void searchAddress(addressSearchQuery, {
         stationCenter: stationCenter || undefined,
         signal: controller.signal,
+      }).then((results) => {
+        if (controller.signal.aborted) return
+        setAddressResults(results ?? [])
+        setSearchFailed(results === null)
+        setIsSearching(false)
       })
-      if (controller.signal.aborted) return
-      setAddressResults(results ?? [])
-      setSearchFailed(results === null)
-      setIsSearching(false)
     }, 300) // Debounce 300ms
 
     return () => {
@@ -266,7 +268,7 @@ export function LocationInput({
     const current = geocodeInputsRef.current
     if (current.address && current.address.trim().length > 0 && (current.latitude === null || current.longitude === null)) {
       const controller = new AbortController()
-      geocodeAddress(current.address, {
+      void geocodeAddress(current.address, {
         stationCenter: stationCenter || undefined,
         signal: controller.signal,
       }).then((coords) => {
@@ -487,7 +489,7 @@ export function LocationInput({
           variant={dense || boxed ? "ghost" : "outline"}
           size={dense || boxed ? "icon-xs" : "icon"}
           className={cn((dense || boxed) && "size-7")}
-          onClick={handleLocate}
+          onClick={() => void handleLocate()}
           disabled={disabled}
           aria-busy={locating}
           aria-label={locating ? t('locationInput.locating') : t('locationInput.locateHere')}

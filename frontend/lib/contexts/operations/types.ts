@@ -309,7 +309,8 @@ export interface OperationsContextType {
    *  out of service), handed to the conflict prompt, or failed and rolled back
    *  (they toast that themselves). Fire-and-forget callers can ignore it. */
   assignPersonToOperation: (personId: string, personName: string, operationId: string, force?: boolean) => Promise<boolean>
-  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
+  /** Never rejects: a failed assign rolls back and toasts. */
+  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => Promise<void>
   assignMaterialToOperation: (materialId: string, operationId: string, force?: boolean) => Promise<boolean>
   assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string, force?: boolean) => Promise<boolean>
   /** The vehicle the driver prompt is asking about: set when a vehicle is assigned
@@ -390,7 +391,8 @@ export interface OperationsContextType {
   occupiedResourceIds: Record<GroupResourceType, ReadonlySet<string>>
   /** Stable across renders, like the board's own actions. */
   groupActions: GroupActions
-  resolveResourceConflict: (action: "move" | "plan") => void
+  /** Never rejects on its own: each step toasts its failure (a `customResolve` must too). */
+  resolveResourceConflict: (action: "move" | "plan") => Promise<void>
   cancelResourceConflict: () => void
   requestResourceConflict: (conflict: NonNullable<OperationsContextType["resourceConflict"]>) => void
   /**
@@ -427,7 +429,9 @@ export type StopRestoreResult = "restored" | "conflict" | "failed"
  *  the Auftrag gone (404, or no longer on this board). */
 export type VehicleStopAddResult = "added" | "changed" | "failed"
 
-/** The Auftrag actions (`./group-actions`), handed out by `useGroups()`. */
+/** The Auftrag actions (`./group-actions`), handed out by `useGroups()`. Each resolves its
+ *  outcome and toasts a failure itself (`restoreGroupStops` leaves the words to the caller);
+ *  none rejects, so a caller that does not need the outcome drops it with `void`. */
 export interface GroupActions {
   createGroup: (input: CreateGroupInput) => Promise<IncidentGroup | null>
   updateGroup: (id: string, input: UpdateGroupInput) => Promise<boolean>

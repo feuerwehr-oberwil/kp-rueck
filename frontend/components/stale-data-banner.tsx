@@ -124,7 +124,7 @@ export function StaleDataBanner() {
           variant="outline"
           size="xs"
           className="shrink-0 border-destructive/30 bg-background/60 hover:bg-background"
-          onClick={handleReconnect}
+          onClick={() => void handleReconnect()}
           disabled={reconnecting}
         >
           {reconnecting ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" aria-hidden="true" />}
@@ -162,7 +162,7 @@ export function StaleDataBanner() {
         variant="outline"
         size="xs"
         className="shrink-0 border-warning/40 bg-transparent hover:bg-warning/20"
-        onClick={handleReconnect}
+        onClick={() => void handleReconnect()}
         disabled={reconnecting}
       >
         {reconnecting ? <ShellLoader className="size-3.5" /> : <RefreshCw className="size-3.5" aria-hidden="true" />}

@@ -46,7 +46,7 @@ export function PrinterSettings() {
     enabled: true,
     canEdit: true,
     onSaved: () => {
-      loadPrinterStatus();
+      void loadPrinterStatus();
     },
   });
   const [printerStatus, setPrinterStatus] = useState<ApiPrinterStatus | null>(null);
@@ -64,7 +64,7 @@ export function PrinterSettings() {
 
   // The printer status loads once on mount, after the settings (`useStationSettings`).
   useEffect(() => {
-    loadPrinterStatus();
+    void loadPrinterStatus();
     return () => {
       if (testResetTimerRef.current) clearTimeout(testResetTimerRef.current);
     };
@@ -187,7 +187,7 @@ export function PrinterSettings() {
     } finally {
       if (ticker) clearInterval(ticker);
       setTestingPrint(false);
-      loadPrinterStatus();
+      void loadPrinterStatus();
       // Let a completed bar linger briefly so the 100% reads as success; otherwise
       // clear immediately.
       if (phase === 'done') {
@@ -249,7 +249,7 @@ export function PrinterSettings() {
             id="printer-enabled"
             checked={isEnabled}
             onCheckedChange={(checked) =>
-              updateSetting('printer.enabled', checked ? 'true' : 'false')
+              void updateSetting('printer.enabled', checked ? 'true' : 'false')
             }
             disabled={isSaving('printer.enabled')}
           />
@@ -267,7 +267,7 @@ export function PrinterSettings() {
               }
               onBlur={(e) => {
                 if (e.target.value !== serverSettings['printer.ip']) {
-                  updateSetting('printer.ip', e.target.value);
+                  void updateSetting('printer.ip', e.target.value);
                 }
               }}
               disabled={isSaving('printer.ip')}
@@ -291,7 +291,7 @@ export function PrinterSettings() {
               }
               onBlur={(e) => {
                 if (e.target.value !== serverSettings['printer.port']) {
-                  updateSetting('printer.port', e.target.value);
+                  void updateSetting('printer.port', e.target.value);
                 }
               }}
               disabled={isSaving('printer.port')}
@@ -321,7 +321,7 @@ export function PrinterSettings() {
             checked={autoAnfahrt}
             title={unavailableReason ?? undefined}
             onCheckedChange={(checked) =>
-              updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
+              void updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
             }
             disabled={!printerConfigured || isSaving('printer.auto_anfahrt')}
           />
@@ -366,7 +366,7 @@ export function PrinterSettings() {
               <Button
                 variant="ghost"
                 size="icon-xs"
-                onClick={loadPrinterStatus}
+                onClick={() => void loadPrinterStatus()}
                 disabled={statusLoading}
                 aria-label={t('refreshStatus')}
               >
@@ -378,7 +378,7 @@ export function PrinterSettings() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleTestPrint}
+            onClick={() => void handleTestPrint()}
             title={unavailableReason ?? undefined}
             disabled={testingConnection || testingPrint || !printerConfigured}
           >
@@ -392,7 +392,7 @@ export function PrinterSettings() {
           <Button
             variant="default"
             size="sm"
-            onClick={handleTestDruck}
+            onClick={() => void handleTestDruck()}
             title={unavailableReason ?? undefined}
             disabled={testingPrint || testingConnection || !printerConfigured}
           >

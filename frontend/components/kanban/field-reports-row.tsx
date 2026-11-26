@@ -148,10 +148,10 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       // inventing one would be the guessed attribution the provenance rule
       // exists to prevent.
       line: operation.rekoArrivedAt ? t(operation.rekoArrivedByKp ? 'fromKpPlain' : 'fromRekoPlain') : null,
-      onToggle: checked => saveRekoArrived(checked ? undefined : null),
+      onToggle: checked => void saveRekoArrived(checked ? undefined : null),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.rekoArrivedAt, time)
-        if (next) saveRekoArrived(next.toISOString())
+        if (next) void saveRekoArrived(next.toISOString())
       },
     },
     {
@@ -173,10 +173,10 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
               : t('pickupVehicleOnSite', { vehicle: onSite }),
           }
         : {}),
-      onToggle: checked => save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
+      onToggle: checked => void save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.pickupRequestedAt, time)
-        if (next) save('pickup', { pickup_needed: true, pickup_note: note || null, pickup_requested_at: next.toISOString() })
+        if (next) void save('pickup', { pickup_needed: true, pickup_note: note || null, pickup_requested_at: next.toISOString() })
       },
     },
   ] as ReportRow[]).filter(row => !only || only.includes(row.key))
@@ -303,7 +303,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     onChange={e => setNote(e.target.value)}
                     onBlur={() => {
                       if ((note || '') !== (operation.pickupNote ?? '')) {
-                        save('pickup', { pickup_needed: true, pickup_note: note || null })
+                        void save('pickup', { pickup_needed: true, pickup_note: note || null })
                       }
                     }}
                     className="h-7 text-sm"

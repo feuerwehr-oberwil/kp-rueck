@@ -170,7 +170,7 @@ export function useFeldDoor({
   useEffect(() => {
     if (!atDoor || !linkToken || doorContext) return
     let alive = true
-    apiClient.getFeldContext(linkToken).then((ctx) => {
+    void apiClient.getFeldContext(linkToken).then((ctx) => {
       if (alive && ctx) setDoorContext(ctx)
     })
     return () => {
@@ -183,7 +183,7 @@ export function useFeldDoor({
   // put and the retry is a deliberate tap (see the offline block below).
   useEffect(() => {
     if (atDoor && codeInput.length === 4 && !unlocking && !codeError) {
-      submitCode()
+      void submitCode()
     }
   }, [atDoor, codeInput, unlocking, codeError, submitCode])
 
@@ -229,7 +229,7 @@ export function useFeldDoor({
         doorContext={doorContext}
         lockRemaining={lockRemaining}
         unlocking={unlocking}
-        submitCode={submitCode}
+        submitCode={() => void submitCode()}
       />
     ),
     notMeDialog: (

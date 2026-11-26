@@ -157,9 +157,10 @@ export function useBoardDialogActions({ openIncidentDetail, sheets, closedStopGu
   const handleConfirmAddStops = (incidentIds: string[]) => {
     if (!stopPickerGroupId || incidentIds.length === 0) return
     const groupId = stopPickerGroupId
-    closedStopGuard.guard(incidentIds, async () => {
-      const ok = await addStopsToGroup(groupId, incidentIds)
-      if (ok) toast.success(tDash('stopsAddedToast', { count: incidentIds.length }))
+    closedStopGuard.guard(incidentIds, () => {
+      void addStopsToGroup(groupId, incidentIds).then((ok) => {
+        if (ok) toast.success(tDash('stopsAddedToast', { count: incidentIds.length }))
+      })
     })
   }
 

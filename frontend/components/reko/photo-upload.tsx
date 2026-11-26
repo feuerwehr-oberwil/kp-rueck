@@ -518,7 +518,7 @@ export default function PhotoUpload({
         accept="image/*"
         capture="environment"
         multiple
-        onChange={(e) => handleFileUpload(e.target.files)}
+        onChange={(e) => void handleFileUpload(e.target.files)}
         className="hidden"
       />
 
@@ -527,7 +527,7 @@ export default function PhotoUpload({
         type="file"
         accept="image/*"
         multiple
-        onChange={(e) => handleFileUpload(e.target.files)}
+        onChange={(e) => void handleFileUpload(e.target.files)}
         className="hidden"
       />
 
@@ -637,7 +637,7 @@ export default function PhotoUpload({
               )}
               <button
                 type="button"
-                onClick={() => handleRemovePhoto(filename)}
+                onClick={() => void handleRemovePhoto(filename)}
                 disabled={disabled}
                 aria-label={t('removePhoto', { number: index + 1 })}
                 className={cn(
@@ -692,7 +692,7 @@ export default function PhotoUpload({
                   )}
                   <button
                     type="button"
-                    onClick={() => handleRemovePhoto(filename)}
+                    onClick={() => void handleRemovePhoto(filename)}
                     disabled={disabled}
                     aria-label={t('removePhoto', { number: index + 1 })}
                     className="absolute top-1 right-1 cursor-pointer p-1 bg-background/90 text-destructive ring-1 ring-destructive/50 rounded-full hover:bg-background transition-colors shadow-md disabled:hidden"

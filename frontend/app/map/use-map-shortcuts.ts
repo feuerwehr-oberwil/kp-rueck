@@ -34,7 +34,8 @@ export function useMapShortcuts({
   gpsAvailable: boolean
   /** The board's numbering (display_order), so «3» is the same truck on both screens. */
   vehicleTypes: VehicleShortcut[]
-  refreshIncidents: () => void
+  /** The board reload: resolves false when it failed (the stale banner says so), never rejects. */
+  refreshIncidents: () => Promise<boolean>
   openIncidentDetail: (incidentId: string) => void
   changeView: (change: MapViewChange) => void
   /** Zooms back out and clears the selection. */
@@ -53,7 +54,7 @@ export function useMapShortcuts({
       if (vehicle) focusVehicle(vehicle.name)
     }
     registerHandlers({
-      onRefresh: () => refreshIncidents(),
+      onRefresh: () => void refreshIncidents(),
       onToggleMapLabels: () => changeView({ type: 'toggle', option: 'showLabels' }),
       onToggleMapLines: () => changeView({ type: 'toggle', option: 'showAssignmentLines' }),
       onFocusVehicle: focusVehicleByNumber,
@@ -128,7 +129,7 @@ export function useMapShortcuts({
         // Only prevent default if no modifier keys are pressed
         // This allows cmd+r / ctrl+r to work normally for browser refresh
         e.preventDefault()
-        refreshIncidents()
+        void refreshIncidents()
       }
       // 'l' key to toggle marker labels
       else if ((e.key === 'l' || e.key === 'L') && !e.metaKey && !e.ctrlKey) {
