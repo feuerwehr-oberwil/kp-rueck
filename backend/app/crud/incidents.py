@@ -545,8 +545,12 @@ async def create_incident(
     source_ref: str | None = None,
     possible_duplicate_of_id: uuid.UUID | None = None,
     audit_extra: dict[str, Any] | None = None,
+    touch_event: bool = True,
 ) -> Incident:
     """Create new incident with audit logging. Flushes; the caller (the request) commits.
+
+    ``touch_event=False`` leaves the Ereignis's ``last_activity_at`` to the caller: a writer of
+    several cards stamps it once, after its last card lock (``crud/locking.py`` step 4).
 
     ``current_user=None`` is the system (the alarm auto-attach); ``audit_extra`` joins the
     audit row's changes (``{"auto_attach_divera": True}``). ``possible_duplicate_of_id`` is the
@@ -600,8 +604,8 @@ async def create_incident(
         request=request,
     )
 
-    # Update event activity timestamp
-    await events_crud.update_event_activity(db, db_incident.event_id)
+    if touch_event:
+        await events_crud.update_event_activity(db, db_incident.event_id)
 
     await db.flush()
     await db.refresh(db_incident)
