@@ -434,7 +434,8 @@ export function LocationInput({
       case "denied": return t('locationInput.locateDenied')
       case "timeout": return t('locationInput.locateTimeout')
       case "noAddress": return t('locationInput.locateNoAddress')
-      default: return t('locationInput.locateUnavailable')
+      case "unavailable":
+      case "unsupported": return t('locationInput.locateUnavailable')
     }
   }
 

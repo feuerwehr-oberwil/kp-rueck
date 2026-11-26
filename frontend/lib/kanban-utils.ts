@@ -538,7 +538,7 @@ export function ageChipClass(date: Date): string {
       return "text-destructive font-medium"
     case "warn":
       return "text-warning-foreground font-medium"
-    default:
+    case "normal":
       return "text-muted-foreground"
   }
 }

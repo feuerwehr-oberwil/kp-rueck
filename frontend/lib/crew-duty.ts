@@ -105,7 +105,10 @@ export function sortCrewDuty(entries: readonly CrewDutyEntry[], key: CrewDutySor
       }
       case 'now':
         return e.now
-      default:
+      case 'assigned':
+      case 'count':
+      case 'onDuty':
+      case 'pause':
         return e[key]
     }
   }

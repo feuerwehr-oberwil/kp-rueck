@@ -31,6 +31,8 @@ export function toResourceState(status: string | null | undefined): ResourceStat
       return "assigned"
     case "maintenance":
       return "maintenance"
+    case null:
+    case undefined:
     default:
       return "unavailable"
   }

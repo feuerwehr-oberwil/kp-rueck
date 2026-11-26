@@ -324,6 +324,7 @@ function RekoChangeLabel({ event }: { event: ApiIncidentTimelineEvent }) {
       case 'summary_text': return tForm('summary')
       case 'additional_notes': return tReport('notesShort')
       case 'photos': return tForm('photos')
+      case null:
       default: return event.reko_field ?? t('timeline.unknown')
     }
   })()

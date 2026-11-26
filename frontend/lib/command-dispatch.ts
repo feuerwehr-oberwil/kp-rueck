@@ -341,7 +341,9 @@ export function targetKey(target: DispatchTarget): string {
       return `priority:${target.priority}`
     case "incident":
       return `incident:${target.incident.id}`
-    default:
+    case "person":
+    case "vehicle":
+    case "material":
       return `${target.kind}:${target.id}`
   }
 }

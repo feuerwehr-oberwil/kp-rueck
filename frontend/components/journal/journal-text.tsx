@@ -131,7 +131,8 @@ export function JournalText({ entry, text }: { entry: JournalFact; text: string 
           {text}
         </span>
       )
-    default:
+    case "manual":
+    default: // a kind this build does not know yet still shows its text
       return <span>{text}</span>
   }
 }
