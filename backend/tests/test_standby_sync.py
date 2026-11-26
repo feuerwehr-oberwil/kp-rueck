@@ -270,6 +270,22 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
     assert again.to_follower == [Op("notifications", extra["id"], closed, extra)]
     assert again.conflicts == 0
 
+    # An operator dismissed the extra copy on the other side meanwhile: that write was `changed`.
+    # The next round keeps the operator's dismissal whole – with the shadow and without it.
+    by_operator = {**extra, "dismissed": True, "dismissed_at": "2026-11-09T20:12:01+00:00", "dismissed_by": "op"}
+    for agreed in ({key(extra): extra}, {}):
+        retry = merge(
+            agreed,
+            {key(extra): closed},
+            {key(extra): by_operator},
+            event_id=EVENT,
+            leader=STANDBY,
+            takeover=TAKEOVER,
+            now=NOW,
+        )
+        assert retry.merged[key(extra)] == by_operator and retry.conflicts == 0
+        assert retry.to_leader == [Op("notifications", extra["id"], by_operator, closed)] and retry.to_follower == []
+
     # A round that copied the phone's question up but died before the shadow: the retry keeps
     # the copy both hold, even against a leader's copy with the lower id.
     first = asked("0-box")
@@ -315,6 +331,9 @@ def test_a_fatigue_dismissal_acknowledges_only_the_people_it_named():
     # The other way round: the box (leading) widened, the hosted board (not yet told) dismissed.
     flipped = merge({key: base}, {key: box}, {key: hosted}, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
     assert flipped.merged[key] == hosted and flipped.conflicts == 0
+    # A round that copied the row but died before the shadow: the dismissal still stands whole.
+    unagreed = merge({}, {key: box}, {key: hosted}, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+    assert unagreed.merged[key] == hosted and unagreed.conflicts == 0
 
 
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
@@ -484,8 +503,12 @@ async def test_a_round_carries_the_box_work_up_and_the_hosted_boards_new_rows_do
 
 
 @pytest.mark.asyncio
-async def test_a_gps_question_both_sides_hold_twice_is_closed_once_on_both(mirrored):
-    box, hosted, event_id, incident_id = mirrored
+async def test_a_gps_question_both_sides_hold_twice_is_closed_once_on_both(
+    db_session: AsyncSession, hosted: asyncpg.Connection
+):
+    # Two copies from before the ask-once rule: on both systems and agreed (in the shadow).
+    box = await _driver(db_session)
+    event_id, incident_id = await _same_on_both(box, hosted)
     first, second = sorted((uuid.uuid4(), uuid.uuid4()))
     for conn in (box, hosted):
         for notification_id in (first, second):
@@ -497,6 +520,9 @@ async def test_a_gps_question_both_sides_hold_twice_is_closed_once_on_both(mirro
                 incident_id,
                 event_id,
             )
+    await install_guards(box)
+    await take_over(box, event_id, "Koch René")
+    assert await box.fetchval("SELECT count(*) FROM standby.shadow WHERE tbl = 'notifications'") == 2
 
     await sync_event(box, hosted, _push(hosted), event_id)
 
