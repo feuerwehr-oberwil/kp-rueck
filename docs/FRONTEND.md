@@ -31,7 +31,8 @@ change. Read the section you touch. The visual rules and their reasons are
     the reason.
   - `request<T>` is for a route that answers JSON, `requestVoid` for a bodyless one (204). No
     answer after the retries rejects with `NetworkError`, a read as well as a write – never
-    `undefined`.
+    `undefined`. So every call is awaited, returned, caught or handed to React Query; the
+    typed lint (`no-floating-promises`, `no-misused-promises`, ratcheted) holds it.
   - Socket events: `wsClient.on(name, listener)` takes the names in `WsEvents`
     (`lib/websocket-client.ts`, the backend's `WsEvent`). In-tab window events:
     `emitAppEvent` / `onAppEvent` (`lib/app-events.ts`). Board drags: `lib/board-drag.ts`.
