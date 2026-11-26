@@ -32,7 +32,7 @@ from app.models import (
     Setting,
     User,
 )
-from app.services.tokens import generate_alarm_token
+from app.services.tokens import generate_link_token
 from tests.conftest import feld_device_token
 
 # Oberwil, Hauptstrasse. 0.0001° of latitude is ~11 m.
@@ -324,7 +324,7 @@ class TestAutomaticDoorsFlagAndNeverMerge:
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event
     ) -> None:
         target = await _card(db_session, test_event)
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(
             f"/api/intake/alarm?token={token}",
             json={

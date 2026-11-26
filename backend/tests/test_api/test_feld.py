@@ -38,11 +38,10 @@ from app.models import (
 )
 from app.services.photo_storage import photo_storage
 from app.services.tokens import (
-    generate_alarm_token,
-    generate_checkin_token,
+    LinkKind,
     generate_feld_token,
     generate_form_token,
-    generate_viewer_token,
+    generate_link_token,
 )
 from tests.conftest import feld_device_token, feld_unlock_token
 
@@ -209,13 +208,9 @@ class TestTokenGate:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    @pytest.mark.parametrize(
-        "generator",
-        [generate_checkin_token, generate_viewer_token, generate_alarm_token],
-        ids=["checkin", "viewer", "alarm"],
-    )
-    async def test_other_token_types_rejected(self, client: AsyncClient, test_event: Event, generator):
-        response = await client.get(f"/api/feld/personnel?token={generator(test_event.id)}")
+    @pytest.mark.parametrize("kind", ["checkin", "viewer", "alarm"])
+    async def test_other_token_types_rejected(self, client: AsyncClient, test_event: Event, kind: LinkKind):
+        response = await client.get(f"/api/feld/personnel?token={generate_link_token(kind, test_event.id)}")
         assert response.status_code == 401
 
     @pytest.mark.asyncio

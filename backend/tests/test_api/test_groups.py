@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AuditLog, Event, Incident, Personnel, User, Vehicle
-from app.services.tokens import generate_viewer_token
+from app.services.tokens import generate_link_token
 
 # ============================================
 # Fixtures
@@ -728,7 +728,7 @@ async def test_public_viewer_data_includes_groups(
     )
     assert attached.status_code == 200
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get("/api/viewer/data", params={"token": token})
 
     assert response.status_code == 200

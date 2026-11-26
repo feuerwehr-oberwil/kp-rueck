@@ -59,11 +59,6 @@ def link_claims(token: str, kind: LinkKind) -> LinkClaims | None:
         return None
 
 
-def generate_checkin_token(event_id: UUID) -> str:
-    """A check-in link token of generation 0 (what a new Ereignis has), valid 24 hours."""
-    return generate_link_token("checkin", event_id)
-
-
 # ============================================
 # REKO FORM TOKENS
 # ============================================
@@ -189,26 +184,6 @@ def decode_form_token(token: str, incident_id: str, form_type: str = "reko") -> 
 def validate_form_token(token: str, incident_id: str, form_type: str = "reko") -> bool:
     """Validate signature/scope; HTTP admissions also check field-claim revocation."""
     return decode_form_token(token, incident_id, form_type) is not None
-
-
-# ============================================
-# VIEWER TOKENS
-# ============================================
-
-
-def generate_viewer_token(event_id: UUID, expires_hours: int = 24) -> str:
-    """A read-only viewer link token of generation 0, valid 24 hours by default."""
-    return generate_link_token("viewer", event_id, expires_hours=expires_hours)
-
-
-# ============================================
-# ALARM INTAKE TOKENS
-# ============================================
-
-
-def generate_alarm_token(event_id: UUID, expires_hours: int = 720) -> str:
-    """A public alarm-intake link token of generation 0, valid 30 days by default."""
-    return generate_link_token("alarm", event_id, expires_hours=expires_hours)
 
 
 # ============================================

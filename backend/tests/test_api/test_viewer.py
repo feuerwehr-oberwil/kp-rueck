@@ -33,7 +33,7 @@ from app.models import (
     Vehicle,
 )
 from app.services.photo_storage import photo_storage
-from app.services.tokens import generate_alarm_token, generate_form_token, generate_viewer_token
+from app.services.tokens import generate_form_token, generate_link_token
 
 
 @pytest.mark.asyncio
@@ -51,7 +51,7 @@ async def test_viewer_snapshot_includes_more_than_one_api_page(db_session, clien
     ]
     db_session.add_all(incidents)
     await db_session.commit()
-    response = await client.get("/api/viewer/data", params={"token": generate_viewer_token(test_event.id)})
+    response = await client.get("/api/viewer/data", params={"token": generate_link_token("viewer", test_event.id)})
 
     assert response.status_code == 200
     data = response.json()
@@ -62,7 +62,7 @@ async def test_viewer_snapshot_includes_more_than_one_api_page(db_session, clien
 @pytest.mark.asyncio
 async def test_viewer_payload_carries_the_vehicle_staleness_threshold(client: AsyncClient, db_session, test_event):
     """The wall's vehicle pills show a last-report time by the station's threshold, as the board's do."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     assert (await client.get("/api/viewer/data", params={"token": token})).json()["gps_stale_minutes"] == 10
 
     db_session.add(Setting(key="gps.stale_after_minutes", value="25"))
@@ -113,7 +113,7 @@ async def test_viewer_data_omits_the_melder_and_the_internal_notes(
     Checked on the raw response as well as the parsed row — the values must not
     reappear anywhere else in the payload either.
     """
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
     assert response.status_code == 200
 
@@ -134,7 +134,7 @@ async def test_viewer_data_keeps_the_situation(
     melder_incident: Incident,
 ):
     """Address, Meldung, type, priority, status — the reason the link exists."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     incident = next(i for i in response.json()["incidents"] if i["id"] == str(melder_incident.id))
@@ -156,7 +156,7 @@ async def test_viewer_data_carries_the_kennzahlen(
 ):
     """The status wall's Kennzahlen section: counts and the oldest waiting «hoch» — and
     nothing of the Melder, who is not part of a figure."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     figures = (await client.get(f"/api/viewer/data?token={token}")).json()["figures"]
 
     assert figures["waiting"] >= 1
@@ -179,7 +179,7 @@ async def test_viewer_data_omits_the_operator_and_the_workflow_bookkeeping(
     regression guard for the whole class rather than for three field names — a
     column added to `Incident` must not reach a shared link by itself.
     """
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     incident = next(i for i in response.json()["incidents"] if i["id"] == str(test_incident.id))
@@ -226,7 +226,7 @@ async def test_viewer_data_carries_the_pickup_flag_but_not_its_note(
     test_incident.pickup_requested_by = requester.id
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     incident = next(i for i in response.json()["incidents"] if i["id"] == str(test_incident.id))
@@ -255,7 +255,7 @@ async def test_viewer_data_roster_is_names_and_roles_only(
     db_session.add(EventAttendance(event_id=test_event.id, personnel_id=person.id, checked_in=True))
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     row = next(p for p in response.json()["personnel"] if p["id"] == str(person.id))
@@ -286,7 +286,7 @@ async def test_viewer_data_material_carries_readiness_but_not_the_legacy_status(
     db_session.add_all([broken, fine])
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     rows = {row["name"]: row for row in response.json()["materials"]}
@@ -311,7 +311,7 @@ async def test_viewer_data_omits_archived_material_and_vehicles(
     db_session.add_all([retired, sold])
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
     body = response.json()
 
@@ -342,7 +342,7 @@ async def test_viewer_data_assignments_do_not_name_the_operator(
     )
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     row = response.json()["assignments"][str(test_incident.id)][0]
@@ -388,7 +388,7 @@ async def test_viewer_data_marks_which_crew_member_leads(
     )
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     rows = {row["resource_id"]: row for row in response.json()["assignments"][str(test_incident.id)]}
@@ -405,7 +405,7 @@ async def test_viewer_data_carries_reko_summary(
     submitted_reko: RekoReport,
 ):
     """The share link shows what the Reko reported: verdict, text, dangers, effort."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
     assert response.status_code == 200
 
@@ -427,7 +427,7 @@ async def test_viewer_data_omits_free_text_note_and_submitter(
     submitted_reko: RekoReport,
 ):
     """The danger note names people on site, and who reported it is not the situation."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     summary = response.json()["reko_summaries"][str(test_incident.id)]
@@ -445,7 +445,7 @@ async def test_viewer_data_carries_reko_photo_filenames(
     submitted_reko: RekoReport,
 ):
     """The detail dialog needs to know which pictures exist before it can draw them."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     summary = response.json()["reko_summaries"][str(test_incident.id)]
@@ -484,7 +484,7 @@ async def test_viewer_data_skips_incidents_without_a_submitted_reko(
     )
     await db_session.commit()
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/viewer/data?token={token}")
 
     summaries = response.json()["reko_summaries"]
@@ -579,7 +579,7 @@ async def test_photo_served_with_valid_viewer_token(
     client: AsyncClient, test_event: Event, test_incident: Incident, stored_photo: str
 ):
     """The picture of the damage is what the share board came for."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/photos/{test_incident.id}/{stored_photo}?token={token}")
 
     assert response.status_code == 200
@@ -606,7 +606,7 @@ async def test_photo_rejects_expired_viewer_token(
     client: AsyncClient, test_event: Event, test_incident: Incident, stored_photo: str
 ):
     """A share link stops working when it expires, photos included."""
-    expired = generate_viewer_token(test_event.id, expires_hours=-1)
+    expired = generate_link_token("viewer", test_event.id, expires_hours=-1)
     response = await client.get(f"/api/photos/{test_incident.id}/{stored_photo}?token={expired}")
     assert response.status_code == 401
 
@@ -618,7 +618,7 @@ async def test_photo_rejects_a_token_of_another_type(
 ):
     """Only a viewer token opens this door — an alarm-intake link is not a share link."""
     response = await client.get(
-        f"/api/photos/{test_incident.id}/{stored_photo}?token={generate_alarm_token(test_event.id)}"
+        f"/api/photos/{test_incident.id}/{stored_photo}?token={generate_link_token('alarm', test_event.id)}"
     )
     assert response.status_code == 401
 
@@ -629,7 +629,7 @@ async def test_photo_token_cannot_reach_another_events_photo(
     client: AsyncClient, test_event: Event, other_event_incident: Incident
 ):
     """THE boundary: a token is scoped to one event, and 404 does not confirm the file."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/photos/{other_event_incident.id}/{OTHER_PHOTO_FILENAME}?token={token}")
 
     assert response.status_code == 404
@@ -652,7 +652,7 @@ async def test_photo_token_reaches_only_files_a_submitted_report_lists(
     """
     _write_photo(photos_dir, test_incident.id, OTHER_PHOTO_FILENAME)
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/photos/{test_incident.id}/{OTHER_PHOTO_FILENAME}?token={token}")
 
     assert response.status_code == 404
@@ -672,7 +672,7 @@ async def test_photo_token_cannot_read_a_draft_report_photo(
     _write_photo(photos_dir, test_incident.id)
     await _file_report(db_session, test_incident, [PHOTO_FILENAME], is_draft=True)
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/photos/{test_incident.id}/{PHOTO_FILENAME}?token={token}")
 
     assert response.status_code == 404
@@ -692,7 +692,7 @@ async def test_photo_token_cannot_traverse_out_of_the_incident_directory(
     """
     (photos_dir / "secret.jpg").write_bytes(b"another incident's evidence")
 
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
     for attempt in (
         "..%2Fsecret.jpg",
         "..%2F..%2Fetc%2Fpasswd",
@@ -746,7 +746,7 @@ async def test_photo_session_door_is_not_narrowed_by_the_token_rules(
 @pytest.mark.api
 async def test_viewer_token_opens_no_other_endpoint(client: AsyncClient, test_event: Event, test_incident: Incident):
     """The photo route is the only door this token gained — the board stays shut."""
-    token = generate_viewer_token(test_event.id)
+    token = generate_link_token("viewer", test_event.id)
 
     incidents = await client.get(f"/api/incidents/?event_id={test_event.id}&token={token}")
     assert incidents.status_code == 401

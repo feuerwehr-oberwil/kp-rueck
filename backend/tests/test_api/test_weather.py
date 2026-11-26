@@ -7,7 +7,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.config import settings
-from app.services.tokens import generate_viewer_token
+from app.services.tokens import generate_link_token
 from app.services.weather import radar
 from app.services.weather.service import weather_service
 
@@ -27,8 +27,8 @@ async def test_weather_needs_a_session_or_a_viewer_token(client: AsyncClient, on
     assert (await client.get("/api/weather/")).status_code == 401
     assert (await client.get("/api/weather/?token=forged")).status_code == 401
     # A viewer link of an Ereignis that does not exist opens nothing.
-    assert (await client.get(f"/api/weather/?token={generate_viewer_token(uuid4())}")).status_code == 401
-    token = generate_viewer_token(test_event.id)
+    assert (await client.get(f"/api/weather/?token={generate_link_token('viewer', uuid4())}")).status_code == 401
+    token = generate_link_token("viewer", test_event.id)
     response = await client.get(f"/api/weather/?token={token}")
     assert response.status_code == 200
     body = response.json()

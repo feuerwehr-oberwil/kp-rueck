@@ -16,22 +16,17 @@ import pytest
 from app.config import get_settings
 from app.services.tokens import (
     FormTokenBinding,
+    LinkKind,
     decode_form_token,
-    generate_alarm_token,
-    generate_checkin_token,
     generate_feld_token,
     generate_form_token,
-    generate_viewer_token,
+    generate_link_token,
     link_claims,
     validate_feld_token,
     validate_form_token,
 )
 
-OTHER_GENERATORS = {
-    "checkin": generate_checkin_token,
-    "viewer": generate_viewer_token,
-    "alarm": generate_alarm_token,
-}
+LINK_KINDS: tuple[LinkKind, ...] = ("alarm", "checkin", "viewer")
 
 
 def _event_of(kind, token):
@@ -43,7 +38,7 @@ def _event_of(kind, token):
 @pytest.mark.parametrize("kind", ["checkin", "viewer", "alarm"])
 def test_event_token_roundtrip_preserves_scope(kind):
     event_id = uuid4()
-    token = OTHER_GENERATORS[kind](event_id)
+    token = generate_link_token(kind, event_id)
     assert _event_of(kind, token) == event_id
 
 
@@ -51,7 +46,7 @@ def test_event_token_roundtrip_preserves_scope(kind):
 def test_event_token_default_lifetime_and_claims(kind, hours):
     event_id = uuid4()
     before = datetime.now(UTC).timestamp()
-    token = OTHER_GENERATORS[kind](event_id)
+    token = generate_link_token(kind, event_id)
     after = datetime.now(UTC).timestamp()
     claims = jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])
 
@@ -64,7 +59,7 @@ def test_event_token_default_lifetime_and_claims(kind, hours):
 @pytest.mark.parametrize("kind", ["viewer", "alarm"])
 def test_event_token_respects_custom_lifetime(kind):
     before = datetime.now(UTC).timestamp()
-    token = OTHER_GENERATORS[kind](uuid4(), expires_hours=3)
+    token = generate_link_token(kind, uuid4(), expires_hours=3)
     after = datetime.now(UTC).timestamp()
     claims = jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])
     assert int(before + 3 * 3600) <= claims["exp"] <= int(after + 3 * 3600)
@@ -267,12 +262,12 @@ class TestFeldToken:
         )
         assert validate_feld_token(forged) is None
 
-    @pytest.mark.parametrize("token_type", sorted(OTHER_GENERATORS))
+    @pytest.mark.parametrize("token_type", LINK_KINDS)
     def test_other_token_types_do_not_validate_as_feld(self, token_type: str):
-        token = OTHER_GENERATORS[token_type](uuid4())
+        token = generate_link_token(token_type, uuid4())
         assert validate_feld_token(token) is None
 
-    @pytest.mark.parametrize("token_type", sorted(OTHER_GENERATORS))
+    @pytest.mark.parametrize("token_type", LINK_KINDS)
     def test_feld_token_does_not_validate_as_anything_else(self, token_type: str):
         token = generate_feld_token(uuid4())
         assert _event_of(token_type, token) is None
