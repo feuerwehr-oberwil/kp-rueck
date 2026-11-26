@@ -29,7 +29,7 @@ export type BoardDispatchRef = ReturnType<typeof useBoardDispatch>
 
 interface UseBoardDispatchInput {
   drops: BoardDrops
-  /** Asked before ⌘K moves a card – see `holdStatusMove` in incident-status-workflow. */
+  /** Asked before ⌘K moves a card – see `holdStatusMove` in use-incident-status-workflow. */
   holdStatusMove: (operationId: string, targetStatus: OperationStatus) => boolean
   resourceBindings: Pick<ReturnType<typeof useResourceBindings>, "collectPersonBindings" | "collectMaterialBindings" | "followBinding">
   layout: Pick<BoardLayout, "setShowLeftSidebar" | "setShowRightSidebar">

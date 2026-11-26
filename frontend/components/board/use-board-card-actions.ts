@@ -8,7 +8,7 @@ import { useOperations, type Operation, type OperationStatus } from "@/lib/conte
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
-import type { IncidentStatusWorkflowController } from "@/components/kanban/incident-status-workflow"
+import type { IncidentStatusWorkflowController } from "@/components/kanban/incident-status/use-incident-status-workflow"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
 import { columns } from "@/lib/kanban-utils"
 import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
