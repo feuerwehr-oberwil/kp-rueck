@@ -6,7 +6,7 @@ editor/viewer credentials — the deployment is internet-facing.
 
 import pytest
 
-from app.seed import get_admin_password, get_shared_account_password
+from app.seeds.boot import get_admin_password, get_shared_account_password
 
 
 @pytest.fixture

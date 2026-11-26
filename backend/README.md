@@ -37,11 +37,11 @@ uv sync
 cp .env.example .env                    # see the file itself for what each value does
 docker compose -f ../docker-compose.dev.yml up -d postgres
 uv run alembic upgrade head             # create the schema — seeding does NOT do this
-uv run python -m app.seed               # optional: reference data
+uv run python -m app.seeds               # optional: reference data
 uv run uvicorn app.main:app --reload
 ```
 
-`alembic upgrade head` before `app.seed` is not optional: the seed script deliberately does
+`alembic upgrade head` before `app.seeds` is not optional: the seed script deliberately does
 not `create_all`, so development and production build the schema the same way.
 
 ## Layout
@@ -63,7 +63,7 @@ app/
 ├── telemetry/           # opt-in crash reporting (vendored, shared with kp-front)
 ├── station_index.py     # station index reader (byte-identical with kp-front)
 ├── roster_snapshot*.py  # roster-snapshot/1 reader + ingest (byte-identical with kp-front)
-└── seed*.py             # seed.py (reference data), seed_training.py, seed_demo.py, seed_visual.py
+└── seeds/               # boot (reference data, python -m app.seeds), training, demo, visual, station
 ```
 
 Note that `crud` and `schemas` are **packages**, not single modules, and routes live under

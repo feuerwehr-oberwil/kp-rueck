@@ -174,7 +174,7 @@ async def reset_demo() -> None:
     await _truncate_all_tables()
     _clear_photos()
 
-    from app.seed_demo import seed_demo_database
+    from app.seeds.demo import seed_demo_database
 
     await seed_demo_database()
     _next_reset_time = _next_midnight_naive()

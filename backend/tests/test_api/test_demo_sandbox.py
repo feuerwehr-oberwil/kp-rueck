@@ -24,7 +24,7 @@ from app.models import (
     RekoReport,
     StatusTransition,
 )
-from app.seed_demo import seed_demo_database, seed_demo_shared_resources
+from app.seeds.demo import seed_demo_database, seed_demo_shared_resources
 from app.services.photo_storage import DEMO_MAX_PHOTOS, enforce_demo_photo_limits
 from app.services.tokens import generate_form_token
 
@@ -231,7 +231,7 @@ class TestSeedDemoEventContent:
 
     @pytest_asyncio.fixture
     async def seeded_event(self, db_session: AsyncSession, shared_resources) -> Event:
-        from app.seed_demo import seed_demo_event_content
+        from app.seeds.demo import seed_demo_event_content
 
         event = Event(id=uuid4(), name=f"{DEMO_SANDBOX_PREFIX}test", training_flag=False)
         db_session.add(event)
@@ -462,8 +462,8 @@ async def test_demo_seed_ensures_training_data_for_existing_database(monkeypatch
     db_context = AsyncMock()
     db_context.__aenter__.return_value = db
 
-    monkeypatch.setattr("app.seed_demo.seed_training_data", seed_training)
-    monkeypatch.setattr("app.seed_demo.async_session_maker", MagicMock(return_value=db_context))
+    monkeypatch.setattr("app.seeds.demo.seed_training_data", seed_training)
+    monkeypatch.setattr("app.seeds.demo.async_session_maker", MagicMock(return_value=db_context))
 
     await seed_demo_database()
 

@@ -625,7 +625,7 @@ db cmd="start" *args:
             docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
             ;;
         seed)
-            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seed
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seeds
             ;;
         migrate)
             echo -e "\033[1;34m→ Running database migrations...\033[0m"

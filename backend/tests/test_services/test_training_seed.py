@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 
 from app.config import settings
 from app.models import EmergencyTemplate, TrainingLocation
-from app.seed_training import FALLBACK_TRAINING_LOCATIONS, seed_training_data
+from app.seeds.training import FALLBACK_TRAINING_LOCATIONS, seed_training_data
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def isolated_seed(db_session, monkeypatch):
     async def session():
         yield db_session
 
-    monkeypatch.setattr("app.seed_training.async_session_maker", session)
+    monkeypatch.setattr("app.seeds.training.async_session_maker", session)
     outbound = MagicMock(side_effect=AssertionError("Training seeding must stay offline"))
     monkeypatch.setattr("httpx.AsyncClient", outbound)
     return outbound

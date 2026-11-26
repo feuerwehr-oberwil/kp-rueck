@@ -32,7 +32,7 @@ from ..auth import setup_token
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
 from ..models import User
-from ..seed import production_account_set
+from ..seeds.boot import production_account_set
 from ..services.audit import log_action
 from ..services.settings import FIRESTATION_NAME, update_setting
 

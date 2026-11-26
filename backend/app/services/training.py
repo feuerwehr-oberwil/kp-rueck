@@ -146,9 +146,9 @@ class TrainingGenerator:
             await self._load_locations()
 
         if not self._cache_templates:
-            raise ValueError("No emergency templates available. Please run seed_training.py first.")
+            raise ValueError("No emergency templates available. Please run the seed first (python -m app.seeds).")
         if not self._cache_locations:
-            raise ValueError("No training locations available. Please run seed_training.py first.")
+            raise ValueError("No training locations available. Please run the seed first (python -m app.seeds).")
 
         # Phone/walk-in alarms are non-critical by definition: for a real fire,
         # citizens call the official dispatch, not the command post. Keep the
@@ -277,9 +277,9 @@ class TrainingGenerator:
             await self._load_locations()
 
         if not self._cache_templates:
-            raise ValueError("No emergency templates available. Please run seed_training.py first.")
+            raise ValueError("No emergency templates available. Please run the seed first (python -m app.seeds).")
         if not self._cache_locations:
-            raise ValueError("No training locations available. Please run seed_training.py first.")
+            raise ValueError("No training locations available. Please run the seed first (python -m app.seeds).")
 
         if category is None:
             category = random.choices(CATEGORIES, weights=CATEGORY_WEIGHTS, k=1)[0]

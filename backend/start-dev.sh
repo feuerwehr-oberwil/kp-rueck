@@ -13,7 +13,7 @@ uv run alembic upgrade head
 
 # Seed the database (will skip if already seeded)
 echo "Seeding database..."
-uv run python -m app.seed
+uv run python -m app.seeds
 
 # Start the application with hot reload.
 #

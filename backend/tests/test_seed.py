@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app import models
-from app.seed import SEED_MARKER_KEY, seed_database, seed_dev_logins
+from app.seeds.boot import SEED_MARKER_KEY, seed_database, seed_dev_logins
 
 
 class RecordingSession:
@@ -66,7 +66,7 @@ def session(monkeypatch) -> RecordingSession:
     context = MagicMock()
     context.__aenter__ = AsyncMock(return_value=recording)
     context.__aexit__ = AsyncMock(return_value=False)
-    monkeypatch.setattr("app.seed.async_session_maker", MagicMock(return_value=context))
+    monkeypatch.setattr("app.seeds.boot.async_session_maker", MagicMock(return_value=context))
     return recording
 
 
@@ -83,7 +83,7 @@ def _seed_environment(monkeypatch):
 def training(monkeypatch) -> AsyncMock:
     """Training data is seeded through its own session; stub it out."""
     stub = AsyncMock()
-    monkeypatch.setattr("app.seed.seed_training_data", stub)
+    monkeypatch.setattr("app.seeds.boot.seed_training_data", stub)
     return stub
 
 

@@ -12,7 +12,7 @@ dependencies = [
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
     "alembic>=1.13.0",
-    # bcrypt is imported DIRECTLY by app/auth/security.py, seed.py, seed_demo.py and
+    # bcrypt is imported DIRECTLY by app/auth/security.py, app/seeds/boot.py, app/seeds/demo.py and
     # ensure_accounts.py. It used to arrive only as passlib's [bcrypt] extra while passlib
     # itself was imported nowhere — password hashing rode on a transitive dependency of an
     # unused package, so dropping passlib would have broken login.
@@ -157,8 +157,6 @@ extend-immutable-calls = [
 "app/api/reko.py" = ["E402"]
 # N815: Traccar model uses camelCase to match external Traccar API response format
 "app/traccar.py" = ["N815"]
-# N806: BATCH_SIZE is a constant, uppercase is intentional
-"app/seed.py" = ["N806"]
 # S311: the training/simulation code invents plausible exercise data — random names, jittered
 # GPS tracks, sample photos. `random` is the right tool; nothing here guards anything. (Where
 # this project does need unpredictability — tokens, passwords — it uses `secrets`.)
@@ -169,7 +167,6 @@ extend-immutable-calls = [
 "app/services/training_lifecycle.py" = ["S311"]
 "app/services/training_steps.py" = ["S311"]
 "app/services/training_regie.py" = ["S311"]
-"app/seed_training.py" = ["S311"]
 
 # Dead code (vulture): `uv run vulture` – CI's static-analysis job runs it. At 60 % it also finds
 # unused functions and classes; framework hooks are ignored by decorator, and every other

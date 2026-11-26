@@ -18,7 +18,7 @@ DEFAULT_PRINT_JOB_TTL_SECONDS  # unused variable (app/crud/print_jobs.py:84)
 
 # Used only by the tests (tests/ is not scanned, so vulture cannot see it).
 reset_for_tests  # unused function (app/auth/setup_token.py:132)
-TRAINING_AREA_BOUNDS  # unused variable (app/seed_training.py:1228)
+TRAINING_AREA_BOUNDS  # unused variable (app/seeds/training.py, read by tests)
 fatigue_message  # unused function (app/services/notification_service.py:379)
 reset_storage_usage_cache  # unused function (app/services/storage_usage.py:136)
 generate_checkin_token  # unused function (app/services/tokens.py:62)

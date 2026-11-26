@@ -30,7 +30,7 @@ from app.models import (
     Setting,
     TrainingLocation,
 )
-from app.seed_training import FALLBACK_TRAINING_LOCATIONS, LEGACY_FALLBACK_COORDINATES, TRAINING_AREA_BOUNDS
+from app.seeds.training import FALLBACK_TRAINING_LOCATIONS, LEGACY_FALLBACK_COORDINATES, TRAINING_AREA_BOUNDS
 from app.services import training_photos
 from app.services.photo_storage import photo_storage
 from app.services.training import (

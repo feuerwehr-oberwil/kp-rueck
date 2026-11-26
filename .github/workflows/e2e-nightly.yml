@@ -125,7 +125,7 @@ jobs:
 
       - name: Seed database
         working-directory: backend
-        run: uv run python -m app.seed
+        run: uv run python -m app.seeds
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           ADMIN_SEED_PASSWORD: ${{ env.E2E_PASSWORD }}
