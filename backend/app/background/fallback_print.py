@@ -102,26 +102,19 @@ class FallbackPrintTask:
             await asyncio.sleep(TICK_SECONDS)
 
     async def _check_and_print(self, db: AsyncSession) -> None:
-        enabled = await settings_service.get_setting_value(db, "fallback.auto_print_enabled", "false")
-        if enabled.lower() != "true":
+        if not await settings_service.read(db, settings_service.FALLBACK_AUTO_PRINT_ENABLED):
             return
         # Beides, nicht nur der Schalter: ohne Adresse hat der Druckdienst nichts, wohin er
         # senden könnte, und ein Schnappschuss alle 15 Minuten würde die Warteschlange
         # stillschweigend vollschreiben. Dieselbe Bedingung wie in
         # `require_printer_configured` (api/print.py) – dort mit Fehlermeldung, hier still,
         # weil dies eine Hintergrundschleife ohne Gegenüber ist.
-        printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-        if printer_enabled.lower() != "true":
+        if not await settings_service.read(db, settings_service.PRINTER_ENABLED):
             return
-        printer_ip = await settings_service.get_setting_value(db, "printer.ip", "")
-        if not printer_ip.strip():
+        if not (await settings_service.read(db, settings_service.PRINTER_IP)).strip():
             return
 
-        raw_interval = await settings_service.get_setting_value(db, "fallback.auto_print_interval_min", "15")
-        try:
-            interval_min = max(5, min(120, int(raw_interval)))
-        except ValueError:
-            interval_min = 15
+        interval_min = await settings_service.read(db, settings_service.FALLBACK_AUTO_PRINT_INTERVAL_MIN)
 
         # Every open event, training included — see the module docstring. The only filter
         # is "archived": a closed event has no board left to snapshot.

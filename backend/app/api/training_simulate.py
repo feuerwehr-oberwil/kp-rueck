@@ -448,13 +448,13 @@ async def simulate_field_message(
     stays as the specific inject; this one is what a crew actually taps, and it
     lands as a `field_message` notification plus a Journal entry.
     """
-    from ..services.settings import FELD_MESSAGE_CHIPS_KEY, get_setting_value, parse_message_chips
+    from ..services.settings import FELD_MESSAGE_CHIPS, read
 
     await require_training_event(db, event_id)
     incident = await get_event_incident(db, event_id, incident_id)
 
     rng = random.Random()
-    chips = parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY))
+    chips = list(await read(db, FELD_MESSAGE_CHIPS))
     text = generate_field_message(incident.type, chips, rng)
     actor = await simulated_filer(db, incident, current_user, rng)
 

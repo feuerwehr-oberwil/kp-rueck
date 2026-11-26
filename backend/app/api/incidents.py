@@ -11,7 +11,6 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
-    HTTPException,
     Query,
     Request,
     Response,
@@ -354,6 +353,9 @@ async def merge_and_broadcast(
     return schemas.MergeResponse(target=target_response, merged_incident_id=report_id)
 
 
+DEMO_INCIDENT_CAP = 50
+
+
 async def enforce_demo_cap(db: AsyncSession, event_id: uuid.UUID) -> None:
     """Demo mode: at most 50 incidents per Ereignis (the demo seed makes ~21 per sandbox).
 
@@ -365,10 +367,13 @@ async def enforce_demo_cap(db: AsyncSession, event_id: uuid.UUID) -> None:
     count_result = await db.execute(
         select(sa_func.count()).select_from(models.Incident).where(models.Incident.event_id == event_id)
     )
-    if (count_result.scalar() or 0) >= 50:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Demo-Modus: Maximale Anzahl Einsätze (50) erreicht. Die Demo wird regelmässig zurückgesetzt.",
+    if (count_result.scalar() or 0) >= DEMO_INCIDENT_CAP:
+        raise CodedHTTPException(
+            status.HTTP_403_FORBIDDEN,
+            ErrorCode.DEMO_INCIDENT_LIMIT,
+            f"Demo-Modus: Maximale Anzahl Einsätze ({DEMO_INCIDENT_CAP}) erreicht. "
+            "Die Demo wird regelmässig zurückgesetzt.",
+            params={"max": DEMO_INCIDENT_CAP},
         )
 
 
@@ -390,7 +395,7 @@ async def merge_new_report(
     await enforce_demo_cap(db, payload.incident.event_id)
     target = await lock_incident(db, payload.target_id)
     if target is None or target.deleted_at is not None or target.event_id != payload.incident.event_id:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     try:
         report = await crud.create_incident(
             db=db,
@@ -414,7 +419,7 @@ async def get_incident(
     """Get incident by ID."""
     incident = await crud.get_incident(db, incident_id)
     if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return await incident_display.incident_with_display(db, incident)
 
 
@@ -435,21 +440,18 @@ async def create_incident(
     # Verify event exists
     event = await events_crud.get_event_by_id(db, incident.event_id)
     if not event:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)
+        raise CodedHTTPException(status.HTTP_404_NOT_FOUND, ErrorCode.EVENT_NOT_FOUND, ErrorMessages.EVENT_NOT_FOUND)
 
     # Demo mode: cap incidents per event at 50 (the demo seed itself creates
     # ~21 per sandbox, so a global cap would make manual creation impossible).
     await enforce_demo_cap(db, incident.event_id)
 
-    try:
-        new_incident = await crud.create_incident(
-            db=db,
-            incident=incident,
-            current_user=current_user,
-            request=request,
-        )
-    except crud.InvalidIncidentGroupError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+    new_incident = await crud.create_incident(
+        db=db,
+        incident=incident,
+        current_user=current_user,
+        request=request,
+    )
 
     # Trigger immediate sync in background (event-based sync)
 
@@ -485,17 +487,13 @@ async def update_incident(
             current_user=current_user,
             request=request,
         )
-    except crud.InvalidIncidentGroupError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except crud.IncompleteCoordinatesError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
     except crud.StatusChangedError as e:
         raise _status_changed(e) from e
     except crud.TextConflictError as e:
         raise _text_conflict(e) from e
 
     if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
     incident_response = await incident_display.incident_with_display(db, incident)
@@ -610,7 +608,7 @@ async def update_status(
         raise _status_changed(e) from e
 
     if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Convert SQLAlchemy model to Pydantic for response and WebSocket broadcast
     incident_response = await incident_display.incident_with_display(db, incident)
@@ -636,7 +634,7 @@ async def get_field_report(
     """The three field reports of one Schadenplatz, as `/feld` returns them."""
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return schemas.FieldReportState(**await feld_crud.field_report_state(db, incident))
 
 
@@ -666,7 +664,7 @@ async def set_field_report(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     actor = feld_crud.FieldActor(user=current_user)
     provided = payload.model_fields_set
@@ -706,7 +704,7 @@ async def list_field_messages(
     """The KP's messages to this Schadenplatz's squad, oldest first."""
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return await kp_messages_crud.messages_for_incident(db, incident_id)
 
 
@@ -730,10 +728,10 @@ async def send_field_message(
     noise. The broadcast keeps other open boards in step.
     """
     if not payload.message.strip():
-        raise HTTPException(status_code=422, detail="Leere Meldung")
+        raise CodedHTTPException(422, ErrorCode.FIELD_MESSAGE_EMPTY, "Leere Meldung")
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     row = await kp_messages_crud.create_kp_message(
         db, incident, user=current_user, message=payload.message, request=request
@@ -769,7 +767,7 @@ async def list_field_requests(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return (await feld_crud.requests_for_incidents(db, [incident_id])).get(incident_id, [])
 
 
@@ -790,7 +788,7 @@ async def create_field_request(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     created = await feld_crud.create_field_request(
         db,
         incident,
@@ -803,7 +801,7 @@ async def create_field_request(
         request=request,
     )
     if created is None:  # the schema already refuses an empty request; belt and braces
-        raise HTTPException(status_code=422, detail="Leere Meldung")
+        raise CodedHTTPException(422, ErrorCode.FIELD_MESSAGE_EMPTY, "Leere Meldung")
     return created[0]
 
 
@@ -832,13 +830,13 @@ async def update_field_request(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     await lock_incident_with_group(db, incident_id)
     row = await feld_crud.get_request(db, incident_id, request_id, lock=True)
     if row is None:
-        raise HTTPException(status_code=404, detail="Anforderung nicht gefunden")
+        raise CodedHTTPException(404, ErrorCode.FIELD_REQUEST_NOT_FOUND, "Anforderung nicht gefunden")
     if payload.expected_status is not None and row.status != payload.expected_status:
-        raise HTTPException(status_code=409, detail=_REQUEST_MOVED_ON)
+        raise CodedHTTPException(409, ErrorCode.FIELD_REQUEST_CHANGED, _REQUEST_MOVED_ON)
 
     if row.kind == "pickup" and payload.status == "done":
         if row.status == "done":
@@ -856,9 +854,10 @@ async def update_field_request(
             feld_crud._broadcast(db, incident)
     elif row.kind == "pickup" and row.status == "done":
         await db.commit()
-        raise HTTPException(
-            status_code=409,
-            detail="Eine erledigte Abholung wird nicht wieder geöffnet – neu anfordern («Abholung nötig»).",
+        raise CodedHTTPException(
+            409,
+            ErrorCode.PICKUP_DONE,
+            "Eine erledigte Abholung wird nicht wieder geöffnet – neu anfordern («Abholung nötig»).",
         )
     else:
         try:
@@ -867,7 +866,7 @@ async def update_field_request(
             )
         except feld_crud.RequestConflictError:
             await db.commit()
-            raise HTTPException(status_code=409, detail=_REQUEST_MOVED_ON) from None
+            raise CodedHTTPException(409, ErrorCode.FIELD_REQUEST_CHANGED, _REQUEST_MOVED_ON) from None
         if changed:
             feld_crud._broadcast(db, incident)
         else:
@@ -908,7 +907,7 @@ async def set_reko_arrived(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     clear = "arrived_at" in payload.model_fields_set and payload.arrived_at is None
     report = await reko_crud.set_reko_arrived_by_user(
@@ -964,7 +963,7 @@ async def get_incident_rapport(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     actor = feld_crud.FieldActor(user=current_user)
     return schemas.SchadenplatzRapport(**await feld_crud.get_rapport(db, incident, actor=actor))
 
@@ -986,7 +985,7 @@ async def save_incident_rapport(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     actor = feld_crud.FieldActor(user=current_user)
     return schemas.SchadenplatzRapport(
         **await feld_crud.save_rapport(db, incident, actor=actor, payload=payload, request=request)
@@ -1010,7 +1009,7 @@ async def upload_rapport_photo(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     actor = feld_crud.FieldActor(user=current_user)
     photos = await feld_crud.add_photo(db, incident, actor=actor, file=file, request=request)
     return schemas.RapportPhotosResponse(
@@ -1032,7 +1031,7 @@ async def delete_rapport_photo(
     """Detach a photo from the board side."""
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     actor = feld_crud.FieldActor(user=current_user)
     photos = await feld_crud.remove_photo(db, incident, actor=actor, filename=filename, request=request)
     return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
@@ -1076,7 +1075,7 @@ async def get_rapport_material_return(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     returned, left = await feld_crud.material_return_units(db, incident, include_draft=include_draft)
     rapport_by, submitted_at, is_draft = await feld_crud.material_return_attribution(
         db, incident, include_draft=include_draft
@@ -1113,7 +1112,7 @@ async def apply_rapport_material_decisions(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     applied = await feld_crud.apply_material_decisions(db, incident, decisions=payload.decisions)
     return schemas.RapportMaterialDecisionsResponse(applied=applied)
 
@@ -1137,7 +1136,7 @@ async def get_incident_participants(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return schemas.IncidentParticipantsResponse(participants=await incident_history.participants(db, incident))
 
 
@@ -1156,7 +1155,7 @@ async def get_incident_timeline(
     """
     incident = await crud.get_incident(db, incident_id)
     if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return schemas.IncidentTimelineResponse(events=await incident_history.timeline(db, incident))
 
 
@@ -1177,7 +1176,7 @@ async def delete_incident(
     )
 
     if not success:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Broadcast WebSocket update for deletion
     background_tasks.add_task(broadcast_incident_update, {"id": str(incident_id)}, "delete")
@@ -1214,7 +1213,7 @@ async def restore_incident(
         ) from e
 
     if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
 
     # Re-fetch with populated relationships (assigned_vehicles, reko flags, …) so
     # the response mirrors GET /{id} and the frontend can consume it directly.
@@ -1247,7 +1246,7 @@ async def merge_incident_into(
     """
     report, target = await lock_pair(db, incident_id, payload.target_id)
     if report is None or report.deleted_at is not None or target is None or target.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     try:
         result = await duplicates.merge_report(db, report=report, target=target, user=current_user, request=request)
     except duplicates.MergeRefusedError as e:
@@ -1272,12 +1271,12 @@ async def unmerge_incident(
     """
     report = await db.get(models.Incident, incident_id)
     if report is None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     if report.merged_into_id is None:
         raise CodedHTTPException(409, ErrorCode.INCIDENT_NOT_MERGED, duplicates.NOT_MERGED)
     report, _target = await lock_pair(db, incident_id, report.merged_into_id)
     if report is None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     try:
         result = await duplicates.unmerge_report(db, report, user=current_user, request=request)
     except duplicates.MergeRefusedError as e:
@@ -1285,7 +1284,7 @@ async def unmerge_incident(
         raise e.to_http() from None
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(status_code=409, detail=ErrorMessages.CONFLICT) from None
+        raise CodedHTTPException(409, ErrorCode.UNMERGE_CONFLICT, ErrorMessages.CONFLICT) from None
     target_id = result.target.id if result.target else None
     note_removed = result.note_removed
     await db.flush()
@@ -1322,7 +1321,7 @@ async def dismiss_duplicate(
     """
     incident = await lock_incident(db, incident_id)
     if incident is None or incident.deleted_at is not None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     await duplicates.dismiss_duplicate_flag(db, incident, user=current_user, request=request)
     await db.flush()
     response = await board_response(db, incident)

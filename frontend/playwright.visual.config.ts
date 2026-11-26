@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * Its own config, like playwright.screenshots.config.ts, rather than a project in
  * playwright.config.ts: the nightly runs `playwright test` over EVERY project there, and
- * these specs only mean something against the visual seed (backend/app/seed_visual.py) and
+ * these specs only mean something against the visual seed (backend/app/seeds/visual.py) and
  * a production build, which the nightly's dev stack is neither. Run through
  * `just visual` (scripts/visual-test.sh), which brings that stack up and down; CI runs the
  * same script (the `visual` job in .github/workflows/ci.yml).

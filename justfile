@@ -625,7 +625,7 @@ db cmd="start" *args:
             docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
             ;;
         seed)
-            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seed
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seeds
             ;;
         migrate)
             echo -e "\033[1;34m→ Running database migrations...\033[0m"
@@ -968,7 +968,7 @@ visual-accept run_id:
 # shared files. Run it before a push; the test suites are `just test`.
 check:
     cd backend && uv run ruff format --check . && uv run ruff check .
-    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/websocket_manager.py app/models.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
+    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/seeds app/websocket_manager.py app/models.py app/json_columns.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
     cd frontend && pnpm lint && pnpm typecheck
     python3 scripts/check_shared.py
 

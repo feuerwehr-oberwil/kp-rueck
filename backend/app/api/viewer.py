@@ -18,10 +18,11 @@ from ..crud import reko as reko_crud
 from ..crud import special_functions as special_functions_crud
 from ..crud import vehicles as vehicles_crud
 from ..database import get_db
+from ..json_columns import reko_effort_figures
 from ..services import incident_display, share_links
 from ..services.gps_simulation import gps_simulation
 from ..services.reaction_times import load_event_figures
-from ..services.settings import get_setting_value
+from ..services.settings import GPS_STALE_AFTER_MINUTES, read
 from ..traccar import traccar_client
 from ..utils.errors import ErrorMessages
 from .special_functions import _enrich_assignments
@@ -29,16 +30,6 @@ from .special_functions import _enrich_assignments
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/viewer", tags=["viewer"])
-
-
-def _stale_minutes(raw: str) -> float:
-    """The threshold as a number; anything but a positive number is the default 10 (as the
-    frontend's `parseStaleMinutes` reads it)."""
-    try:
-        value = float(raw)
-    except ValueError:
-        return 10.0
-    return value if value > 0 else 10.0
 
 
 async def _viewer_vehicle_positions() -> list[schemas.ViewerVehiclePosition]:
@@ -126,18 +117,19 @@ async def get_viewer_data(
     # come back with has_completed_reko; the drafts and the incidents without a
     # Reko are dropped here instead of shipping empty objects.
     reko_summaries = await reko_crud.get_reko_summaries_by_event(db, event_id)
-    viewer_reko_summaries = {
-        incident_id: schemas.ViewerRekoSummary(
+    viewer_reko_summaries: dict[uuid.UUID, schemas.ViewerRekoSummary] = {}
+    for incident_id, summary in reko_summaries.items():
+        if not summary["has_completed_reko"]:
+            continue
+        personnel_count, estimated_duration_hours = reko_effort_figures(summary["effort_json"])
+        viewer_reko_summaries[incident_id] = schemas.ViewerRekoSummary(
             is_relevant=summary["is_relevant"],
             dangers_json=summary["dangers_json"],
             summary_text=summary["summary_text"],
-            personnel_count=(summary["effort_json"] or {}).get("personnel_count"),
-            estimated_duration_hours=(summary["effort_json"] or {}).get("estimated_duration_hours"),
+            personnel_count=personnel_count,
+            estimated_duration_hours=estimated_duration_hours,
             photos_json=summary["photos_json"] or [],
         )
-        for incident_id, summary in reko_summaries.items()
-        if summary["has_completed_reko"]
-    }
 
     # Each row goes through its `Viewer*` model here (from the ORM row), and the
     # envelope through `ViewerData` at the boundary – the allowlist twice over.
@@ -159,5 +151,5 @@ async def get_viewer_data(
         special_functions=[schemas.ViewerSpecialFunction.model_validate(sf) for sf in special_functions],
         figures=schemas.EventFigures.model_validate(await load_event_figures(db, incidents)),
         reko_summaries=viewer_reko_summaries,
-        gps_stale_minutes=_stale_minutes(await get_setting_value(db, "gps.stale_after_minutes")),
+        gps_stale_minutes=await read(db, GPS_STALE_AFTER_MINUTES),
     )

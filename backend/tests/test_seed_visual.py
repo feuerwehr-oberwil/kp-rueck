@@ -1,4 +1,4 @@
-"""The screenshot fixture (app.seed_visual) puts nothing on the wall clock.
+"""The screenshot fixture (app.seeds.visual) puts nothing on the wall clock.
 
 The visual regression tests (docs/VISUAL_TESTS.md) freeze the browser at VISUAL_NOW and
 compare pixels; one timestamp from the seed run's own clock is one «vor 2141 h» on a
@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import select, text
 
 from app import models
-from app.seed_visual import VISUAL_EVENT_NAME, VISUAL_NOW, seed_visual
+from app.seeds.visual import VISUAL_EVENT_NAME, VISUAL_NOW, seed_visual
 
 
 @pytest.fixture(autouse=True)

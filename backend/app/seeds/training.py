@@ -1206,7 +1206,7 @@ EMERGENCY_TEMPLATES: list[EmergencyTemplateSeed] = [
 # training surface or drops ad-hoc pins on its own map.
 
 
-def get_training_area_bounds() -> dict:
+def get_training_area_bounds() -> dict[str, float]:
     """Bounding box containing the bundled dev/demo locations."""
     return {
         "min_lat": 47.508,
@@ -1249,7 +1249,7 @@ FALLBACK_TRAINING_LOCATIONS = [
 LEGACY_FALLBACK_COORDINATES = (47.5596, 7.5886)
 
 
-async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool = True):
+async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool = True) -> None:
     """
     Seed emergency templates and training locations.
 
@@ -1319,8 +1319,7 @@ async def seed_training_data(skip_geocoding: bool = False, seed_locations: bool 
             # Basel as "Hauptstrasse 1, Oberwil". Replace only that exact known
             # bad seed and preserve every custom/real location.
             if skip_geocoding:
-                result = await session.execute(select(TrainingLocation))
-                existing_locations = list(result.scalars().all())
+                existing_locations = list((await session.execute(select(TrainingLocation))).scalars().all())
                 legacy_location = next(
                     (
                         location

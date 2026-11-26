@@ -4,7 +4,7 @@
 # Brings up a THROWAWAY stack, runs frontend/tests/visual against it, and takes it down again:
 #   1. the production frontend build (`next build`, standalone server — no dev overlay, no
 #      compile-on-demand);
-#   2. an empty Postgres, migrated and filled by `python -m app.seed_visual` (the demo storm
+#   2. an empty Postgres, migrated and filled by `python -m app.seeds.visual` (the demo storm
 #      evening pinned to one instant), never the dev database;
 #   3. the backend on its own port, then `playwright test --config playwright.visual.config.ts`.
 # CI runs exactly this script (the `visual` job in ci.yml and visual-baselines.yml).
@@ -75,7 +75,7 @@ fi
 # The seed writes the demo's Reko illustrations; they die with the run, like the database.
 export PHOTOS_DIR="$log/photos"
 (cd backend && DATABASE_URL=$db_url ADMIN_SEED_PASSWORD=$password VIEWER_PASSWORD=$password \
-  uv run python -m app.seed_visual >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
+  uv run python -m app.seeds.visual >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
 
 (cd backend && DATABASE_URL=$db_url CORS_ORIGINS="http://localhost:${web_port}" \
   exec setsid uv run uvicorn app.main:app --port "$api_port" --log-level warning >"$log/api.log" 2>&1) &

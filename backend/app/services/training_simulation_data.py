@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from app.seed_training import EMERGENCY_TEMPLATES
+from app.seeds.training import EMERGENCY_TEMPLATES
 from app.services.training_reko_effort import REKO_EFFORT
 
 # Danger profiles per incident type: which dangers are likely and their probability

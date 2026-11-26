@@ -26,7 +26,7 @@ type AuthWorkerFixtures = {
   authCookies: Cookie[];
 
   /**
-   * Same, for the seeded read-only `viewer` account (backend/app/seed.py).
+   * Same, for the seeded read-only `viewer` account (backend/app/seeds/boot.py).
    * Password comes from VIEWER_PASSWORD, which both CI workflows already
    * set; the dev seed default is `viewer`.
    */

@@ -1,6 +1,6 @@
 """Idempotent account bootstrap that runs on every deploy (after migrations/seed).
 
-`seed.py` only creates accounts on a *fresh* database; on an already-seeded
+`app/seeds/boot.py` only creates accounts on a *fresh* database; on an already-seeded
 production DB it returns early, so newly added shared accounts (like the read-only
 `viewer`) never get created there. This module ensures the shared `viewer` account
 exists and that its password matches the `VIEWER_PASSWORD` env var, so the
@@ -38,7 +38,7 @@ async def ensure_viewer_account() -> None:
         print("VIEWER_PASSWORD not set – leaving viewer account unchanged")
         return
 
-    # seed.py enforces this on a fresh database; this path did not, so a VIEWER_PASSWORD
+    # The boot seed enforces this on a fresh database; this path did not, so a VIEWER_PASSWORD
     # shortened after the first boot was accepted silently – against what .env.example
     # promises. Refuse it, but do NOT raise: this runs on every boot, and taking the whole
     # board down over the read-only kiosk password is the worse failure of the two.

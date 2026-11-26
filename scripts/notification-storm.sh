@@ -71,7 +71,7 @@ wait_up Postgres - - docker exec "$pg" pg_isready -U kprueck -q
 sleep 1
 (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >"$log/migrate.log" 2>&1) || { tail -20 "$log/migrate.log" >&2; exit 1; }
 (cd backend && DEMO_MODE=false DATABASE_URL=$db_url ADMIN_SEED_PASSWORD=$password VIEWER_PASSWORD=$password \
-  uv run python -m app.seed >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
+  uv run python -m app.seeds >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
 
 (cd backend && DEMO_MODE=false DATABASE_URL=$db_url CORS_ORIGINS="http://localhost:${web_port}" \
   ENVIRONMENT=production SECRET_KEY="$secret_key" AUTH_SECRET_KEY="$secret_key" \
