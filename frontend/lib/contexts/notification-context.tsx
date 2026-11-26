@@ -11,7 +11,7 @@ import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { apiClient } from '@/lib/api-client'
 import { isValidUUID } from '@/lib/utils/validation'
-import { readItem, writeItem, writeJson } from '@/lib/utils/safe-storage'
+import { readItem, writeItem } from '@/lib/utils/safe-storage'
 import { wsClient } from '@/lib/websocket-client'
 import { usePolling } from '@/lib/hooks/use-polling'
 import { toast } from 'sonner'
@@ -97,7 +97,6 @@ export type FieldRequestAssignHandler = (
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined)
 
-const SEEN_NOTIFICATION_IDS_KEY = 'seenNotificationIds'
 const SIDEBAR_OPEN_KEY = 'notification-sidebar-open'
 
 /**
@@ -416,9 +415,7 @@ export function NotificationProvider({
     if (result.status === 'failed') {
       // Keep the last known list on screen and say so. Replacing it with `[]`
       // was the actual defect: the panel's empty state reads «Alles ist in
-      // Ordnung», which is a claim this poll is in no position to make. Also
-      // leave the stored seen ids alone — clearing them would make every
-      // notification look new again on recovery and re-toast the lot.
+      // Ordnung», which is a claim this poll is in no position to make.
       markUnavailable()
       return
     }
@@ -426,10 +423,6 @@ export function NotificationProvider({
     const newNotifications = result.notifications
     markAvailable()
     setLastNotificationSyncAt(new Date())
-
-    // Persist the seen ids to prevent retriggering on page reload.
-    // Best-effort: a failed write (quota) only means a toast may re-show once.
-    writeJson(SEEN_NOTIFICATION_IDS_KEY, newNotifications.map((n) => n.id))
 
     // Preserve locally-dismissed state: a poll response that was in flight when
     // the user dismissed a notification would otherwise resurrect it until the

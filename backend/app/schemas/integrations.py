@@ -3,10 +3,9 @@
 The status is a stored document (`settings` row ``roster_snapshot.status``, written by
 ``services/roster_snapshot_sync``), and what a row holds depends on the runs behind it: a
 first run that was refused has no ``lastGood``, a crash keeps the previous report's keys.
-So every key is optional, the routes serve it with ``response_model_exclude_unset`` (a key
-the row lacks stays absent, never null), and a key this model does not know rides along
-(``extra="allow"``) rather than vanishing from an older row. The defaults below are what
-each key means when absent; they are never served.
+The routes therefore hand the row out as stored (a JSONResponse, never validated), and these
+models only describe it in the contract: every key optional (absent, never null), a key they
+do not name allowed (``extra="allow"``). The defaults are what each key means when absent.
 """
 
 from typing import Literal

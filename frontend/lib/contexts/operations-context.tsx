@@ -366,8 +366,9 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   )
   // Every surface reads a stop's route resources off the card (`Operation.auftragResources`),
   // filled here and only here – the actions write the stored cards, this pass adds the routes.
+  const projectedCards = useRef(new WeakMap<Operation, Operation>())
   const operationsOnBoard = useMemo(
-    () => withAuftragResources(operations, groups, auftragState.resourcesByGroup),
+    () => withAuftragResources(operations, groups, auftragState.resourcesByGroup, projectedCards.current),
     [operations, groups, auftragState],
   )
 

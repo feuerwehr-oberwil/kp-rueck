@@ -2564,7 +2564,8 @@ export interface paths {
          * @description The last roster-snapshot run: outcome report, held/stale flags, the last good file.
          *
          *     ``configured`` is false and ``status`` null on a station that never set a source. The
-         *     status is the stored document, served key for key (see `schemas/integrations.py`).
+         *     status is the stored document as stored – a JSONResponse, so no model coerces or refuses
+         *     a key an older run wrote; the response_model documents it (see `schemas/integrations.py`).
          */
         get: operations["get_roster_snapshot_status_api_integrations_roster_snapshot_get"];
         put?: never;
@@ -2587,7 +2588,8 @@ export interface paths {
         /**
          * Sync Roster Snapshot
          * @description Read the roster snapshot now. A refused or held run is a 200 carrying the reason — the
-         *     report is the answer; only «no source configured» is an error.
+         *     report is the answer; only «no source configured» is an error. The stored report, as stored
+         *     (a refused run carries the previous report's keys forward), like the GET above.
          */
         post: operations["sync_roster_snapshot_api_integrations_roster_snapshot_sync_post"];
         delete?: never;

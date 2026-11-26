@@ -22,7 +22,7 @@ import type {
   ApiIncidentGroup,
   ApiVehicle,
 } from "@/lib/api-client"
-import type { GroupResourceType, GroupResources, IncidentGroup } from "@/lib/types/groups"
+import type { GroupResourceItem, GroupResourceType, GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Material, Operation, Person } from "../operations-context"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 import { apiIncidentGroupToGroup, apiIncidentToOperation, rekoDangerTypes } from "./mapping"
@@ -276,22 +276,48 @@ export function deriveAuftragState(groups: readonly IncidentGroup[], names: Auft
  * The cards with their Auftrag's resources on them (`Operation.auftragResources`): the board
  * store runs it on every change, the share-link wall on its payload. Membership follows
  * `findAuftragForStop` – the route's stopIds count before the incident's `group_id` arrives.
- * A card whose value is unchanged keeps its identity, and so does the array when none changed.
+ *
+ * `previous` maps a stored card to the card this pass made from it last time. That card is
+ * handed out again while the stored card is the same object and its route resources read the
+ * same – so a card nobody touched keeps its identity across unrelated edits, whatever
+ * `deriveAuftragState` rebuilt. The store keeps one map for its lifetime.
  */
 export function withAuftragResources(
   operations: Operation[],
   groups: readonly IncidentGroup[],
   resourcesByGroup: ReadonlyMap<string, GroupResources>,
+  previous: WeakMap<Operation, Operation> = new WeakMap(),
 ): Operation[] {
-  let changed = false
-  const next = operations.map((operation) => {
+  return operations.map((operation) => {
     const auftrag = findAuftragForStop(groups, operation)
     const auftragResources = auftrag ? resourcesByGroup.get(auftrag.id) ?? null : null
-    if (operation.auftragResources === auftragResources) return operation
-    changed = true
-    return { ...operation, auftragResources }
+    const last = previous.get(operation)
+    if (last && sameGroupResources(last.auftragResources, auftragResources)) return last
+    const card = operation.auftragResources === auftragResources ? operation : { ...operation, auftragResources }
+    previous.set(operation, card)
+    return card
   })
-  return changed ? next : operations
+}
+
+/** Same route resources, field by field: what a card draws from them. */
+function sameGroupResources(a: GroupResources | null, b: GroupResources | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const sameItems = (x: readonly GroupResourceItem[], y: readonly GroupResourceItem[]) =>
+    x.length === y.length &&
+    x.every((item, i) => {
+      const other = y[i]
+      return (
+        item.assignmentId === other.assignmentId &&
+        item.resourceId === other.resourceId &&
+        item.name === other.name &&
+        item.driverStay === other.driverStay &&
+        item.callsign === other.callsign &&
+        item.isLeader === other.isLeader &&
+        item.location === other.location
+      )
+    })
+  return sameItems(a.vehicles, b.vehicles) && sameItems(a.personnel, b.personnel) && sameItems(a.materials, b.materials)
 }
 
 /** Every resource that stands on some Auftrag, by kind. */

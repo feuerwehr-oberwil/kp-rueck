@@ -40,7 +40,7 @@ async def test_demo_status_on_names_the_next_reset(client: AsyncClient, monkeypa
     }
 
 
-# A refused first run: no lastGood, no counts – and a key from an older build.
+# A refused run with few keys – and keys from an older build.
 SPARSE_STATUS = {
     "trigger": "scheduled",
     "outcome": {"schema": "roster-snapshot-outcome/1", "provider": "x", "refused": "kaputt", "unmatched": []},
@@ -49,6 +49,8 @@ SPARSE_STATUS = {
     "lastAttempt": "2026-11-26T05:00:00+00:00",
     "lastError": "kaputt",
     "legacyKey": {"kept": True},
+    # An older writer: a count as text, no sha256. Served as stored, never coerced or refused.
+    "lastGood": {"provider": "x", "generatedAt": "2026-08-01T04:00:00+00:00", "count": "40"},
 }
 
 

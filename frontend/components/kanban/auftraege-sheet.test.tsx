@@ -66,7 +66,6 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     reorderGroups: vi.fn(),
     addStops: vi.fn(),
     assignResource: vi.fn(),
-    groupResourcesFor: vi.fn(() => ({ vehicles: [], personnel: [], materials: [] })),
   }),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({

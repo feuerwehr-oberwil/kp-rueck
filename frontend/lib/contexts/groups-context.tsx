@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react"
 import type { GroupResources } from "@/lib/types/groups"
-import { useOperations, type Operation } from "@/lib/contexts/operations-context"
+import { useOperations } from "@/lib/contexts/operations-context"
 
 // Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
@@ -24,11 +24,6 @@ export function useGroups() {
     (groupId: string): GroupResources => auftragResources.get(groupId) ?? EMPTY_RESOURCES,
     [auftragResources],
   )
-  /** The route resources of an incident's Auftrag (empty when ungrouped). */
-  const groupResourcesFor = useCallback(
-    (operation: Operation): GroupResources => (operation.groupId ? getGroupResources(operation.groupId) : EMPTY_RESOURCES),
-    [getGroupResources],
-  )
 
   return useMemo(
     () => ({
@@ -40,9 +35,8 @@ export function useGroups() {
       loadFailed: boardNeverLoaded,
       ...groupActions,
       getGroupResources,
-      groupResourcesFor,
       occupiedResourceIds,
     }),
-    [groups, isLoaded, boardNeverLoaded, groupActions, getGroupResources, groupResourcesFor, occupiedResourceIds],
+    [groups, isLoaded, boardNeverLoaded, groupActions, getGroupResources, occupiedResourceIds],
   )
 }
