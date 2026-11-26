@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getDeployment: vi.fn(),
   getIntegrations: vi.fn(),
   getGpsSimulations: vi.fn(),
+  getCrew: vi.fn(),
   user: null as { id: string; role: string } | null,
 }))
 vi.mock('@/lib/api-client', () => ({
@@ -19,6 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { QueryProvider } from './provider'
 import { queryKeys } from './keys'
+import { useReader } from './reader'
 import { useDeployment } from '@/lib/hooks/use-deployment'
 
 function Role() {
@@ -44,8 +46,9 @@ describe('QueryProvider', () => {
     // A read only an editor makes, and one everybody makes.
     function EditorRead() {
       const isEditor = useAuth().user?.role === 'editor'
-      useQuery({ queryKey: queryKeys.integrations, queryFn: () => mocks.getIntegrations(), enabled: isEditor })
-      useQuery({ queryKey: queryKeys.gpsSimulations, queryFn: () => mocks.getGpsSimulations() })
+      const reader = useReader()
+      useQuery({ queryKey: queryKeys.integrations.for(reader), queryFn: () => mocks.getIntegrations(), enabled: isEditor })
+      useQuery({ queryKey: queryKeys.gpsSimulations.for(reader), queryFn: () => mocks.getGpsSimulations() })
       return null
     }
     mocks.getIntegrations.mockResolvedValue({})
@@ -60,5 +63,25 @@ describe('QueryProvider', () => {
 
     expect(mocks.getIntegrations).toHaveBeenCalledTimes(1)
     expect(mocks.getGpsSimulations).toHaveBeenCalledTimes(2)
+  })
+
+  it('never shows user A\'s answer on user B\'s first frame', async () => {
+    // A panel deep in the page: the provider's re-render alone does not reach it.
+    function Crew() {
+      const crew = useQuery({ queryKey: queryKeys.incidentParticipants.of(useReader(), 'inc-1'), queryFn: () => mocks.getCrew() })
+      return <p>{crew.data ?? 'lädt'}</p>
+    }
+    const page = <Crew />
+    mocks.getCrew.mockResolvedValueOnce('Crew für A')
+    mocks.user = { id: 'user-a', role: 'editor' }
+    const { rerender } = render(<QueryProvider>{page}</QueryProvider>)
+    expect(await screen.findByText('Crew für A')).toBeInTheDocument()
+
+    // A token refresh hands the tab user B – no sign-out between.
+    mocks.getCrew.mockReturnValue(new Promise(() => {}))
+    mocks.user = { id: 'user-b', role: 'editor' }
+    rerender(<QueryProvider>{page}</QueryProvider>)
+
+    expect(screen.queryByText('Crew für A')).not.toBeInTheDocument()
   })
 })

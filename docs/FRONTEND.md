@@ -46,9 +46,12 @@ A read from the server (other than the board snapshot) is a TanStack Query `useQ
 (`lib/query/`, provider in the root layout). Move a hand-rolled read (state + loading + failed +
 reset + poll + socket refetch) over when you touch its file; `kp/no-effect-read` counts the rest.
 
-- **Key** from `lib/query/keys.ts`, scoped to what it reads (`queryKeys.x.of(incidentId)`). The
-  key is the stale guard: a late answer for the previous Einsatz lands in its own entry.
-  No id yet → `queryFn: skipToken`.
+- **Key** from `lib/query/keys.ts`, scoped to what it reads and to the signed-in user:
+  `queryKeys.x.of(useReader(), incidentId)` (`lib/query/reader.ts`). The key is the stale
+  guard: a late answer for the previous Einsatz lands in its own entry, and an account switch
+  without a sign-out re-renders every read onto the new user's key in the same render, so no
+  frame shows the previous user's answer. A literal array does not type check as a key
+  (`Register` in `keys.ts`). No id yet → `queryFn: skipToken`.
 - **Socket**: add a line to `ROUTES` in `lib/query/socket-bridge.ts` (event → kinds, optionally
   only the ids the payload names). It also refetches those reads once when the socket comes back.
 - **Poll**: spread `usePollOptions(ms, { pauseWhenHidden, skipWhileWsConnected })` – the same

@@ -3,6 +3,7 @@
 import { skipToken, useQuery } from "@tanstack/react-query"
 import { apiClient, type ApiEventFigures } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query/keys"
+import { useReader } from "@/lib/query/reader"
 import { usePollOptions } from "@/lib/query/poll"
 
 export interface EventFiguresState {
@@ -26,8 +27,9 @@ export function useEventFigures(
   { enabled = true, pauseWhenHidden = true }: { enabled?: boolean; pauseWhenHidden?: boolean } = {},
 ): EventFiguresState {
   const poll = usePollOptions(10_000, { pauseWhenHidden })
+  const reader = useReader()
   const query = useQuery({
-    queryKey: queryKeys.eventFigures.of(eventId),
+    queryKey: queryKeys.eventFigures.of(reader, eventId),
     queryFn: eventId ? () => apiClient.getEventFigures(eventId) : skipToken,
     enabled,
     ...poll,

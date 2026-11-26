@@ -36,7 +36,7 @@ import { bridgeSocketToQueries } from './socket-bridge'
 /** A read of the Divera responses of `eventId` that something shows; counts its fetches. */
 function shownDiveraRead(client: ReturnType<typeof makeQueryClient>, eventId: string) {
   const fetch = vi.fn(async () => ({ eventId }))
-  const observer = new QueryObserver(client, { queryKey: queryKeys.eventDiveraResponses.of(eventId), queryFn: fetch })
+  const observer = new QueryObserver(client, { queryKey: queryKeys.eventDiveraResponses.of({ userId: 'u-1' }, eventId), queryFn: fetch })
   observer.subscribe(() => {})
   return fetch
 }

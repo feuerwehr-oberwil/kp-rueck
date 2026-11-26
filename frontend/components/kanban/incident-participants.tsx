@@ -24,6 +24,7 @@ import { History, Package, Search, Truck, User } from "lucide-react"
 
 import { apiClient, type ApiIncidentParticipant } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query/keys"
+import { useReader } from "@/lib/query/reader"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime } from "@/lib/incident-time"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
@@ -47,10 +48,11 @@ export function IncidentParticipants({
   className?: string
 }) {
   const t = useTranslations("kanban.participants")
+  const reader = useReader()
   // Keyed by the incident: a late answer for the previous Einsatz lands in its own entry.
   // A failure is non-fatal – this is a history panel, not the board: a retry, no toast.
   const query = useQuery({
-    queryKey: queryKeys.incidentParticipants.of(incidentId),
+    queryKey: queryKeys.incidentParticipants.of(reader, incidentId),
     queryFn: () => apiClient.getIncidentParticipants(incidentId),
     select: (response) => response.participants,
   })

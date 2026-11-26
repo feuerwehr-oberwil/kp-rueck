@@ -4,6 +4,7 @@ import { skipToken, useQuery } from "@tanstack/react-query"
 
 import { apiClient, type ApiIncidentTimelineEvent } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query/keys"
+import { useReader } from "@/lib/query/reader"
 
 export interface IncidentTimelineState {
   /** Newest first, as the API returns it. */
@@ -29,8 +30,9 @@ export interface IncidentTimelineState {
  * surfaces show a retry rather than a toast.
  */
 export function useIncidentTimeline(incidentId: string | null, enabled: boolean): IncidentTimelineState {
+  const reader = useReader()
   const query = useQuery({
-    queryKey: queryKeys.incidentTimeline.of(incidentId),
+    queryKey: queryKeys.incidentTimeline.of(reader, incidentId),
     queryFn: incidentId ? () => apiClient.getIncidentTimeline(incidentId) : skipToken,
     select: (result) => result.events,
     enabled,
