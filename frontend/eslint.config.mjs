@@ -172,6 +172,20 @@ export default [
       "@typescript-eslint/switch-exhaustiveness-check": ["warn", { considerDefaultExhaustiveForUnions: false }],
     },
   },
+  // A promise nobody handles is an unhandled rejection: a console line, and the screen never
+  // shows the failure. Every read rejects when no answer comes (NetworkError, lib/api/http.ts),
+  // so a read is awaited, returned, caught (`.catch`, `try`) or handed to React Query – never
+  // left floating in an effect or a timer, never an async function where a void callback goes
+  // (onClick, setInterval). `void p` says «this cannot reject» on purpose. Ratcheted warnings:
+  // the ones today are mostly writes and loaders that catch inside.
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
+    ignores: TESTS,
+    rules: {
+      "@typescript-eslint/no-floating-promises": "warn",
+      "@typescript-eslint/no-misused-promises": "warn",
+    },
+  },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are
   // free), and base-map.tsx the one that renders react-map-gl's <Map>. Unit tests and the
   // Playwright tree (tests/) mock them freely. The same block holds the window-event door

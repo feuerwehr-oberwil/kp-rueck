@@ -152,7 +152,6 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
     list: () => apiClient.getAllPersonnel(),
     compare: comparePersonnel,
     initialSort: 'name',
-    loadError: t('personnel.loadError'),
     logLabel: 'personnel',
   });
 

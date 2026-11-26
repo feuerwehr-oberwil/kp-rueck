@@ -82,6 +82,7 @@ async def test_alarm_fails_closed_without_configured_secret(client: AsyncClient)
     """No alarm_webhook_secret in settings -> always 403. The Divera adapter now matches."""
     response = await _post(client, alarm_payload())
     assert response.status_code == 403
+    assert response.json()["code"] == "alarm_webhook_secret_invalid"
 
 
 @pytest.mark.asyncio
@@ -96,6 +97,7 @@ async def test_alarm_rejects_missing_secret(client: AsyncClient, webhook_secret:
 async def test_alarm_rejects_wrong_secret(client: AsyncClient, webhook_secret: str):
     response = await _post(client, alarm_payload(), secret="wrong")
     assert response.status_code == 403
+    assert response.json()["code"] == "alarm_webhook_secret_invalid"
 
 
 @pytest.mark.asyncio
