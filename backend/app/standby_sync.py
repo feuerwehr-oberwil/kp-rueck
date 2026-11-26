@@ -40,6 +40,7 @@ from typing import Any
 
 import asyncpg
 
+from .ereignis_gate import gate_key
 from .standby import SKIPPED_TABLES, event_links
 
 logger = logging.getLogger(__name__)
@@ -670,11 +671,13 @@ def _journal_line(event_id: str, incident_id: str | None, text: str, now: str) -
 # --- writing (both systems) ------------------------------------------------------------------
 
 
-# The lock order of `crud/locking.py` for the rows a batch writes: alarms, Aufträge, Einsätze,
-# then every leaf, the Ereignis row last. In list order the Ereignis row came before its cards,
-# and a status update (card, then Ereignis) or an Ereignis delete deadlocked with the batch.
-_LOCK_RANK = {"divera_emergencies": 0, "incident_groups": 1, "incidents": 2, "events": 9}
-_LEAF_RANK = 5
+async def enter_ereignis_gate(conn: asyncpg.Connection, event_id: uuid.UUID) -> None:
+    """The shared side of the Ereignis delete gate (`ereignis_gate`), held to the commit.
+
+    Before any row lock of the transaction: a batch can lock the Ereignis row before its cards,
+    a delete the other way round. Taking it again in the same transaction is free.
+    """
+    await conn.execute("SELECT pg_advisory_xact_lock_shared(hashtext($1))", gate_key(event_id))
 
 
 class OpRefusedError(Exception):
@@ -695,11 +698,14 @@ async def apply_ops(
     - `refused`: unknown table, or a row of another Ereignis.
 
     Ops that fail on a missing key are retried until a pass gets nowhere, so parents may come
-    after their children in the list. They are applied in the lock order (`_LOCK_RANK`), each
-    table by id; the results stay in the list's order.
+    after their children in the list.
+
+    It enters the Ereignis delete gate first (`enter_ereignis_gate`): a caller that locks a row
+    of the Ereignis before it calls this enters the gate before that lock.
     """
+    await enter_ereignis_gate(conn, event_id)
     results: list[str] = ["refused"] * len(ops)
-    todo = sorted(range(len(ops)), key=lambda i: (_LOCK_RANK.get(ops[i].table, _LEAF_RANK), ops[i].table, ops[i].id))
+    todo = list(range(len(ops)))
     while todo:
         again: list[int] = []
         for i in todo:

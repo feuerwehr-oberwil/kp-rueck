@@ -13,6 +13,7 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..crud.active_resources import active_resource_ids
+from ..crud.locking import enter_ereignis_gate
 from ..database import after_commit
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
@@ -76,8 +77,11 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     evaluates only in an Ereignis it leads (``event_lead.box_leads_locked``): a mirrored one is the
     hosted board's, whose rows replication brings – a row the box wrote there would exist only
     on the box. Each write phase holds the lead row (``_may_write``): a hosted takeover the sync
-    brings in meanwhile waits for that phase's commit instead of meeting its stale writes.
+    brings in meanwhile waits for that phase's commit instead of meeting its stale writes. Each
+    also enters the Ereignis delete gate first (``crud.locking.enter_ereignis_gate``): a phase can
+    key-share the Ereignis row before a card, a delete locks them the other way round.
     """
+    await enter_ereignis_gate(db, event_id)
     if not await _may_write(db, event_id):
         return await _stored_notifications(db, event_id)
 
@@ -106,7 +110,8 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
     # so switching those off resolves it like the others.
     await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
-    # That committed, and the lead lock went with it: take it again for the writes below.
+    # That committed, and the gate and the lead lock went with it: take them again for the writes below.
+    await enter_ereignis_gate(db, event_id)
     if not await _may_write(db, event_id):
         return await _stored_notifications(db, event_id)
 

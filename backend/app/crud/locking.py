@@ -54,8 +54,11 @@ only step 3, the person's row – the lock every writer of their Reko rows alrea
 and writes the leaf rows under it. Assigning a special function
 (``special_functions.create_special_function``) takes only step 3 too, so two assigns of
 the same function cannot both insert. A merge locks only incidents, in id order
-(``lock_incident`` / ``lock_pair`` below). The standby sync applies a batch of rows in this
-order too (``standby_sync._LOCK_RANK``: the Ereignis row last).
+(``lock_incident`` / ``lock_pair`` below).
+
+Two writers lock the Ereignis row before its cards: a standby sync batch and the bell poll. Against
+the Ereignis delete (cards, then the Ereignis row) they are kept apart by the Ereignis delete gate
+(``app/ereignis_gate.py``): taken shared by them, exclusively by the delete, before any row lock.
 """
 
 import uuid
@@ -65,6 +68,7 @@ from typing import Literal, overload
 from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..ereignis_gate import gate_key
 from ..models import (
     DiveraEmergency,
     Event,
@@ -293,9 +297,19 @@ async def lock_personnel_for_delete(db: AsyncSession, personnel_id: uuid.UUID) -
     raise RuntimeError("references to the person kept changing while locking; giving up")
 
 
+async def enter_ereignis_gate(db: AsyncSession, event_id: uuid.UUID) -> None:
+    """The shared side of the Ereignis delete gate (``ereignis_gate``), held to the commit.
+
+    The first lock of a transaction that may lock the Ereignis row before its cards – each write
+    phase of the bell poll. Never call it while holding a row lock.
+    """
+    await db.execute(text("SELECT pg_advisory_xact_lock_shared(hashtext(:key))"), {"key": gate_key(event_id)})
+
+
 async def lock_event_for_delete(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
-    """Lock what deleting an Ereignis writes, in order: the alarms linked to it or its cards
-    (step 0), its numbering lock (0b), its Aufträge and cards (1, 2), then the Ereignis row (4).
+    """Lock what deleting an Ereignis writes, in order: its delete gate exclusively
+    (``ereignis_gate``), the alarms linked to it or its cards (step 0), its numbering lock (0b),
+    its Aufträge and cards (1, 2), then the Ereignis row (4). Call it before any row lock.
 
     The delete cascades to every card and unlinks the alarms (``ON DELETE SET NULL``) – after the
     Ereignis row, the reverse of the order. A status update that held a card and stamped the
@@ -319,6 +333,7 @@ async def lock_event_for_delete(db: AsyncSession, event_id: uuid.UUID) -> Event 
             set((await db.scalars(cards)).all()),
         )
 
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": gate_key(event_id)})
     for _ in range(_MAX_MEMBERSHIP_ATTEMPTS):
         seen_alarms, seen_groups, seen_cards = seen = await reached()
         savepoint = await db.begin_nested()

@@ -65,6 +65,7 @@ from app.models import (
     User,
 )
 from app.services.notification_service import dismiss_notification
+from app.standby_sync import Op, apply_ops, event_tables, fetch_rows
 from tests.conftest import wait_until_blocked
 
 
@@ -892,3 +893,38 @@ async def test_dismissing_a_field_requests_bell_entry_queues_behind_its_erledigt
             await db.execute(delete(FieldRequest).where(FieldRequest.id == request_id))
             await db.execute(delete(Notification).where(Notification.id == notification_id))
             await db.commit()
+
+
+async def test_an_ereignis_delete_and_a_standby_sync_batch_do_not_deadlock(board: Board):
+    # A sync batch locks the Ereignis row and then its card; the delete locks the card and then
+    # the Ereignis row. Each waited for the other – the delete gate keeps them apart.
+    await _archive(board)
+    async with board.sessions() as holder, board.sessions() as deleting, board.sessions() as syncing:
+        conn = (await (await syncing.connection()).get_raw_connection()).driver_connection
+        tables = await event_tables(conn)
+        event = (await fetch_rows(conn, tables["events"], board.event_id))[0][("events", str(board.event_id))]
+        card = (await fetch_rows(conn, tables["incidents"], board.event_id))[0][("incidents", str(board.loose_id))]
+        ops = [
+            Op("events", str(board.event_id), {**event, "name": "Unwetter Nord"}, event),
+            Op("incidents", str(board.loose_id), {**card, "description": "Keller leer gepumpt."}, card),
+        ]
+        # A writer holds the card: the delete queues for it first, the batch (Ereignis row taken) next.
+        await lock_incident(holder, board.loose_id)
+        user = await deleting.get(User, board.user_id)
+        deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+        await wait_until_blocked(board.sessions)
+
+        async def push() -> list[str]:
+            async with conn.transaction():  # the sync's own: the batch's locks last to its commit
+                return await apply_ops(conn, tables, board.event_id, ops)
+
+        batch = asyncio.create_task(push())
+        await wait_until_blocked(board.sessions, count=2)
+        await holder.rollback()
+
+        deleted = await asyncio.wait_for(deletion, timeout=10)
+        await deleting.commit()
+        # The Ereignis is gone by the time the batch goes on: it writes nothing.
+        assert await asyncio.wait_for(batch, timeout=10) == ["changed", "changed"]
+
+    assert deleted is True

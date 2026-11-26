@@ -39,8 +39,9 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
   bulk attach locks every alarm before its first card. Next comes the Ereignis' numbering lock,
   which every card INSERT takes: a writer that creates a card takes it before any Auftrag or
   card (`lock_incident_numbering`, `lock_merge_target`). An Ereignis delete locks what its
-  cascade writes first (`lock_event_for_delete`), and the standby sync applies a batch in the
-  same order (`standby_sync._LOCK_RANK`). The helpers and the reasoning are in
+  cascade writes first (`lock_event_for_delete`), behind the Ereignis delete gate
+  (`app/ereignis_gate.py`) that a standby sync batch and the bell poll enter first. The helpers
+  and the reasoning are in
   `backend/app/crud/locking.py`. A new writer that locks must use the
   helpers, or it deadlocks against completion/reorder. New assignments go through
   `ensure_assignable`.
