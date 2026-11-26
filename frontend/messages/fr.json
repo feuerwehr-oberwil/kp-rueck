@@ -171,14 +171,6 @@
     "incidentTruncation": {
       "message": "{shown} interventions sur {total} sont affichées – la liste est incomplète."
     },
-    "copyButton": {
-      "copiedTitle": "Copié",
-      "copiedDescription": "Le texte a été copié dans le presse-papiers.",
-      "errorTitle": "Erreur",
-      "errorDescription": "Le texte n’a pas pu être copié.",
-      "copied": "Copié",
-      "copy": "Copier"
-    },
     "emptyState": {
       "noHits": "Aucun résultat",
       "noHitsFor": "Aucun résultat pour « {query} »",
@@ -1565,8 +1557,6 @@
       "releaseOnly": "Libérer uniquement {vehicle}",
       "completeIncident": "Clôturer l’intervention",
       "completeFailed": "Non clôturée – ouvrir l’intervention sur le tableau et la clôturer là",
-      "openEvent": "Ouvrir l’événement",
-      "openEventFailed": "Événement non ouvert – réessayer",
       "notOnBoard": "Intervention introuvable – l’ouvrir sur le tableau",
       "loadFailed": "Échec du chargement – réessayer",
       "retryLoad": "Recharger"
@@ -2353,7 +2343,6 @@
       "undoGone": "Annulation impossible – la présence de {name} a changé entre-temps"
     },
     "assignmentDialog": {
-      "titleVehicles": "Attribuer des véhicules",
       "titleDefault": "Attribuer des ressources",
       "titleCrewRoute": "Attribuer de l’effectif à la mission « {name} »",
       "titleVehiclesRoute": "Attribuer des véhicules à la mission « {name} »",
@@ -3225,14 +3214,6 @@
       "resourceNotMovedDescription": "Toutes les interventions n’ont pas pu être nettoyées – à vérifier.",
       "resourceMovedTitle": "{name} déplacé",
       "resourceMovedDescription": "Libéré de {labels}."
-    },
-    "railway": {
-      "backOnlineTitle": "Railway est de nouveau en ligne",
-      "backOnlineDescription": "Synchroniser les modifications locales vers Railway ?",
-      "syncNowLabel": "Synchroniser maintenant",
-      "syncing": "Synchronisation vers Railway …",
-      "syncSuccess": "Synchronisation vers Railway réussie",
-      "syncFailed": "Non synchronisé avec Railway"
     },
     "rekoLinks": {
       "noRekoAssigned": "Aucune personne de reconnaissance attribuée",
@@ -4461,8 +4442,6 @@
       "roleRequired": "Le grade est obligatoire",
       "callsignRequired": "L’indicatif radio est obligatoire",
       "max40": "40 caractères au maximum",
-      "max80": "80 caractères au maximum",
-      "max120": "120 caractères au maximum",
       "orderNumber": "L’ordre doit être un nombre",
       "orderInt": "L’ordre doit être un nombre entier",
       "orderMin1": "Au moins 1",
