@@ -159,9 +159,12 @@ ALARM_WEBHOOK_SECRET = TextSetting("alarm_webhook_secret")  # generated on first
 # switched on for (state row `training_autogen.run`). The switch itself has its own
 # endpoint – see GENERIC_WRITE_DENY_REASONS.
 TRAINING_AUTOGEN_ENABLED = BoolSetting("training_autogen_enabled", False)
-TRAINING_AUTOGEN_INTERVAL_MIN = FloatSetting("training_autogen_interval_min", 5.0, positive=True)
+# Bounded so the next alarm time stays representable (a 1e12-minute interval overflows).
+TRAINING_AUTOGEN_INTERVAL_MIN = FloatSetting("training_autogen_interval_min", 5.0, maximum=1440, positive=True)
 TRAINING_AUTOGEN_MODE = TextSetting("training_autogen_mode", "board")  # "board" (incidents) or "divera" (pool alarms)
-TRAINING_BOOST_MULTIPLICATOR = FloatSetting("training_boost_multiplicator", 2.0, positive=True)  # interval divisor
+TRAINING_BOOST_MULTIPLICATOR = FloatSetting(
+    "training_boost_multiplicator", 2.0, minimum=0.1, maximum=100
+)  # interval divisor
 TRAINING_BOOST_DURATION_MIN = IntSetting("training_boost_duration_min", 30, minimum=0)  # boost after switch-on
 TRAINING_AUTOGEN_MAX_EMERGENCIES = IntSetting("training_autogen_max_emergencies", 50, minimum=0)
 

@@ -9,7 +9,10 @@ from app.services.settings import (
     GPS_MIN_DWELL_SECONDS,
     GPS_SPEED_GATE_KMH,
     PRINTER_PORT,
+    TRAINING_AUTOGEN_INTERVAL_MIN,
+    TRAINING_BOOST_MULTIPLICATOR,
     BoolSetting,
+    FloatSetting,
     get_all_settings,
     get_setting,
     initialize_default_settings,
@@ -32,6 +35,17 @@ class TestRegistry:
         db_session.add(Setting(key=PRINTER_PORT.key, value=stored))
         await db_session.commit()
         assert await read(db_session, PRINTER_PORT) == 9100
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("setting", "stored"), [(TRAINING_AUTOGEN_INTERVAL_MIN, "1e12"), (TRAINING_BOOST_MULTIPLICATOR, "1e-309")]
+    )
+    async def test_automatik_pacing_that_would_overflow_reads_as_the_default(
+        self, db_session: AsyncSession, setting: FloatSetting, stored: str
+    ):
+        db_session.add(Setting(key=setting.key, value=stored))
+        await db_session.commit()
+        assert await read(db_session, setting) == setting.default
 
     @pytest.mark.asyncio
     async def test_gps_tuning_keeps_a_fraction_and_reads_zero_as_the_default(self, db_session: AsyncSession):

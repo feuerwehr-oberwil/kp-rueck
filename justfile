@@ -968,7 +968,7 @@ visual-accept run_id:
 # shared files. Run it before a push; the test suites are `just test`.
 check:
     cd backend && uv run ruff format --check . && uv run ruff check .
-    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/websocket_manager.py app/models.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
+    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/seeds app/websocket_manager.py app/models.py app/json_columns.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
     cd frontend && pnpm lint && pnpm typecheck
     python3 scripts/check_shared.py
 
