@@ -121,6 +121,36 @@ describe('buildSituationData — pickup and the crew leader', () => {
   })
 })
 
+describe('buildSituationData — reads like the board', () => {
+  it('lists vehicles in display order and marks Telefondienst and Kommandoposten', () => {
+    const base = payload(NO_DANGERS)
+    const { operations, personnel } = buildSituationData({
+      ...base,
+      personnel: [
+        { id: 'p-tel', name: 'Gut Lea', role: 'AdF', role_sort_order: 0, tags: null },
+        { id: 'p-kp', name: 'Moser Urs', role: 'Of', role_sort_order: 0, tags: null },
+      ] as unknown as ApiViewerData['personnel'],
+      vehicles: [
+        { id: 'v-mtw', name: 'MTW', display_order: 2, radio_call_sign: null },
+        { id: 'v-tlf', name: 'TLF', display_order: 1, radio_call_sign: 'Omega 1' },
+      ] as unknown as ApiViewerData['vehicles'],
+      assignments: {
+        'inc-1': [
+          { id: 'a-mtw', resource_type: 'vehicle', resource_id: 'v-mtw', driver_stay: false, is_leader: false },
+          { id: 'a-tlf', resource_type: 'vehicle', resource_id: 'v-tlf', driver_stay: true, is_leader: false },
+        ],
+      },
+      special_functions: [
+        { personnel_id: 'p-tel', function_type: 'telefondienst', vehicle_id: null, vehicle_name: null },
+        { personnel_id: 'p-kp', function_type: 'kommandoposten', vehicle_id: null, vehicle_name: null },
+      ],
+    })
+    expect(operations[0].vehicles.map((v) => [v.name, v.callsign])).toEqual([['TLF', 'Omega 1'], ['MTW', null]])
+    expect(personnel.find((p) => p.id === 'p-tel')).toMatchObject({ isTelefondienst: true, status: 'assigned' })
+    expect(personnel.find((p) => p.id === 'p-kp')).toMatchObject({ isKommandoposten: true, status: 'assigned' })
+  })
+})
+
 describe('the resources of a route on a shared display', () => {
   const withRoute: ApiViewerData = {
     ...payload(null),
@@ -167,7 +197,7 @@ describe('the resources of a route on a shared display', () => {
 
   it('marks the crew of the route as on an Auftrag, not as free', () => {
     const { personnel } = buildSituationData(withRoute)
-    expect(personnel.map((p) => [p.id, p.isOnAuftrag])).toEqual([
+    expect(personnel.map((p) => [p.id, Boolean(p.isOnAuftrag)])).toEqual([
       ['p-route', true],
       ['p-released', false],
     ])
