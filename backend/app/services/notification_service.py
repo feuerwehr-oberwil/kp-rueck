@@ -480,16 +480,17 @@ async def _sync_fatigue_locked(
 
     # Locked: a dismissal committed between this read and the rewrite below (an operator, or the
     # standby sync applying one) would acknowledge whoever the rewrite adds. Postgres re-checks
-    # `dismissed` once the lock is ours, so a row dismissed meanwhile drops out here.
+    # `dismissed` once the lock is ours, so a row dismissed meanwhile drops out here. In id
+    # order, as the standby sync locks them; newest first after that.
     active_result = await db.execute(
         select(Notification)
         .where(Notification.event_id == event_id)
         .where(Notification.type == "personnel_fatigue")
         .where(Notification.dismissed == False)  # noqa: E712
-        .order_by(Notification.created_at.desc())
+        .order_by(Notification.id)
         .with_for_update()
     )
-    active = list(active_result.scalars().all())
+    active = sorted(active_result.scalars().all(), key=lambda row: row.created_at, reverse=True)
 
     if not over:
         # Condition gone: auto-resolve (dismissed_by stays NULL, like every auto-resolve).

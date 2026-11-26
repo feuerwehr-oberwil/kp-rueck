@@ -1809,6 +1809,67 @@ class TestFatigueNotificationConcurrency:
                 await cleanup.execute(delete(User).where(User.id == user_id))
                 await cleanup.commit()
 
+    @pytest.mark.asyncio
+    async def test_a_poll_locks_open_warnings_in_id_order_like_the_standby_sync(self, test_engine):
+        # Two open rows (one from before the grouping). The sync locks rows by id; a poll that
+        # locked the newest first held it while it waited for the older one the sync held.
+        maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+        event_id, person_id = uuid4(), uuid4()
+        older, newer = sorted((uuid4(), uuid4()))
+        async with maker() as setup:
+            setup.add_all(
+                [
+                    Event(id=event_id, name="Lock order", training_flag=False),
+                    Personnel(id=person_id, name="Muster Max", role="Sdt", status="available"),
+                ]
+            )
+            await setup.flush()
+            setup.add(
+                EventAttendance(
+                    event_id=event_id,
+                    personnel_id=person_id,
+                    checked_in=True,
+                    checked_in_at=datetime.now(UTC) - timedelta(hours=5),
+                )
+            )
+            setup.add_all(
+                Notification(
+                    id=row_id,
+                    type="personnel_fatigue",
+                    severity="warning",
+                    message="Lang im Einsatz",
+                    event_id=event_id,
+                    created_at=datetime.now(UTC) - timedelta(minutes=minutes),
+                )
+                for row_id, minutes in ((older, 30), (newer, 5))
+            )
+            await setup.commit()
+
+        try:
+            async with maker() as syncing, maker() as polling:
+                await syncing.execute(select(Notification.id).where(Notification.id == older).with_for_update())
+                poll = asyncio.create_task(
+                    _sync_fatigue_notification(polling, event_id, NotificationSettings(fatigue_hours=4))
+                )
+                await wait_until_blocked(maker)
+                # The sync goes on to the next row: the poll must not be holding it.
+                try:
+                    await syncing.execute(
+                        select(Notification.id).where(Notification.id == newer).with_for_update(nowait=True)
+                    )
+                    held_by_poll = False
+                except DBAPIError:
+                    held_by_poll = True
+                await syncing.rollback()
+                current = await asyncio.wait_for(poll, timeout=10)
+            assert not held_by_poll
+            assert current is not None and current.id == newer
+        finally:
+            async with maker() as cleanup:
+                await cleanup.execute(delete(Event).where(Event.id == event_id))
+                await cleanup.execute(delete(Personnel).where(Personnel.id == person_id))
+                await cleanup.commit()
+
 
 async def test_alerts_follow_route_and_inventory_availability(db_session, notif_event, notif_personnel, notif_material):
     from app.models import IncidentGroup, IncidentGroupAssignment
