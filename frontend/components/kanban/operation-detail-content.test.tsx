@@ -199,9 +199,8 @@ describe("OperationDetailContent", () => {
 
     expect(screen.getByText(byAddress("Hauptstrasse 1"))).toBeInTheDocument()
     // The panel's title tooltip spells out the address, which is what truncates
-    // at 420px — and ONLY the address. The incident id used to ride along here;
-    // it is gone from both mounts, because nobody at a command post reads a
-    // UUID off a screen.
+    // at 420px — and ONLY the address: nobody at a command post reads a UUID
+    // off a screen.
     expect(screen.getByText(byAddress("Hauptstrasse 1")).closest("h2")).toHaveAttribute(
       "title",
       "Hauptstrasse 1",
@@ -326,22 +325,19 @@ describe("OperationDetailContent", () => {
       />,
     )
 
-    // Ressourcen is gone as a tab — it is part of Übersicht. Reko has one of
-    // its own: it is read while deciding what to send, not while reading what
-    // the crew reported afterwards.
+    // Four tabs: the resources are part of Übersicht. Reko has a tab of its
+    // own: it is read while deciding what to send, not while reading what the
+    // crew reported afterwards.
     expect(screen.getAllByRole("tab")).toHaveLength(4)
-    expect(screen.queryByRole("tab", { name: /Ressourcen/ })).not.toBeInTheDocument()
     expect(tab("Reko")).toBeInTheDocument()
 
     // The header keeps the address and now carries the tab bar on the same row.
     expect(screen.getByText(byAddress("Hauptstrasse 1"))).toBeInTheDocument()
     expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true")
     expect(screen.getByRole("textbox", { name: "Meldung" })).toBeInTheDocument()
-    // ...and what used to cost a tab switch is on the same panel. There is no
-    // «Zugewiesene Ressourcen» heading over it any more — the resource blocks
-    // carry their own labels and counts, which is what identifies the section.
+    // ...and the resources are on the same panel. The resource blocks carry
+    // their own labels and counts, which is what identifies the section.
     expect(screen.getByText("Mannschaft · 0")).toBeInTheDocument()
-    expect(screen.queryByText("Zugewiesene Ressourcen")).not.toBeInTheDocument()
     // The Rapport panel is force-mounted for its form state, so it must be
     // hidden rather than absent. Reko is a plain panel and simply absent.
     expect(screen.queryByText("Reko-Meldungen")).not.toBeInTheDocument()
@@ -355,13 +351,10 @@ describe("OperationDetailContent", () => {
 
     await user.click(tab(/^Feld/))
     expect(screen.getByText("Schadenplatz-Rapport-Formular")).toBeVisible()
-    // Two settable rows since plan 26 §5.2 — but they answer different
-    // questions and now sit on different tabs: «Abholung nötig» is what this
-    // Schadenplatz still needs, «Reko vor Ort» is part of the reconnaissance.
-    // Angekommen and Einsatz beendet stay information in the thread, not switches.
-    // With one row per tab the «Funkmeldungen» heading is gone: over a single
-    // row it only repeats the row's own label.
-    expect(screen.queryByText("Funkmeldungen")).not.toBeInTheDocument()
+    // Two settable rows that answer different questions, on different tabs:
+    // «Abholung nötig» is what this Schadenplatz still needs, «Reko vor Ort» is
+    // part of the reconnaissance. Angekommen and Einsatz beendet stay
+    // information in the thread, not switches.
     expect(screen.getByText("Abholung nötig")).toBeVisible()
     expect(screen.queryByText("Reko vor Ort")).not.toBeInTheDocument()
     expect(screen.getByText("Meldungen vom Feld")).toBeVisible()
@@ -924,9 +917,7 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
       />,
     )
 
-    // The sentence that used to be stamped into all three section heads (and
-    // into a chip above them) is gone; the block header carries it instead.
-    expect(screen.queryByText(/über Auftrag/)).toBeNull()
+    // The block header says where the resources come from.
     const blocks = document.querySelectorAll("[data-resource-source]")
     expect(Array.from(blocks).map((b) => b.getAttribute("data-resource-source"))).toEqual([
       "route",

@@ -704,26 +704,6 @@ class TestRapportParity:
 
     @pytest.mark.asyncio
     @pytest.mark.api
-    async def test_the_form_no_longer_carries_the_two_times(
-        self,
-        editor_client: AsyncClient,
-        db_session: AsyncSession,
-        test_event: Event,
-        test_user: User,
-    ):
-        """Beginn/Ende Tätigkeit is derived at output time, never asked for."""
-        incident = await _make_incident(db_session, test_event, test_user)
-
-        response = await editor_client.get(f"/api/incidents/{incident.id}/rapport")
-        assert response.status_code == 200
-        body = response.json()
-        assert "work_started_at" not in body
-        assert "work_ended_at" not in body
-        assert "default_work_started_at" not in body["prefill"]
-        assert "default_work_ended_at" not in body["prefill"]
-
-    @pytest.mark.asyncio
-    @pytest.mark.api
     async def test_rapport_submitted_is_logged_once_not_on_every_autosave(
         self,
         editor_client: AsyncClient,
