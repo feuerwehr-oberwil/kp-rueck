@@ -22,12 +22,14 @@ const PANEL = {
 } as const
 
 /** The one phone sheet frame (FRONTEND.md «Phone geometry»): the head is SheetHeader's frame,
- *  every row under it stands 24px in. */
+ *  every row under it stands 24px in. A footer button is at least 44px high; a label longer
+ *  than its half (French «Terminer la reconnaissance» at 360px) wraps and the button grows.
+ *  Buttons only: a footer that holds a form in a div (Appell's quick add) keeps its own text. */
 const SHEET = {
   content: 'modal-h-tall gap-0 p-0',
   toolbar: 'flex shrink-0 flex-col gap-3 px-6 pb-3',
   body: 'px-6 pb-4',
-  footer: 'mt-0 flex-row flex-wrap gap-2 border-t px-6 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1',
+  footer: 'mt-0 flex-row flex-wrap gap-2 border-t px-6 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1 [&>[data-slot=button]]:whitespace-normal [&>[data-slot=button]]:text-center',
 } as const
 
 const FrameContext = createContext<{ phone: boolean; frame: DeskFrame }>({ phone: false, frame: 'plain' })
@@ -178,7 +180,7 @@ export function ResponsiveDialogBody({
   return <div className={cn(frame === 'panel' && PANEL.body, className)} {...props} />
 }
 
-/** The answers, the main one last. On the phone they are equal halves; a child with
+/** The answers, the main one last. On the phone they are equal halves whose labels wrap; a child with
  *  `basis-full!` takes a row of its own (`!`: it must beat the frame's `flex-1`). Takes a div's props (`PICKER_FOOTER`). */
 export function ResponsiveDialogFooter({ className, ...props }: ComponentProps<'div'>) {
   const { phone, frame } = useContext(FrameContext)

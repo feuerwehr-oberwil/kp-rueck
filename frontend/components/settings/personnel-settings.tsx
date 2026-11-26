@@ -651,7 +651,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                 ))}
                 {/* One setting holds all of them: one line under the list. */}
                 <SettingSaveLine
-                  saving={abbreviationSaver.saving === RANK_ABBREVIATIONS_KEY}
+                  saving={abbreviationSaver.isSaving(RANK_ABBREVIATIONS_KEY)}
                   savedAt={abbreviationSaver.savedAt[RANK_ABBREVIATIONS_KEY]}
                 />
               </div>

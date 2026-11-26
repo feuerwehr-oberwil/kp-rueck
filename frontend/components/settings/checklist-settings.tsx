@@ -38,7 +38,7 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
   const [loaded, setLoaded] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const { saving, savedAt, save } = useSettingSaver(t('saveFailed'));
+  const { isSaving, savedAt, save } = useSettingSaver(t('saveFailed'));
   // All notes share one setting; the save line goes under the note that was written.
   const [lastNoteTaskId, setLastNoteTaskId] = useState<string | null>(null);
 
@@ -108,11 +108,11 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
                     key={noteValue}
                     placeholder={t('notePlaceholder')}
                     className="mt-2 h-8 text-xs"
-                    disabled={readOnly || saving === CHECKLIST_NOTES_KEY}
+                    disabled={readOnly || isSaving(CHECKLIST_NOTES_KEY)}
                     onBlur={(e) => void commitNote(task.id, e.target.value, task.defaultNote)}
                   />
                   {lastNoteTaskId === task.id && (
-                    <SettingSaveLine saving={saving === CHECKLIST_NOTES_KEY} savedAt={savedAt[CHECKLIST_NOTES_KEY]} />
+                    <SettingSaveLine saving={isSaving(CHECKLIST_NOTES_KEY)} savedAt={savedAt[CHECKLIST_NOTES_KEY]} />
                   )}
                 </>
               )
@@ -120,7 +120,7 @@ export function ChecklistSettings({ readOnly = false }: { readOnly?: boolean }) 
           >
             <Switch
               checked={isShown}
-              disabled={readOnly || saving === CHECKLIST_HIDDEN_TASKS_KEY}
+              disabled={readOnly || isSaving(CHECKLIST_HIDDEN_TASKS_KEY)}
               onCheckedChange={(on) => void toggleTask(task.id, on)}
               aria-label={t('showRow', { title: task.title })}
             />

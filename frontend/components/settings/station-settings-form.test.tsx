@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
+import de from '@/messages/de.json'
 import { describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, renderHook, screen } from '@testing-library/react'
 
-import { StationSettingsForm, type SettingConfig, type StationSettings } from '@/components/settings/station-settings-form'
+import { StationSettingsForm, useSettingSaver, useStationSettings, type SettingConfig, type StationSettings } from '@/components/settings/station-settings-form'
+import { apiClient } from '@/lib/api-client'
 import { COORDINATE_DECIMALS, LATITUDE_RANGE } from '@/components/settings/setting-validation'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
@@ -17,12 +20,13 @@ const CONFIGS: SettingConfig[] = [
 function Harness({
   stored,
   updateSetting,
-  saving = null,
+  savingKey,
   savedAt = {},
 }: {
   stored: string
   updateSetting: StationSettings['updateSetting']
-  saving?: StationSettings['saving']
+  /** The key whose PATCH the stand-in store says is in flight. */
+  savingKey?: string
   savedAt?: StationSettings['savedAt']
 }) {
   const [settings, setSettings] = useState<Record<string, string>>({ firestation_latitude: stored })
@@ -33,7 +37,7 @@ function Harness({
     serverSettings: { firestation_latitude: stored },
     loading: false,
     error: null,
-    saving,
+    isSaving: (key) => key === savingKey,
     savedAt,
     settingErrors,
     setSettingErrors,
@@ -42,6 +46,8 @@ function Harness({
   }
   return <StationSettingsForm configs={CONFIGS} store={store} isEditor />
 }
+
+vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ refreshOperations: async () => {} }) }))
 
 const field = () => document.getElementById('firestation_latitude') as HTMLInputElement
 
@@ -84,7 +90,7 @@ describe('StationSettingsForm – coordinates', () => {
  */
 describe('StationSettingsForm – «Synchronisiert»', () => {
   it('says «Wird synchronisiert …» while the save is out', () => {
-    renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} saving="firestation_latitude" />)
+    renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} savingKey="firestation_latitude" />)
     expect(screen.getByRole('status')).toHaveTextContent('Wird synchronisiert …')
   })
 
@@ -104,5 +110,63 @@ describe('StationSettingsForm – «Synchronisiert»', () => {
   it('says nothing for a setting nobody touched', () => {
     renderWithIntl(<Harness stored="47.516377" updateSetting={vi.fn()} />)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
+// Sweep 25.11.2026: two settings saving at once shared one flag, so the first to finish
+// re-enabled the other key's input while its PATCH was still out.
+describe('useStationSettings – saving per key', () => {
+  it('keeps the second key saving when the first one finishes', async () => {
+    const answers = new Map<string, () => void>()
+    vi.spyOn(apiClient, 'updateSetting').mockImplementation(
+      (key, value) => new Promise((resolve) => answers.set(key, () => resolve({ key, value }))),
+    )
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Zurich">{children}</NextIntlClientProvider>
+    )
+    const { result } = renderHook(() => useStationSettings({ enabled: false, canEdit: true }), { wrapper })
+
+    let first: Promise<void> = Promise.resolve()
+    act(() => {
+      first = result.current.updateSetting('printer.ip', '10.0.0.5')
+      void result.current.updateSetting('printer.port', '9100')
+    })
+    expect(result.current.isSaving('printer.ip')).toBe(true)
+    expect(result.current.isSaving('printer.port')).toBe(true)
+
+    await act(async () => {
+      answers.get('printer.ip')?.()
+      await first
+    })
+    expect(result.current.isSaving('printer.ip')).toBe(false)
+    expect(result.current.isSaving('printer.port')).toBe(true)
+  })
+})
+
+describe('useSettingSaver – saving per key', () => {
+  it('keeps a key saving while a second save of it is still out', async () => {
+    const answers: Array<() => void> = []
+    vi.spyOn(apiClient, 'updateSetting').mockImplementation(
+      (key, value) => new Promise((resolve) => answers.push(() => resolve({ key, value }))),
+    )
+    const { result } = renderHook(() => useSettingSaver('Fehler'))
+
+    let first: Promise<boolean> = Promise.resolve(true)
+    let second: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      first = result.current.save('rank_abbreviations', '{"Kpl":"K"}')
+      second = result.current.save('rank_abbreviations', '{"Kpl":"Kp"}')
+    })
+    await act(async () => {
+      answers[0]()
+      await first
+    })
+    expect(result.current.isSaving('rank_abbreviations')).toBe(true)
+
+    await act(async () => {
+      answers[1]()
+      await second
+    })
+    expect(result.current.isSaving('rank_abbreviations')).toBe(false)
   })
 })
