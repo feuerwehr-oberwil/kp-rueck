@@ -63,7 +63,6 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     removeStop,
     unassignResource,
     getGroupResources,
-    refreshGroups: vi.fn(),
     reorderGroups: vi.fn(),
     addStops: vi.fn(),
     assignResource: vi.fn(),

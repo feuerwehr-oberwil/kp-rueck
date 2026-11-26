@@ -3395,8 +3395,6 @@
       "outOfServiceBlockedDescription": "In der Verwaltung als nicht einsatzbereit geführt – zuerst dort freigeben."
     },
     "groups": {
-      "loadFailedTitle": "Aufträge konnten nicht geladen werden",
-      "loadFailedDescription": "Die Auftragsliste ist möglicherweise veraltet.",
       "createFailed": "Auftrag konnte nicht erstellt werden",
       "updateFailed": "Auftrag konnte nicht aktualisiert werden",
       "deleteFailed": "Auftrag konnte nicht gelöscht werden",

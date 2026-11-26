@@ -8,9 +8,11 @@
  * the display pages import from there.
  */
 
-import type { ApiDangersAssessment, ApiEventRestliste, ApiIncident } from "@/lib/api-client"
+import type { ApiDangersAssessment, ApiEventRestliste, ApiGroupAssignment, ApiIncident, ApiIncidentGroup } from "@/lib/api-client"
 import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 import { translateOutsideReact } from "@/lib/i18n-messages"
+import { darkenForWhiteText } from "@/lib/map-colors"
+import type { GroupAssignment, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "../operations-context"
 import type { MaterialOnSiteLocation } from "./types"
 
@@ -74,7 +76,6 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     number: incident.number ?? null,
     location: incident.location_address || incident.title,
     locationDisplay: incident.location_display ?? undefined,
-    vehicle: null,
     vehicles: [],
     incidentType: incident.type || "elementarereignis",
     dispatchTime: new Date(incident.created_at),
@@ -121,5 +122,45 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     leaderId: incident.effective_leader_id ?? null,
     leaderName: incident.leader_name ?? null,
     materialAssignments: new Map(),
+  }
+}
+
+/** An Auftrag as the board holds it (camelCase, dates parsed). The colour is the one drawn: a
+ *  route stored with an older, lighter swatch comes in darkened for white text. */
+export function apiIncidentGroupToGroup(g: ApiIncidentGroup): IncidentGroup {
+  return {
+    id: String(g.id),
+    eventId: String(g.event_id),
+    name: g.name,
+    color: g.color ? darkenForWhiteText(g.color) : null,
+    notes: g.notes ?? null,
+    position: g.position,
+    createdAt: new Date(g.created_at),
+    updatedAt: new Date(g.updated_at),
+    createdBy: g.created_by ? String(g.created_by) : null,
+    stopIds: g.stop_ids.map(String),
+    assignments: (g.assignments ?? []).map(apiGroupAssignmentToAssignment),
+    progress: { total: g.progress?.total ?? 0, done: g.progress?.done ?? 0 },
+    // Both the timestamp and the fingerprint have to be there for the record to mean anything –
+    // a half-written one would silently force the full announcement forever.
+    lastAnnounced: g.last_announced_at && g.last_announced_fingerprint
+      ? {
+          at: new Date(g.last_announced_at),
+          fingerprint: g.last_announced_fingerprint,
+          stopId: g.last_announced_stop_id ? String(g.last_announced_stop_id) : null,
+          full: Boolean(g.last_announced_full),
+        }
+      : null,
+  }
+}
+
+/** One route-owned resource row as the board holds it. */
+export function apiGroupAssignmentToAssignment(a: ApiGroupAssignment): GroupAssignment {
+  return {
+    id: String(a.id),
+    resourceType: a.resource_type,
+    resourceId: String(a.resource_id),
+    driverStay: a.driver_stay,
+    isLeader: a.is_leader,
   }
 }

@@ -21,7 +21,6 @@ import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 import { usePrintJobToast } from "@/lib/hooks/use-print-job-toast"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDriverState, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { auftragRadio, routeDeployment, stopAddress } from "@/lib/auftrag-radio"
 import { deploymentSegments, incidentAnnouncement, stopSpecial } from "@/lib/radio-announcement"
@@ -69,10 +68,9 @@ export function DisponierTransitionDialog({
   const { groups, getGroupResources, recordAnnouncement } = useGroups()
   const { operations, changeStatusToTop, requestVehicleDriver } = useOperations()
   const { text: personText } = usePersonNaming()
-  const { selectedEvent } = useEvent()
   // Driver names weren't reaching the message before (the prop was never passed),
   // so the WhatsApp "Fahrer:" line was always blank — load them here.
-  const { drivers: liveVehicleDrivers, loaded: liveDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, open)
+  const { drivers: liveVehicleDrivers, loaded: liveDriversLoaded } = useVehicleDriverState()
   const [whatsappCopied, setWhatsappCopied] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   // The full-vs-short decision is frozen when the dialog opens: a re-render (a group

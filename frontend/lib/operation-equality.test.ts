@@ -8,7 +8,6 @@ function op(overrides: Record<string, unknown> = {}) {
   return {
     id: "op-1",
     location: "Hauptstrasse 1",
-    vehicle: "tlf",
     vehicles: [assignedVehicle("TLF 1", { callsign: "Florian 10", driverStay: true })],
     incidentType: "brand",
     dispatchTime: new Date("2026-07-30T12:00:00Z"),

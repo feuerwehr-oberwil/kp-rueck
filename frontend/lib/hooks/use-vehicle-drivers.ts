@@ -1,11 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
-import { apiClient } from "@/lib/api-client"
-import { wsClient } from "@/lib/websocket-client"
+import { useMemo } from "react"
 import { useOperations } from "@/lib/contexts/operations-context"
 import type { ApiEventSpecialFunctionResponse } from "@/lib/api/types/events"
-import { onAppEvent } from "@/lib/app-events"
 
 /** A vehicle's driver. The id is there so `PersonName` / `usePersonNaming` can
  *  add the namesake Kennung – a driver is named on the radio like anybody else. */
@@ -29,57 +26,21 @@ export function driversFromSpecialFunctions(rows: readonly ApiEventSpecialFuncti
 }
 
 /**
- * Returns a live map of vehicle id → driver (name + personnel id) for the given event. Keyed by
- * id, never by name: two vehicles may share a name.
- *
- * Subscribes to `special_function_update` WebSocket events (cross-tab) and the
- * `driver-assignment-changed` window event (same-tab) so any place that shows
- * driver names stays in sync with vehicle-status-sheet changes without manual
- * refresh.
- *
- * Pass `enabled` to gate fetching — e.g. only load while a modal is open.
+ * The selected Ereignis's drivers as vehicle id → driver (name + personnel id), read off the
+ * board snapshot's special functions – the board reloads them on every
+ * `special_function_update`. Keyed by id, never by name: two vehicles may share a name.
  */
-export function useVehicleDrivers(eventId: string | null | undefined, enabled = true) {
-  return useVehicleDriverState(eventId, enabled).drivers
+export function useVehicleDrivers(): VehicleDrivers {
+  return useVehicleDriverState().drivers
 }
 
 /**
- * The same map plus whether it has loaded at least once for this event. A
- * surface that says «Kein Fahrer» needs the flag: before the first answer an
- * empty map means «not known yet», not «nobody is driving».
+ * The same map plus whether the board snapshot that carries it has arrived. A surface that
+ * says «Kein Fahrer» needs the flag: before the first load an empty map means «not known
+ * yet», not «nobody is driving».
  */
-export function useVehicleDriverState(eventId: string | null | undefined, enabled = true) {
-  // Whether the fleet has arrived with the board sync — «Kein Fahrer» on a
-  // vehicle the board does not know yet would be a guess.
-  const { isLoaded: fleetLoaded } = useOperations()
-  const [driversByVehicleId, setDriversByVehicleId] = useState<VehicleDrivers>(new Map())
-  const [loadedFor, setLoadedFor] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    if (!enabled || !eventId) return
-    try {
-      setDriversByVehicleId(driversFromSpecialFunctions(await apiClient.getEventSpecialFunctions(eventId)))
-      setLoadedFor(eventId)
-    } catch (error) {
-      console.error("Failed to load vehicle drivers:", error)
-    }
-  }, [enabled, eventId])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  useEffect(() => {
-    if (!enabled) return
-    const unsubscribeWs = wsClient.on("special_function_update", () => {
-      load()
-    })
-    const offDriverChanged = onAppEvent("driver-assignment-changed", () => load())
-    return () => {
-      unsubscribeWs()
-      offDriverChanged()
-    }
-  }, [enabled, load])
-
-  return { drivers: driversByVehicleId, loaded: !!eventId && loadedFor === eventId && fleetLoaded }
+export function useVehicleDriverState(): { drivers: VehicleDrivers; loaded: boolean } {
+  const { specialFunctions, isLoaded, boardNeverLoaded } = useOperations()
+  const drivers = useMemo(() => driversFromSpecialFunctions(specialFunctions), [specialFunctions])
+  return { drivers, loaded: isLoaded && !boardNeverLoaded }
 }

@@ -59,7 +59,7 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
   const work = self
     ? [
         self.crew.length > 0 && t('card.workCrew'),
-        (self.vehicles.length > 0 || self.vehicle) && t('card.workVehicles'),
+        self.vehicles.length > 0 && t('card.workVehicles'),
         self.materials.length > 0 && t('card.workMaterial'),
         self.hasCompletedReko && t('card.workReko'),
         (self.hasSchadenplatzRapport || self.hasSchadenplatzRapportDraft) && t('card.workRapport'),

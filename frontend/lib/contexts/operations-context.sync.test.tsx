@@ -47,6 +47,8 @@ const refreshMaterials = vi.hoisted(() => vi.fn())
 const NO_GROUPS = vi.hoisted(() => [] as unknown[])
 const setMaterialOutOfService = vi.hoisted(() => vi.fn())
 vi.mock("./operations/use-resource-lists", () => ({
+  // One map for every render: a fresh one would change the board value on each.
+  useRosterNames: ((names: ReadonlyMap<string, string>) => () => names)(new Map()),
   usePersonnelList: () => {
     const [personnel, setPersonnel] = useState<unknown[]>([])
     return { personnel, setPersonnel, refreshPersonnel }
@@ -106,7 +108,10 @@ const api = vi.hoisted(() => ({
   getEventSpecialFunctions: vi.fn(),
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
+  getIncidentGroups: vi.fn(),
   updateIncident: vi.fn(),
+  updateAssignment: vi.fn(),
+  reorderIncidents: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -159,6 +164,7 @@ beforeEach(() => {
   api.getEventSpecialFunctions.mockReset().mockResolvedValue([])
   api.getAssignmentsByEvent.mockReset().mockResolvedValue({})
   api.getEventRekoSummaries.mockReset().mockResolvedValue({ summaries: {} })
+  api.getIncidentGroups.mockReset().mockResolvedValue([])
   api.updateIncident.mockReset().mockResolvedValue({})
   refreshPersonnel.mockReset().mockResolvedValue([])
   refreshMaterials.mockReset().mockResolvedValue([])
@@ -638,6 +644,28 @@ describe("OperationsProvider — the board never looks current when it is not", 
     await answer([incident("1")])
     expect(stays()).toBe(true)
   })
+
+  it("a «bleibt vor Ort» set here is not turned back by a reload that read before it", async () => {
+    const tlf = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
+    api.getVehicles.mockResolvedValue([tlf])
+    api.getAssignmentsByEvent.mockResolvedValue({
+      "1": [{ id: "a1", resource_type: "vehicle", resource_id: "v1", driver_stay: false }],
+    })
+    let settlePatch = () => {}
+    api.updateAssignment.mockImplementation(() => new Promise<void>((resolve) => (settlePatch = resolve)))
+    const { result } = await renderLoaded()
+    const stays = () => result.current.operations[0].vehicles[0]?.driverStay
+
+    // A reload is out and has already read «kehrt zurück».
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    act(() => result.current.toggleDriverStay("1", "v1"))
+    expect(stays()).toBe(true)
+
+    await answer([incident("1")])
+    expect(stays()).toBe(true)
+    await act(async () => settlePatch())
+  })
 })
 
 const filedReko = (summaryText: string) => ({
@@ -656,6 +684,36 @@ const filedReko = (summaryText: string) => ({
     },
   },
   total: 1,
+})
+
+describe("OperationsProvider — column order", () => {
+  it("moves several cards to the top before a render: the last one moved is on top", async () => {
+    api.reorderIncidents.mockResolvedValue(undefined)
+    const { result } = await renderLoaded([incident("1"), incident("2"), incident("3")])
+
+    // «Ganzen Auftrag disponieren»: every stop moves in one go.
+    act(() => {
+      result.current.changeStatusToTop("1", "enroute")
+      result.current.changeStatusToTop("2", "enroute")
+    })
+    const enroute = result.current.operations.filter((op) => op.status === "enroute").map((op) => op.id)
+    expect(enroute).toEqual(["2", "1"])
+  })
+})
+
+describe("OperationsProvider — demo reset", () => {
+  it("reloads the page: the reset gave every Einsatz and the Ereignis new ids", async () => {
+    const reload = vi.fn()
+    const location = window.location
+    Object.defineProperty(window, "location", { configurable: true, value: { ...location, reload } })
+    try {
+      await renderLoaded()
+      act(() => ws.emit("demo_reset"))
+      expect(reload).toHaveBeenCalledOnce()
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: location })
+    }
+  })
 })
 
 describe("OperationsProvider — Reko summaries", () => {

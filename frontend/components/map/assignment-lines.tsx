@@ -22,7 +22,7 @@ import { useTranslations } from "next-intl"
 import type { Map as MlMap, MapLayerMouseEvent } from "maplibre-gl"
 import { Layer, Marker, Source, useMap, type LineLayerSpecification } from "react-map-gl/maplibre"
 import type { CSSProperties } from "react"
-import type { Incident } from "@/lib/types/incidents"
+import type { MapIncident } from "@/lib/map-incident"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { ApiVehiclePosition } from "@/lib/api-client"
 import { STATUS_TO_GROUP, type IncidentStatus } from "@/lib/types/incidents"
@@ -119,7 +119,7 @@ interface AssignmentLine {
 }
 
 interface AssignmentLinesProps {
-  incidents: Incident[]
+  incidents: MapIncident[]
   vehiclePositions: ApiVehiclePosition[]
   visible?: boolean
   /** Show the vehicle→incident distance as a label on each assignment. */
@@ -141,8 +141,8 @@ interface AssignmentLinesProps {
  * on site (`active`) is the stop in hand even if an earlier one is still open;
  * otherwise it is the first stop that is not finished.
  */
-function currentStop(group: IncidentGroup, byId: Map<string, Incident>): Incident | undefined {
-  const stops = group.stopIds.map(id => byId.get(id)).filter((stop): stop is Incident => stop !== undefined)
+function currentStop(group: IncidentGroup, byId: Map<string, MapIncident>): MapIncident | undefined {
+  const stops = group.stopIds.map(id => byId.get(id)).filter((stop): stop is MapIncident => stop !== undefined)
   const located = stops.filter(stop => stop.location_lat != null && stop.location_lng != null)
   return (
     located.find(stop => stop.status === "active")
@@ -241,7 +241,7 @@ export function AssignmentLines({
     return result
 
     /** Push one vehicle→place line, once, if that vehicle reports a GPS fix. */
-    function addLine(vehicleName: string, incident: Incident) {
+    function addLine(vehicleName: string, incident: MapIncident) {
       if (incident.location_lat == null || incident.location_lng == null) return
       const key = `${normalizeVehicleName(vehicleName)}|${incident.id}`
       if (drawn.has(key)) return

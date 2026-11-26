@@ -85,11 +85,10 @@ export function PersonPopoverBody({
   const tAttendance = useTranslations("kanban.attendance")
   const tPlan = useTranslations("common.attendancePlan")
   const { operations, removeReko, refreshOperations } = useOperations()
-  const { getGroupResources, refreshGroups } = useGroups()
+  const { getGroupResources } = useGroups()
   const { items, toggle, busy, dialogs } = usePersonFunctions({
     personnelId: person.id,
     personnelName: person.name,
-    enabled: true,
   })
   // The Fahrer row whose vehicle choice is open (a person may drive several vehicles).
   const [vehicleMenuFor, setVehicleMenuFor] = useState<string | null>(null)
@@ -150,7 +149,7 @@ export function PersonPopoverBody({
       if (onlyIfFree && ApiError.isConflictError(error)) {
         // The question names what binds them once the board has the new state – Einsätze
         // and Aufträge both; what is still unknown then reads as a generic line.
-        await Promise.allSettled([refreshOperations(), refreshGroups()])
+        await refreshOperations()
         setConfirmOut(true)
         return
       }

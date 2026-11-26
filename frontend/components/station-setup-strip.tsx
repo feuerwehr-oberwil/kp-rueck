@@ -19,6 +19,7 @@ import { Check, Circle, X } from "lucide-react"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { useOperations } from "@/lib/contexts/operations-context"
 import { stationSetupState, PLACEHOLDER_STATION, type StationSetupState } from "@/lib/station-setup"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -45,6 +46,8 @@ const readDismissed = () => {
 export function StationSetupStrip({ className }: { className?: string }) {
   const t = useTranslations("setup.station")
   const { isAdmin, user } = useAuth()
+  // The board's settings (station point, home city) come with its snapshot.
+  const { refreshOperations } = useOperations()
   const [state, setState] = useState<StationSetupState | null>(null)
   const [homeCity, setHomeCity] = useState("")
   const [dismissed, setDismissed] = useState(true)
@@ -130,6 +133,7 @@ export function StationSetupStrip({ className }: { className?: string }) {
           onSaved={() => {
             setLocationOpen(false)
             void load()
+            void refreshOperations()
           }}
         />
       )}

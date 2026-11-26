@@ -24,8 +24,6 @@ export interface AppEvents {
   'kp:planned-changed': void
   /** The device setting «Lageblatt automatisch herunterladen» changed (`lib/lageblatt.ts`). */
   'kp-lageblatt-autodownload-changed': void
-  /** A vehicle's driver changed from this tab (`lib/hooks/use-vehicle-drivers.ts` reloads). */
-  'driver-assignment-changed': void
 }
 
 type Detail<K extends keyof AppEvents> = AppEvents[K] extends void ? [] : [detail: AppEvents[K]]

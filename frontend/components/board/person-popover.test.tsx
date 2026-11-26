@@ -19,7 +19,7 @@ const { api, undoToast, toastError, toastSuccess, refresh, board } = vi.hoisted(
   undoToast: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
-  refresh: { operations: vi.fn(), groups: vi.fn() },
+  refresh: { operations: vi.fn() },
   board: { operations: [] as Operation[], personnel: [] as Person[], drivers: new Map<string, { name: string; personnelId: string }>() },
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api }))
@@ -39,7 +39,7 @@ vi.mock('@/lib/contexts/operations-context', () => ({
   }),
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
-  useGroups: () => ({ getGroupResources: () => ({ personnel: [] }), refreshGroups: refresh.groups }),
+  useGroups: () => ({ getGroupResources: () => ({ personnel: [] }) }),
 }))
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: { id: 'event-1' } }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => board.drivers }))
@@ -223,18 +223,16 @@ describe('PersonPopoverBody', () => {
 
   it('asks the question when the server finds a person shown free still bound', async () => {
     api.checkOutPersonnelForEvent.mockRejectedValueOnce(new ApiError('bound', 409, true)).mockResolvedValue({ checked_out_at: null })
-    let groupsLoaded = () => {}
-    refresh.operations.mockResolvedValue(undefined)
-    refresh.groups.mockReturnValue(new Promise<void>((resolve) => { groupsLoaded = resolve }))
+    let boardLoaded = () => {}
+    refresh.operations.mockReturnValue(new Promise<void>((resolve) => { boardLoaded = resolve }))
     const { onClose } = renderPopover(person({}))
 
     await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))
 
-    // Not before both sources (Einsätze and Aufträge) have the new state.
-    await waitFor(() => expect(refresh.groups).toHaveBeenCalled())
-    expect(refresh.operations).toHaveBeenCalled()
+    // Not before the board (Einsätze and Aufträge) has the new state.
+    await waitFor(() => expect(refresh.operations).toHaveBeenCalled())
     expect(screen.queryByText('Unternährer Sina ist noch zugewiesen')).not.toBeInTheDocument()
-    groupsLoaded()
+    boardLoaded()
     expect(await screen.findByText('Unternährer Sina ist noch zugewiesen')).toBeInTheDocument()
     // Still nothing on this board that binds them: a generic line, not an empty «».
     expect(screen.getByText('Unternährer Sina ist noch zugewiesen – trotzdem auschecken? Die Zuweisung bleibt bestehen.')).toBeInTheDocument()
@@ -246,7 +244,6 @@ describe('PersonPopoverBody', () => {
   it('keeps the question when the refresh moves the person to «Gebunden» (a new popover body)', async () => {
     api.checkOutPersonnelForEvent.mockRejectedValueOnce(new ApiError('bound', 409, true))
     refresh.operations.mockImplementation(async () => remount())
-    refresh.groups.mockResolvedValue(undefined)
     renderPopover(person({}))
 
     await userEvent.click(screen.getByRole('button', { name: /Auschecken/ }))

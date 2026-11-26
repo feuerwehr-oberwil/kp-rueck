@@ -125,7 +125,6 @@ const emptyForm = () => ({
     location: "",
     incidentType: "elementarereignis",
     priority: "low" as Priority,
-    vehicle: null as string | null,
     coordinates: null as Operation["coordinates"],
     status: "incoming" as OperationStatus,
     crew: [] as Operation["crew"],

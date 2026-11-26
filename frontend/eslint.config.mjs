@@ -61,7 +61,7 @@ const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(mapl
 // Sweep 25.11.2026 (FE.12): window events between components went by bare strings with an
 // untyped `detail`. Every name and payload is in lib/app-events.ts (`emitAppEvent` / `onAppEvent`).
 const APP_EVENTS = "Send and hear in-tab events through lib/app-events.ts (emitAppEvent / onAppEvent): one typed map of names and payloads.";
-const APP_EVENT_NAME = "/^(kp[:-]|driver-assignment-changed$)/";
+const APP_EVENT_NAME = "/^kp[:-]/";
 const WINDOW_EVENTS = [
   { selector: `CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name=/^(Custom)?Event$/] > Literal.arguments:first-child[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
   { selector: "CallExpression[callee.object.name='window'][callee.property.name='dispatchEvent'] > NewExpression[callee.name='CustomEvent']", message: APP_EVENTS },

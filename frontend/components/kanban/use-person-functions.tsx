@@ -32,18 +32,16 @@ type Target = { functionType: FunctionType; vehicleId?: string; vehicleName?: st
 export function usePersonFunctions({
   personnelId,
   personnelName,
-  enabled,
 }: {
   personnelId: string
   personnelName: string
-  enabled: boolean
 }): { items: PersonFunctionItem[]; toggle: (item: PersonFunctionItem) => void; busy: boolean; dialogs: ReactNode } {
   const t = useTranslations("kanban")
   const { selectedEvent } = useEvent()
   const { operations, personnel, removeCrew, refreshOperations, vehicles: fleet } = useOperations()
   // «Meier Alex · 1985» when the name is not unique — the dialogs say who.
   const personLabel = usePersonNaming().inline({ name: personnelName, personnelId })
-  const drivers = useVehicleDrivers(selectedEvent?.id, enabled)
+  const drivers = useVehicleDrivers()
   const thisPerson = personnel.find((p) => p.id === personnelId) ?? null
 
   // The fleet in board order, off the board sync – no fetch when the menu opens.

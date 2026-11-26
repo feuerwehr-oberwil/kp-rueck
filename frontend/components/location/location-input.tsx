@@ -16,7 +16,7 @@
  * (owner pick 5A, 14.11.2026 – KP Front's pattern).
  */
 
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import dynamic from "next/dynamic"
 import { Label } from "@/components/ui/label"
@@ -35,7 +35,8 @@ import { FormMessage } from "@/components/ui/form-message"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { parseCoordinates, checkRegion, EXPECTED_REGION, type RegionWarning } from "@/lib/coordinate-parser"
 import type { SearchResult } from "@/lib/geocoding"
-import { apiClient } from "@/lib/api-client"
+import { useOperations } from "@/lib/contexts/operations-context"
+import { stationPoint } from "@/lib/station-point"
 
 // Dynamically import MapPickerModal to avoid SSR issues – MapLibre GL needs a browser
 const MapPickerModal = dynamic(
@@ -128,7 +129,6 @@ export function LocationInput({
   const [coordinateError, setCoordinateError] = useState<string | null>(null)
   const [coordinateWarning, setCoordinateWarning] = useState<RegionWarning | null>(null)
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
-  const [stationCenter, setStationCenter] = useState<[number, number] | null>(null)
   const phoneOrTouch = useMediaQuery(PHONE_OR_TOUCH_QUERY, false)
   // The media query answers false on the server and while hydrating, so this never mismatches.
   const canLocate = locateHere && phoneOrTouch && typeof navigator !== "undefined" && !!navigator.geolocation
@@ -152,25 +152,14 @@ export function LocationInput({
   const geocodeInputsRef = useRef({ address, latitude, longitude, onCoordinatesChange })
   geocodeInputsRef.current = { address, latitude, longitude, onCoordinatesChange }
 
-  // Fetch the station's own coordinates on mount to prioritize search results
-  // near it. Previously this read home_city and matched it against a hardcoded
-  // list of sixteen municipalities, so a station outside that list got results
-  // biased towards a region it is nowhere near.
-  useEffect(() => {
-    async function fetchStationLocation() {
-      try {
-        const settings = await apiClient.getAllSettings()
-        const lat = parseFloat(settings['firestation_latitude'] ?? '')
-        const lon = parseFloat(settings['firestation_longitude'] ?? '')
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          setStationCenter([lon, lat])
-        }
-      } catch (error) {
-        console.error('Failed to fetch station location settings:', error)
-      }
-    }
-    fetchStationLocation()
-  }, [])
+  // Search results near the station come first: its point off the board's settings, as
+  // [lon, lat] for the geocoder. (A home_city match against a hardcoded list of sixteen
+  // municipalities biased a station outside it towards a region it is nowhere near.)
+  const { settings } = useOperations()
+  const stationCenter = useMemo<[number, number] | null>(() => {
+    const point = stationPoint(settings)
+    return point ? [point[1], point[0]] : null
+  }, [settings])
 
   // Only render map picker on client side
   useEffect(() => {

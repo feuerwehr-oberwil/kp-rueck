@@ -76,7 +76,7 @@ describe("apiIncidentToOperation", () => {
 
   it("starts every card empty of resources — the load folds those in", () => {
     const op = apiIncidentToOperation(incident())
-    expect(op).toMatchObject({ vehicle: null, vehicles: [], crew: [], materials: [], rekoSummary: null, assignedReko: null })
+    expect(op).toMatchObject({ vehicles: [], crew: [], materials: [], rekoSummary: null, assignedReko: null })
     expect(op.materialAssignments).toEqual(new Map())
   })
 

@@ -60,7 +60,6 @@ import { useStandby } from "@/lib/contexts/standby-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { planNext } from "@/lib/planned-actions"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
@@ -78,7 +77,6 @@ import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView, type MobileOpenRequest } from "@/components/mobile/mobile-incident-list-view"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
-import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
@@ -107,7 +105,6 @@ import { onAppEvent } from "@/lib/app-events"
 export default function FireStationDashboard() {
   const {
     operations,
-    setOperations,
     formatLocation,
     refreshOperations,
     removeCrew,
@@ -116,6 +113,7 @@ export default function FireStationDashboard() {
     removeReko,
     updateOperation,
     reorderColumn,
+    toggleDriverStay,
     changeStatusToTop,
     setBoardDragging,
     createOperation,
@@ -138,7 +136,7 @@ export default function FireStationDashboard() {
   } = useOperations()
   // The board's roster is "everybody checked in", so the Appell writing an
   // attendance row changes it — see `onAttendanceChange` on the modal below.
-  const { refreshPersonnel } = usePersonnel()
+  const { personnel, refreshPersonnel } = usePersonnel()
   const {
     groups,
     addStops: addStopsToGroup,
@@ -160,9 +158,6 @@ export default function FireStationDashboard() {
   // The right-click actions and two views as commands (Ctrl K) – same early
   // registration, filled in below once the dialogs and the checklist exist.
   const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
-
-  // The roster the board draws, with «steht auf einem Auftrag» folded in.
-  const personnel = useAuftragRoster()
 
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)
@@ -537,7 +532,6 @@ export default function FireStationDashboard() {
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
-  const toggleDriverStay = useToggleDriverStay()
 
   // The Einsatz dialogs this page shares with the Lagekarte (assignment, Auftrag
   // picker, transfer, Divera, the status gates) – see incident-dialogs.tsx.
@@ -641,7 +635,7 @@ export default function FireStationDashboard() {
 
   // Who drives what, for the whole board. One roster call here rather than one
   // per card; the cards render the driver next to the Funkrufname.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
+  const vehicleDrivers = useVehicleDrivers()
 
   // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
   const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
@@ -677,7 +671,6 @@ export default function FireStationDashboard() {
     requestResourceConflict,
     operations,
     updateOperation,
-    setOperations,
     reorderColumn,
     removeVehicle,
     assignVehicleToOperation,
@@ -997,7 +990,6 @@ export default function FireStationDashboard() {
     isMounted,
     canEdit: isEditor,
     operations,
-    setOperations,
     updateOperation,
     reorderColumn,
     assignPersonToOperation: boardAssignPerson,

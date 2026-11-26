@@ -22,7 +22,6 @@ import { sortCrewByLeader } from "@/lib/crew-order"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useVehicleChipMenu } from "@/components/kanban/vehicle-chip-menu"
 import {
   OPERATION_DETAIL_TABS,
@@ -256,8 +255,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko } = useOperations()
-  const toggleDriverStay = useToggleDriverStay()
+  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko, toggleDriverStay } = useOperations()
   const vehicleChipMenu = useVehicleChipMenu()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
@@ -327,7 +325,7 @@ export function OperationDetailContent({
   // The quick-assign fleet behind `1`..`5` – editors only; off the board sync.
   const fleet = useVehicleShortcuts()
   const availableVehicleCount = canEdit ? fleet.length : 0
-  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState()
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
 

@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/ui/empty-state"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { matchesIncidentQuery } from "@/lib/incident-search"
@@ -87,10 +86,9 @@ export function MobileIncidentListView({
   const tStatus = useTranslations('kanban.columns')
   const tEmpty = useTranslations('common.emptyState')
   const tLoading = useTranslations('common.loadingWhat')
-  const { selectedEvent } = useEvent()
   // Fetched ONCE for the list and passed into every card — the rich card rows
   // (image #21) name each vehicle's driver.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
+  const vehicleDrivers = useVehicleDrivers()
   // groupId → Auftrag name, so a stop is found by its route's name too.
   const { groups, getGroupResources } = useGroups()
   const groupNames = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups])

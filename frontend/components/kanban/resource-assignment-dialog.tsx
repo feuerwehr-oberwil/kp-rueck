@@ -31,7 +31,6 @@ import { isPersonOccupied, materialResourceState } from "@/lib/resource-status"
 import { usePersonMatcher } from "@/lib/hooks/use-person-matcher"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
 import { SubjectLine } from "@/components/ui/subject-line"
@@ -169,12 +168,11 @@ export function ResourceAssignmentDialog({
   const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
   const { groups, getGroupResources, unassignResource } = useGroups()
   const matchesPerson = usePersonMatcher()
-  const { selectedEvent } = useEvent()
   // Who drives what, live. Assigning a vehicle without knowing whether anybody
   // is driving it is how a Fahrzeug reaches a Schadenplatz on the board and
   // nowhere else — the driver is the half of "TLF 1 is available" that the
   // fleet list does not carry. Loaded only while the dialog is open.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  const vehicleDrivers = useVehicleDrivers()
   const naming = usePersonNaming()
   const [searchQuery, setSearchQuery] = useState("")
   const [justAssigned, setJustAssigned] = useState<string | null>(null)

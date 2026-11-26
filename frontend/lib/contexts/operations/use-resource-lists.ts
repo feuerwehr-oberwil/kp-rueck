@@ -112,6 +112,28 @@ export function usePersonnelList(eventId: string | null) {
   return { personnel, setPersonnel, refreshPersonnel }
 }
 
+/**
+ * id → name for everybody who could be on an Auftrag: the WHOLE roster with the Ereignis's own
+ * guests, not checked-in-only. A route assignment outlives a check-out on purpose (the board
+ * warns and proceeds, /feld lets somebody go home while still assigned), and a route chip, the
+ * Funkspruch and the printout must still name them. Fetched once per sign-in and Ereignis: it
+ * answers «what is this id called», not who is on duty.
+ */
+export function useRosterNames(eventId: string | null, authReady: boolean): ReadonlyMap<string, string> {
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map())
+  useEffect(() => {
+    if (!authReady) return
+    const scope = eventId && isValidUUID(eventId) ? eventId : null
+    apiClient
+      .getAllPersonnel(scope ? { event_id: scope } : undefined)
+      .then((list) => setNames(new Map(list.map((person) => [String(person.id), person.name]))))
+      .catch(() => {
+        // Silent: names fall back to the live roster, then «Unbekannt».
+      })
+  }, [authReady, eventId])
+  return names
+}
+
 /** The depot (station-wide, deployment per Ereignis) and its material groups. */
 export function useMaterialList(eventId: string | null, authReady: boolean) {
   const [materials, setMaterials] = useState<Material[]>([])

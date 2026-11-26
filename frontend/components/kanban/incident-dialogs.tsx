@@ -39,9 +39,7 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
-import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
@@ -106,7 +104,7 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
   const { operations, isLoaded: operationsLoaded, boardNeverLoaded, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
-  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, getGroupResources, unassignResource, refreshGroups } = useGroups()
+  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, getGroupResources, unassignResource } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -209,7 +207,7 @@ export function useIncidentDialogs() {
       if (picked.kind === "auftrag") {
         const groupId = picked.id
         const moved = await apiClient.transferToAuftrag(groupId, sourceId)
-        await Promise.all([refreshOperations(), refreshGroups()])
+        await refreshOperations()
         setTransfer(null)
         undoToast(
           t("common.transferredToAuftragToast", { source: sourceLabel, target: groups.find((g) => g.id === groupId)?.name ?? "" }),
@@ -220,7 +218,7 @@ export function useIncidentDialogs() {
                 .undoTransferToAuftrag(groupId, sourceId, moved)
                 .then(() => unmutedToast(t("common.transferUndone")))
                 .catch(undoFailed)
-                .finally(() => void Promise.all([refreshOperations(), refreshGroups()])),
+                .finally(() => void refreshOperations()),
           },
         )
         return
@@ -249,7 +247,7 @@ export function useIncidentDialogs() {
     } finally {
       setIsTransferring(false)
     }
-  }, [refreshOperations, refreshGroups, groups, t, transfer, operations, formatLocation])
+  }, [refreshOperations, groups, t, transfer, operations, formatLocation])
 
   // «Einsatz abschliessen» from the GPS release prompt (root layout): the usual close flow,
   // offered once this board has the Einsatz – and for a stop, its Auftrag with the
@@ -261,14 +259,14 @@ export function useIncidentDialogs() {
       eventId: selectedEvent?.id ?? null,
       loaded: operationsLoaded && groupsLoaded,
       failed: boardNeverLoaded || groupsLoadFailed,
-      retry: async () => void (await Promise.all([refreshOperations(), refreshGroups()])),
+      retry: async () => void (await refreshOperations()),
       has: (incidentId: string) => {
         const operation = operations.find((candidate) => candidate.id === incidentId)
         return Boolean(operation && groupsLoaded && (!operation.groupId || groups.some((group) => group.id === operation.groupId)))
       },
       run: statusWorkflow.requestCompletion,
     }
-  }, [boardNeverLoaded, groups, groupsLoadFailed, groupsLoaded, isEditor, operations, operationsLoaded, refreshGroups, refreshOperations, selectedEvent?.id, statusWorkflow.requestCompletion])
+  }, [boardNeverLoaded, groups, groupsLoadFailed, groupsLoaded, isEditor, operations, operationsLoaded, refreshOperations, selectedEvent?.id, statusWorkflow.requestCompletion])
   useCompletionBoard(completionBoard)
 
   /** What the Einsatz detail (modal or side panel) needs from this layer –
@@ -343,6 +341,7 @@ export function IncidentDialogs({
   const tDash = useTranslations("kanban.dashboard")
   const {
     operations,
+    personnel,
     materials,
     formatLocation,
     refreshOperations,
@@ -354,6 +353,7 @@ export function IncidentDialogs({
     removeMaterial,
     removeVehicle,
     requestResourceConflict,
+    toggleDriverStay,
   } = useOperations()
   const {
     groups,
@@ -366,9 +366,7 @@ export function IncidentDialogs({
     occupiedResourceIds,
   } = useGroups()
   const { selectedEvent } = useEvent()
-  const personnel = useAuftragRoster()
   const release = useReleaseUndo()
-  const toggleDriverStay = useToggleDriverStay()
   // The dispatch gate's «EL» stub: the same promotion as the board detail's.
   const promoteToLeader = usePromoteToLeader()
   const promoteRouteLeader = usePromoteRouteLeader()
@@ -387,7 +385,7 @@ export function IncidentDialogs({
   })
   const { view, statusWorkflow } = dialogs
   // Who drives what, for the dispatch gate's vehicle chips – loaded while that gate is open.
-  const gateDrivers = useVehicleDrivers(selectedEvent?.id, !!statusWorkflow.missingResourcesOperation)
+  const gateDrivers = useVehicleDrivers()
 
   // ── Assignment dialog ────────────────────────────────────────────────────
   const assignment = view.assignment

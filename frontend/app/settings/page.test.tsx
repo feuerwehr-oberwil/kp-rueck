@@ -19,6 +19,8 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 
 const params = vi.hoisted(() => ({ current: new URLSearchParams() }))
 const push = vi.hoisted(() => vi.fn())
+// The board's refresh after a settings save (no board under this test).
+vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ refreshOperations: async () => true }) }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
   useSearchParams: () => params.current,

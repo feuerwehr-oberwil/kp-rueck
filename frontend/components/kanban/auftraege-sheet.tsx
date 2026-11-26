@@ -71,7 +71,6 @@ import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDriverState, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -167,11 +166,10 @@ export function AuftraegeSheet({
   // Releasing a stop or a route resource offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   const { operations } = useOperations()
-  const { selectedEvent } = useEvent()
   // Who drives which Fahrzeug — one roster call for the whole sheet, only while
   // it is open, kept live by the hook's WebSocket + same-tab listeners.
   // `loaded` gates the «Kein Fahrer» notes: an unloaded map is not «nobody».
-  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, open)
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState()
 
   // The route owns the people, so this is where a route's Einsatzleiter is set.
   // The backend demotes the previous holder in the same transaction — one call,

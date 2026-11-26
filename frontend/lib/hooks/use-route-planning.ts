@@ -31,6 +31,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { haversineKm, isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { findVehiclePosition } from "@/lib/vehicle-positions"
+import { stationPoint } from "@/lib/station-point"
 import {
   parseReportedAt,
   resolveRouteStart,
@@ -56,10 +57,18 @@ export interface OrderedStop {
 }
 
 export function useRoutePlanning(groupId: string | null | undefined) {
-  const { groups, reorderGroupStops, refreshGroups, getGroupResources } = useGroups()
-  const { operations, createOperation, refreshOperations } = useOperations()
+  const { groups, reorderGroupStops, getGroupResources } = useGroups()
+  const { operations, createOperation, refreshOperations, settings, isLoaded, boardNeverLoaded } = useOperations()
 
-  const [magazin, setMagazin] = useState<MagazinAnchor | null>(null)
+  // The Magazin start anchor off the board's settings (`stationPoint`). Without station
+  // coordinates it is the same default base map-view uses, flagged, so the menu and the
+  // result say «Ersatzstandort»; null until the board has loaded.
+  const magazin = useMemo<MagazinAnchor | null>(() => {
+    if (!isLoaded) return null
+    const point = stationPoint(settings)
+    if (point) return { coords: point, source: "settings" }
+    return { coords: DEFAULT_STATION, source: boardNeverLoaded ? "failed" : "unset" }
+  }, [settings, isLoaded, boardNeverLoaded])
   const [vehiclePositions, setVehiclePositions] = useState<ApiVehiclePosition[]>([])
   const [isAddingStop, setIsAddingStop] = useState(false)
 
@@ -78,30 +87,12 @@ export function useRoutePlanning(groupId: string | null | undefined) {
     [orderedStops],
   )
 
-  // Load Magazin/home anchor + live vehicle GPS (used for optimize starts). Only
-  // once a group is actually being planned — the modal stays mounted while closed.
+  // Live vehicle GPS (used for optimize starts). Only once a group is actually being
+  // planned — the modal stays mounted while closed.
   useEffect(() => {
     if (!groupId) return
     let cancelled = false
     void (async () => {
-      try {
-        const settings = await apiClient.getAllSettings()
-        if (cancelled) return
-        // `||`, not `??`: an unset GPS key is stored as "" — with `??` that empty
-        // string shadowed a configured firestation_* pair and the route started
-        // from the built-in fallback instead (same lookup as the GPS simulator).
-        const lat = parseFloat(settings["gps.station_lat"] || settings.firestation_latitude || "")
-        const lng = parseFloat(settings["gps.station_lng"] || settings.firestation_longitude || "")
-        if (Number.isFinite(lat) && Number.isFinite(lng)) setMagazin({ coords: [lat, lng], source: "settings" })
-        // Fall back to the same default base map-view uses so "Magazin" stays a
-        // usable start anchor even before any station coords are configured —
-        // flagged, so the menu and the result say «Ersatzstandort».
-        else setMagazin({ coords: DEFAULT_STATION, source: "unset" })
-      } catch {
-        // Non-fatal: keep the default base so "Magazin" remains selectable, and
-        // say that the settings could not be read.
-        if (!cancelled) setMagazin({ coords: DEFAULT_STATION, source: "failed" })
-      }
       try {
         const positions = await apiClient.getVehiclePositions()
         if (!cancelled) setVehiclePositions(positions)
@@ -145,7 +136,6 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         // "+ Stop" path. Awaited, so the refresh below sees the new stop.
         await createOperation({
           location: address,
-          vehicle: null,
           vehicles: [],
           incidentType: "elementarereignis",
           crew: [],
@@ -173,14 +163,13 @@ export function useRoutePlanning(groupId: string | null | undefined) {
           leaderName: null,
           materialAssignments: new Map(),
         })
-        // The new stop rides the incident WS path into operations-context; pull the
-        // group so its stopIds pick up the freshly-attached member.
-        await Promise.all([refreshGroups(), refreshOperations()])
+        // Pull the board so the route's stopIds pick up the freshly-attached member.
+        await refreshOperations()
       } finally {
         setIsAddingStop(false)
       }
     },
-    [group, createOperation, refreshGroups, refreshOperations],
+    [group, createOperation, refreshOperations],
   )
 
   const anchors = useMemo<RouteStartAnchors>(() => {
