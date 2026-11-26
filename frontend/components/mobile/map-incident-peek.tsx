@@ -28,7 +28,6 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonName } from "@/components/person-name"
 import { AddressText } from "@/components/kanban/address-text"
-import { useGroups } from "@/lib/contexts/groups-context"
 
 interface MapIncidentPeekProps {
   operation: Operation
@@ -43,9 +42,7 @@ export function MapIncidentPeek({ operation, formatLocation, onClose, onOpenDeta
   const priority = operation.priority || "low"
   const address = formatLocation(operation.location)
   // A route stop's vehicles are the Auftrag's (they ride on to the next stop), not its own.
-  const { groups, getGroupResources } = useGroups()
-  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const vehicles = [...operation.vehicles, ...(auftrag ? getGroupResources(auftrag.id).vehicles : [])].map(
+  const vehicles = [...operation.vehicles, ...(operation.auftragResources?.vehicles ?? [])].map(
     ({ name, callsign }) => vehicleLabel({ name, callsign }),
   )
 

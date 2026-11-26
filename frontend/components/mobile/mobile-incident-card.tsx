@@ -36,7 +36,7 @@ import { sameCrew, sameVehicles } from "@/lib/operation-equality"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { metaFacts } from "@/lib/meta-line"
 import { auftragStopPosition } from "@/components/display/incident-card"
-import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
+import type { IncidentGroup } from "@/lib/types/groups"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -45,9 +45,8 @@ interface MobileIncidentCardProps {
   /** Live vehicle id → driver name map — the LIST fetches it once
    *  (`useVehicleDrivers`) rather than every card asking the API itself. */
   vehicleDrivers?: VehicleDrivers
-  /** The Auftrag this Einsatz is a stop of, with the resources it owns. One object per
-   *  Auftrag from the list (it builds them once), so the memo below compares it by identity. */
-  auftrag?: { group: IncidentGroup; resources: GroupResources }
+  /** The Auftrag this Einsatz is a stop of; what it owns is on the card (`auftragResources`). */
+  auftrag?: IncidentGroup
 }
 
 /** `label | value` line of the card's fact block — same reading the incident
@@ -85,15 +84,16 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
   const rekoText = operation.rekoSummary?.summaryText?.trim()
   // A route stop holds no crew or vehicles itself: the Auftrag does. The desk card's Auftrag
   // line, word for word – «Stopp 1 von 4 · Pio · 3 Pers · 1 Gerät».
+  const route = operation.auftragResources
   const auftragFacts = auftrag
     ? [
         tCard("auftragStopLine", {
-          pos: auftragStopPosition(auftrag.group, operation.id, operation.groupPosition),
-          total: auftrag.group.stopIds.length,
+          pos: auftragStopPosition(auftrag, operation.id, operation.groupPosition),
+          total: auftrag.stopIds.length,
         }),
-        auftrag.resources.vehicles.map((v) => v.name).join(", "),
-        auftrag.resources.personnel.length ? tCard("auftragPersSummary", { count: auftrag.resources.personnel.length }) : "",
-        auftrag.resources.materials.length ? tCard("auftragMatSummary", { count: auftrag.resources.materials.length }) : "",
+        route?.vehicles.map((v) => v.name).join(", ") ?? "",
+        route?.personnel.length ? tCard("auftragPersSummary", { count: route.personnel.length }) : "",
+        route?.materials.length ? tCard("auftragMatSummary", { count: route.materials.length }) : "",
       ]
     : []
 
@@ -308,9 +308,9 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               <p className="flex min-w-0 items-center gap-1.5">
                 <span
                   className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: auftrag.group.color ?? "var(--muted-foreground)" }}
+                  style={{ backgroundColor: auftrag.color ?? "var(--muted-foreground)" }}
                 />
-                <span className="min-w-0 break-words font-medium">{auftrag.group.name}</span>
+                <span className="min-w-0 break-words font-medium">{auftrag.name}</span>
               </p>
               <p className="break-words tabular-nums text-muted-foreground">{metaFacts(auftragFacts)}</p>
             </FactRow>
@@ -335,6 +335,7 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     // reference equality is the honest comparison here.
     prevProps.vehicleDrivers === nextProps.vehicleDrivers &&
     prevProps.auftrag === nextProps.auftrag &&
+    prev.auftragResources === next.auftragResources &&
     prev.groupPosition === next.groupPosition &&
     prev.id === next.id &&
     prev.number === next.number &&

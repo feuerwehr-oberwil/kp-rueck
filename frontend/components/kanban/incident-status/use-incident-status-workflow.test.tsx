@@ -4,6 +4,7 @@ import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status/u
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
+import { withAuftragResources } from "@/lib/contexts/operations/reconcile"
 
 // The material gate prefills itself from the Schadenplatz-Rapport. Every gate
 // test opens one, so the door has to be mocked for all of them, not just the
@@ -60,7 +61,12 @@ function renderWorkflow(
   siblings: Operation[] = [],
 ) {
   const changeStatusToTop = vi.fn()
-  const getGroupResources = vi.fn(() => groupResources)
+  // The board store's pass: every stop of a route carries that route's resources.
+  const operations = withAuftragResources(
+    [currentOperation, ...siblings],
+    groups as never,
+    new Map(groups.map((group) => [group.id, groupResources])),
+  )
   const materials: Material[] = currentOperation.materials.map((id) => ({
     id,
     name: id,
@@ -76,15 +82,15 @@ function renderWorkflow(
   const removeMaterial = vi.fn()
   const unassignGroupResource = vi.fn()
   const result = renderHook(() => useIncidentStatusWorkflow({
-    operations: [currentOperation, ...siblings],
+    operations,
     materials,
     groups: groups as never,
     changeStatusToTop,
-    getGroupResources,
     removeMaterial,
     unassignGroupResource,
   }))
-  return { ...result, changeStatusToTop, removeMaterial, unassignGroupResource }
+  // `card`: the stop as the board hands it out, its route's resources on it.
+  return { ...result, card: operations[0], changeStatusToTop, removeMaterial, unassignGroupResource }
 }
 
 describe("shared incident detail status workflow", () => {
@@ -100,10 +106,10 @@ describe("shared incident detail status workflow", () => {
     }
 
     const blind = renderWorkflow(stop, routeCrew, [])
-    expect(blind.result.current.getMissingResources(stop)).toEqual(["crew", "vehicles", "materials"])
+    expect(blind.result.current.getMissingResources(blind.card)).toEqual(["crew", "vehicles", "materials"])
 
     const seeing = renderWorkflow(stop, routeCrew, [{ id: "g1", stopIds: ["incident-1"] }])
-    expect(seeing.result.current.getMissingResources(stop)).toEqual([])
+    expect(seeing.result.current.getMissingResources(seeing.card)).toEqual([])
   })
 
   it("names the Einsatz's and the Auftrag's resources in the coverage, EL first", () => {
@@ -119,8 +125,8 @@ describe("shared incident detail status workflow", () => {
       personnel: [{ assignmentId: "a1", resourceId: "p9", name: "Gerber Elias", isLeader: true }],
       vehicles: [{ assignmentId: "a2", resourceId: "v1", name: "TLF", driverStay: false }],
     }
-    const { result } = renderWorkflow(stop, route, [{ id: "g1", stopIds: ["incident-1"] }])
-    const coverage = result.current.getResourceCoverage(stop)
+    const { result, card } = renderWorkflow(stop, route, [{ id: "g1", stopIds: ["incident-1"] }])
+    const coverage = result.current.getResourceCoverage(card)
 
     // Under an Auftrag the route's leader leads; the stop's earlier EL is not marked a second time.
     expect(coverage.crew.map((member) => [member.name, member.isLeader])).toEqual([
@@ -379,7 +385,6 @@ describe("shared incident detail status workflow", () => {
         materials: [],
         groups: [],
         changeStatusToTop,
-        getGroupResources: () => emptyGroupResources,
         removeMaterial: vi.fn(),
         unassignGroupResource: vi.fn(),
       }),

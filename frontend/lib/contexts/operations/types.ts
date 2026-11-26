@@ -106,6 +106,11 @@ export interface Operation {
   groupId: string | null
   /** Order of this stop within its Auftrag (lower = earlier). 0 when ungrouped. */
   groupPosition: number
+  /** The Auftrag's own crew, vehicles and material, named – null when the stop is on none.
+   *  The route holds them, never the stop, so a surface that shows what stands at this
+   *  address reads them here beside `crew` / `vehicles` / `materials`. Derived: the board
+   *  store fills it on every change (`withAuftragResources`); a mapped or new card has null. */
+  auftragResources: GroupResources | null
   source?: string // Origin: "operator" (dashboard), "intake" (phone/walk-in), "feld" (a Trupp), or a delivering system's slug. Absent for locally-created ops.
   /** Server-derived: this incident came from a GENUINE dispatch alarm rather
    *  than a simulated drill one. Meaningful only inside a training Ereignis,
@@ -188,6 +193,9 @@ export interface Operation {
   /** material id -> assignment id */
   materialAssignments: Map<string, string>
 }
+
+/** A card typed into «Neuer Einsatz»: the server gives the id and the time, the store the route. */
+export type NewOperation = Omit<Operation, "id" | "dispatchTime" | "auftragResources">
 
 /** A vehicle the driver prompt should ask about. `incidentId` / `groupId` name
  *  where it was just assigned, so dismissing can ask whether it comes back off. */
@@ -286,11 +294,11 @@ export interface OperationsContextType {
   changeStatusToTop: (operationId: string, newStatus: OperationStatus, extraUpdates?: Partial<Operation>) => void
   /** Resolves once the server answered: true when the board holds the new card, false when
    *  it was refused or the call failed (a toast already said so – the caller keeps its input). */
-  createOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<boolean>
+  createOperation: (operation: NewOperation) => Promise<boolean>
   /** «Zusammenführen» from «Neuer Einsatz»: the typed report becomes a Nachtrag
    *  on `targetId` (no new card) and an undo toast is offered. Resolves false
    *  when the server refused or the call failed (a toast already said so). */
-  mergeOperationInto: (operation: Omit<Operation, "id" | "dispatchTime">, targetId: string) => Promise<boolean>
+  mergeOperationInto: (operation: NewOperation, targetId: string) => Promise<boolean>
   /** «Zusammenführen» on a flagged card: fold the card into `targetId`. */
   mergeExistingOperation: (operationId: string, targetId: string) => Promise<boolean>
   /** «Trennen» / the toast's «Rückgängig»: the merged report is its own card again. */

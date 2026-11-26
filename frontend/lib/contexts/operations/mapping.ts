@@ -95,6 +95,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     zuFuss: incident.zu_fuss || false,
     groupId: incident.group_id ?? null,
     groupPosition: incident.group_position ?? 0,
+    auftragResources: null,
     source: incident.source || "operator",
     fromRealAlarm: incident.from_real_alarm ?? false,
     possibleDuplicateOf: incident.possible_duplicate_of_id ?? null,

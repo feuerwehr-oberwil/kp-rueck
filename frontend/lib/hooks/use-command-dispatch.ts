@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef } from "react"
 import type { DispatchPlan, DispatchPriority, DispatchResource, DispatchStatus } from "@/lib/command-dispatch"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Released } from "@/lib/release-undo"
-import type { GroupResources } from "@/lib/types/groups"
 
 /**
  * Runs a ⌘K dispatch («14 tlf meier einsatz») on the board — the impure half of
@@ -52,7 +51,6 @@ export interface DispatchOutcome {
 export interface CommandDispatchDeps {
   /** Latest board state — read at call time, never from a render's closure. */
   getOperation: (operationId: string) => Operation | undefined
-  getGroupResources: (groupId: string) => GroupResources
   /** True while a question an assignment raised is open (Doppelbelegung, driver)
    *  or may still come (an assignment still settling). */
   isQuestionOpen: () => boolean
@@ -99,11 +97,7 @@ type Holding =
   | { where: "material" }
   | { where: "route"; groupId: string; assignmentId: string }
 
-export function holding(
-  operation: Operation,
-  resource: DispatchResource,
-  getGroupResources: (groupId: string) => GroupResources,
-): Holding | null {
+export function holding(operation: Operation, resource: DispatchResource): Holding | null {
   if (resource.kind === "person") {
     if (operation.assignedReko?.id === resource.id) return { where: "reko" }
     if (operation.crew.some((m) => m.personnelId === resource.id)) return { where: "crew" }
@@ -112,8 +106,8 @@ export function holding(
   } else if (operation.materials.includes(resource.id)) {
     return { where: "material" }
   }
-  if (operation.groupId) {
-    const resources = getGroupResources(operation.groupId)
+  const resources = operation.auftragResources
+  if (operation.groupId && resources) {
     const list =
       resource.kind === "person" ? resources.personnel : resource.kind === "vehicle" ? resources.vehicles : resources.materials
     const item = list.find((entry) => entry.resourceId === resource.id)
@@ -153,7 +147,7 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
 
   const wasHeld = new Set(
     command.assign
-      .filter((entry) => holding(before, entry.target, deps.getGroupResources))
+      .filter((entry) => holding(before, entry.target))
       .map((entry) => `${entry.target.kind}:${entry.target.id}`),
   )
   // Where each resource is before the command — to tell, afterwards, what a
@@ -194,7 +188,7 @@ export async function runDispatch(command: DispatchCommand, deps: CommandDispatc
     .map((entry) => entry.target)
     .filter(
       (resource) =>
-        !wasHeld.has(`${resource.kind}:${resource.id}`) && holding(after, resource, deps.getGroupResources),
+        !wasHeld.has(`${resource.kind}:${resource.id}`) && holding(after, resource),
     )
   if (assigned.length === 0 && !status && !priority) return null
 
@@ -234,7 +228,7 @@ async function undoDispatch(outcome: DispatchOutcome, deps: CommandDispatchDeps)
   const now = deps.getOperation(operationId)
   if (!now) return
   for (const resource of outcome.assigned) {
-    const held = holding(now, resource, deps.getGroupResources)
+    const held = holding(now, resource)
     if (!held) continue
     if (held.where === "crew") await deps.removeCrew(operationId, resource.id)
     else if (held.where === "reko") await deps.removeReko(operationId, outcome.rekoAssignmentId)

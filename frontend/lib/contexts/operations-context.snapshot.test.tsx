@@ -340,6 +340,8 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       zuFuss: true,
       groupId: "grp-1",
       groupPosition: 2,
+      // No Auftrag in this snapshot: the route the incident names is not loaded.
+      auftragResources: null,
       source: "feld",
       fromRealAlarm: true,
       statusChangedAt: new Date("2026-09-23T08:20:00Z"),
@@ -406,6 +408,7 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       zuFuss: false,
       groupId: null,
       groupPosition: 0,
+      auftragResources: null,
       source: "operator",
       fromRealAlarm: false,
       statusChangedAt: null,

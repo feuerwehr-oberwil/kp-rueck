@@ -14,7 +14,7 @@ import { restoreDeletedIncident } from "@/lib/restore-incident"
 import { classifySaveFailure, fieldSaveUser, getFieldSaveScope, isFieldSaveWatched, isSavedTextField, noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, textConflictOf, type FieldSaveTicket } from "@/lib/field-save"
 import { coordinatesToApiFields } from "@/lib/coordinate-parser"
 import { reportStatusConflict } from "@/lib/status-conflict"
-import type { Operation, OperationStatus, StatusWriteGuard } from "./types"
+import type { NewOperation, Operation, OperationStatus, StatusWriteGuard } from "./types"
 import { apiIncidentToOperation } from "./mapping"
 import type { BoardMutationContext } from "./board-context"
 
@@ -31,7 +31,7 @@ export const EDIT_DEBOUNCE_MS = { critical: 50, text: 500 } as const
 /** The create payload for an operation typed into «Neuer Einsatz» — shared by
  *  the plain create and the «Zusammenführen» merge, so both send the same report. */
 function operationToIncidentCreate(
-  operation: Omit<Operation, "id" | "dispatchTime">,
+  operation: NewOperation,
   eventId: string,
 ): ApiIncidentCreate {
   return {
@@ -433,7 +433,7 @@ export function createIncidentActions(board: BoardMutationContext) {
     return String(maxId + 1)
   }
 
-  const createOperation = async (operation: Omit<Operation, "id" | "dispatchTime">): Promise<boolean> => {
+  const createOperation = async (operation: NewOperation): Promise<boolean> => {
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       console.error("Cannot create operation without valid selected event")
       return false
@@ -526,7 +526,7 @@ export function createIncidentActions(board: BoardMutationContext) {
   }
 
   const mergeOperationInto = async (
-    operation: Omit<Operation, "id" | "dispatchTime">,
+    operation: NewOperation,
     targetId: string,
   ): Promise<boolean> => {
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) return false

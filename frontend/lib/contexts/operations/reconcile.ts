@@ -24,6 +24,7 @@ import type {
 } from "@/lib/api-client"
 import type { GroupResourceType, GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Material, Operation, Person } from "../operations-context"
+import { findAuftragForStop } from "@/lib/kanban-utils"
 import { apiIncidentGroupToGroup, apiIncidentToOperation, rekoDangerTypes } from "./mapping"
 
 /** What one board load fetched, as `loadData` hands it over. */
@@ -269,6 +270,28 @@ export function deriveAuftragState(groups: readonly IncidentGroup[], names: Auft
     resourcesByGroup.set(group.id, resources)
   }
   return { resourcesByGroup, occupiedResourceIds: auftragOccupancy(groups) }
+}
+
+/**
+ * The cards with their Auftrag's resources on them (`Operation.auftragResources`): the board
+ * store runs it on every change, the share-link wall on its payload. Membership follows
+ * `findAuftragForStop` – the route's stopIds count before the incident's `group_id` arrives.
+ * A card whose value is unchanged keeps its identity, and so does the array when none changed.
+ */
+export function withAuftragResources(
+  operations: Operation[],
+  groups: readonly IncidentGroup[],
+  resourcesByGroup: ReadonlyMap<string, GroupResources>,
+): Operation[] {
+  let changed = false
+  const next = operations.map((operation) => {
+    const auftrag = findAuftragForStop(groups, operation)
+    const auftragResources = auftrag ? resourcesByGroup.get(auftrag.id) ?? null : null
+    if (operation.auftragResources === auftragResources) return operation
+    changed = true
+    return { ...operation, auftragResources }
+  })
+  return changed ? next : operations
 }
 
 /** Every resource that stands on some Auftrag, by kind. */

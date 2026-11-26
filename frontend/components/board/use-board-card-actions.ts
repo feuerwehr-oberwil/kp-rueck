@@ -50,7 +50,6 @@ export function useBoardCardActions(statusWorkflow: IncidentStatusWorkflowContro
     groups,
     unassignResource: unassignGroupResource,
     assignResource: assignGroupResource,
-    getGroupResources,
   } = useGroups()
   const release = useReleaseUndo()
   const vehicleTypes = useVehicleShortcuts()
@@ -204,7 +203,7 @@ export function useBoardCardActions(statusWorkflow: IncidentStatusWorkflowContro
         )
       }
       // Removing says itself — with «Rückgängig» — through the release toast.
-      const onRoute = op.groupId ? getGroupResources(op.groupId).vehicles.find((v) => v.resourceId === vehicle.id) : undefined
+      const onRoute = op.groupId ? op.auftragResources?.vehicles.find((v) => v.resourceId === vehicle.id) : undefined
       if (op.groupId && onRoute) {
         void release.releaseRouteResource(op.groupId, onRoute.assignmentId)
         return
@@ -233,7 +232,7 @@ export function useBoardCardActions(statusWorkflow: IncidentStatusWorkflowContro
       const asked = assignVehicleToIncidentWithConflict(vehicle.id, vehicle.name, op.id)
       if (!asked && !heldByEinsatz) notify(true)
     },
-    [getGroupResources, release, assignVehicleToGroupWithConflict, assignVehicleToIncidentWithConflict, operations, tCommon],
+    [release, assignVehicleToGroupWithConflict, assignVehicleToIncidentWithConflict, operations, tCommon],
   )
 
   /** Priority by keystroke — the card only shows it as a small chevron, so the

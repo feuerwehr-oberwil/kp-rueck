@@ -23,6 +23,7 @@ import { makeOperation } from '@/test-utils/operation-fixtures'
 function operation(overrides: Partial<Operation> = {}): Operation {
   return makeOperation({
     id: 'stop-6',
+    auftragResources,
     location: 'Allschwilerstrasse 14, 4104 Oberwil',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
     priority: 'low',
@@ -57,7 +58,7 @@ const auftragResources: GroupResources = {
 
 function renderCard() {
   return renderWithIntl(
-    <DisplayIncidentCard operation={operation()} auftrag={auftrag} auftragResources={auftragResources} />,
+    <DisplayIncidentCard operation={operation()} auftrag={auftrag} />,
   )
 }
 
@@ -100,7 +101,7 @@ describe('the wall card’s Auftrag row', () => {
       <DisplayIncidentCard
         operation={operation({ id: 'not-in-route' })}
         auftrag={auftrag}
-        auftragResources={auftragResources}
+       
       />,
     )
     expect(screen.getByText(/^Stopp 6 von 7 ·/)).toBeInTheDocument()
@@ -122,7 +123,7 @@ describe('an Auftrag’s crew, once per column', () => {
 
   it('folds the chips into one «Mannschaft wie Stopp n» line, apart from the stop metadata', () => {
     renderWithIntl(
-      <DisplayIncidentCard operation={operation()} auftrag={auftrag} auftragResources={auftragResources} crewShownAt={2} />,
+      <DisplayIncidentCard operation={operation()} auftrag={auftrag} crewShownAt={2} />,
     )
     expect(screen.getByText('Mannschaft wie Stopp 2')).toBeInTheDocument()
     expect(screen.getByText(/Pio · 1 Gerät/).textContent).not.toMatch(/Mannschaft/)
@@ -132,9 +133,8 @@ describe('an Auftrag’s crew, once per column', () => {
   it('says nothing about a crew the route does not have', () => {
     renderWithIntl(
       <DisplayIncidentCard
-        operation={operation()}
+        operation={operation({ auftragResources: { ...auftragResources, personnel: [] } })}
         auftrag={auftrag}
-        auftragResources={{ ...auftragResources, personnel: [] }}
         crewShownAt={2}
       />,
     )

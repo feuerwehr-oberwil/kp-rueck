@@ -10,7 +10,6 @@ import type { VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
 import { type ApiRekoReportResponse } from "@/lib/api-client"
-import { type GroupResources } from "@/lib/types/groups"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { vehicleLabel } from "@/lib/vehicle-label"
 import { plainName, type PersonText } from "@/lib/person-label"
@@ -24,10 +23,6 @@ interface FormatWhatsAppMessageOptions {
   materials: Material[]
   rekoReport?: ApiRekoReportResponse | null
   vehicleDrivers?: VehicleDrivers
-  /** Resources owned by the incident's Auftrag (route). A grouped incident
-   *  carries none itself — the route does — so merge these in or the crew /
-   *  vehicle / material lines come out blank. */
-  groupResources?: GroupResources | null
   /** Auftrag context to prepend (route name + stop position), when grouped. */
   auftrag?: { name: string; stopPos: number; stopTotal: number } | null
   /** Editable template; falls back to the built-in default when omitted. */
@@ -152,7 +147,6 @@ export function formatWhatsAppMessage({
   materials,
   rekoReport,
   vehicleDrivers,
-  groupResources,
   auftrag,
   template,
   personText = plainName,
@@ -170,6 +164,7 @@ export function formatWhatsAppMessage({
   // A grouped incident's crew/vehicles/materials live on the Auftrag, so its own
   // arrays are empty — merge the route's resources in before composing, or the
   // message dispatches with no crew/vehicle/material.
+  const groupResources = operation.auftragResources
   const crew = [
     ...operation.crew,
     ...(groupResources?.personnel ?? []).map((p) => ({ personnelId: p.resourceId, name: p.name })),

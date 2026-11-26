@@ -349,7 +349,7 @@ export type StopMirrorStatus = "incoming" | "enroute" | "active" | "returning" |
  * authoritative for membership, so ask them.
  */
 export function findAuftragForStop<G extends { id: string; stopIds: string[] }>(
-  groups: G[],
+  groups: readonly G[],
   operation: { id: string; groupId: string | null } | null | undefined,
 ): G | undefined {
   if (!operation) return undefined

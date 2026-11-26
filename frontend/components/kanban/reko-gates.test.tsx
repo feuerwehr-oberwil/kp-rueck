@@ -3,7 +3,6 @@ import { act, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Operation } from "@/lib/contexts/operations-context"
-import type { GroupResources } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 
 /**
@@ -42,7 +41,6 @@ import {
 } from "@/components/kanban/incident-status/use-incident-status-workflow"
 import { makeOperation } from "@/test-utils/operation-fixtures"
 
-const noRoute: GroupResources = { personnel: [], vehicles: [], materials: [] }
 
 function operation(overrides: Partial<Operation> = {}): Operation {
   return makeOperation({
@@ -65,7 +63,6 @@ function renderBoard(initial: Operation) {
       materials: [],
       groups: [],
       changeStatusToTop,
-      getGroupResources: () => noRoute,
       removeMaterial: vi.fn(),
       unassignGroupResource: vi.fn(),
     })

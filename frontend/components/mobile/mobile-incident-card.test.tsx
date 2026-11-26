@@ -45,15 +45,18 @@ describe('the phone Einsatz card', () => {
   })
 
   it('names the Auftrag of a route stop with what it owns, as the desk card does', () => {
-    const auftrag = {
-      group: { id: 'g-1', name: 'Sturmholz Oberwil', color: '#0e6680', stopIds: ['incident-0', 'incident-1'] } as IncidentGroup,
-      resources: {
+    const auftrag = { id: 'g-1', name: 'Sturmholz Oberwil', color: '#0e6680', stopIds: ['incident-0', 'incident-1'] } as IncidentGroup
+    const stop: Operation = {
+      ...operation,
+      crew: [],
+      groupId: 'g-1',
+      groupPosition: 1,
+      auftragResources: {
         vehicles: [{ assignmentId: 'ga-1', resourceId: 'v-1', name: 'TLF' }],
         personnel: [{ assignmentId: 'ga-2', resourceId: 'p-3', name: 'Moser Lea' }],
         materials: [],
       },
     }
-    const stop: Operation = { ...operation, crew: [], groupId: 'g-1', groupPosition: 1 }
     renderWithIntl(<MobileIncidentCard operation={stop} onClick={vi.fn()} formatLocation={(a) => a} auftrag={auftrag} />)
     const row = screen.getByText('Auftrag').nextElementSibling
     expect(row).toHaveTextContent('Sturmholz Oberwil')

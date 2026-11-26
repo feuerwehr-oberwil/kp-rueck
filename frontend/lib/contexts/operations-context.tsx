@@ -18,7 +18,7 @@ import { createResourceActions } from "./operations/resource-actions"
 import { PersonNamingProvider } from "@/components/person-name"
 import { createIncidentActions } from "./operations/incident-actions"
 import { createGroupActions } from "./operations/group-actions"
-import { deriveAuftragState, withAuftragCrew } from "./operations/reconcile"
+import { deriveAuftragState, withAuftragCrew, withAuftragResources } from "./operations/reconcile"
 import type {
   BoardActions,
   BoardSyncStatus,
@@ -40,6 +40,7 @@ export type {
   OperationStatus,
   RekoSummary,
   Operation,
+  NewOperation,
   CrewMember,
   OperationVehicle,
   VehicleNeedingDriver,
@@ -363,6 +364,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     () => withAuftragCrew(personnel, auftragState.occupiedResourceIds.personnel),
     [personnel, auftragState],
   )
+  // Every surface reads a stop's route resources off the card (`Operation.auftragResources`),
+  // filled here and only here – the actions write the stored cards, this pass adds the routes.
+  const operationsOnBoard = useMemo(
+    () => withAuftragResources(operations, groups, auftragState.resourcesByGroup),
+    [operations, groups, auftragState],
+  )
 
   // Prefer the server-computed labels (location_display) so first paint shows
   // the final string; the client formatter only covers addresses the server
@@ -446,7 +453,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setMaterials,
       materialGroups,
       setMaterialOutOfService,
-      operations,
+      operations: operationsOnBoard,
       homeCity,
       isLoading,
       isLoaded,
@@ -482,7 +489,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setMaterials,
       materialGroups,
       setMaterialOutOfService,
-      operations,
+      operationsOnBoard,
       homeCity,
       isLoading,
       isLoaded,
