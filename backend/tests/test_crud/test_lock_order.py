@@ -17,10 +17,12 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import asyncpg
 import pytest
 import pytest_asyncio
 from fastapi import BackgroundTasks
 from sqlalchemy import delete, select, text, update
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -42,12 +44,14 @@ from app.crud import personnel_checkin as checkin_crud
 from app.crud import reko_assignment as reko_assignment_crud
 from app.crud.feld.melden import create_field_report
 from app.crud.locking import (
+    enter_ereignis_gate,
     lock_groups,
     lock_incident,
     lock_incident_numbering,
     lock_incident_with_group,
     lock_resource,
 )
+from app.ereignis_gate import gate_key
 from app.models import (
     AuditLog,
     AuftragTemplate,
@@ -994,7 +998,7 @@ async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_do_not_de
         await wait_until_blocked(board.sessions, count=2)
         # The batch's second op starts now; then the delete goes on.
         await note_holder.rollback()
-        await _until_it_waits_past(board.sessions, batch_pid, "notifications")
+        await _until_it_waits_on_the_gate(board.sessions, batch_pid, board.event_id)
         await card_holder.rollback()
 
         deleted = await asyncio.wait_for(deletion, timeout=10)
@@ -1004,20 +1008,22 @@ async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_do_not_de
     assert deleted is True
 
 
-async def _until_it_waits_past(sessions: async_sessionmaker[AsyncSession], pid: int, past: str) -> None:
-    """Until backend ``pid`` waits for a lock in a statement that no longer mentions ``past``."""
+async def _until_it_waits_on_the_gate(sessions: async_sessionmaker[AsyncSession], pid: int, event_id: UUID) -> None:
+    """Until backend ``pid`` waits for the Ereignis delete gate itself – not any lock."""
     async with sessions() as probe:
         for _ in range(100):
-            row = (
-                await probe.execute(
-                    text("SELECT wait_event_type, query FROM pg_stat_activity WHERE pid = :pid"), {"pid": pid}
-                )
-            ).one()
+            waiting = await probe.scalar(
+                text(
+                    "SELECT count(*) FROM pg_locks WHERE pid = :pid AND NOT granted AND locktype = 'advisory'"
+                    " AND objid = (hashtext(:key)::bigint & 4294967295)::text::oid"
+                ),
+                {"pid": pid, "key": gate_key(event_id)},
+            )
             await probe.rollback()
-            if row.wait_event_type == "Lock" and past not in row.query:
+            if waiting:
                 return
             await asyncio.sleep(0.05)
-    raise AssertionError(f"backend {pid} never waited past {past!r}")
+    raise AssertionError(f"backend {pid} never waited for the Ereignis delete gate")
 
 
 async def test_a_hosted_sync_op_that_deletes_the_ereignis_locks_its_cards_before_it(board: Board):
@@ -1039,3 +1045,82 @@ async def test_a_hosted_sync_op_that_deletes_the_ereignis_locks_its_cards_before
         await reordering.commit()
         # The stamp changed the row the op expected: it deletes nothing, the next round reads again.
         assert await asyncio.wait_for(batch, timeout=10) == ["changed"]
+
+
+async def _raw(db: AsyncSession) -> asyncpg.Connection:
+    """The asyncpg connection under ``db``, outside any transaction – as the sync route gets it."""
+    conn: asyncpg.Connection = (await (await db.connection()).get_raw_connection()).driver_connection
+    return conn
+
+
+async def test_a_synced_ereignis_delete_waits_for_a_bell_poll_in_the_gate(board: Board):
+    # A bell poll key-shares the Ereignis (a warning about it), then a card (a warning about the
+    # card). A synced delete that entered the gate shared locked the card, then waited for the
+    # Ereignis row: each waited for the other.
+    async with board.sessions() as polling, board.sessions() as syncing:
+        conn = await _raw(syncing)
+        tables = await event_tables(conn)
+        event = (await fetch_rows(conn, tables["events"], board.event_id))[0][("events", str(board.event_id))]
+        await enter_ereignis_gate(polling, board.event_id)
+        polling.add(Notification(type="personnel_leaving", severity="info", message="x", event_id=board.event_id))
+        await polling.flush()
+        batch = asyncio.create_task(
+            apply_ops(conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)])
+        )
+        await wait_until_blocked(board.sessions)
+
+        polling.add(
+            Notification(
+                type="missing_location",
+                severity="warning",
+                message="y",
+                event_id=board.event_id,
+                incident_id=board.loose_id,
+            )
+        )
+        await asyncio.wait_for(polling.flush(), timeout=5)
+        await polling.commit()
+        assert await asyncio.wait_for(batch, timeout=10) == ["ok"]
+
+
+async def test_archiving_writes_its_alarms_before_the_ereignis_row(board: Board):
+    # A synced Ereignis delete holds an alarm and waits for the Ereignis row. Archiving wrote the
+    # Ereignis row and then cleared that alarm's Divera answers: each waited for the other.
+    alarm_id = uuid4()
+    async with board.sessions() as db:
+        db.add(
+            DiveraEmergency(
+                id=alarm_id,
+                divera_id=910_051,
+                title="Wasser im Keller",
+                received_at=datetime.now(UTC),
+                is_archived=False,
+                attached_to_event_id=board.event_id,
+                created_incident_id=board.loose_id,
+            )
+        )
+        await db.commit()
+    try:
+        async with board.sessions() as holder, board.sessions() as archiving, board.sessions() as syncing:
+            conn = await _raw(syncing)
+            tables = await event_tables(conn)
+            event = (await fetch_rows(conn, tables["events"], board.event_id))[0][("events", str(board.event_id))]
+            await divera_crud.lock_divera_emergency(holder, alarm_id)
+            batch = asyncio.create_task(
+                apply_ops(conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)])
+            )
+            await wait_until_blocked(board.sessions)
+            archive = asyncio.create_task(events_crud.archive_event(archiving, board.event_id))
+            await wait_until_blocked(board.sessions, count=2)
+            await holder.rollback()
+
+            # The archive must be queued for the alarm, not sitting on the Ereignis row.
+            assert await asyncio.wait_for(batch, timeout=10) == ["ok"]
+            # The Ereignis is gone by the time the archive goes on: it cannot re-read it.
+            with pytest.raises(InvalidRequestError):
+                await asyncio.wait_for(archive, timeout=10)
+            await archiving.rollback()
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id == alarm_id))
+            await db.commit()

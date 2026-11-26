@@ -671,13 +671,20 @@ def _journal_line(event_id: str, incident_id: str | None, text: str, now: str) -
 # --- writing (both systems) ------------------------------------------------------------------
 
 
-async def enter_ereignis_gate(conn: asyncpg.Connection, event_id: uuid.UUID) -> None:
-    """The shared side of the Ereignis delete gate (`ereignis_gate`), held to the commit.
+async def enter_ereignis_gate(conn: asyncpg.Connection, event_id: uuid.UUID, *, exclusive: bool = False) -> None:
+    """The Ereignis delete gate (`ereignis_gate`), held to the commit, before any row lock.
 
-    Before any row lock of the transaction: a batch can lock the Ereignis row before its cards,
-    a delete the other way round. Taking it again in the same transaction is free.
+    Shared: a batch can lock the Ereignis row before its cards, a delete the other way round.
+    ``exclusive``: the transaction deletes the Ereignis itself, like `crud.locking.lock_event_for_delete`.
+    Taking it again in the same transaction is free; never ask for exclusive while holding it shared.
     """
-    await conn.execute("SELECT pg_advisory_xact_lock_shared(hashtext($1))", gate_key(event_id))
+    fn = "pg_advisory_xact_lock" if exclusive else "pg_advisory_xact_lock_shared"
+    await conn.execute(f"SELECT {fn}(hashtext($1))", gate_key(event_id))
+
+
+def _deletes_ereignis(op: Op) -> bool:
+    """The op deletes the Ereignis row: its transaction takes the gate exclusively."""
+    return op.table == "events" and op.row is None
 
 
 class OpRefusedError(Exception):
@@ -700,10 +707,11 @@ async def apply_ops(
     Ops that fail on a missing key are retried until a pass gets nowhere, so parents may come
     after their children in the list.
 
-    It enters the Ereignis delete gate first (`enter_ereignis_gate`): a caller that locks a row
-    of the Ereignis before it calls this enters the gate before that lock.
+    It enters the Ereignis delete gate first (`enter_ereignis_gate`), exclusively when a batch
+    deletes the Ereignis: a caller that locks a row of the Ereignis before it calls this enters
+    the gate before that lock.
     """
-    await enter_ereignis_gate(conn, event_id)
+    await enter_ereignis_gate(conn, event_id, exclusive=any(map(_deletes_ereignis, ops)))
     results: list[str] = ["refused"] * len(ops)
     todo = list(range(len(ops)))
     while todo:
@@ -717,7 +725,7 @@ async def apply_ops(
                 async with conn.transaction():
                     # Again inside the op's own transaction: on the hosted board each op is one
                     # (`api/standby._driver`), and an op can delete the Ereignis row itself.
-                    await enter_ereignis_gate(conn, event_id)
+                    await enter_ereignis_gate(conn, event_id, exclusive=_deletes_ereignis(op))
                     results[i] = await _apply_one(conn, table, event_id, op)
             except OpRefusedError:
                 results[i] = "refused"
@@ -741,8 +749,9 @@ async def apply_ops(
 
 
 async def _lock_for_ereignis_delete(conn: asyncpg.Connection, event_id: str) -> None:
-    """What deleting the Ereignis row cascades to, in the order of `crud.locking.lock_event_for_delete`:
-    its alarms, its numbering lock, its Aufträge and cards – so the Ereignis row is locked last."""
+    """What deleting the Ereignis row cascades to, in the order of `crud.locking.lock_event_for_delete`
+    (whose exclusive gate `apply_ops` has taken): its alarms, its numbering lock, its Aufträge and
+    cards – so the Ereignis row is locked last."""
     await conn.execute(
         "SELECT 1 FROM public.divera_emergencies WHERE attached_to_event_id = $1::uuid "
         "OR created_incident_id IN (SELECT id FROM public.incidents WHERE event_id = $1::uuid) ORDER BY id FOR UPDATE",

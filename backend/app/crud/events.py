@@ -142,14 +142,16 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     if event.archived_at is not None:
         return event
 
+    # The Ereignis is closed: its Divera Rückmeldungen (personal data) go with the same commit.
+    # The alarm rows before the Ereignis row (lock order, crud/locking.py): an Ereignis delete
+    # holds an alarm while it waits for the Ereignis row.
+    from ..services.divera_responses import purge_event
+
+    await purge_event(db, event_id)
     now = datetime.now(UTC)
     await db.execute(
         update(Event).where(Event.id == event_id, Event.archived_at.is_(None)).values(archived_at=now, updated_at=now)
     )
-    # The Ereignis is closed: its Divera Rückmeldungen (personal data) go with the same commit.
-    from ..services.divera_responses import purge_event
-
-    await purge_event(db, event_id)
     await db.flush()
     await db.refresh(event)
     return event

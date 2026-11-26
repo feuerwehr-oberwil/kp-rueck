@@ -40,8 +40,10 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
   which a card INSERT takes when it allocates the number (not a synced copy that brings its own):
   a writer that creates a card takes it before any Auftrag or card (`lock_incident_numbering`, `lock_merge_target`). An Ereignis delete locks what its
   cascade writes first (`lock_event_for_delete`), behind the Ereignis delete gate
-  (`app/ereignis_gate.py`) that a standby sync batch and the bell poll enter first. The helpers
-  and the reasoning are in
+  (`app/ereignis_gate.py`): a transaction that deletes an Ereignis (the app's or a synced one)
+  takes it exclusively, and the standby sync batch, the bell poll and a bell dismissal enter it
+  shared first. Archiving writes the alarm rows (their Divera answers) before the Ereignis row.
+  The helpers and the reasoning are in
   `backend/app/crud/locking.py`. A new writer that locks must use the
   helpers, or it deadlocks against completion/reorder. New assignments go through
   `ensure_assignable`.

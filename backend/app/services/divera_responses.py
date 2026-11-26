@@ -464,7 +464,17 @@ async def purge_expired(db: AsyncSession) -> int:
 
 
 async def purge_event(db: AsyncSession, event_id: UUID) -> None:
-    """Delete the stored answers of one Ereignis (it was archived). The caller commits."""
+    """Delete the stored answers of one Ereignis (it is being archived). The caller commits.
+
+    Alarm rows come first in the lock order (``crud/locking.py``), in ascending id: call it before
+    the Ereignis row is written.
+    """
+    await db.execute(
+        select(models.DiveraEmergency.id)
+        .where(models.DiveraEmergency.attached_to_event_id == event_id)
+        .order_by(models.DiveraEmergency.id)
+        .with_for_update()
+    )
     await db.execute(
         update(models.DiveraEmergency)
         .where(models.DiveraEmergency.attached_to_event_id == event_id)
