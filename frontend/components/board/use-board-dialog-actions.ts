@@ -1,66 +1,71 @@
 "use client"
 
-import { useEffect, useCallback, useRef } from "react"
+import { useEffect, useCallback, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { type Person, type Operation } from "@/lib/contexts/operations-context"
+import { useOperations } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { useEvent } from "@/lib/contexts/event-context"
+import { useAuth } from "@/lib/contexts/auth-context"
+import { useNotifications } from "@/lib/contexts/notification-context"
 import { apiClient } from "@/lib/api-client"
 import { getIncidentRefParts } from "@/lib/incident-types"
-import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { type FooterSheet } from "@/components/board/board-footer"
-import type { Event } from "@/lib/types/incidents"
-import type { Dispatch, SetStateAction } from "react"
-import type { ClosedStopPrompt } from "@/lib/hooks/use-closed-stop-guard"
-import type { FieldRequestAssignHandler } from "@/lib/contexts/notification-context"
+import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
+import type { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
+import type { IncidentDialogsController } from "@/components/kanban/incident-dialogs"
+import type { OpenIncidentDetail } from "./use-board-selection"
+import type { BoardSheets } from "./use-board-sheets"
 
-export interface UseBoardDialogActionsInput {
-  operations: Operation[]
-  updateOperation: (operationId: string, updates: Partial<Operation>) => void
-  refreshPersonnel: (options?: { skipStateUpdate?: boolean; }) => Promise<Person[]>
-  addStopsToGroup: (groupId: string, incidentIds: string[]) => Promise<boolean>
-  closedStopGuard: { guard: (incidentIds: string[], run: () => void) => void; prompt: ClosedStopPrompt | null; proceed: () => void; dismiss: () => void; }
-  selectedEvent: Event | null
-  isEditor: boolean
-  registerAssignHandler: (handler: FieldRequestAssignHandler | null) => void
-  openIncidentDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection, options?: { allowModal?: boolean; }) => void
-  setActiveFooterSheet: Dispatch<SetStateAction<FooterSheet | null>>
-  stopPickerGroupId: string | null
+/** The board's dialog and sheet actions – see `useBoardDialogActions`. */
+export type BoardDialogActions = ReturnType<typeof useBoardDialogActions>
+
+interface UseBoardDialogActionsInput {
+  openIncidentDetail: OpenIncidentDetail
+  sheets: Pick<BoardSheets, "setActiveFooterSheet">
+  /** The page's one closed-stop confirmation (its prompt renders in `BoardDialogs`). */
+  closedStopGuard: ReturnType<typeof useClosedStopGuard>
   /** The shared assignment dialog (incident-dialogs.tsx) – a field request's
    *  «Material zuweisen» opens it, searched for the item. */
-  openAssignment: (resourceType: "crew" | "vehicles" | "materials", operationId: string, search?: string) => void
-  checkInUrl: string | null
-  setCopied: Dispatch<SetStateAction<boolean>>
-  setAttendanceOpen: Dispatch<SetStateAction<boolean>>
-  setRekoAssignDialogOpen: Dispatch<SetStateAction<boolean>>
-  setRekoAssignOperationId: Dispatch<SetStateAction<string | null>>
+  openAssignment: IncidentDialogsController["openAssignment"]
 }
 
 /**
- * The board's dialog and sheet actions: open a Rapport, the attendance dialog,
- * «+ Stop» and the card toggles. Moved verbatim out of
- * app/page.tsx; the assignment dialog and «An Auftrag verteilen» are the shared
- * incident-dialogs.tsx now.
+ * The board's dialog and sheet actions and the state they open: a Rapport, the
+ * Appell, «+ Stop», the Reko assignment, the check-in link, the card toggles and
+ * the bell's «Angekommen» / «Material zuweisen» answers.
+ * Reads the board contexts itself; the assignment dialog and «An Auftrag
+ * verteilen» are the shared incident-dialogs.tsx.
  */
-export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
-  const {
-    operations,
-    updateOperation,
-    refreshPersonnel,
-    addStopsToGroup,
-    closedStopGuard,
-    selectedEvent,
-    isEditor,
-    registerAssignHandler,
-    openIncidentDetail,
-    setActiveFooterSheet,
-    stopPickerGroupId,
-    openAssignment,
-    checkInUrl,
-    setCopied,
-    setAttendanceOpen,
-    setRekoAssignDialogOpen,
-    setRekoAssignOperationId,
-  } = input
+export function useBoardDialogActions({ openIncidentDetail, sheets, closedStopGuard, openAssignment }: UseBoardDialogActionsInput) {
+  const { operations, updateOperation, isLoading, changeStatusToTop } = useOperations()
+  const { addStops: addStopsToGroup } = useGroups()
+  const { personnel, refreshPersonnel } = usePersonnel()
+  const { selectedEvent } = useEvent()
+  const { isEditor, isViewer } = useAuth()
+  const { registerAssignHandler, registerFieldActionHandler } = useNotifications()
+  const { setActiveFooterSheet } = sheets
+  // "+ Stop" incident picker: the route existing incidents are added to as stops.
+  const [stopPickerGroupId, setStopPickerGroupId] = useState<string | null>(null)
+  const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  // The Appell. Not a ninth footer sheet and not a tab inside the shared QR body — it is
+  // opened from the check-in sheet's Anwesenheit row, and opening it closes that sheet.
+  const [attendanceOpen, setAttendanceOpen] = useState(false)
+  // Reko assignment dialog state (context menu)
+  const [rekoAssignDialogOpen, setRekoAssignDialogOpen] = useState(false)
+  const [rekoAssignOperationId, setRekoAssignOperationId] = useState<string | null>(null)
+
+  // Auto-generate check-in QR code URL when no personnel are available – never for a viewer:
+  // the link is a credential (POST, CurrentEditor), and a viewer's phone shows no QR.
+  useEffect(() => {
+    if (isViewer || !selectedEvent || checkInUrl || isLoading) return
+    if (personnel.filter((p) => p.status === "available").length > 0) return
+    apiClient.generateCheckInLink(selectedEvent.id).then((response) => {
+      setCheckInUrl(`${window.location.origin}${response.link}`)
+    }).catch(() => {})
+  }, [isViewer, selectedEvent, personnel, checkInUrl, isLoading])
+
   const tCommon = useTranslations('kanban.common')
   const tDash = useTranslations('kanban.dashboard')
 
@@ -117,11 +122,6 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     }
   }
 
-  // The Reko trupp's link is the field link now — `/reko-dashboard` is gone
-  // (plan 26, decision 24) and `/feld` absorbed everything it did.
-  // Check-In and Anzeige links live in the Links & QR sheet too (it mints them
-  // itself), so the page no longer generates either.
-
   // «Material zuweisen» / «Mannschaft zuweisen» on a field request in the
   // notification sidebar (R13) — the same dialog, searched for the item.
   // Through a ref so the registration does not churn on every render.
@@ -134,6 +134,23 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     )
     return () => registerAssignHandler(null)
   }, [isEditor, registerAssignHandler])
+
+  // «Angekommen» / «Einsatz beendet» answered straight from the bell, without
+  // finding the card first. It has to be the SAME move the card's own nudge
+  // makes, and for a while it was not: this one ran `requestCompletion`, i.e.
+  // the whole completion flow down to *Abgeschlossen*, while the nudge on the
+  // card moved to *Beendet / Rückfahrt* and stopped. Two buttons that ask the
+  // same question and answer it differently is worse than either answer — and
+  // the nudge's is the right one (see `field-status-nudge.tsx`): a crew that
+  // has packed up is not a Schadenplatz the KP has closed.
+  useEffect(() => {
+    if (!isEditor) return
+    registerFieldActionHandler((incidentId, kind) => {
+      storeFieldNudgeConfirmation(incidentId, kind)
+      changeStatusToTop(incidentId, kind === "complete" ? "returning" : "active")
+    })
+    return () => registerFieldActionHandler(null)
+  }, [isEditor, registerFieldActionHandler, changeStatusToTop])
 
   // "+ Stop" — pick EXISTING event incidents to add to a route as stops. Picking
   // an incident already in another route MOVES it (addStops reassigns group_id).
@@ -176,9 +193,16 @@ export function useBoardDialogActions(input: UseBoardDialogActionsInput) {
     }
   }
 
-  /** «Freigegeben werden: 2 Personen, MTW» — what a delete hands back, named in
-   *  the confirmation. Null when the card carries nothing. */
   return {
+    stopPickerGroupId,
+    setStopPickerGroupId,
+    checkInUrl,
+    copied,
+    attendanceOpen,
+    setAttendanceOpen,
+    rekoAssignDialogOpen,
+    setRekoAssignDialogOpen,
+    rekoAssignOperationId,
     handleOpenRapport,
     openAttendance,
     assignmentLabelForPerson,

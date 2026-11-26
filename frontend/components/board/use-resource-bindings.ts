@@ -208,7 +208,7 @@ export function useResourceBindings(input: UseResourceBindingsInput) {
    * The click always opens the person popover, one place or many (owner pick A,
    * 24.11.2026): the one-place shortcut jumped to the card and skipped what the popover
    * offers (functions, Abmelden). The popover's place row still links
-   * to the card. Material rows keep their jump (`handleMaterialClick` in app/page.tsx).
+   * to the card. Material rows keep their jump (`handleMaterialClick` in use-material-clicks.ts).
    */
   const handlePersonClick = (person: Pick<Person, "id">) => {
     setBindingsPopover({ kind: "person", id: person.id })
