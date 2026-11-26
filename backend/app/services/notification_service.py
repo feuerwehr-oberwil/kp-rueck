@@ -28,7 +28,7 @@ from ..utils.failure_latch import FailureLatch
 # Schadenplatz the way the card does — never «…strasse 8, 4104 Oberwil» about a
 # card that reads «…strasse 8».
 from . import notification_params as texts
-from .event_lead import hold_lead, system_leads
+from .event_lead import box_leads_locked
 from .incident_display import get_home_city, location_display
 from .rapport_rows import STATUS_LABELS
 from .vehicle_facts import record_vehicle_fact
@@ -72,7 +72,7 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     Evaluate all notification rules for the current event.
 
     Returns the stored notifications afterwards (``_stored_notifications``). A standby box
-    evaluates only in an Ereignis it leads (``event_lead.system_leads``): a mirrored one is the
+    evaluates only in an Ereignis it leads (``event_lead.box_leads_locked``): a mirrored one is the
     hosted board's, whose rows replication brings – a row the box wrote there would exist only
     on the box. Each write phase holds the lead row (``_may_write``): a hosted takeover the sync
     brings in meanwhile waits for that phase's commit instead of meeting its stale writes.
@@ -139,11 +139,8 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
 
 async def _may_write(db: AsyncSession, event_id: UUID) -> bool:
     """Whether this system may write bell rows in the Ereignis – on a standby box only where it
-    leads, with the lead row share-locked until the next commit (``event_lead.hold_lead``)."""
-    if deployment_role() != ROLE_STANDBY:
-        return True
-    await hold_lead(db, event_id)
-    return (await system_leads(db))(event_id)
+    leads, with the lead row share-locked until the next commit (``event_lead.box_leads_locked``)."""
+    return deployment_role() != ROLE_STANDBY or await box_leads_locked(db, event_id)
 
 
 async def _stored_notifications(db: AsyncSession, event_id: UUID) -> list[Notification]:

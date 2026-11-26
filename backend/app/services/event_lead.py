@@ -12,7 +12,7 @@ from sqlalchemy import column, select, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..environment import ROLE_STANDBY, deployment_role
-from ..models import EventLead
+from ..models import Event, EventLead
 
 # app/standby.py's list of Ereignisse a standby box has taken offline.
 _DETACHED_EVENTS = table("detached_events", column("event_id"), schema="standby")
@@ -35,10 +35,23 @@ async def system_leads(db: AsyncSession) -> Callable[[uuid.UUID], bool]:
     return lambda event_id: event_id in mine
 
 
-async def hold_lead(db: AsyncSession, event_id: uuid.UUID) -> None:
-    """Share-lock the Ereignis's lead row until the caller's commit, before asking ``system_leads``.
+async def box_leads_locked(db: AsyncSession, event_id: uuid.UUID) -> bool:
+    """On a standby box: whether it leads the Ereignis, with the lead row share-locked until the
+    next commit – for a writer that must not write after a takeover moved the lead.
 
-    A takeover writes that row (the box's own, or the hosted one the sync brings), so it waits
-    until a writer that decided «this system leads» has committed what it wrote on that basis.
+    Locked and read in one query: a takeover committed between a separate lock and read would
+    leave the writes unlocked. No such row – mirrored, taken back, or a takeover not committed
+    yet – means «not leading». The Ereignis row is key-shared first, the lock every row the
+    writer inserts takes through its foreign key anyway: a permanent delete of the Ereignis
+    (its row, then the lead row by cascade) waits for the writer instead of deadlocking with it.
     """
-    await db.execute(select(EventLead.event_id).where(EventLead.event_id == event_id).with_for_update(read=True))
+    if await db.scalar(text("SELECT to_regclass('standby.detached_events')")) is None:
+        return False
+    await db.execute(select(Event.id).where(Event.id == event_id).with_for_update(key_share=True))
+    led = await db.scalar(
+        select(EventLead.event_id)
+        .join(_DETACHED_EVENTS, _DETACHED_EVENTS.c.event_id == EventLead.event_id)
+        .where(EventLead.event_id == event_id, EventLead.holder == "standby")
+        .with_for_update(read=True, of=EventLead)
+    )
+    return led is not None
