@@ -2,11 +2,10 @@
 
 import { Marker } from "react-map-gl/maplibre"
 import { useTranslations } from "next-intl"
-import type { MapIncident } from "@/lib/map-incident"
+import { shortAddressOf, type MapIncident } from "@/lib/map-incident"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { PinCountBadge } from "./pin-count-badge"
 import { useOpenOnDoubleClick } from "./use-open-on-double-click"
 
@@ -207,13 +206,5 @@ export function IncidentMarker({
         {count > 1 && <PinCountBadge count={count} />}
       </div>
     </Marker>
-  )
-}
-
-/** What a short label (and the marker's aria-label) calls the incident. */
-export function shortAddressOf(incident: MapIncident): string {
-  return (
-    (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
-    || incident.title
   )
 }

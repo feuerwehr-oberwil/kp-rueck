@@ -1,5 +1,6 @@
 import type { Operation } from "@/lib/contexts/operations-context"
 import { asIncidentType, type Incident } from "@/lib/types/incidents"
+import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 
 /**
  * What the maps (`MapView`, the map page, the wall map) draw of an Einsatz – only that.
@@ -48,4 +49,12 @@ export function toMapIncident(op: Operation): MapIncident {
     assigned_vehicles: op.vehicles.map((vehicle) => ({ name: vehicle.name })),
     crewCount: op.crew.length,
   }
+}
+
+/** What a short label (and the marker's aria-label) calls the incident. */
+export function shortAddressOf(incident: MapIncident): string {
+  return (
+    (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
+    || incident.title
+  )
 }
