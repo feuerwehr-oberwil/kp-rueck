@@ -4,8 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useTranslations } from 'next-intl'
 import { Binoculars } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter } from '@/components/ui/responsive-dialog'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader'
 import { SyncStatusLine } from '@/components/kanban/field-save-status'
@@ -36,7 +35,7 @@ import { rekoPhotoUrl } from '@/lib/reko-photos'
  * save still goes out on close).
  *
  * The form starts from the newest filed report (amended in place) or the operator's own draft,
- * as the detail's Reko block does. A dialog on a desk, a bottom sheet on a phone.
+ * as the detail's Reko block does. A `ResponsiveDialog`: a dialog on a desk, a bottom sheet on a phone.
  */
 const WAIT_HINT_ID = 'reko-gate-wait-hint'
 
@@ -134,7 +133,8 @@ export function RekoReportGateDialog({
   const answered = form.is_relevant !== null
 
   const rekoName = operation.assignedReko?.name
-  const title = (
+  // A phone head carries no glyph (FRONTEND.md «Phone geometry»).
+  const title = isMobile ? t('reportTitle', { location }) : (
     <span className="flex items-center gap-2">
       <Binoculars className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
       <span className="min-w-0">{t('reportTitle', { location })}</span>
@@ -186,7 +186,7 @@ export function RekoReportGateDialog({
   const footer = (
     <>
       {phase !== 'loading' && !answered && (
-        <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:basis-full sm:mr-auto" onClick={onFinish}>
+        <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:basis-full! sm:mr-auto" onClick={onFinish}>
           {t('finishWithout')}
         </Button>
       )}
@@ -206,35 +206,20 @@ export function RekoReportGateDialog({
     if (!open) onCancel()
   }
 
-  if (isMobile) {
-    return (
-      <Sheet open onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]">
-          <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
-            <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{title}</SheetTitle>
-            <SheetDescription className="text-xs">{description}</SheetDescription>
-            {syncLine}
-          </SheetHeader>
-          <SheetBody className="px-4 pb-4">{body}</SheetBody>
-          <SheetFooter className="mt-0 flex-row flex-wrap gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
-            {footer}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
   return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent size="md" className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="gap-1 px-6 pt-6 pb-3 pr-12">
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-          {syncLine}
-        </DialogHeader>
-        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-4">{body}</div>
-        <DialogFooter className="border-t px-6 py-3">{footer}</DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ResponsiveDialog
+      open
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      status={syncLine}
+      size="md"
+      frame="panel"
+      fill
+      headerClassName="px-6 pt-6 pr-12"
+    >
+      <ResponsiveDialogBody className="px-6 pb-4">{body}</ResponsiveDialogBody>
+      <ResponsiveDialogFooter className="px-6">{footer}</ResponsiveDialogFooter>
+    </ResponsiveDialog>
   )
 }
