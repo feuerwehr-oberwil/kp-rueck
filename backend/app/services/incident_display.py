@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from .address_display import format_location_for_display
-from .settings import get_setting_value
+from .settings import HOME_CITY, read
 
 
 async def get_home_city(db: AsyncSession) -> str:
-    return await get_setting_value(db, "home_city", "") or ""
+    return await read(db, HOME_CITY)
 
 
 def location_display(address: str | None, home_city: str) -> str | None:

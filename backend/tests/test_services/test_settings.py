@@ -4,12 +4,37 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Setting, User
+from app.services.gps_automation import _load_config
 from app.services.settings import (
+    PRINTER_PORT,
+    BoolSetting,
     get_all_settings,
     get_setting,
     initialize_default_settings,
+    read,
     update_setting,
 )
+
+
+class TestRegistry:
+    """Every reader goes through `read` with a declared setting (see the module docstring)."""
+
+    @pytest.mark.asyncio
+    async def test_an_undeclared_key_fails_instead_of_reading_its_default(self, db_session: AsyncSession):
+        with pytest.raises(KeyError, match="undeclared station setting"):
+            await read(db_session, BoolSetting("printer.enabeld", False))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stored", ["", "abc", "0", "70000", "nan"])
+    async def test_a_number_that_cannot_be_used_reads_as_the_default(self, db_session: AsyncSession, stored: str):
+        db_session.add(Setting(key=PRINTER_PORT.key, value=stored))
+        await db_session.commit()
+        assert await read(db_session, PRINTER_PORT) == 9100
+
+    @pytest.mark.asyncio
+    async def test_the_return_rule_is_on_without_a_row(self, db_session: AsyncSession):
+        """One default per key: the reader used to fall back to «off», the registry says «on»."""
+        assert (await _load_config(db_session)).rule_return_enabled is True
 
 
 class TestGetSetting:

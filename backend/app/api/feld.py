@@ -70,10 +70,10 @@ from ..services.board_cards import board_response
 from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.settings import (
-    FELD_DRIVER_MESSAGE_CHIPS_KEY,
-    FELD_MESSAGE_CHIPS_KEY,
-    get_setting_value,
-    parse_message_chips,
+    FELD_DRIVER_MESSAGE_CHIPS,
+    FELD_MESSAGE_CHIPS,
+    FIRESTATION_NAME,
+    read,
     without_structured_chips,
 )
 from ..services.tokens import (
@@ -275,7 +275,7 @@ async def get_feld_context(
     return schemas.FeldContextResponse(
         event_name=event.name,
         training_flag=event.training_flag,
-        station_name=await get_setting_value(db, "firestation_name", ""),
+        station_name=await read(db, FIRESTATION_NAME),
     )
 
 
@@ -550,10 +550,8 @@ async def get_feld_assignments(
     assignments = await crud.get_feld_assignments_for_personnel(db, claims.event_id, personnel_id)
     # «Material nötig» / «Verstärkung nötig» are structured buttons now (R13); a
     # station that still has them as chips would show each twice.
-    chips = without_structured_chips(parse_message_chips(await get_setting_value(db, FELD_MESSAGE_CHIPS_KEY)))
-    driver_chips = without_structured_chips(
-        parse_message_chips(await get_setting_value(db, FELD_DRIVER_MESSAGE_CHIPS_KEY))
-    )
+    chips = without_structured_chips(await read(db, FELD_MESSAGE_CHIPS))
+    driver_chips = without_structured_chips(await read(db, FELD_DRIVER_MESSAGE_CHIPS))
     request_materials = await crud.request_material_names(db)
     attendance = await crud.own_attendance(db, event.id, personnel_id)
     functions = await crud.functions_for_personnel(db, event.id, personnel_id)

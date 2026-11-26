@@ -77,11 +77,9 @@ async def require_printer_configured(db: AsyncSession) -> None:
     routes stay open on ``printer.enabled`` alone, so a queue that filled up before the
     address went missing can still be drained.
     """
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
+    if not await settings_service.read(db, settings_service.PRINTER_ENABLED):
         raise HTTPException(status_code=400, detail="Drucken ist ausgeschaltet")
-    ip = await settings_service.get_setting_value(db, "printer.ip", "")
-    if not ip.strip():
+    if not (await settings_service.read(db, settings_service.PRINTER_IP)).strip():
         raise HTTPException(
             status_code=400,
             detail="Keine Druckeradresse gesetzt (Einstellungen → Drucker → Adresse)",
@@ -149,14 +147,10 @@ async def get_printer_config(
     PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    ip = await settings_service.get_setting_value(db, "printer.ip", "")
-    port = await settings_service.get_setting_value(db, "printer.port", "9100")
-
     return schemas.PrinterConfigResponse(
-        enabled=enabled.lower() == "true",
-        ip=ip,
-        port=int(port),
+        enabled=await settings_service.read(db, settings_service.PRINTER_ENABLED),
+        ip=await settings_service.read(db, settings_service.PRINTER_IP),
+        port=await settings_service.read(db, settings_service.PRINTER_PORT),
     )
 
 
@@ -166,10 +160,10 @@ async def get_printer_status(
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PrinterStatusResponse:
     """Get printer status and configuration."""
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    ip = await settings_service.get_setting_value(db, "printer.ip", "")
-    port = await settings_service.get_setting_value(db, "printer.port", "9100")
-    auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
+    enabled = await settings_service.read(db, settings_service.PRINTER_ENABLED)
+    ip = await settings_service.read(db, settings_service.PRINTER_IP)
+    port = await settings_service.read(db, settings_service.PRINTER_PORT)
+    auto_anfahrt = await settings_service.read(db, settings_service.PRINTER_AUTO_ANFAHRT)
 
     # Count pending jobs
     pending_result = await db.execute(select(func.count(PrintJob.id)).where(PrintJob.status == "pending"))
@@ -189,10 +183,10 @@ async def get_printer_status(
     )
 
     return schemas.PrinterStatusResponse(
-        enabled=enabled.lower() == "true",
+        enabled=enabled,
         ip=ip,
-        port=int(port),
-        auto_anfahrt=auto_anfahrt.lower() == "true",
+        port=port,
+        auto_anfahrt=auto_anfahrt,
         pending_jobs=pending_count,
         last_job_at=last_job.completed_at if last_job else None,
         last_error=last_job.error_message if last_job and last_job.status == "failed" else None,

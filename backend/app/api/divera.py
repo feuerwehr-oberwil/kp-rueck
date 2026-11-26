@@ -559,10 +559,10 @@ async def execute_personnel_sync(
     return schemas.DiveraSyncResult(**result)
 
 
-# Outbound alarm (ausalarmierung). Defaults live in DEFAULT_SETTINGS so the
-# settings editor, the GET response and this fallback all agree.
-DEFAULT_ALARM_TITLE = settings_service.DEFAULT_SETTINGS["alerting.title_template"]
-DEFAULT_ALARM_TEXT = settings_service.DEFAULT_SETTINGS["alerting.text_template"]
+# Outbound alarm (ausalarmierung). The defaults are the registry's, so the settings
+# editor, the GET response and this fallback all agree.
+DEFAULT_ALARM_TITLE = settings_service.ALERTING_TITLE_TEMPLATE.default
+DEFAULT_ALARM_TEXT = settings_service.ALERTING_TEXT_TEMPLATE.default
 
 _TOKEN_RE = re.compile(r"\{(\w+)\}")
 
@@ -644,8 +644,7 @@ async def send_incident_alarm(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kein Alarmierungs-Provider konfiguriert",
         )
-    enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
-    if enabled.lower() != "true":
+    if not await settings_service.read(db, settings_service.ALERTING_ENABLED):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Ausalarmierung ist deaktiviert",
@@ -733,7 +732,7 @@ async def send_incident_alarm(
     title = (request_data.title or "").strip()
     if not title:
         title = _render_alarm_template(
-            await settings_service.get_setting_value(db, "alerting.title_template", DEFAULT_ALARM_TITLE),
+            await settings_service.read(db, settings_service.ALERTING_TITLE_TEMPLATE),
             incident,
         ).strip()
     if not title:
@@ -742,7 +741,7 @@ async def send_incident_alarm(
     text = (request_data.text or "").strip()
     if not text:
         text = _render_alarm_template(
-            await settings_service.get_setting_value(db, "alerting.text_template", DEFAULT_ALARM_TEXT),
+            await settings_service.read(db, settings_service.ALERTING_TEXT_TEMPLATE),
             incident,
         ).strip()
     if not text:
@@ -916,8 +915,7 @@ async def send_divera_message(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Kein Alarmierungs-Provider konfiguriert",
         )
-    enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
-    if enabled.lower() != "true":
+    if not await settings_service.read(db, settings_service.ALERTING_ENABLED):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Ausalarmierung ist deaktiviert",
@@ -1033,8 +1031,7 @@ async def send_test_alarm(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ErrorMessages.DIVERA_NOT_CONFIGURED,
         )
-    enabled = await settings_service.get_setting_value(db, "alerting.enabled", "false")
-    if enabled.lower() != "true":
+    if not await settings_service.read(db, settings_service.ALERTING_ENABLED):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Ausalarmierung ist deaktiviert",

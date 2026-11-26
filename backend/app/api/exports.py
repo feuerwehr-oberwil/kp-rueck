@@ -28,7 +28,7 @@ from ..services.excel_import_export import export_einsaetze_excel
 from ..services.lageblatt_service import build_lageblatt_pdf
 from ..services.pdf_report_service import build_event_report_pdf
 from ..services.photo_storage import ExportPhoto, photo_storage
-from ..services.settings import get_setting_value
+from ..services.settings import FIRESTATION_NAME, HOME_CITY, KOMMANDANT_NAME, read
 from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
@@ -212,9 +212,9 @@ async def export_event_report(
         # Gather data (async, DB-bound) then render the PDF off the event loop
         # (reportlab is synchronous and CPU-bound).
         data = await collect_event_report_data(db, event_id)
-        home_city = await get_setting_value(db, "home_city", "")
-        station_name = await get_setting_value(db, "firestation_name", "")
-        kommandant = await get_setting_value(db, "kommandant_name", "")
+        home_city = await read(db, HOME_CITY)
+        station_name = await read(db, FIRESTATION_NAME)
+        kommandant = await read(db, KOMMANDANT_NAME)
         logo = await get_report_logo(db)
         photos = await asyncio.to_thread(_collect_report_photos, data)
         pdf_bytes = await asyncio.to_thread(
@@ -290,8 +290,8 @@ async def export_event_lageblatt(
 
     try:
         data = await collect_event_report_data(db, event_id)
-        home_city = await get_setting_value(db, "home_city", "")
-        station_name = await get_setting_value(db, "firestation_name", "")
+        home_city = await read(db, HOME_CITY)
+        station_name = await read(db, FIRESTATION_NAME)
         logo = await get_report_logo(db)
         photos = await asyncio.to_thread(_collect_report_photos, data)
         pdf_bytes = await asyncio.to_thread(build_lageblatt_pdf, data, home_city, photos, logo, station_name)

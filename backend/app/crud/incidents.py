@@ -936,10 +936,9 @@ async def update_incident(
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 
-        printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-        auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
-
-        if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
+        if await settings_service.read(db, settings_service.PRINTER_ENABLED) and await settings_service.read(
+            db, settings_service.PRINTER_AUTO_ANFAHRT
+        ):
             try:
                 # Wakes the agent after the commit itself (`print_crud.enqueue`).
                 await print_crud.queue_assignment_print(db, incident_id)
@@ -1067,10 +1066,9 @@ async def update_incident_status(
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 
-        printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-        auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
-
-        if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
+        if await settings_service.read(db, settings_service.PRINTER_ENABLED) and await settings_service.read(
+            db, settings_service.PRINTER_AUTO_ANFAHRT
+        ):
             try:
                 # Wakes the agent after the commit itself (`print_crud.enqueue`).
                 await print_crud.queue_assignment_print(db, incident_id)

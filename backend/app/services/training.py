@@ -19,7 +19,6 @@ from app.models import (
     Material,
     Notification,
     Personnel,
-    Setting,
     TrainingLocation,
     User,
 )
@@ -34,6 +33,10 @@ from app.services.training_simulation_data import (
 )
 
 logger = logging.getLogger(__name__)
+
+# A random training alarm: nine in ten are normal scenarios, one in ten critical.
+CATEGORIES: list[Literal["normal", "critical"]] = ["normal", "critical"]
+CATEGORY_WEIGHTS = [90, 10]
 
 
 class TrainingGenerator:
@@ -123,7 +126,6 @@ class TrainingGenerator:
         self,
         event_id: UUID,
         category: Literal["normal", "critical"] | None = None,
-        settings: dict[str, str] | None = None,
         source: str = "operator",
     ) -> Incident:
         """
@@ -132,7 +134,6 @@ class TrainingGenerator:
         Args:
             event_id: Training event to add incident to
             category: Force specific category, or None for weighted random
-            settings: Auto-gen settings (weights, etc.)
             source: "operator" (normal) or "intake" (simulated phone/walk-in)
 
         Returns:
@@ -157,10 +158,7 @@ class TrainingGenerator:
 
         # Determine category (weighted random if not specified)
         if category is None:
-            normal_weight = int(settings.get("training_normal_weight", 90)) if settings else 90
-            critical_weight = int(settings.get("training_critical_weight", 10)) if settings else 10
-            pool: list[Literal["normal", "critical"]] = ["normal", "critical"]
-            category = random.choices(pool, weights=[normal_weight, critical_weight], k=1)[0]
+            category = random.choices(CATEGORIES, weights=CATEGORY_WEIGHTS, k=1)[0]
 
         # Filter templates by category
         templates = [t for t in self._cache_templates if t.category == category]
@@ -263,7 +261,6 @@ class TrainingGenerator:
         self,
         event_id: UUID,
         category: Literal["normal", "critical"] | None = None,
-        settings: dict[str, str] | None = None,
     ) -> DiveraEmergency:
         """Generate a simulated Divera alarm into the emergency pool.
 
@@ -285,10 +282,7 @@ class TrainingGenerator:
             raise ValueError("No training locations available. Please run seed_training.py first.")
 
         if category is None:
-            normal_weight = int(settings.get("training_normal_weight", 90)) if settings else 90
-            critical_weight = int(settings.get("training_critical_weight", 10)) if settings else 10
-            pool: list[Literal["normal", "critical"]] = ["normal", "critical"]
-            category = random.choices(pool, weights=[normal_weight, critical_weight], k=1)[0]
+            category = random.choices(CATEGORIES, weights=CATEGORY_WEIGHTS, k=1)[0]
 
         templates = [t for t in self._cache_templates if t.category == category]
         if not templates:
@@ -410,16 +404,11 @@ async def generate_training_emergency(
     Returns:
         List of created incidents
     """
-    # Load settings
-    settings_result = await db.execute(select(Setting))
-    settings_rows = settings_result.scalars().all()
-    settings = {s.key: s.value for s in settings_rows}
-
     generator = TrainingGenerator(db)
     incidents = []
 
     for _ in range(count):
-        incident = await generator.generate_emergency(event_id, category, settings, source=source)
+        incident = await generator.generate_emergency(event_id, category, source=source)
         incidents.append(incident)
 
     return incidents
