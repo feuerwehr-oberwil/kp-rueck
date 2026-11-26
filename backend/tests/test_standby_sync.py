@@ -259,10 +259,16 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
     ]
     assert plan.conflicts == 0
 
-    # Copies both already hold stay: a delete on one side could meet a dismissal on the other.
-    both = {key(box): box, key(phone): phone}
+    # Copies both already hold (left from before this rule) are closed on both, never deleted: a
+    # delete on one side could meet a dismissal on the other. The lower id stays open.
+    both = {key(box): box, key(phone): phone, key(answered): answered}
     again = merge(both, both, both, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
-    assert again.to_leader == again.to_follower == []
+    stays, extra = sorted((box, phone), key=lambda r: r["id"])
+    closed = {**extra, "dismissed": True, "dismissed_at": NOW, "dismissed_by": None}
+    assert again.merged[key(stays)] == stays and again.merged[key(extra)] == closed
+    assert again.to_leader == [Op("notifications", extra["id"], closed, extra)]
+    assert again.to_follower == [Op("notifications", extra["id"], closed, extra)]
+    assert again.conflicts == 0
 
     # A round that copied the phone's question up but died before the shadow: the retry keeps
     # the copy both hold, even against a leader's copy with the lower id.
@@ -475,6 +481,34 @@ async def test_a_round_carries_the_box_work_up_and_the_hosted_boards_new_rows_do
     # Nothing left to do: a second round writes nothing.
     again = await sync_event(box, hosted, _push(hosted), event_id)
     assert (again.written_here, again.written_there) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_a_gps_question_both_sides_hold_twice_is_closed_once_on_both(mirrored):
+    box, hosted, event_id, incident_id = mirrored
+    first, second = sorted((uuid.uuid4(), uuid.uuid4()))
+    for conn in (box, hosted):
+        for notification_id in (first, second):
+            await conn.execute(
+                "INSERT INTO notifications (id, type, severity, message, params, incident_id, event_id, created_at, "
+                "dismissed) VALUES ($1, 'gps_arrival', 'info', 'Ist TLF angekommen?', "
+                """'{"key": "arrival:7"}', $2, $3, '2026-11-09T19:30:00+00:00', false)""",
+                notification_id,
+                incident_id,
+                event_id,
+            )
+
+    await sync_event(box, hosted, _push(hosted), event_id)
+
+    for conn in (box, hosted):
+        rows = await conn.fetch("SELECT id, dismissed, dismissed_at, dismissed_by FROM notifications ORDER BY id")
+        assert [(r["id"], r["dismissed"], r["dismissed_by"]) for r in rows] == [
+            (first, False, None),
+            (second, True, None),
+        ]
+        assert rows[1]["dismissed_at"] is not None
+    again = await sync_event(box, hosted, _push(hosted), event_id)
+    assert (again.written_here, again.written_there, again.pending) == (0, 0, 0)
 
 
 @pytest.mark.asyncio

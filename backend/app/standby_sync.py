@@ -422,7 +422,7 @@ def merge(
 
     _renumber(plan, base, lead, other, event_id=event_id, now=now)
     _settle_slots(plan, lead, other, conflict)
-    _ask_gps_once(plan, base, lead, other)
+    _ask_gps_once(plan, base, lead, other, now=now)
     return plan
 
 
@@ -581,16 +581,21 @@ def _slot_losers(plan: Plan, lead: Rows, table: str, slot: Callable[[Row], Any])
 GPS_TODOS = frozenset({"gps_arrival", "gps_release"})
 
 
-def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
+def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows, *, now: str) -> None:
     """One GPS question both systems raised in the seconds before their lead rows agreed.
 
     Each system keeps one open row per Ereignis, type and `params.key` (`create_gps_todo`), but
-    sees only its own, so both may ask. A copy that both systems hold, or that is agreed (in the
-    shadow), is never deleted – one side's delete and the other's dismissal would make the next
-    round take the deletion – so it is the one that stays; else the leader's, else the lower id.
-    Every other copy is held by one side alone and is deleted there: its delete carries the row
-    it expects, so a copy answered (dismissed) meanwhile is `changed`, and the next round finds
-    it dismissed and keeps it. Only open rows count.
+    sees only its own, so both may ask. The copy that stays: one both systems hold or that is
+    agreed (in the shadow), else the leader's; the lower id among equals.
+
+    - A copy held by one side alone is deleted there.
+    - A copy both hold is closed on both instead, like the bell's own auto-resolve (`dismissed`,
+      no `dismissed_by`). Deleted on one side while somebody dismissed it on the other, the next
+      round would take the deletion. Copies like this are left from before this rule existed.
+
+    Every op carries the row it expects, so a copy dismissed meanwhile is `changed`, and the next
+    round finds it dismissed and leaves it. At worst its two dismissal times clash. Only open
+    rows count; a dismissed one is never touched.
     """
 
     def shared(key: Key) -> bool:
@@ -611,8 +616,9 @@ def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
     )
     for key, row in rows:
         question = (row.get("event_id"), row["type"], row["params"]["key"])
-        if question in asked and not shared(key):
-            _replace(plan, lead, other, key, None)
+        if question in asked:
+            closed = {**row, "dismissed": True, "dismissed_at": now, "dismissed_by": None}
+            _replace(plan, lead, other, key, closed if shared(key) else None)
         asked.add(question)
 
 
