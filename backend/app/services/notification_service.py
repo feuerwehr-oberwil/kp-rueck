@@ -111,7 +111,10 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # so switching those off resolves it like the others.
     await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
     # That committed, and the gate and the lead lock went with it: take them again for the writes below.
+    # A delete that queued for the gate may have run in between: the alerts above name its rows.
     await enter_ereignis_gate(db, event_id)
+    if await db.scalar(select(Event.id).where(Event.id == event_id)) is None:
+        return []
     if not await _may_write(db, event_id):
         return await _stored_notifications(db, event_id)
 
@@ -915,10 +918,18 @@ async def dismiss_notification(
     compared: a poll rewriting the row (``_sync_fatigue_locked``) holds it, so the dismissal waits
     and compares the rewritten row. A mismatch raises ``DomainError`` (409 ``notification_changed``)
     and changes nothing – the operator must not acknowledge somebody they were not shown. The
-    field requests the row announces are locked first, as «Erledigt» locks them.
+    Ereignis delete gate comes first (its cascade reaches the row and its requests), then the
+    field requests the row announces, as «Erledigt» locks them, then the row.
     """
     from ..crud.feld.requests import lock_requests_of_notification, mark_seen_by_notification
 
+    event_id = await db.scalar(
+        select(func.coalesce(Notification.event_id, Incident.event_id))
+        .outerjoin(Incident, Incident.id == Notification.incident_id)
+        .where(Notification.id == notification_id)
+    )
+    if event_id is not None:
+        await enter_ereignis_gate(db, event_id)
     await lock_requests_of_notification(db, notification_id)
     result = await db.execute(
         select(Notification)

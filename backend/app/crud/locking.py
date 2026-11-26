@@ -297,13 +297,15 @@ async def lock_personnel_for_delete(db: AsyncSession, personnel_id: uuid.UUID) -
     raise RuntimeError("references to the person kept changing while locking; giving up")
 
 
-async def enter_ereignis_gate(db: AsyncSession, event_id: uuid.UUID) -> None:
-    """The shared side of the Ereignis delete gate (``ereignis_gate``), held to the commit.
+async def enter_ereignis_gate(db: AsyncSession, event_id: uuid.UUID, *, exclusive: bool = False) -> None:
+    """The Ereignis delete gate (``ereignis_gate``), held to the commit; never while holding a row lock.
 
-    The first lock of a transaction that may lock the Ereignis row before its cards – each write
-    phase of the bell poll. Never call it while holding a row lock.
+    Shared: the first lock of a transaction that may lock the Ereignis row (or a row its delete
+    cascades to) before a card – each write phase of the bell poll, a bell dismissal.
+    ``exclusive``: the Ereignis delete, before it checks anything it relies on.
     """
-    await db.execute(text("SELECT pg_advisory_xact_lock_shared(hashtext(:key))"), {"key": gate_key(event_id)})
+    fn = "pg_advisory_xact_lock" if exclusive else "pg_advisory_xact_lock_shared"
+    await db.execute(text(f"SELECT {fn}(hashtext(:key))"), {"key": gate_key(event_id)})
 
 
 async def lock_event_for_delete(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
@@ -333,7 +335,7 @@ async def lock_event_for_delete(db: AsyncSession, event_id: uuid.UUID) -> Event 
             set((await db.scalars(cards)).all()),
         )
 
-    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": gate_key(event_id)})
+    await enter_ereignis_gate(db, event_id, exclusive=True)
     for _ in range(_MAX_MEMBERSHIP_ATTEMPTS):
         seen_alarms, seen_groups, seen_cards = seen = await reached()
         savepoint = await db.begin_nested()

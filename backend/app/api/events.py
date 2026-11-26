@@ -13,6 +13,7 @@ from ..auth.dependencies import CurrentAdmin, CurrentEditor, CurrentUser
 from ..crud import events as crud
 from ..crud import feld as feld_crud
 from ..crud import personnel_checkin as checkin_crud
+from ..crud.locking import enter_ereignis_gate
 from ..database import get_db
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import EventLead
@@ -299,6 +300,8 @@ async def delete_event(
     standby box leads it (docs/STANDBY.md): the box keeps working on it and would sync into an
     Ereignis that no longer exists. Archiving stays allowed – it removes nothing from the sync.
     """
+    # The gate first: a sync batch that writes a takeover holds it, so the lead read below is current.
+    await enter_ereignis_gate(db, event_id, exclusive=True)
     if deployment_role() != ROLE_STANDBY:
         holder = await db.scalar(select(EventLead.holder).where(EventLead.event_id == event_id))
         if holder == "standby":
