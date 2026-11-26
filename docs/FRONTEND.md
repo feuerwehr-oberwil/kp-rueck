@@ -172,6 +172,14 @@ change. Read the section you touch. The visual rules and their reasons are
   line, move it to its own line instead of ending it in «…».
 - **Resource conflicts**: UI warns when assigning already-assigned personnel/vehicles/materials
 
+## Comments
+
+- **A comment says what the code does and why.** History goes in the commit message: what the
+  code used to do, «no longer», «previously», which hill-climb round changed it. `git log -L`
+  finds it there, and it cannot go out of date.
+- **Trim history as you go, not as a sweep.** When you edit a file for another reason, rewrite
+  the history comments in the code you touch so they say the current behaviour.
+
 ## Patterns
 
 - **Loading states – one signal, always with words.** A full-screen start (auth probe, Microsoft

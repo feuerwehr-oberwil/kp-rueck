@@ -269,8 +269,7 @@ describe("OperationDetailContent", () => {
     )
 
     // «Ressourcen übertragen» is a native button at the foot of the Ressourcen
-    // block in the Übersicht — it acts on the resources listed right above it,
-    // so it no longer hides in the ⋯ menu.
+    // block in the Übersicht — it acts on the resources listed right above it.
     await user.click(screen.getByRole("button", { name: "Ressourcen übertragen" }))
     expect(onTransferResources).toHaveBeenCalledWith("incident-1")
   })
@@ -886,7 +885,7 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
   }
 
   /** A stop of `auftrag` that still holds the crew and material it was given
-   *  BEFORE it was grouped — the case that used to render as nothing. */
+   *  BEFORE it was grouped. */
   const groupedOperation = makeOperation({
     ...operation,
     groupId: "g1",
