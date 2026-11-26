@@ -21,14 +21,16 @@
  */
 
 import { formatDateTime } from '@/lib/format-time'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { CarTaxiFront, ChevronDown, ChevronRight, FileWarning, Package, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { PickupBadge } from '@/components/kanban/pickup-badge'
-import { apiClient, type ApiEventRestliste, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
+import { apiClient, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
+import { queryKeys } from '@/lib/query/keys'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getIncidentRefLabel } from '@/lib/incident-types'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -68,24 +70,14 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
 
-  const [data, setData] = useState<ApiEventRestliste | null>(null)
+  // Silent on failure: the Restliste is an extra on a card that has to render regardless. An
+  // event list that fails to load because one roll-up query did is worse than a missing badge.
+  const queryClient = useQueryClient()
+  const restlisteKey = queryKeys.eventRestliste.of(eventId)
+  const restliste = useQuery({ queryKey: restlisteKey, queryFn: () => apiClient.getEventRestliste(eventId) })
+  const data = restliste.data ?? null
   const [open, setOpen] = useState<Section | null>(null)
   const [printing, setPrinting] = useState(false)
-
-  const reload = useCallback(async () => {
-    try {
-      setData(await apiClient.getEventRestliste(eventId))
-    } catch (error) {
-      // Silent: the Restliste is an extra on a card that has to render
-      // regardless. An event list that fails to load because one roll-up
-      // query did is worse than a missing badge.
-      console.error('Failed to load Restliste:', error)
-    }
-  }, [eventId])
-
-  useEffect(() => {
-    void reload()
-  }, [reload])
 
   const handlePrintAbholliste = useCallback(async () => {
     setPrinting(true)
@@ -229,7 +221,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                     requestedAt={row.since ? new Date(row.since) : null}
                     variant="compact"
                     incidentId={row.incident_id}
-                    onCleared={reload}
+                    onCleared={() => queryClient.invalidateQueries({ queryKey: restlisteKey })}
                     canEdit={canEdit}
                     className="shrink-0"
                   />

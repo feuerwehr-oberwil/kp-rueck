@@ -36,6 +36,26 @@ change. Read the section you touch. The visual rules and their reasons are
     (`lib/websocket-client.ts`, the backend's `WsEvent`). In-tab window events:
     `emitAppEvent` / `onAppEvent` (`lib/app-events.ts`). Board drags: `lib/board-drag.ts`.
 - **State Management**: React Context for global state (`lib/contexts/`, the board in `operations-context.tsx`)
+
+## Server reads
+
+A read from the server (other than the board snapshot) is a TanStack Query `useQuery`
+(`lib/query/`, provider in the root layout). Move a hand-rolled read (state + loading + failed +
+reset + poll + socket refetch) over when you touch its file; `kp/no-effect-read` counts the rest.
+
+- **Key** from `lib/query/keys.ts`, scoped to what it reads (`queryKeys.x.of(incidentId)`). The
+  key is the stale guard: a late answer for the previous Einsatz lands in its own entry.
+  No id yet → `queryFn: skipToken`.
+- **Socket**: add a line to `ROUTES` in `lib/query/socket-bridge.ts` (event → kinds, optionally
+  only the ids the payload names). It also refetches those reads once when the socket comes back.
+- **Poll**: spread `usePollOptions(ms, { pauseWhenHidden, skipWhileWsConnected })` – the same
+  rules as `usePolling`; walls pass `pauseWhenHidden: false`.
+- **Offline**: no retries and no `navigator.onLine` gate (`lib/query/client.ts`) – the transport
+  retries and reports the outage (`NetworkError`). A failed refetch keeps the last `data`;
+  `isError` is «the last try failed».
+- **Tests**: `renderWithIntl` brings a fresh cache; a bare `renderHook` takes
+  `{ wrapper: queryWrapper() }` (`test-utils/query-wrapper.tsx`).
+- The board snapshot (`lib/contexts/operations/`) keeps its own sync; it is not a query.
 - **UI Components**: shadcn/ui components in `components/ui/`
 
 ## Phone layout

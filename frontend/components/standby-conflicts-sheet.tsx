@@ -1,7 +1,8 @@
 'use client'
 
 import { formatTime } from '@/lib/format-time'
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
@@ -11,7 +12,8 @@ import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTit
 import { LoadingStatus, ShellLoader } from '@/components/ui/shell-loader'
 import { Textarea } from '@/components/ui/textarea'
 import { apiClient } from '@/lib/api-client'
-import type { ApiStandbyConflict, ApiStandbyConflicts } from '@/lib/api/types'
+import type { ApiStandbyConflict } from '@/lib/api/types'
+import { queryKeys } from '@/lib/query/keys'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useStandby } from '@/lib/contexts/standby-context'
 import { getOperationStatusLabel } from '@/lib/status-labels'
@@ -48,23 +50,14 @@ export function StandbyConflictsSheet({
   const t = useTranslations('standby.conflicts')
   const standby = useStandby()
   const { isEditor } = useAuth()
-  const [data, setData] = useState<ApiStandbyConflicts | null>(null)
-  const [failed, setFailed] = useState(false)
-
-  const load = useCallback(async () => {
-    try {
-      const result = await apiClient.getStandbyConflicts(eventId)
-      if (!result) throw new Error('no answer') // the GET gave up after its retries
-      setData(result)
-      setFailed(false)
-    } catch {
-      setFailed(true)
-    }
-  }, [eventId])
-
-  useEffect(() => {
-    if (open) void load()
-  }, [open, load])
+  // Read each time the sheet opens.
+  const conflicts = useQuery({
+    queryKey: queryKeys.standbyConflicts.of(eventId),
+    queryFn: () => apiClient.getStandbyConflicts(eventId),
+    enabled: open,
+  })
+  const data = conflicts.data ?? null
+  const failed = conflicts.isError
 
   const here: Side = standby.mirror ? 'standby' : 'hosted'
   const openOnes = data?.conflicts.filter((c) => !c.resolved_at) ?? []
@@ -93,7 +86,7 @@ export function StandbyConflictsSheet({
               leader={leader}
               decidable={(data?.decidable ?? false) && isEditor}
               onDone={async () => {
-                await load()
+                await conflicts.refetch()
                 await standby.refresh()
               }}
             />

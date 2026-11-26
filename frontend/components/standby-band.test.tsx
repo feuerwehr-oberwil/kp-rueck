@@ -27,7 +27,6 @@ vi.mock('@/lib/websocket-client', () => ({
 import { StandbyBand } from '@/components/standby-band'
 import { AuthContext, type AuthContextType, useAuth } from '@/lib/contexts/auth-context'
 import { StandbyProvider } from '@/lib/contexts/standby-context'
-import { resetDeploymentCache } from '@/lib/hooks/use-deployment'
 
 function authAs(role: 'editor' | 'viewer'): AuthContextType {
   return {
@@ -76,7 +75,6 @@ function lead(holder: 'standby' | 'hosted', over: Record<string, unknown> = {}) 
 const HOSTED = { role: 'production', label: null, blocked_domains: [] }
 
 beforeEach(() => {
-  resetDeploymentCache()
   mocks.getDeployment.mockReset().mockResolvedValue({ role: 'standby', label: 'Standby – Spiegel', blocked_domains: ['alerting'] })
   mocks.getStandby.mockReset().mockResolvedValue(MIRROR)
   mocks.takeOverEvent.mockReset()

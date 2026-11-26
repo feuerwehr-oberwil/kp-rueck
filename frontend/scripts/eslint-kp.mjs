@@ -10,6 +10,10 @@ import { readFileSync } from "node:fs";
 
 const EFFECTS = new Set(["useEffect", "useLayoutEffect"]);
 const TIMERS = new Set(["setTimeout", "setInterval", "requestAnimationFrame", "requestIdleCallback"]);
+/** the hooks whose callback a hand-rolled server read sits in */
+const READ_HOOKS = new Set(["useEffect", "useLayoutEffect", "useCallback", "usePolling"]);
+/** an `apiClient` method that reads */
+const READ_METHOD = /^(get|list|fetch)[A-Z]/;
 /** `window.setTimeout(…)`: the globals a timer is reached through (React namespaces come from imports) */
 const GLOBALS = new Set(["window", "globalThis", "self"]);
 /** attributes and props that a user reads or a screen reader speaks */
@@ -103,6 +107,33 @@ export default {
       "{{name}} in product code: fix the ordering it waits for, or use a helper from lib/.",
       { react: false },
     ),
+
+    // A server read is a query (lib/query, docs/FRONTEND.md › «Server reads»): the cache keys it
+    // by what it reads, so a late answer never lands on another Einsatz, and the socket bridge
+    // refreshes it. A read in an effect, a useCallback or a usePolling callback rebuilds that by
+    // hand. Reports `apiClient.get…/list…/fetch…(…)` inside such a callback.
+    "no-effect-read": {
+      meta: {
+        type: "suggestion",
+        schema: [],
+        messages: { read: "apiClient.{{name}} in a {{hook}} callback: read it with useQuery (lib/query, docs/FRONTEND.md › «Server reads»)." },
+      },
+      create: (context) => ({
+        CallExpression(node) {
+          const c = node.callee;
+          if (c.type !== "MemberExpression" || c.computed || c.object.type !== "Identifier" || c.object.name !== "apiClient") return;
+          if (c.property.type !== "Identifier" || !READ_METHOD.test(c.property.name)) return;
+          for (const fn of context.sourceCode.getAncestors(node)) {
+            const call = fn.parent;
+            if (!/Function/.test(fn.type) || call?.type !== "CallExpression" || !call.arguments.includes(fn)) continue;
+            const hook = call.callee.type === "Identifier" ? call.callee.name : call.callee.type === "MemberExpression" ? call.callee.property.name : undefined;
+            if (!READ_HOOKS.has(hook)) continue;
+            context.report({ node: c, messageId: "read", data: { name: c.property.name, hook } });
+            return;
+          }
+        },
+      }),
+    },
 
     // Words on a screen come from the catalogue: messages/de.json through useTranslations, with
     // fr/it as overlays (docs/FRONTEND.md › i18n). Text written into JSX is never translated.

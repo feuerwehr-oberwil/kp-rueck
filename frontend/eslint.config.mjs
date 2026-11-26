@@ -137,6 +137,12 @@ export default [
     ignores: TESTS,
     rules: { "kp/no-raw-effect": "warn", "kp/no-raw-timer": "warn" },
   },
+  // Server reads are queries (lib/query); the board store in lib/contexts keeps its own sync.
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/hooks/**/*.{ts,tsx}"],
+    ignores: TESTS,
+    rules: { "kp/no-effect-read": "warn" },
+  },
   {
     files: ["app/**/*.tsx", "components/**/*.tsx", "lib/**/*.tsx"],
     ignores: TESTS,

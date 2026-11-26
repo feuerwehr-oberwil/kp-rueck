@@ -38,6 +38,21 @@ tester.run("no-raw-timer", kp.rules["no-raw-timer"], {
   ],
 });
 
+tester.run("no-effect-read", kp.rules["no-effect-read"], {
+  valid: [
+    "useQuery({ queryKey: k, queryFn: () => apiClient.getThing(id) })",
+    "useEffect(() => { void apiClient.updateThing(id) }, [id])",
+    "const onClick = () => apiClient.getThing(id)",
+    "useEffect(() => { other.getThing(id) }, [])",
+  ],
+  invalid: [
+    { code: "useEffect(() => { apiClient.getThing(id).then(set) }, [id])", errors: 1 },
+    { code: "const load = useCallback(async () => set(await apiClient.listThings()), [])", errors: 1 },
+    { code: "React.useEffect(() => { const load = async () => { await apiClient.fetchThing() }; load() }, [])", errors: 1 },
+    { code: "usePolling(async () => { await apiClient.getThing(id) }, { intervalMs: 5 })", errors: 1 },
+  ],
+});
+
 tester.run("no-literal-copy", kp.rules["no-literal-copy"], {
   valid: [
     "<b>{t('title')}</b>",

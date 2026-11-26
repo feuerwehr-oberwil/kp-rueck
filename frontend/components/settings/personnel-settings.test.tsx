@@ -80,7 +80,6 @@ const phone = vi.hoisted(() => ({ current: false }));
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => phone.current }));
 
 import { PersonnelSettings } from "@/components/settings/personnel-settings";
-import { resetIntegrationsCache } from "@/lib/hooks/use-integrations";
 
 beforeEach(() => {
   phone.current = false;
@@ -92,7 +91,6 @@ beforeEach(() => {
   toastSuccess.mockReset();
   // The registry answer is cached per module, not per test – clear it so one test's
   // "not configured" cannot decide the next test's sync button.
-  resetIntegrationsCache();
   getIntegrations.mockReset().mockResolvedValue(integrationsWithPersonnel(true));
 });
 

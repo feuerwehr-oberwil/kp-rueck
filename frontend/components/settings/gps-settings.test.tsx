@@ -11,7 +11,6 @@ vi.mock("@/lib/api-client", () => ({
 }));
 
 import { GpsSettingsCard } from "@/components/settings/gps-settings";
-import { resetIntegrationsCache } from "@/lib/hooks/use-integrations";
 
 const capability = (configured: boolean) => ({
   alarms: { provider: null, display_name: null, configured: false, capabilities: [] },
@@ -27,7 +26,6 @@ const capability = (configured: boolean) => ({
 });
 
 beforeEach(() => {
-  resetIntegrationsCache();
   // Default for the older specs below: the registry never answers, which means
   // "we don't know yet" and must lock nothing.
   getIntegrations.mockReset().mockRejectedValue(new Error("offline"));

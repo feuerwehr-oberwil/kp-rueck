@@ -9,17 +9,21 @@
  * surfaces that record, so the question asked weeks later — "who was at the
  * Kellerbrand" — has an answer on the incident itself.
  *
- * Always expanded, and loaded when it mounts. It lives in the Verlauf tab,
- * which is itself the "show me the history" click — a second toggle inside it
- * was one more thing to find at 02:00 for no information gained. The tab does
- * not mount until it is in front, so a board click still pays nothing.
+ * Always expanded, and read on every mount and every Einsatz switch: the tab
+ * can sit open on a running incident for an hour, and a crew list that quietly
+ * stopped updating is worse than one that takes a moment to appear. It lives in
+ * the Verlauf tab, which is itself the "show me the history" click — a second
+ * toggle inside it was one more thing to find at 02:00 for no information
+ * gained. The tab does not mount until it is in front, so a board click still
+ * pays nothing.
  */
 
-import { useCallback, useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
 import { History, Package, Search, Truck, User } from "lucide-react"
 
 import { apiClient, type ApiIncidentParticipant } from "@/lib/api-client"
+import { queryKeys } from "@/lib/query/keys"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { formatClockTime } from "@/lib/incident-time"
 import { LeaderBadge } from "@/components/kanban/leader-badge"
@@ -43,34 +47,16 @@ export function IncidentParticipants({
   className?: string
 }) {
   const t = useTranslations("kanban.participants")
-  const [participants, setParticipants] = useState<ApiIncidentParticipant[] | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [failed, setFailed] = useState(false)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setFailed(false)
-    try {
-      const response = await apiClient.getIncidentParticipants(incidentId)
-      setParticipants(response.participants)
-    } catch {
-      // Non-fatal: this is a history panel, not the board. Show a retry rather
-      // than a toast — nothing the operator was doing has failed.
-      setFailed(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [incidentId])
-
-  // Refetch when the incident changes under a panel that stays mounted, and on
-  // every mount: the tab can sit open on a running incident for an hour, and a
-  // crew list that quietly stopped updating is worse than one that takes a
-  // moment to appear. (`load` changes exactly when `incidentId` does.)
-  useEffect(() => {
-    setParticipants(null)
-    setFailed(false)
-    void load()
-  }, [load])
+  // Keyed by the incident: a late answer for the previous Einsatz lands in its own entry.
+  // A failure is non-fatal – this is a history panel, not the board: a retry, no toast.
+  const query = useQuery({
+    queryKey: queryKeys.incidentParticipants.of(incidentId),
+    queryFn: () => apiClient.getIncidentParticipants(incidentId),
+    select: (response) => response.participants,
+  })
+  const participants = query.data ?? null
+  const loading = query.isFetching && !participants
+  const failed = query.isError && !query.isFetching
 
   // No card and no hairline under the heading («Nur Abstand») — the heading
   // names the block, whitespace does the separating, same as the timeline
@@ -91,7 +77,7 @@ export function IncidentParticipants({
           )}
 
           {failed && (
-            <button type="button" onClick={() => void load()} className="py-2 text-xs text-muted-foreground underline">
+            <button type="button" onClick={() => void query.refetch()} className="py-2 text-xs text-muted-foreground underline">
               {t("retry")}
             </button>
           )}

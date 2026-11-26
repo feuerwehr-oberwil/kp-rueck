@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
-import type { ApiIntegrations, ApiProviderCapability } from '@/lib/api/types'
+import type { ApiProviderCapability } from '@/lib/api/types'
+import { queryKeys } from '@/lib/query/keys'
 
 /**
  * Welcher Anbieter für einen Bereich eingerichtet ist – aus der Fähigkeiten-Registratur
@@ -20,42 +21,13 @@ import type { ApiIntegrations, ApiProviderCapability } from '@/lib/api/types'
  */
 export type IntegrationDomain = 'alarms' | 'alerting' | 'personnel' | 'vehicles'
 
-let cached: ApiIntegrations | null = null
-let inflight: Promise<ApiIntegrations> | null = null
-
-/** Test-Naht: den Modul-Zwischenspeicher leeren. */
-export function resetIntegrationsCache() {
-  cached = null
-  inflight = null
-}
-
 export function useIntegrationCapability(domain: IntegrationDomain): ApiProviderCapability | null {
-  const [capability, setCapability] = useState<ApiProviderCapability | null>(
-    cached ? cached[domain] : null,
-  )
-
-  useEffect(() => {
-    if (cached) {
-      setCapability(cached[domain])
-      return
-    }
-    let cancelled = false
-    const request = (inflight ??= apiClient.getIntegrations())
-    request
-      .then((result) => {
-        cached = result
-        if (!cancelled) setCapability(result[domain])
-      })
-      .catch(() => {
-        // Keine Antwort heisst «unbekannt», nicht «nicht eingerichtet» – siehe oben.
-      })
-      .finally(() => {
-        inflight = null
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [domain])
-
-  return capability
+  // Keine Antwort heisst «unbekannt», nicht «nicht eingerichtet» – siehe oben.
+  const query = useQuery({
+    queryKey: queryKeys.integrations,
+    queryFn: () => apiClient.getIntegrations(),
+    staleTime: Infinity,
+    select: (integrations) => integrations[domain],
+  })
+  return query.data ?? null
 }

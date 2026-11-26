@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import type { ApiDeployment } from '@/lib/api/types'
+import { queryKeys } from '@/lib/query/keys'
 
 /**
  * What this deployment is allowed to do to the outside world, learned from the backend
@@ -25,41 +26,14 @@ export const PRODUCTION_DEPLOYMENT: ApiDeployment = {
   blocked_domains: [],
 }
 
-let cached: ApiDeployment | null = null
-let inflight: Promise<ApiDeployment | null> | null = null
-
-/** Test seam: drop the module-level cache. */
-export function resetDeploymentCache() {
-  cached = null
-  inflight = null
-}
-
 export function useDeployment(): ApiDeployment {
-  const [deployment, setDeployment] = useState<ApiDeployment>(cached ?? PRODUCTION_DEPLOYMENT)
-
-  useEffect(() => {
-    if (cached) {
-      setDeployment(cached)
-      return
-    }
-    let cancelled = false
-    const request = (inflight ??= apiClient.getDeployment())
-    request
-      .then((result) => {
-        if (!result) return
-        cached = result
-        if (!cancelled) setDeployment(result)
-      })
-      .catch(() => {})
-      .finally(() => {
-        inflight = null
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return deployment
+  const query = useQuery({
+    queryKey: queryKeys.deployment,
+    queryFn: () => apiClient.getDeployment(),
+    // An answer holds for the page's life; «no answer» (null) is asked again on the next mount.
+    staleTime: (q) => (q.state.data ? Infinity : 0),
+  })
+  return query.data ?? PRODUCTION_DEPLOYMENT
 }
 
 /**
