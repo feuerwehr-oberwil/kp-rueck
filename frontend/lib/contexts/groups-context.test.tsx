@@ -497,4 +497,18 @@ describe("what the routes mean for the board", () => {
     // A card off every route keeps its identity, so its memo gate stays shut.
     expect(card("c")).toBe(untouched)
   })
+
+  it("keeps the card list when a route change leaves every card as it was", async () => {
+    api.getIncidentsWithTotal.mockResolvedValue({ incidents: [apiIncident("a")], total: 1 })
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
+    const { result } = await renderLoaded()
+    const before = result.current.board.operations
+
+    api.updateIncidentGroup.mockResolvedValue(apiGroup({ name: "Umbenannt" }))
+    await act(async () => {
+      await result.current.updateGroup(GROUP_ID, { name: "Umbenannt" })
+    })
+    expect(result.current.groups[0].name).toBe("Umbenannt")
+    expect(result.current.board.operations).toBe(before)
+  })
 })

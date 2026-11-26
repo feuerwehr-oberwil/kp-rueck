@@ -366,11 +366,16 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   )
   // Every surface reads a stop's route resources off the card (`Operation.auftragResources`),
   // filled here and only here – the actions write the stored cards, this pass adds the routes.
+  // A route or roster change that leaves every card as it was keeps the list too, so the
+  // consumers keyed on `operations` do not rerun for nothing.
   const projectedCards = useRef(new WeakMap<Operation, Operation>())
-  const operationsOnBoard = useMemo(
-    () => withAuftragResources(operations, groups, auftragState.resourcesByGroup, projectedCards.current),
-    [operations, groups, auftragState],
-  )
+  const lastOperationsOnBoard = useRef<Operation[]>([])
+  const operationsOnBoard = useMemo(() => {
+    const next = withAuftragResources(operations, groups, auftragState.resourcesByGroup, projectedCards.current)
+    const last = lastOperationsOnBoard.current
+    if (next.length !== last.length || next.some((card, i) => card !== last[i])) lastOperationsOnBoard.current = next
+    return lastOperationsOnBoard.current
+  }, [operations, groups, auftragState])
 
   // Prefer the server-computed labels (location_display) so first paint shows
   // the final string; the client formatter only covers addresses the server
