@@ -22,7 +22,7 @@ from ..crud import external_identities as identities_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
-from ..crud.locking import lock_incident
+from ..crud.locking import lock_incident, lock_merge_target
 from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import alerting, divera_responses, duplicates, incident_display
@@ -313,10 +313,11 @@ async def attach_emergency_to_event(
 
     # «Zusammenführen» answered in the attach dialog: the target must be an open
     # card of the event the alarm is being attached to. Locked, because the merge
-    # appends to its «Notizen» (see crud/locking.py::lock_incident).
+    # appends to its «Notizen» (see crud/locking.py::lock_incident), after the
+    # numbering lock its card's INSERT takes (lock_merge_target).
     merge_target: models.Incident | None = None
     if request_data.merge_into_incident_id is not None:
-        merge_target = await lock_incident(db, request_data.merge_into_incident_id)
+        merge_target = await lock_merge_target(db, request_data.event_id, request_data.merge_into_incident_id)
         if (
             merge_target is None
             or merge_target.deleted_at is not None

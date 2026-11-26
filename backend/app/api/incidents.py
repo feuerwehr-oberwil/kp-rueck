@@ -34,7 +34,7 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
-from ..crud.locking import lock_incident, lock_incident_with_group, lock_pair
+from ..crud.locking import lock_incident, lock_incident_with_group, lock_merge_target, lock_pair
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display, incident_history
@@ -393,7 +393,7 @@ async def merge_new_report(
     the target's Verlauf.
     """
     await enforce_demo_cap(db, payload.incident.event_id)
-    target = await lock_incident(db, payload.target_id)
+    target = await lock_merge_target(db, payload.incident.event_id, payload.target_id)
     if target is None or target.deleted_at is not None or target.event_id != payload.incident.event_id:
         raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     try:

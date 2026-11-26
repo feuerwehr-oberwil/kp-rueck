@@ -62,7 +62,7 @@ from ...services.duplicates import merge_report
 from ...services.notification_service import create_field_notification
 from ..assignments import ResourceNotAssignableError, ensure_assignable
 from ..group_assignments import auftrag_is_closed, mirror_to_auftrag
-from ..locking import lock_incidents_with_groups, lock_resources
+from ..locking import lock_incident_numbering, lock_incidents_with_groups, lock_resources
 from .reports import _location
 
 #: What happened to the new Schadenplatz, so the phone can say so in one line.
@@ -156,11 +156,15 @@ async def _lock_takeover_target(
     round 3). Locked first, the order of ``crud/locking.py`` holds: Auftrag →
     Einsatz → person.
 
+    The Meldung's INSERT takes the Ereignis' numbering lock; it is taken here first, before the
+    Auftrag and the Einsatz (step 0b of ``crud/locking.py``).
+
     Read unlocked, locked, then read again: a target that changed in between – the
     Auftrag deleted (its stops detached), the reporter released or moved – is no
     target, and the reporter takes the Meldung on alone. Returns the locked
     Einsatz (refreshed) and the locked Auftrag id.
     """
+    await lock_incident_numbering(db, event_id)
     seen = await _takeover_target(db, event_id, personnel_id)
     current_id, group_id = seen
     if current_id is None and group_id is None:

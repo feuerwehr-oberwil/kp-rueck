@@ -12,6 +12,7 @@ from ..models import Event, Incident, User
 from ..services.audit import log_action
 from ..utils.error_codes import DomainError, ErrorCode
 from . import auftrag_templates as auftrag_templates_crud
+from .locking import lock_event_for_delete
 
 
 async def get_events(
@@ -202,11 +203,11 @@ async def delete_event(
     Two concurrent calls used to both pass the read below, both write that entry and both
     report success — the loser's cascade matched no rows and said so only as a SQLAlchemy
     warning. Two entries for one deletion is precisely the thing somebody would be reading
-    while trying to work out what went wrong. The ``SELECT … FOR UPDATE`` — the same row-lock
-    pattern as ``crud/assignments.py`` and ``crud/groups.py`` — makes the loser wait on the
-    winner's row lock instead; under READ COMMITTED it re-evaluates the row once the lock is
-    released, finds it deleted, and returns False. So the second caller gets an honest 404,
-    with no second audit entry and no cascade running against a row that is already gone.
+    while trying to work out what went wrong. The row lock (``crud.locking.lock_event_for_delete``,
+    which first locks the alarms and cards the cascade writes) makes the loser wait on the
+    winner instead; under READ COMMITTED it re-evaluates the row once the lock is released,
+    finds it deleted, and returns False. So the second caller gets an honest 404, with no second
+    audit entry and no cascade running against a row that is already gone.
 
     Args:
         db: Database session
@@ -220,7 +221,7 @@ async def delete_event(
     Raises:
         DomainError: ``event_not_archived`` – the event is not archived
     """
-    event = await db.scalar(select(Event).where(Event.id == event_id).with_for_update())
+    event = await lock_event_for_delete(db, event_id)
     if not event:
         return False
 

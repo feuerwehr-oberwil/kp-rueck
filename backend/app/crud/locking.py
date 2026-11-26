@@ -4,6 +4,7 @@ LOCK ORDER – every writer takes row locks in this order and never backwards:
 
   0. alarm rows (``divera_emergencies``)       ascending id: ``crud.divera.lock_divera_emergency``
                                                (one) / ``lock_divera_emergencies`` (a bulk attach)
+  0b. the Ereignis' numbering lock             a writer that creates a card: ``lock_incident_numbering``
   1. ``incident_groups`` (Aufträge)            ascending id
   2. ``incidents`` (Einsätze, Auftrag stops)   ascending id
   3. resource rows (``personnel`` / ``vehicles`` / ``materials``)
@@ -14,6 +15,10 @@ Every card INSERT takes the Ereignis' numbering lock (``lock_incident_numbering`
 commit, so a writer that has created a card must not wait for an alarm row after it. A single
 attach holds its alarm while it waits for that lock; a bulk attach that took its alarms one by
 one held the lock while it waited for such an alarm. It locks all of them before its first card.
+The other way round, a writer that will create a card takes the lock before any Auftrag or card:
+a bulk attach holds it while it flags (key-shares) a card as a duplicate, and a merge-report
+that held that card and only then inserted its report waited for it. ``create_incident``, the
+/feld takeover and every merge of a new report (``lock_merge_target``) take it first.
 
 A status update holds its card and then stamps the Ereignis. A bulk attach stamped it with its
 first card and then flagged (key-shared) another card for its second alarm: each waited for
@@ -41,7 +46,8 @@ assignment (``assign_resource``, ``assign_group_resource``, ``transfer_assignmen
 ``auftrag_templates.instantiate_auto_templates``, and ``feld/melden.create_field_report``,
 which locks the reporter's Auftrag before its insert key-shares the reporter) and the
 resource lifecycle (archive / purge / personnel delete, which first locks the
-incidents its ``ON DELETE SET NULL`` will write), and the board's Reko draft (its
+incidents its ``ON DELETE SET NULL`` will write), the Ereignis delete (``lock_event_for_delete``:
+the alarms its cascade unlinks, its Aufträge and cards, then the Ereignis row), and the board's Reko draft (its
 first save ``reko.get_or_create_kp_reko_report`` and its PATCH take the card before
 the report). A Reko person's order (``reko_assignment.reorder_reko_assignments``) takes
 only step 3, the person's row – the lock every writer of their Reko rows already holds –
@@ -58,7 +64,16 @@ from typing import Literal, overload
 from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Incident, IncidentAssignment, IncidentGroup, Material, Personnel, Vehicle
+from ..models import (
+    DiveraEmergency,
+    Event,
+    Incident,
+    IncidentAssignment,
+    IncidentGroup,
+    Material,
+    Personnel,
+    Vehicle,
+)
 
 AssignableResource = Personnel | Vehicle | Material
 
@@ -153,6 +168,17 @@ async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | 
         select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
     )
     return incident
+
+
+async def lock_merge_target(db: AsyncSession, event_id: uuid.UUID, incident_id: uuid.UUID) -> Incident | None:
+    """The card a new report merges into (merge-report, an alarm attach, a /feld Meldung), locked.
+
+    The caller is about to INSERT the report, which takes the Ereignis' numbering lock (step 0b).
+    Taken here first, so it never holds the card while it waits for that lock: a bulk attach holds
+    the lock and flags (key-shares) the same card as a duplicate.
+    """
+    await lock_incident_numbering(db, event_id)
+    return await lock_incident(db, incident_id)
 
 
 async def lock_pair(
@@ -264,3 +290,40 @@ async def lock_personnel_for_delete(db: AsyncSession, personnel_id: uuid.UUID) -
             return person
         await savepoint.rollback()
     raise RuntimeError("references to the person kept changing while locking; giving up")
+
+
+async def lock_event_for_delete(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
+    """Lock what deleting an Ereignis writes, in order: the alarms linked to it or its cards
+    (step 0), its Aufträge and cards (steps 1, 2), then the Ereignis row (step 4).
+
+    The delete cascades to every card and unlinks the alarms (``ON DELETE SET NULL``) – after the
+    Ereignis row, the reverse of the order. A status update that held a card and stamped the
+    Ereignis, or an attach that held its alarm and locked a card, deadlocked with it. What the
+    cascade reaches is read unlocked, so after the Ereignis row is locked it is read again; a new
+    card or alarm link (an attach committed in between) rolls the savepoint back and starts over.
+    Once the Ereignis row is held, a new card or link waits for its FK check.
+    """
+    cards = select(Incident.id).where(Incident.event_id == event_id)
+    groups = select(IncidentGroup.id).where(IncidentGroup.event_id == event_id)
+    alarms = select(DiveraEmergency.id).where(
+        or_(DiveraEmergency.attached_to_event_id == event_id, DiveraEmergency.created_incident_id.in_(cards))
+    )
+    for _ in range(_MAX_MEMBERSHIP_ATTEMPTS):
+        seen = (set((await db.scalars(alarms)).all()), set((await db.scalars(cards)).all()))
+        savepoint = await db.begin_nested()
+        await db.execute(
+            select(DiveraEmergency.id)
+            .where(DiveraEmergency.id.in_(seen[0]))
+            .order_by(DiveraEmergency.id)
+            .with_for_update()
+        )
+        await lock_incidents_with_groups(db, seen[1], (await db.scalars(groups)).all())
+        event: Event | None = await db.scalar(
+            select(Event).where(Event.id == event_id).with_for_update().execution_options(populate_existing=True)
+        )
+        now = (set((await db.scalars(alarms)).all()), set((await db.scalars(cards)).all()))
+        if event is None or (now[0] <= seen[0] and now[1] <= seen[1]):
+            await savepoint.commit()
+            return event
+        await savepoint.rollback()
+    raise RuntimeError("cards or alarms of the Ereignis kept changing while locking; giving up")

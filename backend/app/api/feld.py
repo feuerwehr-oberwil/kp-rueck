@@ -60,7 +60,7 @@ from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..crud import planned_assignments as planned_crud
 from ..crud.feld.melden import never_left_the_window
-from ..crud.locking import lock_incident
+from ..crud.locking import lock_merge_target
 from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import Event, Incident, IncidentGroup, Personnel, SchadenplatzReport
@@ -928,7 +928,7 @@ async def report_new_incident(
     # door does not tell a probe whether an id exists.
     merge_target: Incident | None = None
     if payload.merge_into_incident_id is not None:
-        merge_target = await lock_incident(db, payload.merge_into_incident_id)
+        merge_target = await lock_merge_target(db, event.id, payload.merge_into_incident_id)
         if (
             merge_target is None
             or merge_target.event_id != event.id

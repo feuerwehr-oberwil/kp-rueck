@@ -32,7 +32,7 @@ from ..utils.error_codes import DomainError, ErrorCode
 from . import events as events_crud
 from . import feld as feld_crud
 from .active_resources import active_deployments
-from .locking import lock_groups, lock_incident_with_group, lock_resources
+from .locking import lock_groups, lock_incident_numbering, lock_incident_with_group, lock_resources
 
 
 class StatusChangedError(Exception):
@@ -564,8 +564,10 @@ async def create_incident(
     payload with the default and names its real sender here.
 
     When ``group_id`` is set (streamlined "add stop"), the new incident is
-    appended to the end of that Auftrag (``group_position = max + 1``).
+    appended to the end of that Auftrag (``group_position = max + 1``). The INSERT takes the
+    Ereignis' numbering lock, so it is taken before that Auftrag (``crud/locking.py`` step 0b).
     """
+    await lock_incident_numbering(db, incident.event_id)
     # When attaching to an Auftrag on create, append at the end of the route.
     group_position = 0
     if incident.group_id is not None:

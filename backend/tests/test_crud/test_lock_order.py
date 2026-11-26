@@ -25,9 +25,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app import schemas
 from app.api import divera as divera_api
+from app.api import incidents as incidents_api
 from app.api import reko as reko_api
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
+from app.crud import divera as divera_crud
+from app.crud import events as events_crud
 from app.crud import feld as feld_crud
 from app.crud import group_assignments as group_assignments_crud
 from app.crud import groups as groups_crud
@@ -37,7 +40,7 @@ from app.crud import personnel as personnel_crud
 from app.crud import personnel_checkin as checkin_crud
 from app.crud import reko_assignment as reko_assignment_crud
 from app.crud.feld.melden import create_field_report
-from app.crud.locking import lock_groups, lock_incident_with_group, lock_resource
+from app.crud.locking import lock_groups, lock_incident, lock_incident_numbering, lock_incident_with_group, lock_resource
 from app.models import (
     AuditLog,
     AuftragTemplate,
@@ -625,6 +628,150 @@ async def test_a_bulk_attach_and_a_single_attach_of_one_of_its_alarms_do_not_dea
         assert card.title == "Baum auf Strasse"
         assert attached.errors == ["«Baum auf Strasse»: Alarm ist diesem Ereignis bereits zugeordnet"]
         assert [created.title for created in attached.created] == ["Wasser im Keller"]
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
+            await db.commit()
+
+
+async def _archive(board: Board) -> None:
+    async with board.sessions() as db:
+        event = await db.get(Event, board.event_id)
+        assert event is not None
+        event.archived_at = datetime.now(UTC)
+        await db.commit()
+
+
+async def test_an_ereignis_delete_locks_its_cards_before_the_ereignis_row(board: Board):
+    # A status update holds its card, then stamps the Ereignis row. The delete locked the
+    # Ereignis row first and reached the card in its cascade: each waited for the other.
+    await _archive(board)
+    async with board.sessions() as updating, board.sessions() as deleting:
+        await lock_incident_with_group(updating, board.loose_id)
+        user = await deleting.get(User, board.user_id)
+        deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+        await wait_until_blocked(board.sessions)
+
+        # The delete must be queued for the card, not sitting on the Ereignis row.
+        await asyncio.wait_for(events_crud.update_event_activity(updating, board.event_id), timeout=5)
+        await updating.commit()
+        deleted = await asyncio.wait_for(deletion, timeout=10)
+        await deleting.commit()
+
+    assert deleted is True
+    async with board.sessions() as db:
+        assert await db.get(Event, board.event_id) is None
+
+
+async def test_an_ereignis_delete_locks_the_alarms_it_unlinks_before_their_cards(board: Board):
+    # A single attach that merges holds its alarm, then locks the card it merges into. The
+    # delete's cascade locked the card and then unlinked the alarm (ON DELETE SET NULL).
+    alarm_id = uuid4()
+    async with board.sessions() as db:
+        db.add(
+            DiveraEmergency(
+                id=alarm_id,
+                divera_id=910_021,
+                title="Wasser im Keller",
+                received_at=datetime.now(UTC),
+                is_archived=False,
+                attached_to_event_id=board.event_id,
+                created_incident_id=board.loose_id,
+            )
+        )
+        await db.commit()
+    await _archive(board)
+    try:
+        async with board.sessions() as attaching, board.sessions() as deleting:
+            await divera_crud.lock_divera_emergency(attaching, alarm_id)
+            user = await deleting.get(User, board.user_id)
+            deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+            await wait_until_blocked(board.sessions)
+
+            # The delete must be queued for the alarm, not sitting on the card.
+            assert await asyncio.wait_for(lock_incident(attaching, board.loose_id), timeout=5) is not None
+            await attaching.commit()
+            deleted = await asyncio.wait_for(deletion, timeout=10)
+            await deleting.commit()
+
+        assert deleted is True
+        async with board.sessions() as db:
+            alarm = await db.get(DiveraEmergency, alarm_id)
+            assert alarm is not None
+            assert (alarm.attached_to_event_id, alarm.created_incident_id) == (None, None)
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id == alarm_id))
+            await db.commit()
+
+
+async def test_a_merge_report_and_a_bulk_attach_that_flags_its_target_do_not_deadlock(board: Board):
+    # A merge-report locked its target and then took the numbering lock with its report's INSERT.
+    # A bulk attach held that lock from its first card and flagged (key-shared) the same target
+    # for its second alarm: each waited for the other.
+    first_alarm, second_alarm = uuid4(), uuid4()
+    address = "Hauptstrasse 1, 4104 Oberwil"
+    async with board.sessions() as db:
+        loose = await db.get(Incident, board.loose_id)
+        assert loose is not None
+        loose.location_address = address
+        db.add_all(
+            [
+                DiveraEmergency(
+                    id=alarm_id,
+                    divera_id=divera_id,
+                    title=title,
+                    address=alarm_address,
+                    received_at=datetime.now(UTC),
+                    is_archived=False,
+                )
+                for alarm_id, divera_id, title, alarm_address in (
+                    (first_alarm, 910_031, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+                    (second_alarm, 910_032, "Keller überflutet", address),
+                )
+            ]
+        )
+        await db.commit()
+    try:
+        async with (
+            board.sessions() as holder,
+            board.sessions() as attaching,
+            board.sessions() as merging,
+        ):
+            # Somebody else is creating a card: the bulk queues for the numbering lock first,
+            # the merge-report behind it.
+            await lock_incident_numbering(holder, board.event_id)
+            user = await attaching.get(User, board.user_id)
+            operator = await merging.get(User, board.user_id)
+            assert user is not None and operator is not None
+            body = schemas.BulkAttachEmergenciesRequest(
+                event_id=board.event_id, emergency_ids=[first_alarm, second_alarm]
+            )
+            bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), attaching, user))
+            await wait_until_blocked(board.sessions)
+            payload = schemas.MergeReportRequest(
+                target_id=board.loose_id,
+                incident=schemas.IncidentCreate(
+                    title="Nachbar meldet Wasser",
+                    type="elementarereignis",
+                    priority="medium",
+                    event_id=board.event_id,
+                ),
+            )
+            merge = asyncio.create_task(
+                incidents_api.merge_new_report(payload, _request(), BackgroundTasks(), merging, operator)
+            )
+            await wait_until_blocked(board.sessions, count=2)
+            await holder.rollback()
+
+            attached = await asyncio.wait_for(bulk, timeout=10)
+            await attaching.commit()
+            merged = await asyncio.wait_for(merge, timeout=10)
+            await merging.commit()
+
+        assert attached.errors == []
+        assert [card.possible_duplicate_of_id for card in attached.created] == [None, board.loose_id]
+        assert merged.target.id == board.loose_id
     finally:
         async with board.sessions() as db:
             await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
