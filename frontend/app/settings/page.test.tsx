@@ -99,7 +99,7 @@ beforeEach(() => {
 })
 
 describe('Einstellungen › Allgemein — speichern', () => {
-  it('stores a changed text value on blur, and nothing when it did not change', async () => {
+  it('stores a changed text value on blur once, and nothing when it did not change', async () => {
     const user = userEvent.setup()
     openSection('general')
     const field = await screen.findByLabelText('Einsatzgebiet (Ort)')
@@ -108,11 +108,18 @@ describe('Einstellungen › Allgemein — speichern', () => {
     fireEvent.blur(field)
     expect(api.updateSetting).not.toHaveBeenCalled()
 
+    // A save that is still running: the field is disabled meanwhile, and a focused field
+    // that becomes disabled loses its focus (the HTML focus fixup – a second blur).
+    const save = Promise.withResolvers<{ key: string; value: string }>()
+    api.updateSetting.mockImplementation(() => save.promise)
     await user.clear(field)
     await user.type(field, 'Therwil')
     fireEvent.blur(field)
-    await waitFor(() => expect(api.updateSetting).toHaveBeenCalledWith('home_city', 'Therwil'))
+    await waitFor(() => expect(field).not.toHaveFocus())
+    save.resolve({ key: 'home_city', value: 'Therwil' })
+    await waitFor(() => expect(field).toBeEnabled())
     expect(api.updateSetting).toHaveBeenCalledTimes(1)
+    expect(api.updateSetting).toHaveBeenCalledWith('home_city', 'Therwil')
   })
 
   it('refuses an out-of-range coordinate, keeps it for correcting, and saves the fixed one with a dot and 6 decimals', async () => {
