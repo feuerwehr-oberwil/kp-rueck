@@ -145,14 +145,16 @@ function getBackoffDelay(retryCount: number): number {
 
 /**
  * One exchange with the backend: timeout, retries with backoff, the error toasts, the
- * session-expiry signal and the tab-wide reachability. Resolves to the answered 2xx
- * response. Rejects with `ApiError` for an error status, and with `NetworkError` when no
- * answer came after the retries – for a read as for a write, so «no answer» never passes
- * for an empty list. A caller that keeps its last state while offline catches
+ * session-expiry signal and the tab-wide reachability. Resolves to what `read` makes of the
+ * answered 2xx response – read inside the retry loop, so a connection that drops while
+ * the body streams is a network failure like one that drops before the headers. Rejects
+ * with `ApiError` for an error status, and with `NetworkError` when no full answer came
+ * after the retries – for a read as for a write, so «no answer» never passes for an
+ * empty list. A caller that keeps its last state while offline catches
  * `NetworkError` (`NetworkError.isNetworkError`); the outage itself has one voice
  * (the stale banner or `showOutageToast`).
  */
-async function send(endpoint: string, options?: RequestOptions): Promise<Response> {
+async function send<R>(endpoint: string, options: RequestOptions | undefined, read: (response: Response) => Promise<R>): Promise<R> {
   // Always resolved per request, so the browser picks up the runtime URL.
   const baseUrl = getApiUrl()
   const url = `${baseUrl}${endpoint}`
@@ -183,10 +185,19 @@ async function send(endpoint: string, options?: RequestOptions): Promise<Respons
           ...options?.headers,
         },
       })
+      // The server answered (any status): the connection works. Clears the
+      // outage toast/state the moment the first request gets through again.
+      markRestReachable()
+      if (response.ok) {
+        // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
+        // the board whether it is showing everything).
+        options?.onHeaders?.(response.headers)
+        return await read(response)
+      }
     } catch (error) {
-      // Any TypeError out of `fetch()` is a network-layer failure (Chrome «Failed to fetch»,
-      // Safari «Load failed», Firefox «NetworkError …» – never read the message), and a
-      // TimeoutError is the request timeout above. Both are retryable.
+      // Any TypeError out of `fetch()` or the body stream is a network-layer failure
+      // (Chrome «Failed to fetch», Safari «Load failed», Firefox «NetworkError …» – never
+      // read the message), and a TimeoutError is the request timeout above. Both retry.
       const isTimeout = error instanceof DOMException && error.name === 'TimeoutError'
       if (!(error instanceof TypeError || isTimeout)) throw error
       if (retryCount < maxRetries) {
@@ -197,17 +208,6 @@ async function send(endpoint: string, options?: RequestOptions): Promise<Respons
       // reachability flag the stale-data banner subscribes to.
       markRestUnreachable(skipToast)
       throw new NetworkError()
-    }
-
-    // The server answered (any status): the connection works. Clears the
-    // outage toast/state the moment the first request gets through again.
-    markRestReachable()
-
-    if (response.ok) {
-      // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
-      // the board whether it is showing everything).
-      options?.onHeaders?.(response.headers)
-      return response
     }
 
     let errorText = ''
@@ -272,20 +272,21 @@ type Body = NonNullable<unknown> | null
  * contract `docs/openapi.json` publishes. An answer without a JSON body is a contract
  * error here, not an `undefined` typed as `T`: a bodyless route uses `requestVoid`.
  */
-export async function request<T extends Body>(endpoint: string, options?: RequestOptions): Promise<T> {
-  const response = await send(endpoint, options)
-  const contentType = response.headers.get('content-type') ?? ''
-  if (response.status === 204 || !contentType.includes('application/json')) {
-    console.warn(`[API Error] ${options?.method ?? 'GET'} ${endpoint}: ${response.status} without a JSON body`)
-    throw new ApiError(translateOutsideReact('errors.api.unknown'), response.status)
-  }
-  const body: unknown = await response.json()
-  return body as T
+export function request<T extends Body>(endpoint: string, options?: RequestOptions): Promise<T> {
+  return send(endpoint, options, async (response) => {
+    const contentType = response.headers.get('content-type') ?? ''
+    if (response.status === 204 || !contentType.includes('application/json')) {
+      console.warn(`[API Error] ${options?.method ?? 'GET'} ${endpoint}: ${response.status} without a JSON body`)
+      throw new ApiError(translateOutsideReact('errors.api.unknown'), response.status)
+    }
+    const body: unknown = await response.json()
+    return body as T
+  })
 }
 
 /** A route that answers without a body (204), or whose body the caller does not read. */
-export async function requestVoid(endpoint: string, options?: RequestOptions): Promise<void> {
-  await send(endpoint, options)
+export function requestVoid(endpoint: string, options?: RequestOptions): Promise<void> {
+  return send(endpoint, options, async () => undefined)
 }
 
 /** A rejected share credential expires the link independently of a signed-in operator. */

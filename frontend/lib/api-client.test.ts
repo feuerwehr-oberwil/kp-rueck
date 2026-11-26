@@ -56,6 +56,22 @@ describe('apiClient network failures', () => {
     expect(fetchMock).toHaveBeenCalledTimes(4)
   })
 
+  it('treats a body that breaks off after the headers as no answer, and retries the read', async () => {
+    const truncated = () =>
+      new Response(new ReadableStream({ start: (controller) => controller.error(new TypeError('network error')) }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    const fetchMock = vi.fn().mockImplementation(async () => truncated())
+    vi.stubGlobal('fetch', fetchMock)
+
+    const promise = apiClient.getIncidents('event-id')
+    const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
   it('still resolves successful mutations with the response body', async () => {
     const body = { id: 'some-id', priority: 'high' }
     vi.stubGlobal(
