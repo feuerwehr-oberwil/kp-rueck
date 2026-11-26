@@ -32,6 +32,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.elements import ColumnElement
 
 from .database import Base
+from .json_columns import (
+    CostSnapshotEntry,
+    RapportExtraMaterialEntry,
+    RapportExtraPersonnelEntry,
+    RapportMaterialEntry,
+    RapportPersonnelEntry,
+    RapportVehicleEntry,
+    RekoDangers,
+    RekoEffort,
+)
 
 # ============================================
 # USERS & AUTHENTICATION
@@ -222,7 +232,7 @@ class Personnel(Base):
     role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[Literal["available", "unavailable"]] = mapped_column(String(20), nullable=False)
-    tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
+    tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True, default=list)
     # Set = a GUEST of that Ereignis («Person hinzufügen» in the Appell, on the check-in link,
     # in the Fahrer picker), not a roster member: listed for that Ereignis only, never in the
     # roster or another Ereignis (`crud.personnel.in_scope`). The row stays for the rapport
@@ -1301,10 +1311,10 @@ class RekoReport(Base):
 
     # Form fields
     is_relevant: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    dangers_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    effort_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    dangers_json: Mapped[RekoDangers | None] = mapped_column(JSONB, nullable=True)
+    effort_json: Mapped[RekoEffort | None] = mapped_column(JSONB, nullable=True)
     power_supply: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    photos_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    photos_json: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)  # filenames
     summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     additional_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -1448,7 +1458,7 @@ class SchadenplatzReport(Base):
     # thumb in the rain, and reading the answer twice ("nein" vs "nichts gesagt")
     # was worth less than a tick that is actually hit correctly. Legacy nulls were
     # rewritten to true by migration `f2a7c4d1e903`.
-    materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    materials_json: Mapped[list[RapportMaterialEntry] | None] = mapped_column(JSONB, nullable=True)
     # Material that was never on the board — improvised or borrowed. One entry per
     # item, **names never ids** (decision 18): the catalogue is offered as a
     # multi-select so the crew does not spell "Tauchpumpe TP-4" from memory, but
@@ -1461,7 +1471,7 @@ class SchadenplatzReport(Base):
     # `extra_material_note` and became a list. Migration `b4f1c07a92de` carried the
     # old strings over, every entry `left_on_site=false`, the state they implicitly
     # had. Free text stays: an entry whose name is in no catalogue is still valid.
-    extra_materials_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    extra_materials_json: Mapped[list[RapportExtraMaterialEntry] | None] = mapped_column(JSONB, nullable=True)
 
     # --- Kurzbericht (one box; the paper's Lage/Tätigkeit/Geräte are its hint) ---
     kurzbericht: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -1497,7 +1507,7 @@ class SchadenplatzReport(Base):
     # assigned, so an assignment id cannot be the identity of the row):
     #   {"personnel_id": ..., "name": "Meier Andrea", "present": true}
     # The people the board has on this incident arrive ticked, the rest unticked.
-    personnel_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    personnel_json: Mapped[list[RapportPersonnelEntry] | None] = mapped_column(JSONB, nullable=True)
     # People who are on no roster of this station — a neighbouring brigade's crew,
     # somebody from the Werkhof. **Names never ids** (same rule as the extra
     # material): the check-in list is not a place to invent personnel rows, and
@@ -1506,16 +1516,16 @@ class SchadenplatzReport(Base):
     # The note is deliberately free text rather than an "Einheit" field: it also
     # has to carry "kam später", "nur Verkehrsdienst" and whatever else the crew
     # needs to say about somebody the board never knew.
-    extra_personnel_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    extra_personnel_json: Mapped[list[RapportExtraPersonnelEntry] | None] = mapped_column(JSONB, nullable=True)
     # Vehicle checklist over the WHOLE fleet (§18.33), keyed on the vehicle rather
     # than on an assignment, because a vehicle that came along without ever being
     # on the board has no assignment to key on:
     #   {"vehicle_id": ..., "name": "TLF 1", "present": true}
     # The vehicles the board has assigned arrive ticked, the rest unticked; the
     # crew ticks what also drove and unticks what did not.
-    vehicles_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    vehicles_json: Mapped[list[RapportVehicleEntry] | None] = mapped_column(JSONB, nullable=True)
     # Frozen at submit: [{"kind": "personnel", "name": ..., "from": ..., "to": ...}, ...]
-    cost_snapshot_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    cost_snapshot_json: Mapped[list[CostSnapshotEntry] | None] = mapped_column(JSONB, nullable=True)
 
     # --- Field actions that predate the form ---
     # Set by "Angekommen" on /feld. Independent of RekoReport.arrived_at, which
@@ -1532,7 +1542,7 @@ class SchadenplatzReport(Base):
     arrived_by_user_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    photos_json: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True)
+    photos_json: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)  # filenames
 
     # --- Provenance ---
     created_by_personnel_id: Mapped[UUID | None] = mapped_column(

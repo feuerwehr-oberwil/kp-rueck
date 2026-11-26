@@ -188,17 +188,16 @@ jobs:
       # advisory gate is one nobody reads.
       # These paths are at zero and must stay there.
       #
-      # `app/services` joined on 2026-07-30 (183 -> 0), which leaves only 55 findings in the
-      # advisory step: the seed scripts (46), `app/telemetry` (14, excluded on purpose — it is
-      # vendored byte-identical with kp-front and pinned by checksum) and `app/main` (3).
-      # In other words the advisory step is now almost empty, and what remains is either
-      # deliberately out of scope or run-once-by-hand code.
+      # `app/services` joined on 2026-07-30 (183 -> 0), `app/seeds` on 2026-11-26 (38 -> 0: it
+      # runs on every boot and demo reset). What is left in the advisory step is `app/telemetry`
+      # (excluded on purpose — it is vendored byte-identical with kp-front and pinned by
+      # checksum) and `app/main`.
       - name: Type check with mypy (blocking subset)
         run: >-
           uv run mypy
           app/auth app/middleware app/schemas app/services
-          app/crud app/background app/api
-          app/websocket_manager.py app/models.py app/traccar.py app/standby.py app/standby_sync.py
+          app/crud app/background app/api app/seeds
+          app/websocket_manager.py app/models.py app/json_columns.py app/traccar.py app/standby.py app/standby_sync.py
           --ignore-missing-imports
 
       # The rest, as a report. Moving a package out of here and into the step above is the
@@ -807,7 +806,7 @@ jobs:
 
       - name: Seed database
         working-directory: backend
-        run: uv run python -m app.seed
+        run: uv run python -m app.seeds
         env:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           ADMIN_SEED_PASSWORD: ${{ env.E2E_PASSWORD }}
@@ -866,7 +865,7 @@ jobs:
   # Visual — screenshot regression on frozen states (docs/VISUAL_TESTS.md).
   #
   # Nine screens (board desktop dark/light/detail, board phone, /feld, the Lagekarte, the wall
-  # board and status, settings) rendered from a production build against `app.seed_visual` —
+  # board and status, settings) rendered from a production build against `app.seeds.visual` —
   # the demo storm evening pinned to one instant, with the browser clock frozen at the same
   # instant and every foreign request stubbed — and compared with the PNGs committed in
   # frontend/tests/visual/__screenshots__/. It exists because a merged visual pass can be lost
@@ -1042,12 +1041,12 @@ jobs:
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
 
-      # DEMO_MODE makes app.seed write the demo seed (demo-editor, demo-viewer, the base Lage).
+      # DEMO_MODE makes app.seeds write the demo seed (demo-editor, demo-viewer, the base Lage).
       - name: Migrate and seed (demo)
         working-directory: backend
         run: |
           uv run alembic upgrade head
-          uv run python -m app.seed
+          uv run python -m app.seeds
 
       - name: Start backend server (demo)
         working-directory: backend

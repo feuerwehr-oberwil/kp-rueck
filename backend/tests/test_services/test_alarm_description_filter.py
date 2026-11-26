@@ -33,12 +33,14 @@ from app.services.divera_intake import (
     strip_description_labels,
 )
 from app.services.settings import (
-    ALARM_DESCRIPTION_FILTER_PREFIXES_KEY,
-    ALARM_DESCRIPTION_LABEL_PREFIXES_KEY,
+    ALARM_DESCRIPTION_FILTER_PREFIXES,
+    ALARM_DESCRIPTION_LABEL_PREFIXES,
     DEFAULT_SETTINGS,
-    get_alarm_description_filter_prefixes,
-    get_alarm_description_label_prefixes,
+    read,
 )
+
+ALARM_DESCRIPTION_FILTER_PREFIXES_KEY = ALARM_DESCRIPTION_FILTER_PREFIXES.key
+ALARM_DESCRIPTION_LABEL_PREFIXES_KEY = ALARM_DESCRIPTION_LABEL_PREFIXES.key
 
 # The real production payload, verbatim.
 REAL_PAYLOAD = "Meldung: Wasser dringt ein\nAusrückeordnung: 1. TLF → 2. PIO"
@@ -200,8 +202,8 @@ class TestClassificationReadsTheRawText:
 class TestSettingLookup:
     @pytest.mark.asyncio
     async def test_both_default_to_nothing_when_unset(self, db_session: AsyncSession):
-        assert await get_alarm_description_filter_prefixes(db_session) == []
-        assert await get_alarm_description_label_prefixes(db_session) == []
+        assert await read(db_session, ALARM_DESCRIPTION_FILTER_PREFIXES) == ()
+        assert await read(db_session, ALARM_DESCRIPTION_LABEL_PREFIXES) == ()
 
     @pytest.mark.asyncio
     async def test_one_prefix_per_line_blank_lines_dropped(self, db_session: AsyncSession):
@@ -210,8 +212,8 @@ class TestSettingLookup:
         )
         db_session.add(Setting(key=ALARM_DESCRIPTION_LABEL_PREFIXES_KEY, value="\nMeldung: \n\n"))
         await db_session.commit()
-        assert await get_alarm_description_filter_prefixes(db_session) == ["Ausrückeordnung:", "Alarmstichwort:"]
-        assert await get_alarm_description_label_prefixes(db_session) == ["Meldung:"]
+        assert await read(db_session, ALARM_DESCRIPTION_FILTER_PREFIXES) == ("Ausrückeordnung:", "Alarmstichwort:")
+        assert await read(db_session, ALARM_DESCRIPTION_LABEL_PREFIXES) == ("Meldung:",)
 
 
 @pytest_asyncio.fixture

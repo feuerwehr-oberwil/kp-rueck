@@ -28,7 +28,7 @@ described as "stop all services".
 Without Docker:
 
 ```bash
-cd backend && uv sync && uv run python -m app.seed   # tables + seed data
+cd backend && uv sync && uv run python -m app.seeds   # tables + seed data
 cd backend && uv run uvicorn app.main:app --reload   # API on :8000 (Swagger at /docs)
 cd backend && uv run ruff check . && uv run ruff format .
 cd frontend && pnpm install && pnpm dev              # app on :3000
@@ -53,7 +53,7 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
 - E2E: Playwright with TypeScript, Page Object Model + Custom Fixtures, Factory pattern + API helpers, in `frontend/tests/`.
 - Visual regression: `just visual` – frozen screens (`frontend/tests/visual/*.visual.ts`,
   own config `playwright.visual.config.ts`). A production build renders them against
-  `app.seed_visual` (the demo storm evening at one fixed instant; the browser clock frozen at the
+  `app.seeds.visual` (the demo storm evening at one fixed instant; the browser clock frozen at the
   same instant, basemap tiles stubbed flat). The run compares them with the PNGs in
   `tests/visual/__screenshots__/`. CI job `visual` is a required check since 2026-10-10.
   Baselines come from CI only (`visual-baselines.yml` → `just visual-accept <run-id>`). A local
@@ -80,7 +80,7 @@ cd frontend && pnpm test:e2e tests/e2e/01-auth/ # one suite; add --headed via `p
   frontend). `docker-compose.dev.yml` is `just dev`. `docker-compose.yml` sets `ENVIRONMENT=production`. That
   turns on mandatory secrets, no auth bypass, and no sample data at all: no sample incidents, and
   no fleet, roster, materials or training locations either (`backend/app/environment.py`,
-  `backend/app/seed.py`). Production is not Railway-only.
+  `backend/app/seeds/boot.py`). Production is not Railway-only.
 - Offline tiles: `docs/OFFLINE_MAPS.md`. The region is configuration (`TILES_REGION` /
   `TILES_BOUNDS` / `TILES_AREA` / `TILES_PBF_URL`, default Basel-Landschaft). All three tile
   scripts share `TILES_NAME` (the on-disk filename). Do not rename it on an existing volume.

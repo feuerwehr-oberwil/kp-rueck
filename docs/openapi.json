@@ -19329,6 +19329,48 @@
         ],
         "title": "ConsentUpdate"
       },
+      "CostSnapshotEntry": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "from",
+          "to"
+        ],
+        "title": "CostSnapshotEntry"
+      },
       "DangersAssessment": {
         "properties": {
           "fire": {
@@ -30870,17 +30912,7 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/CostSnapshotEntry"
                 },
                 "type": "array"
               },

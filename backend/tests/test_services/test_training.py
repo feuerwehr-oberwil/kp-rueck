@@ -30,7 +30,7 @@ from app.models import (
     Setting,
     TrainingLocation,
 )
-from app.seed_training import FALLBACK_TRAINING_LOCATIONS, LEGACY_FALLBACK_COORDINATES, TRAINING_AREA_BOUNDS
+from app.seeds.training import FALLBACK_TRAINING_LOCATIONS, LEGACY_FALLBACK_COORDINATES, TRAINING_AREA_BOUNDS
 from app.services import training_photos
 from app.services.photo_storage import photo_storage
 from app.services.training import (
@@ -164,14 +164,6 @@ async def training_locations(db_session: AsyncSession) -> list[TrainingLocation]
 async def training_settings(db_session: AsyncSession) -> list[Setting]:
     """Create training auto-gen settings."""
     settings = [
-        Setting(
-            key="training_normal_weight",
-            value="80",
-        ),
-        Setting(
-            key="training_critical_weight",
-            value="20",
-        ),
         Setting(
             key="training_autogen_enabled",
             value="true",
@@ -442,24 +434,6 @@ class TestEmergencyGeneration:
         result = await db_session.execute(select(Notification).where(Notification.incident_id == incident.id))
         notification = result.scalar_one_or_none()
         assert notification.severity == "warning"
-
-    @pytest.mark.asyncio
-    async def test_generate_emergency_uses_settings(
-        self,
-        db_session: AsyncSession,
-        training_event: Event,
-        emergency_templates: list[EmergencyTemplate],
-        training_locations: list[TrainingLocation],
-    ):
-        """Test that generate_emergency respects settings dict."""
-        generator = TrainingGenerator(db_session)
-
-        # Force 100% normal weight
-        settings = {"training_normal_weight": "100", "training_critical_weight": "0"}
-        incident = await generator.generate_emergency(training_event.id, settings=settings)
-
-        # Should always be low priority (normal)
-        assert incident.priority == "low"
 
 
 # ============================================

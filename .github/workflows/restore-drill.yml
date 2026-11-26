@@ -91,7 +91,7 @@ jobs:
         run: |
           uv sync --frozen
           uv run alembic upgrade head
-          uv run python -m app.seed
+          uv run python -m app.seeds
 
       - name: Fingerprint the source
         run: ./scripts/db-fingerprint.sh 55490 > /tmp/source.txt && cat /tmp/source.txt

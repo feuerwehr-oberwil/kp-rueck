@@ -28,37 +28,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import async_session_maker
 from app.models import DiveraEmergency, Event, Incident, Setting
 from app.schemas.training import AutogenRun, AutogenStateResponse, RegieRun
-from app.services.settings import update_setting
+from app.services.settings import (
+    TRAINING_AUTOGEN_ENABLED,
+    TRAINING_AUTOGEN_INTERVAL_MIN,
+    TRAINING_AUTOGEN_MAX_EMERGENCIES,
+    TRAINING_AUTOGEN_MODE,
+    TRAINING_BOOST_DURATION_MIN,
+    TRAINING_BOOST_MULTIPLICATOR,
+    read,
+    update_setting,
+)
 from app.services.training import TrainingGenerator
 from app.services.training_lifecycle import TEMPO_FACTOR, all_pauses, shift_past_pauses
 from app.websocket_manager import broadcast_message
 
 logger = logging.getLogger(__name__)
 
-_SETTING_KEYS = [
-    "training_autogen_enabled",
-    "training_autogen_interval_min",
-    "training_autogen_mode",
-    "training_boost_multiplicator",
-    "training_boost_duration_min",
-    "training_autogen_max_emergencies",
-    "training_normal_weight",
-    "training_critical_weight",
-]
-
-ENABLED_KEY = "training_autogen_enabled"
+ENABLED_KEY = TRAINING_AUTOGEN_ENABLED.key
 RUN_KEY = "training_autogen.run"
 
 
 async def read_autogen_state(db: AsyncSession) -> AutogenStateResponse:
     """The switch and the current run. An unreadable run row counts as no run."""
+    # One query, so a switch-on committed in between cannot pair the new switch with the old run.
     result = await db.execute(select(Setting).where(Setting.key.in_([ENABLED_KEY, RUN_KEY])))
     rows = {s.key: s.value for s in result.scalars().all()}
     run = None
     if raw := rows.get(RUN_KEY):
         with contextlib.suppress(ValidationError):
             run = AutogenRun.model_validate_json(raw)
-    return AutogenStateResponse(enabled=rows.get(ENABLED_KEY) == "true", run=run)
+    enabled = rows.get(ENABLED_KEY)
+    return AutogenStateResponse(
+        enabled=TRAINING_AUTOGEN_ENABLED.default if enabled is None else TRAINING_AUTOGEN_ENABLED.parse(enabled),
+        run=run,
+    )
 
 
 async def switch_autogen(
@@ -74,16 +77,10 @@ async def switch_autogen(
     return await read_autogen_state(db)
 
 
-async def _read_settings(db: AsyncSession) -> dict[str, str]:
-    result = await db.execute(select(Setting).where(Setting.key.in_(_SETTING_KEYS)))
-    return {s.key: s.value for s in result.scalars().all()}
-
-
 async def next_alarm_at(
     db: AsyncSession,
     event: Event,
     run: AutogenRun | None,
-    settings: dict[str, str],
     regie: RegieRun | None,
     now: datetime,
 ) -> datetime:
@@ -108,9 +105,9 @@ async def next_alarm_at(
     if not last_times:
         return now  # nothing generated yet – start the exercise off
 
-    interval_min = float(settings.get("training_autogen_interval_min", 5))
-    boost_mult = float(settings.get("training_boost_multiplicator", 2.0))
-    boost_duration_min = int(settings.get("training_boost_duration_min", 30))
+    interval_min = await read(db, TRAINING_AUTOGEN_INTERVAL_MIN)
+    boost_mult = await read(db, TRAINING_BOOST_MULTIPLICATOR)
+    boost_duration_min = await read(db, TRAINING_BOOST_DURATION_MIN)
     boost_from = run.started_at if run else event.created_at
     running_minutes = (now - boost_from).total_seconds() / 60
     if running_minutes < boost_duration_min:
@@ -129,7 +126,7 @@ async def automatik_next_at(db: AsyncSession, state: AutogenStateResponse, regie
     event = await db.get(Event, regie.event_id)
     if event is None:
         return None
-    return await next_alarm_at(db, event, state.run, await _read_settings(db), regie, datetime.now(UTC))
+    return await next_alarm_at(db, event, state.run, regie, datetime.now(UTC))
 
 
 async def broadcast_autogen_state(state: AutogenStateResponse) -> None:
@@ -179,7 +176,6 @@ class TrainingAutoGenTask:
         """Check if auto-gen is enabled and run generation if needed."""
         from app.services.training_regie import read_regie_run
 
-        settings = await _read_settings(db)
         state = await read_autogen_state(db)
         if not state.enabled:
             self.current_event_id = None
@@ -197,7 +193,7 @@ class TrainingAutoGenTask:
 
         # Check max emergencies limit: incidents on the board plus simulated
         # pool alarms the trainee hasn't attached yet — both are exercise load.
-        max_emergencies = int(settings.get("training_autogen_max_emergencies", 50))
+        max_emergencies = await read(db, TRAINING_AUTOGEN_MAX_EMERGENCIES)
         incident_count = (
             await db.execute(select(func.count()).select_from(Incident).where(Incident.event_id == event.id))
         ).scalar_one()
@@ -226,11 +222,11 @@ class TrainingAutoGenTask:
             return
 
         now = datetime.now(UTC)
-        if now < await next_alarm_at(db, event, state.run, settings, regie, now):
+        if now < await next_alarm_at(db, event, state.run, regie, now):
             return
         self.current_event_id = event.id
         try:
-            await self._generate(db, event, settings)
+            await self._generate(db, event)
         except Exception as e:
             logger.error("Failed to auto-generate emergency: %s", e)
 
@@ -249,24 +245,24 @@ class TrainingAutoGenTask:
         )
         return result.scalar_one_or_none()
 
-    async def _generate(self, db: AsyncSession, event: Event, settings: dict[str, str]) -> None:
+    async def _generate(self, db: AsyncSession, event: Event) -> None:
         """Generate one alarm in the configured intake mode and broadcast it."""
         from app import schemas
         from app.services.divera_intake import broadcast_emergency_received
         from app.websocket_manager import broadcast_incident_update
 
         generator = TrainingGenerator(db)
-        mode = settings.get("training_autogen_mode", "board")
+        mode = await read(db, TRAINING_AUTOGEN_MODE)
 
         if mode == "divera":
-            emergency = await generator.generate_pool_emergency(event.id, settings=settings)
+            emergency = await generator.generate_pool_emergency(event.id)
             await db.commit()  # the boards refetch on the broadcast
             await broadcast_emergency_received(
                 schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
             )
             logger.info("Auto-generated simulated Divera alarm: %s", emergency.title)
         else:
-            incident = await generator.generate_emergency(event.id, settings=settings)
+            incident = await generator.generate_emergency(event.id)
             await db.commit()  # the boards refetch on the broadcast
             await broadcast_incident_update(
                 schemas.IncidentResponse.model_validate(incident).model_dump(mode="json"), "create"

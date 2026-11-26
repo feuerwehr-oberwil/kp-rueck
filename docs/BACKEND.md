@@ -26,6 +26,10 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
 - Put lifecycle code in the `lifespan` context (`tests/test_lifespan_only.py` fails on `on_event`). A
   background job is one row in `backend/app/background/jobs.py`, with where it runs (standby, demo).
 - SQLAlchemy 2.0 mapped-column syntax; full type hints.
+- **Station settings** (the `settings` table) are declared once in `services/settings.py`
+  (`PRINTER_PORT = IntSetting("printer.port", 9100, …)`) and read with `read(db, PRINTER_PORT)`,
+  which returns the declared type. A new key gets a declaration there – that is also what lets
+  the Einstellungen page save it.
 - **CRUD and services flush, the request commits** (once, before the response – `commit_request`).
   Send anything that a board or another session reacts to after the commit: `after_commit(db, …)`
   or a background task. Every other explicit commit has a comment beside it that says why. The

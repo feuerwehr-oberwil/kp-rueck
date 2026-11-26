@@ -191,7 +191,7 @@ to anyone else on the same network.
 which makes the secrets mandatory (no per-restart `SECRET_KEY`), forbids the development auth
 bypass, seeds **no sample data at all** – no events or incidents, and no fleet, roster,
 materials or training locations either; only accounts, default settings and the alarm templates
-– and refuses to seed a shared `editor` login (`backend/app/environment.py`, `backend/app/seed.py`).
+– and refuses to seed a shared `editor` login (`backend/app/environment.py`, `backend/app/seeds/boot.py`).
 Real editors come from SSO or are created by the admin.
 
 ## 3. Which version am I running?

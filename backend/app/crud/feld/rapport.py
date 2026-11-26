@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import after_commit, after_rollback
+from ...json_columns import CostSnapshotEntry
 from ...models import (
     EventAttendance,
     Incident,
@@ -522,7 +523,7 @@ async def get_rapport(
     }
 
 
-async def _build_cost_snapshot(db: AsyncSession, incident_id: uuid.UUID) -> list[dict[str, str | None]]:
+async def _build_cost_snapshot(db: AsyncSession, incident_id: uuid.UUID) -> list[CostSnapshotEntry]:
     """Freeze who and which vehicles, with from/to, at the moment of submission.
 
     Decision 6: a later board edit cannot silently change a filed rapport. The
@@ -552,7 +553,7 @@ async def _build_cost_snapshot(db: AsyncSession, incident_id: uuid.UUID) -> list
         rows = await db.execute(select(Vehicle.id, Vehicle.name).where(Vehicle.id.in_(vehicle_ids)))
         vehicle_names = {row[0]: row[1] for row in rows.all()}
 
-    snapshot: list[dict[str, str | None]] = []
+    snapshot: list[CostSnapshotEntry] = []
     for assignment in sorted(assignments, key=lambda a: (a.resource_type, a.assigned_at)):
         names = personnel_names if assignment.resource_type == "personnel" else vehicle_names
         snapshot.append(
@@ -738,7 +739,7 @@ async def save_rapport(
     board_personnel = await _board_personnel_count(db, incident)
     if report.personnel_json is not None or report.extra_personnel_json:
         counted = derive_personnel_count(
-            [dict(row) for row in (report.personnel_json or [])],
+            report.personnel_json or [],
             normalize_extra_personnel(report.extra_personnel_json),
         )
         report.personnel_count = counted
@@ -778,7 +779,7 @@ async def save_rapport(
                 reconcile_personnel(None, crew_offer.dispatched, crew_offer.assigned_ids, crew_offer.names)
             )
             report.personnel_count = derive_personnel_count(
-                [dict(row) for row in report.personnel_json],
+                report.personnel_json,
                 normalize_extra_personnel(report.extra_personnel_json),
             )
 

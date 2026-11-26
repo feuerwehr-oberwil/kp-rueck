@@ -65,7 +65,7 @@ services:
       # fixtures then log in with their default, every spec times out at the login screen,
       # and the per-username throttle locks the account for 300s – a full run reports ~200
       # failures that mean nothing. Must be >= 12 characters (`get_admin_password()` in
-      # backend/app/seed.py rejects shorter). Keep in step with frontend/tests/constants.ts.
+      # backend/app/seeds/boot.py rejects shorter). Keep in step with frontend/tests/constants.ts.
       ADMIN_SEED_PASSWORD: "${ADMIN_SEED_PASSWORD:-kp-dev-password}"
       # Divera stays OFF unless this is set — an unset key means `get_provider()`
       # returns None and every outbound path (alarm, Mitteilung) is refused before

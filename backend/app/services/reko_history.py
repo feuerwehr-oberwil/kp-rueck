@@ -31,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
+from ..json_columns import reko_effort_figures
 from .notification_params import DANGER_LABELS_DE
 
 COALESCE_WINDOW = timedelta(minutes=2)
@@ -67,14 +68,6 @@ def _text(value: Any) -> str | None:
     return value.strip() or None
 
 
-def _effort(key: str) -> Callable[[models.RekoReport], Any]:
-    return lambda report: (report.effort_json or {}).get(key)
-
-
-def _effort_list(key: str) -> Callable[[models.RekoReport], Any]:
-    return lambda report: list((report.effort_json or {}).get(key) or [])
-
-
 def _power(report: models.RekoReport) -> str | None:
     # «unknown» is the form's blank answer, the same as no answer.
     return None if report.power_supply in (None, "", "unknown") else report.power_supply
@@ -86,10 +79,10 @@ TRACKED_FIELDS: dict[str, Callable[[models.RekoReport], Any]] = {
     "is_relevant": lambda report: report.is_relevant,
     "dangers": lambda report: [key for key in DANGER_LABELS_DE if (report.dangers_json or {}).get(key)],
     "dangers_other": lambda report: _text((report.dangers_json or {}).get("other_notes")),
-    "personnel_count": _effort("personnel_count"),
-    "estimated_duration_hours": _effort("estimated_duration_hours"),
-    "vehicles_needed": _effort_list("vehicles_needed"),
-    "equipment_needed": _effort_list("equipment_needed"),
+    "personnel_count": lambda report: reko_effort_figures(report.effort_json)[0],
+    "estimated_duration_hours": lambda report: reko_effort_figures(report.effort_json)[1],
+    "vehicles_needed": lambda report: list((report.effort_json or {}).get("vehicles_needed") or []),
+    "equipment_needed": lambda report: list((report.effort_json or {}).get("equipment_needed") or []),
     "power_supply": _power,
     "summary_text": lambda report: _text(report.summary_text),
     "additional_notes": lambda report: _text(report.additional_notes),

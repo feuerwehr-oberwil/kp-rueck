@@ -27,14 +27,14 @@ from PIL import Image, UnidentifiedImageError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..logging_config import get_logger
-from .settings import get_setting, update_setting
+from .settings import BRANDING_REPORT_LOGO, read, update_setting
 
 logger = get_logger(__name__)
 
 #: Settings key holding the base64-encoded PNG. Hidden from ``GET /api/settings``
 #: (see ``BLOB_SETTING_KEYS``) — a ~100 KB blob has no business riding along in a
 #: dict the frontend re-fetches on every settings visit.
-LOGO_SETTING_KEY = "branding.report_logo"
+LOGO_SETTING_KEY = BRANDING_REPORT_LOGO.key
 
 #: Largest upload accepted, before decoding. Generous for a crest scan; small enough
 #: that a mistaken 40-megapixel photo is refused rather than resized.
@@ -107,7 +107,7 @@ async def get_report_logo(db: AsyncSession) -> bytes | None:
     Never raises: a settings row that somehow holds unreadable base64 costs the
     report its letterhead, not its existence.
     """
-    stored = await get_setting(db, LOGO_SETTING_KEY)
+    stored = await read(db, BRANDING_REPORT_LOGO)
     if not stored:
         return None
     try:

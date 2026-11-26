@@ -1,7 +1,7 @@
 """Demo database seed script.
 
 Creates realistic demo data for the public demo deployment.
-Called by seed.py when DEMO_MODE=true.
+Called by the boot seed (``boot.seed_database``) when DEMO_MODE=true, and by every demo reset.
 
 seed_demo_event_content() is shared between the full seed/reset and the
 per-session sandbox endpoint (POST /api/demo/sandbox): it fills an existing
@@ -11,26 +11,30 @@ event with the demo scenario, looking up the shared resources by name.
 import base64
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Unpack
 from uuid import UUID, uuid4
 
 import bcrypt
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import models
-from .crud.assignments import sync_auto_leader
-from .crud.group_assignments import sync_auto_group_leader
-from .database import async_session_maker
-from .seed_training import seed_training_data
-from .services.branding import LOGO_SETTING_KEY
-from .services.photo_storage import photo_storage
-from .services.ranks import RANKS
-from .services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
-from .services.training_photos import pick_summary_image
+from .. import models
+from ..crud.assignments import sync_auto_leader
+from ..crud.group_assignments import sync_auto_group_leader
+from ..database import async_session_maker
+from ..services.branding import LOGO_SETTING_KEY
+from ..services.photo_storage import photo_storage
+from ..services.settings import DISPOSABLE_MARKER_KEY, DISPOSABLE_MARKER_VALUE
+from ..services.training_photos import pick_summary_image
+from .station import IncidentSeed, MaterialSeed, add_station_roster, add_station_vehicles
+from .training import seed_training_data
+
+# What `assign` puts on an Einsatz or Auftrag.
+Resource = models.Vehicle | models.Personnel | models.Material
 
 # The «Feuerwehr Musterdorf» crest (same one the KP-Front demo uses), so demo
 # exports carry the letterhead a configured station would get.
-_DEMO_LOGO_PATH = Path(__file__).parent / "assets" / "demo_report_logo.png"
+_DEMO_LOGO_PATH = Path(__file__).parent.parent / "assets" / "demo_report_logo.png"
 
 # Stable UUIDs for the demo users. The demo reset truncates + re-seeds the
 # users table every few hours; using fixed IDs (instead of uuid4()) means a
@@ -46,68 +50,13 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
 
     Flushes but does not commit; the caller controls the transaction.
     """
-    vehicles_data = [
-        {"name": "TLF", "type": "TLF", "display_order": 1, "status": "available", "radio_call_sign": "Omega 1"},
-        {"name": "Pio", "type": "RW", "display_order": 2, "status": "available", "radio_call_sign": "Omega 2"},
-        {"name": "Mowa", "type": "MTW", "display_order": 3, "status": "available", "radio_call_sign": "Omega 3"},
-        {"name": "Trawa", "type": "MTW", "display_order": 4, "status": "available", "radio_call_sign": "Omega 4"},
-        {"name": "Mawa", "type": "MTW", "display_order": 5, "status": "available", "radio_call_sign": "Omega 5"},
-    ]
-    for v in vehicles_data:
-        db.add(models.Vehicle(id=uuid4(), **v))
-
-    personnel_data = [
-        # Offiziere
-        {"name": "Müller Hans", "role": "Hauptmann", "status": "available", "tags": ["F"]},
-        {"name": "Schneider Peter", "role": "Oberleutnant", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Weber Martin", "role": "Oberleutnant", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Fischer Thomas", "role": "Leutnant", "status": "available", "tags": []},
-        {"name": "Ackermann Reto", "role": "Major", "status": "available", "tags": ["F"]},
-        # Höhere Unteroffiziere
-        {"name": "Hoffmann Lisa", "role": "Feldweibel", "status": "available", "tags": ["F"]},
-        {"name": "Schmidt Daniel", "role": "Feldweibel", "status": "available", "tags": ["F"]},
-        {"name": "Koch René", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Baumann Michael", "role": "Wachtmeister", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Keller Marco", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Brunner Sarah", "role": "Wachtmeister", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Bühler Nadja", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Frei Marc", "role": "Wachtmeister", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Suter Beat", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Widmer Anna", "role": "Wachtmeister", "status": "available", "tags": ["Hö"]},
-        # Korporal
-        {"name": "Steiner Lukas", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Meier Andrea", "role": "Korporal", "status": "available", "tags": ["F"]},
-        {"name": "Graf Sven", "role": "Korporal", "status": "available", "tags": ["Hö"]},
-        {"name": "Roth Til", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Gerber Elias", "role": "Korporal", "status": "available", "tags": ["F"]},
-        {"name": "Lüthi Sophie", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Kaufmann Nico", "role": "Korporal", "status": "available", "tags": ["Fw"]},
-        {"name": "Moser Lea", "role": "Korporal", "status": "available", "tags": ["F"]},
-        {"name": "Wenger Tim", "role": "Korporal", "status": "available", "tags": []},
-        # Mannschaftsgrade
-        {"name": "Zimmermann Fabian", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Wyss Fabio", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Künzli Klara", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Studer Samuel", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Schwarz Jan", "role": "Soldat", "status": "available", "tags": ["Fw"]},
-        {"name": "Hartmann Mischa", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Berger Yves", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Christen Mia", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Vogel Timo", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Egli Sarah", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Bianchi Luca", "role": "Soldat", "status": "available", "tags": ["Fw"]},
-        {"name": "Portmann Jonas", "role": "Soldat", "status": "available", "tags": []},
-    ]
-    # Real Grade (owner, 17.11.2026), sorted most senior first – the order of
-    # ``ranks.RANKS`` – instead of alphabetically by Grad.
-    role_order = {rank.label: position for position, rank in enumerate(RANKS, start=1)}
-    for p in personnel_data:
-        db.add(models.Personnel(id=uuid4(), role_sort_order=role_order.get(p["role"], 99), **p))
+    add_station_vehicles(db)
+    add_station_roster(db, "demo")
 
     # Storage locations: the three vehicles (TLF / Pio / MoWa) plus a single
     # "Magazin" depot. (Earlier demo data had separate "Modul"/"Bühne"
     # locations — consolidated into Magazin.)
-    materials_data = [
+    materials_data: list[MaterialSeed] = [
         # Tauchpumpen
         {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
         {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
@@ -152,8 +101,7 @@ async def seed_demo_shared_resources(db: AsyncSession) -> None:
     # closest to the scene) first, the central Magazin last.
     location_order = {"TLF": 1, "Pio": 2, "MoWa": 3, "Trawa": 4, "Magazin": 5}
     for m in materials_data:
-        m.setdefault("location_sort_order", location_order.get(m["location"], 99))
-        db.add(models.Material(id=uuid4(), **m))
+        db.add(models.Material(id=uuid4(), location_sort_order=location_order.get(m["location"], 99), **m))
 
     # A transportable "Pumpenmodul" currently loaded on the Trawa — a material
     # group of three pumps that move together with the vehicle.
@@ -205,7 +153,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     from the DB — they are NOT created here.
 
     Every timestamp is ``now`` minus a fixed number of minutes. ``now`` defaults to
-    the wall clock; the visual regression seed (``app.seed_visual``) passes a fixed
+    the wall clock; the visual regression seed (``app.seeds.visual``) passes a fixed
     instant so the same story lands on the same minutes on every run.
 
     Flushes but does not commit; the caller controls the transaction.
@@ -219,14 +167,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     editor_id = editor_user.id if editor_user else None
 
     # Look up shared resources by name (materials by name + location, names repeat)
-    result = await db.execute(select(models.Vehicle))
-    vehicle = {v.name: v for v in result.scalars().all()}
-
-    result = await db.execute(select(models.Personnel))
-    person = {p.name: p for p in result.scalars().all()}
-
-    result = await db.execute(select(models.Material))
-    material = {(m.name, m.location): m for m in result.scalars().all()}
+    vehicle = {v.name: v for v in await db.scalars(select(models.Vehicle))}
+    person = {p.name: p for p in await db.scalars(select(models.Personnel))}
+    material = {(m.name, m.location): m for m in await db.scalars(select(models.Material))}
 
     if now is None:
         now = datetime.now()
@@ -244,10 +187,20 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     position_by_status: dict[str, int] = {}
     incidents: dict[str, models.Incident] = {}
 
-    def add_incident(**data) -> models.Incident:
+    def add_incident(
+        *, group_id: UUID | None = None, group_position: int = 0, **data: Unpack[IncidentSeed]
+    ) -> models.Incident:
         pos = position_by_status.get(data["status"], 0)
         position_by_status[data["status"]] = pos + 1
-        incident = models.Incident(id=uuid4(), created_by=editor_id, event_id=event.id, position=pos, **data)
+        incident = models.Incident(
+            id=uuid4(),
+            created_by=editor_id,
+            event_id=event.id,
+            position=pos,
+            group_id=group_id,
+            group_position=group_position,
+            **data,
+        )
         db.add(incident)
         incidents[incident.title] = incident
         return incident
@@ -281,7 +234,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     # left behind, spread across all seven columns (backlog piling up in the
     # early columns, a few already worked off).
     # ============================================
-    storm_incidents_data = [
+    storm_incidents_data: list[IncidentSeed] = [
         # --- EINGEGANGEN (5) — the phone keeps ringing ---
         {
             "title": "Wasser im Keller MFH",
@@ -507,7 +460,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     # Auftrag is dispatched as one route to one squad, so every stop on it is
     # already assigned the moment the route goes out — they are worked through
     # in order from there, not moved into the column one at a time.
-    stops_data = [
+    stops_data: list[IncidentSeed] = [
         {
             "title": "Baum auf Strasse",
             "type": "elementarereignis",
@@ -603,7 +556,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     # Auftrag: vehicle + crew + Motorsäge on the GROUP (route-owned, shared
     # across all stops). Each vehicle/person is actively assigned at most once.
     # ============================================
-    def assign(incident_title: str, resource_type: str, resource, *, driver_stay: bool = False):
+    def assign(
+        incident_title: str, resource_type: str, resource: Resource, *, driver_stay: bool = False
+    ) -> models.IncidentAssignment:
         # `driver_stay` = Fahrzeug und Fahrer bleiben vor Ort. Default False means "zurück",
         # which is right for a vehicle that only delivers crew or material — but wrong for a
         # TLF at a fire, which stays and supplies the water.
@@ -653,7 +608,7 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     for assignment in assignments:
         db.add(assignment)
 
-    auftrag_assignments = [
+    auftrag_assignments: list[tuple[str, Resource]] = [
         ("vehicle", vehicle["Pio"]),
         ("personnel", person["Weber Martin"]),
         ("personnel", person["Baumann Michael"]),
@@ -831,7 +786,9 @@ async def seed_demo_event_content(db: AsyncSession, event: models.Event, *, now:
     # ============================================
     # STATUS TRANSITIONS (selective trails for the Einsatztagebuch)
     # ============================================
-    def transition(incident_title: str, from_status: str, to_status: str, minutes_ago: int, notes: str | None = None):
+    def transition(
+        incident_title: str, from_status: str, to_status: str, minutes_ago: int, notes: str | None = None
+    ) -> models.StatusTransition:
         return models.StatusTransition(
             id=uuid4(),
             incident_id=incidents[incident_title].id,
