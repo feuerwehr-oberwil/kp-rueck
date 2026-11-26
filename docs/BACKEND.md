@@ -34,8 +34,9 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
   Send anything that a board or another session reacts to after the commit: `after_commit(db, …)`
   or a background task. Every other explicit commit has a comment beside it that says why. The
   rule lives above `get_db` in `backend/app/database.py`.
-- **Row locks in one order**: Aufträge (by id) → Einsätze (by id) → the resource row. The helpers
-  and the reasoning are in `backend/app/crud/locking.py`. A new writer that locks must use the
+- **Row locks in one order**: Aufträge (by id) → Einsätze (by id) → the resource row → the
+  Ereignis row (`update_event_activity`, last). The helpers and the reasoning are in
+  `backend/app/crud/locking.py`. A new writer that locks must use the
   helpers, or it deadlocks against completion/reorder. New assignments go through
   `ensure_assignable`.
 

@@ -396,6 +396,7 @@ def merge(
 
     _renumber(plan, base, lead, other, event_id=event_id, now=now)
     _settle_slots(plan, lead, other, conflict)
+    _ask_gps_once(plan, base, lead, other)
     return plan
 
 
@@ -550,14 +551,53 @@ def _slot_losers(plan: Plan, lead: Rows, table: str, slot: Callable[[Row], Any])
     return losers
 
 
-def _replace(plan: Plan, lead: Rows, other: Rows, key: Key, row: Row) -> None:
-    """`row` is now the agreed version of `key`: each side gets exactly one op for it, if any."""
+# The bell's GPS questions («Zu erledigen», services/notification_service.create_gps_todo).
+GPS_TODOS = frozenset({"gps_arrival", "gps_release"})
+
+
+def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
+    """One GPS question both systems raised in the seconds before their lead rows agreed.
+
+    Each system keeps one open row per Ereignis, type and `params.key` (`create_gps_todo`), but
+    sees only its own, so both may ask. A copy that both systems hold, or that is agreed (in the
+    shadow), is never deleted – one side's delete and the other's dismissal would make the next
+    round take the deletion – so it is the one that stays; else the leader's, else the lower id.
+    Every other copy is held by one side alone and is deleted there: its delete carries the row
+    it expects, so a copy answered (dismissed) meanwhile is `changed`, and the next round finds
+    it dismissed and keeps it. Only open rows count.
+    """
+
+    def shared(key: Key) -> bool:
+        return key in base or (key in lead and key in other)
+
+    asked: set[tuple[Any, ...]] = set()
+    rows = sorted(
+        (
+            (k, r)
+            for k, r in plan.merged.items()
+            if k[0] == "notifications"
+            and r is not None
+            and r.get("type") in GPS_TODOS
+            and not r.get("dismissed")
+            and (r.get("params") or {}).get("key")
+        ),
+        key=lambda kr: (not shared(kr[0]), kr[0] not in lead, kr[0][1]),
+    )
+    for key, row in rows:
+        question = (row.get("event_id"), row["type"], row["params"]["key"])
+        if question in asked and not shared(key):
+            _replace(plan, lead, other, key, None)
+        asked.add(question)
+
+
+def _replace(plan: Plan, lead: Rows, other: Rows, key: Key, row: Row | None) -> None:
+    """`row` (None: gone) is now the agreed version of `key`: each side gets exactly one op for it, if any."""
     plan.merged[key] = row
     plan.to_leader = _retarget(plan.to_leader, key, row, lead.get(key))
     plan.to_follower = _retarget(plan.to_follower, key, row, other.get(key))
 
 
-def _retarget(ops: list[Op], key: Key, row: Row, current: Row | None) -> list[Op]:
+def _retarget(ops: list[Op], key: Key, row: Row | None, current: Row | None) -> list[Op]:
     kept = [op for op in ops if (op.table, op.id) != key]
     return kept if current == row else [*kept, Op(key[0], key[1], row, current)]
 

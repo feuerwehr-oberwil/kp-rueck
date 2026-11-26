@@ -9,19 +9,24 @@ Tests notification evaluation, settings management, and notification lifecycle i
 - Dismissal functionality
 """
 
+import asyncio
 import json
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select, text, update
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.crud.events import update_event_activity
 from app.models import (
     Event,
     EventAttendance,
+    EventLead,
     Incident,
     IncidentAssignment,
     Material,
@@ -48,6 +53,7 @@ from app.services.notification_service import (
     save_notification_settings,
 )
 from app.services.storage_usage import BYTES_PER_GB, StorageUsage
+from tests.conftest import wait_until_blocked
 
 # ============================================
 # Fixtures
@@ -1786,3 +1792,140 @@ async def test_a_deleted_incident_does_not_raise_shortage_alerts(
         )
         == []
     )
+
+
+async def test_a_standby_box_writes_no_bell_rows_into_an_ereignis_it_does_not_lead(
+    monkeypatch, db_session, notif_event, notif_user
+):
+    """A mirrored Ereignis is the hosted board's: the box shows the rows replication brought and
+    writes none of its own (a row only the box has is never on the hosted board). Once the box
+    leads it (taken out of the stream, its lead row), the rules run as on the hosted board."""
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
+    # Only the table the lead check reads – app/standby.py's install_guards does more.
+    await db_session.execute(text("CREATE SCHEMA IF NOT EXISTS standby"))
+    await db_session.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
+    mirrored = Notification(type="field_message", severity="info", message="Trupp meldet", event_id=notif_event.id)
+    # Without a position, an Einsatz under way raises «missing_location».
+    db_session.add_all(
+        [
+            mirrored,
+            Incident(
+                title="Ohne Position",
+                type="brandbekaempfung",
+                priority="high",
+                status="enroute",
+                event_id=notif_event.id,
+                created_by=notif_user.id,
+            ),
+        ]
+    )
+    await db_session.flush()
+
+    async def shown() -> list[str]:
+        return sorted(n.type for n in await evaluate_notifications(db_session, notif_event.id))
+
+    async def stored() -> list[str]:
+        rows = await db_session.scalars(select(Notification.type).where(Notification.event_id == notif_event.id))
+        return sorted(rows)
+
+    assert await shown() == ["field_message"]
+    assert await stored() == ["field_message"]
+
+    db_session.add(EventLead(event_id=notif_event.id, holder="standby", since=datetime.now(UTC)))
+    await db_session.execute(
+        text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": notif_event.id}
+    )
+    await db_session.flush()
+    assert await shown() == ["field_message", "missing_location"]
+
+
+@pytest_asyncio.fixture
+async def box_led(monkeypatch, test_engine) -> AsyncGenerator[tuple[async_sessionmaker[AsyncSession], UUID]]:
+    """A standby box that leads an Ereignis, committed for real (lock tests need a second
+    transaction): its lead row, the Ereignis out of the stream, and an Einsatz under way without
+    a position – which raises «missing_location», a write after the fatigue step."""
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
+    sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    event_id = uuid4()
+    async with sessions() as db:
+        await db.execute(text("CREATE SCHEMA IF NOT EXISTS standby"))
+        await db.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
+        db.add(Event(id=event_id, name="Offline geführt", training_flag=False))
+        await db.flush()
+        db.add_all(
+            [
+                EventLead(event_id=event_id, holder="standby", since=datetime.now(UTC)),
+                Incident(
+                    title="Ohne Position", type="brandbekaempfung", priority="high", status="enroute", event_id=event_id
+                ),
+            ]
+        )
+        await db.execute(text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": event_id})
+        await db.commit()
+    try:
+        yield sessions, event_id
+    finally:
+        async with sessions() as db:
+            await db.execute(delete(Incident).where(Incident.event_id == event_id))
+            await db.execute(delete(Event).where(Event.id == event_id))
+            await db.execute(text("DROP SCHEMA IF EXISTS standby CASCADE"))
+            await db.commit()
+
+
+async def _bell_types(sessions: async_sessionmaker[AsyncSession], event_id: UUID) -> list[str]:
+    async with sessions() as db:
+        return list(await db.scalars(select(Notification.type).where(Notification.event_id == event_id)))
+
+
+async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_standby_box(box_led):
+    """A hosted takeover the sync brings in mid-poll waits for the phase that is writing, and the
+    poll's next phase sees it and writes nothing. A fatigue row widened after the box lost the
+    lead would merge with the hosted dismissal and mark people acknowledged nobody saw. A status
+    update's stamp on the Ereignis row does not wait for the poll."""
+    sessions, event_id = box_led
+    async with sessions() as fatigue, sessions() as polling, sessions() as syncing, sessions() as stamping:
+        # Another board's poll is in the fatigue step: this poll stops there, lead in hand.
+        await fatigue.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"}
+        )
+        poll = asyncio.create_task(evaluate_notifications(polling, event_id))
+        await wait_until_blocked(sessions)
+        # Every step below finishes either way, so a failure is reported instead of hanging the cleanup.
+        await stamping.execute(text("SET LOCAL lock_timeout = '2s'"))
+        try:
+            await update_event_activity(stamping, event_id)
+            stamped = True
+        except DBAPIError:
+            stamped = False
+        await stamping.rollback()
+        takeover = asyncio.create_task(
+            syncing.execute(update(EventLead).where(EventLead.event_id == event_id).values(holder="hosted"))
+        )
+        try:
+            await wait_until_blocked(sessions, count=2)
+            takeover_waited = True
+        except AssertionError:
+            takeover_waited = False
+        await fatigue.rollback()
+        await asyncio.wait_for(takeover, timeout=10)
+        await syncing.commit()
+        shown = await asyncio.wait_for(poll, timeout=10)
+        await polling.commit()
+
+    assert stamped, "a status update's stamp waited for the poll"
+    assert takeover_waited, "the takeover did not wait for the poll's fatigue write"
+    assert shown == []
+    assert await _bell_types(sessions, event_id) == []
+
+
+async def test_a_bell_poll_on_a_standby_box_writes_nothing_while_a_takeover_is_being_applied(box_led):
+    """The sync applies a takeover by locking the lead row, then the Ereignis row; the poll holds
+    the Ereignis row. So the poll never waits for the lead row: locked means «not now»."""
+    sessions, event_id = box_led
+    async with sessions() as syncing, sessions() as polling:
+        await syncing.execute(select(EventLead.event_id).where(EventLead.event_id == event_id).with_for_update())
+        await polling.execute(text("SET LOCAL lock_timeout = '2s'"))
+        assert await evaluate_notifications(polling, event_id) == []
+        await polling.commit()
+        await syncing.rollback()
+    assert await _bell_types(sessions, event_id) == []

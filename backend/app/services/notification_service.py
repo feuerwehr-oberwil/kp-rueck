@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..crud.active_resources import active_resource_ids
 from ..database import after_commit
+from ..environment import ROLE_STANDBY, deployment_role
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
 from ..utils.failure_latch import FailureLatch
@@ -27,6 +28,7 @@ from ..utils.failure_latch import FailureLatch
 # Schadenplatz the way the card does — never «…strasse 8, 4104 Oberwil» about a
 # card that reads «…strasse 8».
 from . import notification_params as texts
+from .event_lead import box_leads_locked
 from .incident_display import get_home_city, location_display
 from .rapport_rows import STATUS_LABELS
 from .vehicle_facts import record_vehicle_fact
@@ -69,8 +71,15 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     """
     Evaluate all notification rules for the current event.
 
-    Returns a list of active (non-dismissed) notifications.
+    Returns the stored notifications afterwards (``_stored_notifications``). A standby box
+    evaluates only in an Ereignis it leads (``event_lead.box_leads_locked``): a mirrored one is the
+    hosted board's, whose rows replication brings – a row the box wrote there would exist only
+    on the box. Each write phase holds the lead row (``_may_write``): a hosted takeover the sync
+    brings in meanwhile waits for that phase's commit instead of meeting its stale writes.
     """
+    if not await _may_write(db, event_id):
+        return await _stored_notifications(db, event_id)
+
     notifications = []
     settings = await get_notification_settings(db)
 
@@ -96,6 +105,9 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
     # so switching those off resolves it like the others.
     await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
+    # That committed, and the lead lock went with it: take it again for the writes below.
+    if not await _may_write(db, event_id):
+        return await _stored_notifications(db, event_id)
 
     # Somebody's planned «geht um» is near – a resource alert like time on duty.
     if settings.enabled_resource_alerts:
@@ -122,8 +134,18 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # Auto-resolve notifications whose conditions are no longer true
     await _auto_resolve_stale_notifications(db, event_id, notifications, settings)
 
-    # Return all active notifications AND recently dismissed ones (last 20 from last 24 hours)
-    # This ensures the frontend can show history while preventing stale dismissed notifications
+    return await _stored_notifications(db, event_id)
+
+
+async def _may_write(db: AsyncSession, event_id: UUID) -> bool:
+    """Whether this system may write bell rows in the Ereignis – on a standby box only where it
+    leads, with the lead row share-locked until the next commit (``event_lead.box_leads_locked``)."""
+    return deployment_role() != ROLE_STANDBY or await box_leads_locked(db, event_id)
+
+
+async def _stored_notifications(db: AsyncSession, event_id: UUID) -> list[Notification]:
+    """The bell's rows of an Ereignis as stored: every active one, newest first, then the last
+    20 dismissed in 24 hours – history for the frontend without stale dismissed rows."""
     twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
 
     # Get active notifications

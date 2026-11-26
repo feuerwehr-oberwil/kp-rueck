@@ -24,7 +24,8 @@ async def get_current_notifications(
     """
     Get all active notifications for the specified event.
 
-    Evaluates all notification rules and returns active (non-dismissed) notifications.
+    Evaluates all notification rules and returns active (non-dismissed) notifications. A standby
+    box evaluates only in an Ereignis it leads; elsewhere it returns the mirrored rows as they are.
     """
     notifications = await notification_service.evaluate_notifications(db, event_id)
     return notifications

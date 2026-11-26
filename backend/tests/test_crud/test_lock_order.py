@@ -24,6 +24,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app import schemas
+from app.api import divera as divera_api
 from app.api import reko as reko_api
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
@@ -41,6 +42,7 @@ from app.models import (
     AuditLog,
     AuftragTemplate,
     AuftragTemplateResource,
+    DiveraEmergency,
     Event,
     EventSpecialFunction,
     Incident,
@@ -507,4 +509,64 @@ async def test_a_reko_replacement_locks_the_incoming_person_with_the_crew_it_may
         async with board.sessions() as db:
             await db.execute(delete(IncidentAssignment).where(IncidentAssignment.incident_id == board.loose_id))
             await db.execute(delete(Personnel).where(Personnel.id.in_([successor_id, outgoing_id, incoming_id])))
+            await db.commit()
+
+
+async def test_a_bulk_attach_and_a_status_update_on_a_flagged_card_do_not_deadlock(board: Board):
+    # A status update holds its card, then writes the Ereignis row. A bulk attach wrote that row
+    # with its first card, and its second alarm then flags the held card as its duplicate (the
+    # flag's foreign key waits for the card): each waited for the other.
+    first_alarm, second_alarm = uuid4(), uuid4()
+    address = "Hauptstrasse 1, 4104 Oberwil"
+    async with board.sessions() as db:
+        loose = await db.get(Incident, board.loose_id)
+        assert loose is not None
+        loose.location_address = address
+        db.add_all(
+            [
+                DiveraEmergency(
+                    id=alarm_id,
+                    divera_id=divera_id,
+                    title=title,
+                    address=alarm_address,
+                    received_at=datetime.now(UTC),
+                    is_archived=False,
+                )
+                for alarm_id, divera_id, title, alarm_address in (
+                    (first_alarm, 910_001, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+                    (second_alarm, 910_002, "Keller überflutet", address),
+                )
+            ]
+        )
+        await db.commit()
+    try:
+        async with board.sessions() as holder, board.sessions() as attaching, board.sessions() as moving:
+            # The bulk attach stops between its two alarms: the second one's row is taken.
+            await holder.execute(select(DiveraEmergency.id).where(DiveraEmergency.id == second_alarm).with_for_update())
+            user = await attaching.get(User, board.user_id)
+            assert user is not None
+            body = schemas.BulkAttachEmergenciesRequest(
+                event_id=board.event_id, emergency_ids=[first_alarm, second_alarm]
+            )
+            bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), attaching, user))
+            await wait_until_blocked(board.sessions)
+
+            # The status update takes its card now, and writes the Ereignis row once the bulk goes on.
+            mover = await moving.get(User, board.user_id)
+            await lock_incident_with_group(moving, board.loose_id)
+            await holder.rollback()
+            moved = await asyncio.wait_for(
+                incidents_crud.update_incident_status(moving, board.loose_id, "enroute", mover, _request()), timeout=10
+            )
+            await moving.commit()
+            attached = await asyncio.wait_for(bulk, timeout=10)
+            await attaching.commit()
+
+        assert moved is not None and moved.status == "enroute"
+        assert attached.errors == []
+        assert [card.possible_duplicate_of_id for card in attached.created] == [None, board.loose_id]
+    finally:
+        async with board.sessions() as db:
+            # The board fixture removes the cards; the alarms point at them.
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
             await db.commit()

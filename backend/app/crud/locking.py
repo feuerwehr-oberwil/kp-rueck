@@ -6,6 +6,12 @@ LOCK ORDER – every writer takes row locks in this order and never backwards:
   2. ``incidents`` (Einsätze, Auftrag stops)   ascending id
   3. resource rows (``personnel`` / ``vehicles`` / ``materials``)
                                                by (resource_type, id)
+  4. the Ereignis row (``events``)             written last: ``events.update_event_activity``
+
+A status update holds its card and then stamps the Ereignis. A bulk attach stamped it with its
+first card and then flagged (key-shared) another card for its second alarm: each waited for
+the other. A writer of several cards stamps once, after the last
+(``create_incident(touch_event=False)``).
 
 Assignment rows (``incident_assignments``, ``incident_group_assignments``) are
 leaves: write or lock them only while holding their parent (or, for the

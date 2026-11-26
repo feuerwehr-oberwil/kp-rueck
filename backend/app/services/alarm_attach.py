@@ -55,13 +55,15 @@ async def attach(
     actor: models.User | None,
     request: Request | None = None,
     merge_into: models.Incident | None = None,
+    touch_event: bool = True,
 ) -> Attached:
     """Make the alarm's card on `event_id`, flag or merge it, link the alarm. Flushes; the caller commits.
 
     ``merge_into`` (single attach only) must be locked (``crud.locking.lock_incident``); a
     refused merge raises ``duplicates.MergeRefusedError``. ``actor=None`` is the system, the
     auto-attach. The broadcasts are queued last, so a failed attach queues none – a caller that
-    wraps it in a savepoint must not fail after it inside that savepoint.
+    wraps it in a savepoint must not fail after it inside that savepoint. ``touch_event=False``
+    (bulk attach): the caller stamps the Ereignis row once, after its last alarm – see below.
     """
     previous_event_id = emergency.attached_to_event_id
     card_data = incident_create_from_emergency(
@@ -100,6 +102,7 @@ async def attach(
         source_ref=emergency.source_id,
         possible_duplicate_of_id=duplicate_of,
         audit_extra=audit_extra,
+        touch_event=touch_event,
     )
     merged: duplicates.MergeResult | None = None
     if merge_into is not None:

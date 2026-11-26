@@ -444,8 +444,12 @@ async def bulk_attach_emergencies(
                     continue
 
                 # Nobody answered a duplicate hint for each of up to 100 alarms: flagged
-                # like an automatic door, never merged (`attach` without `merge_into`).
-                attached = await attach(db, emergency, request_data.event_id, actor=current_user, request=request)
+                # like an automatic door, never merged (`attach` without `merge_into`). The
+                # Ereignis row waits until after the loop: a flag key-shares another card,
+                # and a status update holds that card while it waits for the Ereignis row.
+                attached = await attach(
+                    db, emergency, request_data.event_id, actor=current_user, request=request, touch_event=False
+                )
                 created_incidents.append(attached.incident)
 
         except Exception:
@@ -457,6 +461,9 @@ async def bulk_attach_emergencies(
                 else "Ein Alarm konnte nicht angehängt werden"
             )
             rolled_back = True
+
+    if created_incidents:
+        await events_crud.update_event_activity(db, request_data.event_id)
 
     if rolled_back:
         # The savepoint's rollback may have expired cards created before it; reload them.
