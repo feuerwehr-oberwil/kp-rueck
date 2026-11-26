@@ -259,7 +259,15 @@ function CheckInKiosk({ token }: { token: string | null }) {
                 id: newPerson.id,
                 name: newPerson.name,
                 checked_in: newPerson.checked_in,
-                is_assigned: false
+                is_assigned: false,
+                kennung: null,
+                role: null,
+                status: 'available',
+                tags: null,
+                checked_in_at: null,
+                checked_out_at: null,
+                planned_from: null,
+                planned_until: null,
               }])
             }
             // Clear the search so the freshly added person is visible in the

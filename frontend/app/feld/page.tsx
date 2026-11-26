@@ -556,7 +556,9 @@ function FeldSurface() {
       setSelectedPerson(prev => prev ?? {
         personnel_id: data.personnel_id,
         name: data.personnel_name,
+        kennung: null,
         role: data.personnel_role,
+        checked_in: data.checked_in,
         incident_count: data.assignments.length,
         open_count: data.assignments.filter(a => a.is_active_assignment).length,
         missing_rapport_count: data.assignments.filter(owesRapport).length,

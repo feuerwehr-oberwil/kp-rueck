@@ -85,7 +85,9 @@ import FeldPage from '@/app/feld/page'
 const PERSON: ApiFeldPersonnel = {
   personnel_id: 'p-1',
   name: 'Muster Hans',
+  kennung: null,
   role: 'Offizier',
+  checked_in: false,
   incident_count: 2,
   open_count: 2,
   missing_rapport_count: 2,
@@ -125,6 +127,15 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     group_id: null,
     group_name: null,
     group_position: null,
+    location_display: null,
+    source_vehicle: null,
+    has_been_dispatched: false,
+    pickup_seen: false,
+    pickup_vehicle: null,
+    pickup_resolved_at: null,
+    kp_messages: [],
+    field_requests: [],
+    group_color: null,
     ...overrides,
   }
 }

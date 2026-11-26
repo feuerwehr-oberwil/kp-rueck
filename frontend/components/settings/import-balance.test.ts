@@ -174,7 +174,7 @@ describe('buildImportBalance – replace', () => {
         materials: DELETIONS.materials,
         incident_assignments: IMPACT.incident_assignments,
         active_incident_assignments: IMPACT.active_incident_assignments,
-      },
+      } as ApiExcelImportPreview['deletions'],
     })
     const balance = buildImportBalance(older, STOCK)
     expect(balance.danglingGroupAssignments).toEqual([])
@@ -194,6 +194,11 @@ describe('buildImportBalance – replace', () => {
         materials: 0,
         incident_assignments: 0,
         active_incident_assignments: 0,
+        incident_group_assignments: 0,
+        active_incident_group_assignments: 0,
+        cascade_event_attendance: 0,
+        cascade_event_special_functions: 0,
+        cascade_personnel_identities: 0,
       },
     })
     const balance = buildImportBalance(first, { personnel: 0, vehicles: 0, materials: 0 })
@@ -277,6 +282,11 @@ describe('emptySheetNotices', () => {
         materials: 0,
         incident_assignments: 0,
         active_incident_assignments: 0,
+        incident_group_assignments: 0,
+        active_incident_group_assignments: 0,
+        cascade_event_attendance: 0,
+        cascade_event_special_functions: 0,
+        cascade_personnel_identities: 0,
       },
     })
     expect(emptySheetNotices(emptyBoard).every((n) => !n.ambiguous)).toBe(true)

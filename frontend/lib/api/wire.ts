@@ -21,6 +21,10 @@ export type Out<N extends keyof Schemas> = Served<Schemas[N]>
 /** A request model, as the client may write it (a defaulted field may be left out). */
 export type In<N extends keyof Schemas> = Schemas[N]
 
+/** A PATCH body whose fields `K` the spec marks nullable only because pydantic's «not sent»
+ *  default is None: the column is NOT NULL, so the client sends a value or leaves it out. */
+export type SentOrOmitted<T, K extends keyof T> = Omit<T, K> & { [P in K]?: Exclude<T[P], null> }
+
 /** A type-level check that a hand-typed body still fits the server's model: write
  *  `type _XFits = Fits<Mine, In<'X'>>` beside it, and tsc fails the day it stops fitting. */
 export type Fits<T extends U, U> = T extends U ? true : never

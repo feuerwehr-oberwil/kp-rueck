@@ -6,10 +6,10 @@
  * know who is normally expected to file before any form exists (decision 22).
  */
 
-import type { Priority } from '@/lib/priority'
+import type { In, Out } from '../wire'
 
 /** 'none' – no rapport row yet · 'draft' – started · 'submitted' – filed. */
-export type ApiFeldRapportState = 'none' | 'draft' | 'submitted'
+export type ApiFeldRapportState = Out<'FeldAssignment'>['rapport_state']
 
 /**
  * Why a Schadenplatz is in somebody's list (plan 26 §2.2). The rule itself lives
@@ -20,81 +20,33 @@ export type ApiFeldRapportState = 'none' | 'draft' | 'submitted'
  * assignment needs no explanation, and the absence of a label is what reads as
  * "meins". Only `crew` can owe a Schadenplatz-Rapport.
  */
-export type ApiFeldSourceKind = 'crew' | 'reko' | 'driver' | 'magazin'
+export type ApiFeldSourceKind = Out<'FeldAssignment'>['source']
 
 /** The Feld-Code and how many devices redeemed it. Editor only. */
-export interface ApiFeldAccessState {
-  code: string
-  device_count: number
-}
+export type ApiFeldAccessState = Out<'FeldAccessState'>
 
 /** The door's proof of place — readable with the LINK token, before the code.
  *  Station + Ereignis above the code prompt, so whoever scanned a poster in
  *  the rain can tell they reached the right brigade before typing anything. */
-export interface ApiFeldContextResponse {
-  event_name: string
-  training_flag: boolean
-  station_name: string
-}
+export type ApiFeldContextResponse = Out<'FeldContextResponse'>
 
 /** What the Feld-Code buys: an unlocked token, and the picker to use it on. */
-export interface ApiFeldUnlockResponse {
-  token: string
-  personnel: ApiFeldPersonnel[]
-  event_id: string
-  event_name: string
-}
+export type ApiFeldUnlockResponse = Out<'FeldUnlockResponse'>
 
 /** The bound token. The device stores this and stops using the link token. */
-export interface ApiFeldClaimResponse {
-  token: string
-  personnel_id: string
-}
+export type ApiFeldClaimResponse = Out<'FeldClaimResponse'>
 
-export interface ApiFeldPersonnel {
-  personnel_id: string
-  name: string
-  /** Tells two people of the same name apart; shown only for namesakes. */
-  kennung?: string | null
-  role: string | null
-  /** Incidents in this event the person is or was assigned to. */
-  incident_count: number
-  /** Of those, the ones they are still actively assigned to. */
-  open_count: number
-  /** Of those, the ones without a submitted Schadenplatz-Rapport. */
-  missing_rapport_count: number
-  /** Present at this Ereignis. The picker is the roster since decision 10, so
-   *  this is what tells "here, nothing yet" from "not here at all". */
-  checked_in?: boolean
-}
+export type ApiFeldPersonnel = Out<'FeldPersonnel'>
 
 /** One vehicle on the briefing, with whoever drives it in this Ereignis.
  *  `driver` is null when the KP has not named one — «TLF 1» alone left a crew
  *  unable to say who is sitting outside in it. */
-export interface ApiFeldVehicleLine {
-  name: string
-  driver: string | null
-  /** The board's driver-stay flag: does it park here, or drive back once the
-   *  crew is dropped off? **null when nobody can answer** — a route-level
-   *  vehicle has no toggle, so the column behind it is a copy no operator can
-   *  correct. Absent means absent, never «kehrt zurück». */
-  stays?: boolean | null
-  /** True when the vehicle belongs to the **Auftrag** rather than to this one
-   *  Schadenplatz — an Auftrag's resources are shared across all of its stops,
-   *  so it comes along to the next one. `/feld` used to render both the same,
-   *  which is why a route's TLF read as belonging to the address the crew was
-   *  standing at. */
-  via_auftrag?: boolean
-}
+export type ApiFeldVehicleLine = Out<'FeldVehicleLine'>
 
 /** One line of the briefing's material list: a name, how many of it, and the
  *  depot it lives in (`Material.location`) — the squad has to know where to
  *  fetch it. Grouped per (name, depot); null when the catalogue names none. */
-export interface ApiFeldMaterialLine {
-  name: string
-  count: number
-  location?: string | null
-}
+export type ApiFeldMaterialLine = Out<'FeldMaterialLine'>
 
 /**
  * What the Reko found here. Only ever a *submitted* report — a draft is
@@ -102,32 +54,17 @@ export interface ApiFeldMaterialLine {
  * fact is worse than nothing. `dangers` are `DangersAssessment` keys, rendered
  * with the board's own `reko.reportSection.dangerBadges` labels.
  */
-export interface ApiFeldReko {
-  summary: string | null
-  notes: string | null
-  dangers: string[]
-  /** The verdict: `false` = «Kein Einsatz nötig». Feeds the rapport gate — an
-   *  incident the Reko declared irrelevant and the KP closed owes no rapport. */
-  is_relevant?: boolean | null
-  submitted_at: string | null
-  submitted_by_name: string | null
-}
+export type ApiFeldReko = Out<'FeldReko'>
 
 /** One «Meldung an den Trupp» — KP → field (sweep 27 §P3.2). `author_name` is
  *  the sender's display name, denormalised server-side: the login-less phone
  *  never resolves users. */
-export interface ApiFeldKpMessage {
-  id: string
-  incident_id: string
-  message: string
-  author_name: string
-  created_at: string
-}
+export type ApiFeldKpMessage = Out<'KpFieldMessage'>
 
 /** What a request from the field asks for (R13). `pickup` mirrors the Abholung flag. */
-export type ApiFieldRequestKind = 'message' | 'material' | 'personnel' | 'pickup'
+export type ApiFieldRequestKind = Out<'FieldRequestResponse'>['kind']
 /** offen → in Arbeit (optional) → erledigt. */
-export type ApiFieldRequestStatus = 'open' | 'in_progress' | 'done'
+export type ApiFieldRequestStatus = Out<'FieldRequestResponse'>['status']
 
 /**
  * One workable request from the field (R13) — the same shape on the board card,
@@ -135,198 +72,23 @@ export type ApiFieldRequestStatus = 'open' | 'in_progress' | 'done'
  * server's German one-liner; clients render their own from kind/item/quantity
  * (`lib/field-requests.ts`) and fall back to it.
  */
-export interface ApiFieldRequest {
-  id: string
-  incident_id: string
-  kind: ApiFieldRequestKind
-  status: ApiFieldRequestStatus
-  text: string | null
-  item: string | null
-  quantity: number | null
-  label: string
-  created_at: string
-  created_by_name: string | null
-  /** False = entered in the KP from a radio call. */
-  from_field: boolean
-  /** The bell entry that announced it — dismissing that is «gesehen», not «erledigt». */
-  notification_id: string | null
-  seen_at: string | null
-  in_progress_at: string | null
-  in_progress_by_name: string | null
-  done_at: string | null
-  done_by_name: string | null
-  /** Closed by the crew itself – an Abholung: «Wir fahren selbst». */
-  done_in_field?: boolean
-}
+export type ApiFieldRequest = Out<'FieldRequestResponse'>
 
 /** A Meldung or a structured request, from either door (same payload). */
-export interface ApiFieldRequestCreate {
-  kind?: 'message' | 'material' | 'personnel'
-  message?: string
-  item?: string | null
-  quantity?: number | null
-  /** The phone's own id; «Nochmals senden» repeats it and the server ignores the repeat. */
-  client_request_id?: string
-}
+export type ApiFieldRequestCreate = In<'FeldMessageRequest'>
 
-export interface ApiFeldAssignment {
-  incident_id: string
-  incident_title: string
-  incident_type: string
-  incident_status: string
-  /** The number within the Ereignis («14») and the priority – the list row and the
-   *  detail put both before the address, like the board card (owner pick D3).
-   *  `number` is null only before the numbering trigger has run. */
-  number: number | null
-  priority: Priority
-  /**
-   * The briefing (§18.22): the Meldung, the Melder, what the board dispatched
-   * and what the Reko found. Rows the KP released mid-incident (a corrected
-   * pick, a resource moved on) are filtered out server-side; only the
-   * completion cascade's releases stay — completing an incident releases
-   * everything while the crew is still at the address filing.
-   */
-  description: string | null
-  contact: string | null
-  contact_phone: string | null
-  crew: string[]
-  vehicles: ApiFeldVehicleLine[]
-  materials: ApiFeldMaterialLine[]
-  reko: ApiFeldReko | null
-  location_address: string | null
-  /** Server-computed short label for location_address (home city stripped).
-   *  "" when the address is only the home city; null/absent when no address. */
-  location_display?: string | null
-  location_lat: string | null
-  location_lng: string | null
-  /** False once the board released the person — they may still file. */
-  is_active_assignment: boolean
-  /** Why this row is here. `source_vehicle` is set for driver rows only, so the
-   *  label can name the vehicle that brought the row in. */
-  source: ApiFeldSourceKind
-  source_vehicle?: string | null
-  rapport_state: ApiFeldRapportState
-  /**
-   * The Schadenplatz was disponiert at least once (§18.27). False means the
-   * rapport does not exist for this row — no form, no "kein Rapport" chip: a
-   * crew has nothing to file about a Schadenplatz nobody was ever sent to.
-   */
-  has_been_dispatched?: boolean
-  arrived_at: string | null
-  /**
-   * True when the GPS automation stamped the arrival rather than the crew
-   * (§18.24). `/feld` words it as "Angekommen erkannt" instead of letting a
-   * crew that never tapped read the report as its own.
-   */
-  arrived_by_automation: boolean
-  field_complete_reported_at: string | null
-  /** "Abholung nötig" — on the row so a returning crew sees its own request. */
-  pickup_needed: boolean
-  pickup_note: string | null
-  pickup_requested_at: string | null
-  /** Acks, derived from real KP actions (sweep 27 §P3.1). While the request is
-   *  open: `pickup_seen` = the KP dismissed the warning bell, `pickup_vehicle`
-   *  = a vehicle was dispatched here AFTER the request («Mowa disponiert»).
-   *  Once the KP clears the flag, `pickup_resolved_at` carries the moment —
-   *  the request must not just silently vanish from the crew's phone. */
-  pickup_seen?: boolean
-  pickup_vehicle?: string | null
-  pickup_resolved_at?: string | null
-  /** «Meldungen vom KP» (§P3.2), oldest first — the board's messages to this
-   *  squad, riding the polled payload like everything else the phone reads. */
-  kp_messages?: ApiFeldKpMessage[]
-  /** What was asked from this Schadenplatz and where it stands (R13), oldest
-   *  first. The Abholung is not repeated here — it has its own box. */
-  field_requests?: ApiFieldRequest[]
-  /** The EL of THIS incident. Both null = "kein EL erfasst", never a blank line. */
-  leader_personnel_id: string | null
-  leader_name: string | null
-  /** The Auftrag this Schadenplatz is a stop of. A route-assigned crew holds no
-   *  row on any stop, so without this their stops read as unrelated jobs — and
-   *  the order they are driven in is the reason the Auftrag exists at all.
-   *  `group_position` is 0-based; the list numbers the stops from it. */
-  group_id: string | null
-  group_name: string | null
-  /** The Auftrag's stored colour; drawn through `darkenForWhiteText` like every route. */
-  group_color?: string | null
-  group_position: number | null
-}
+export type ApiFeldAssignment = Out<'FeldAssignment'>
 
 /** One unit and where it is right now — the Magazin's own view (plan 26).
  *  `at` names the Schadenplatz it is standing on; null means the Magazin. */
-export interface ApiFeldMaterialItem {
-  material_id: string | null
-  name: string
-  /** The three axes a station files its material by: `type` is what a thing IS
-   *  (Pumpe, Beleuchtung), `home_location` the depot shelf it lives on, `group`
-   *  the module it is packed with. The Magazin reads all three to find a unit. */
-  type: string | null
-  home_location: string | null
-  group: string | null
-  incident_id: string | null
-  at: string | null
-  since: string | null
-  /** `out` = the board has it assigned and it is in use · `left` = a rapport
-   *  says it stayed behind (whether or not there is still an assignment to
-   *  check against) · `in` = in the Magazin. */
-  state: 'out' | 'left' | 'in'
-}
+export type ApiFeldMaterialItem = Out<'FeldMaterialItem'>
 
-export interface ApiFeldMaterialResponse {
-  materials: ApiFeldMaterialItem[]
-}
+export type ApiFeldMaterialResponse = Out<'FeldMaterialResponse'>
 
 /** A «Danach» of this person: where they go after their current work. Not active. */
-export interface ApiFeldPlanned {
-  id: string
-  incident_id: string | null
-  incident_group_id: string | null
-  place: string
-  description: string | null
-  /** 1 = next. */
-  position: number
-  /** Free now – the KP can make it their Einsatz any moment. */
-  ready: boolean
-}
+export type ApiFeldPlanned = Out<'FeldPlanned'>
 
-export interface ApiFeldAssignmentsResponse {
-  personnel_id: string
-  personnel_name: string
-  personnel_role: string | null
-  /** Present at this Ereignis — drives "Einchecken" vs "Ich rücke ab". */
-  checked_in?: boolean
-  /** Their own plan here: «Ich komme um …» / «Ich bin da bis …». */
-  planned_from?: string | null
-  planned_until?: string | null
-  /** The roles this person holds here (plan 26, decision 5). The roles are
-   *  data; which sections they unlock stays code. */
-  functions?: string[]
-  /** The vehicles this person drives here, by name. Empty for everybody else. */
-  driver_vehicles?: string[]
-  /** What this person has REPORTED — a different list from the assignments
-   *  above, and the only place a Meldung the KP has not dispatched is visible
-   *  to the person who sent it. */
-  reports?: ApiFeldOwnReport[]
-  event_id: string
-  event_name: string
-  /** When the Ereignis was opened — the header's «Sa 14.11.». */
-  event_started_at: string
-  assignments: ApiFeldAssignment[]
-  /** Their «Danach» (owner pick 5C, 24.11.2026), queue order; read-only until it is Jetzt. */
-  planned?: ApiFeldPlanned[]
-  /**
-   * The station's Freitext-Meldung chips. Station config, NOT i18n
-   * (decision 20) — a brigade rewords them without a translation round, the
-   * same reasoning that already makes the outbound message bodies settings.
-   */
-  message_chips: string[]
-  /** The same, for a DRIVER row: a driver may not report «Angekommen» or
-   *  «Einsatz beendet», so the crew's chips read wrong for the person sitting
-   *  outside in the vehicle. Picked by the row's source, not by the person. */
-  driver_message_chips?: string[]
-  /** Distinct material names of the station's inventory, for «Material nötig» (R13). */
-  request_materials?: string[]
-}
+export type ApiFeldAssignmentsResponse = Out<'FeldAssignmentsResponse'>
 
 /**
  * The three field reports of one Schadenplatz, returned identically by `/feld`
@@ -338,33 +100,14 @@ export interface ApiFeldAssignmentsResponse {
  * (decision 28: provenance is never faked). `arrived_in_kp` is what tells
  * "im KP erfasst" apart from "nobody has reported it".
  */
-export interface ApiFieldReportState {
-  incident_id: string
-  arrived_at: string | null
-  arrived_by_personnel_id: string | null
-  /** The third provenance: the GPS automation saw an assigned vehicle arrive. */
-  arrived_by_automation: boolean
-  arrived_in_kp: boolean
-  field_complete_reported_at: string | null
-  field_complete_reported_by: string | null
-  pickup_needed: boolean
-  pickup_note: string | null
-  pickup_requested_at: string | null
-  pickup_requested_by: string | null
-}
+export type ApiFieldReportState = Out<'FieldReportState'>
 
 /**
  * The KP twin's payload. A key present with a value sets it, present as `null`
  * clears it, **absent leaves it alone** — without that distinction an operator
  * amending the pickup note would silently wipe the arrival time.
  */
-export interface ApiFieldReportUpdate {
-  arrived_at?: string | null
-  field_complete_reported_at?: string | null
-  pickup_needed?: boolean
-  pickup_note?: string | null
-  pickup_requested_at?: string | null
-}
+export type ApiFieldReportUpdate = In<'FieldReportUpdate'>
 
 // ============================================
 // The Schadenplatz-Rapport — one shape, two mounts
@@ -380,26 +123,9 @@ export interface ApiFieldReportUpdate {
  * the material: the same pump assigned twice is two units on the slip, and the
  * assignment id is what "Material zurück – freigeben" releases against.
  */
-export interface ApiRapportMaterialRow {
-  assignment_id: string
-  material_id: string | null
-  name: string
-  /** The depot the unit lives in — the order a crew knows it from. */
-  location: string | null
-  /** A consumable renders `gebraucht` only: used means gone (decision 26). */
-  consumable: boolean
-  /** Prefilled *true* since §18.32 — the unit was sent here. No third state. */
-  used: boolean
-  left_on_site: boolean
-  /** False once the board dropped the unit; the row survives because the crew contradicted it. */
-  on_board: boolean
-}
+export type ApiRapportMaterialRow = Out<'RapportMaterialRow'>
 
-export interface ApiRapportMaterialUpdate {
-  assignment_id: string
-  used: boolean
-  left_on_site: boolean
-}
+export type ApiRapportMaterialUpdate = In<'RapportMaterialUpdate'>
 
 /**
  * One vehicle on the confirmation list — **only what the board disponiert here**,
@@ -407,19 +133,9 @@ export interface ApiRapportMaterialUpdate {
  * fleet inventory; the rest of the fleet now lives in `prefill.vehicle_candidates`
  * and gets a row (`on_board: false`) only once the crew adds it.
  */
-export interface ApiRapportVehicleRow {
-  vehicle_id: string
-  name: string
-  /** "war dabei". Prefilled from the board: ticked when it was assigned. */
-  present: boolean
-  /** True when the board has (or had) this vehicle on the incident. */
-  on_board: boolean
-}
+export type ApiRapportVehicleRow = Out<'RapportVehicleRow'>
 
-export interface ApiRapportVehicleUpdate {
-  vehicle_id: string
-  present: boolean
-}
+export type ApiRapportVehicleUpdate = In<'RapportVehicleUpdate'>
 
 /**
  * One name on the crew confirmation list (§18.36) — **only who the board
@@ -428,21 +144,9 @@ export interface ApiRapportVehicleUpdate {
  * else lives in `prefill.personnel_candidates` and gets a row (`on_board: false`)
  * only once the crew adds them.
  */
-export interface ApiRapportPersonnelRow {
-  personnel_id: string
-  name: string
-  /** "war dabei". Prefilled from the board: ticked when they were assigned. */
-  present: boolean
-  /** True when the board has (or had) this person on the incident. */
-  on_board: boolean
-}
+export type ApiRapportPersonnelRow = Out<'RapportPersonnelRow'>
 
-export interface ApiRapportPersonnelUpdate {
-  personnel_id: string
-  present: boolean
-  /** Travels so somebody who has left the roll-call can still be recorded. */
-  name?: string | null
-}
+export type ApiRapportPersonnelUpdate = In<'RapportPersonnelUpdate'>
 
 /**
  * Somebody on no roster of this station — a neighbouring brigade, the Werkhof.
@@ -450,10 +154,7 @@ export interface ApiRapportPersonnelUpdate {
  * The note is free text on purpose, so it can carry "FW Allschwil" *or* "kam um
  * 21:00" *or* both.
  */
-export interface ApiRapportExtraPersonnel {
-  name: string
-  note: string
-}
+export type ApiRapportExtraPersonnel = Out<'RapportExtraPersonnelRow'>
 
 /**
  * One entry of "Weiteres gebrauchtes Material" (§18.35).
@@ -463,22 +164,10 @@ export interface ApiRapportExtraPersonnel {
  * must not be one — picking a catalogue name is not picking a unit, and `/feld`
  * never writes an assignment (decision 18).
  */
-export interface ApiRapportExtraMaterial {
-  name: string
-  /**
-   * Still standing at the address. Reaches the Restliste and the Abholliste —
-   * and deliberately NOT "Material zurück – freigeben", which releases
-   * assignments and a name has none.
-   */
-  left_on_site: boolean
-}
+export type ApiRapportExtraMaterial = Out<'RapportExtraMaterialRow'>
 
 /** "Frey Marc bearbeitet diesen Rapport gerade" — visibility, never a lock. */
-export interface ApiRapportConcurrentEditor {
-  name: string
-  at: string
-  in_kp: boolean
-}
+export type ApiRapportConcurrentEditor = Out<'ConcurrentEditor'>
 
 /**
  * Somebody the crew can ADD to the rapport, as opposed to confirm: everybody on
@@ -490,88 +179,15 @@ export interface ApiRapportConcurrentEditor {
  * assignment and no attendance (decision 18). What the id buys is what free text
  * cannot — a nachgetragene Person stays the same person the roster knows.
  */
-export interface ApiRapportPersonnelCandidate {
-  personnel_id: string
-  name: string
-  /** Tells two people of the same name apart; shown only for namesakes. */
-  kennung?: string | null
-  /** Grad and tags – what the add-picker searches besides the name. */
-  role?: string | null
-  tags?: string[]
-  checked_in: boolean
-}
+export type ApiRapportPersonnelCandidate = Out<'RapportPersonnelCandidate'>
 
 /** A vehicle the crew can add: the rest of the fleet, behind one fold. */
-export interface ApiRapportVehicleCandidate {
-  vehicle_id: string
-  name: string
-}
+export type ApiRapportVehicleCandidate = Out<'RapportVehicleCandidate'>
 
 /** What the board knows. Computed on every GET, never written (§4). */
-export interface ApiRapportPrefill {
-  location_address: string | null
-  incident_ref: string
-  leader_personnel_id: string | null
-  leader_name: string | null
-  /** "Melder übernehmen": one tap PREFILLS the two owner inputs with these.
-   *  Copies, never equates — Melder ≠ Eigentümer. */
-  melder_name: string | null
-  melder_phone: string | null
-  board_personnel_count: number
-  /**
-   * Known material names from the catalogue, offered as a multi-select under
-   * "Weiteres Material". Names only, deliberately no ids: picking a name is not
-   * picking a unit, and `/feld` must not become a writer of assignments
-   * (decision 18).
-   */
-  material_name_suggestions: string[]
-  /**
-   * What the Personal and Fahrzeuge sections can add. Anybody who already has a
-   * row is left out server-side, so the same name is never offered twice.
-   */
-  personnel_candidates: ApiRapportPersonnelCandidate[]
-  vehicle_candidates: ApiRapportVehicleCandidate[]
-  /** Who drives each vehicle in this Ereignis, by `vehicle_id` – the driver on
-   *  the vehicle's chip («Pio · Dürring Jan»). Orientation only, never saved. */
-  vehicle_drivers: Record<string, string>
-}
+export type ApiRapportPrefill = Out<'RapportPrefill'>
 
-export interface ApiSchadenplatzRapport {
-  incident_id: string
-  /** False = nothing filed yet; the GET computed a prefill and wrote nothing. */
-  exists: boolean
-  is_draft: boolean
-  submitted_at: string | null
-  materials: ApiRapportMaterialRow[]
-  vehicles: ApiRapportVehicleRow[]
-  personnel: ApiRapportPersonnelRow[]
-  extra_personnel: ApiRapportExtraPersonnel[]
-  /**
-   * Filenames, not URLs — read back through the shared
-   * `GET /api/photos/{incidentId}/{filename}`, the same endpoint the Reko form
-   * uses. Rendered in BOTH mounts (§6.1).
-   */
-  photos: string[]
-  extra_materials: ApiRapportExtraMaterial[]
-  kurzbericht: string | null
-  handed_over_to: string | null
-  /** Name + Telefon since §18.31 — the pair the incident carries for the Melder. */
-  owner_name: string | null
-  owner_phone: string | null
-  /** Derived server-side from `personnel` + `extra_personnel`, never typed. */
-  personnel_count: number | null
-  personnel_count_corrected: boolean
-  /** Frozen at submit; null while the rapport is a draft. */
-  cost_snapshot_json: Array<Record<string, string | null>> | null
-  arrived_at: string | null
-  created_by_name: string | null
-  created_in_kp: boolean
-  updated_by_name: string | null
-  updated_in_kp: boolean
-  updated_at: string | null
-  concurrent_editor: ApiRapportConcurrentEditor | null
-  prefill: ApiRapportPrefill
-}
+export type ApiSchadenplatzRapport = Out<'SchadenplatzRapport'>
 
 /**
  * The upsert payload. `is_draft: false` files the rapport.
@@ -579,37 +195,10 @@ export interface ApiSchadenplatzRapport {
  * Only the keys actually sent are written, the same rule the field-report twin
  * follows: an autosave carrying half the form must not blank the other half.
  */
-export interface ApiRapportUpdate {
-  is_draft: boolean
-  materials?: ApiRapportMaterialUpdate[]
-  vehicles?: ApiRapportVehicleUpdate[]
-  personnel?: ApiRapportPersonnelUpdate[]
-  extra_personnel?: ApiRapportExtraPersonnel[]
-  /** The whole list when present: no id means nothing to patch against. */
-  extra_materials?: ApiRapportExtraMaterial[]
-  kurzbericht?: string | null
-  handed_over_to?: string | null
-  owner_name?: string | null
-  owner_phone?: string | null
-  personnel_count?: number | null
-}
+export type ApiRapportUpdate = In<'RapportUpdate'>
 
 /** One Schadenplatz on the Restliste (§6, V-8). */
-export interface ApiRestlisteIncident {
-  incident_id: string
-  title: string
-  /** Number + home-town-stripped address: what the screen names it by
-   *  (`getIncidentRefLabel`, «12 · Hauptstrasse 8»). `location_address` is the full one. */
-  number: number | null
-  location_address: string | null
-  location_display: string | null
-  status: string
-  /** Only on the "ohne Rapport" list. 'none' and 'draft' read differently at 02:00. */
-  rapport_state: 'none' | 'draft' | 'submitted' | null
-  /** Only on the pickup list. */
-  pickup_note: string | null
-  since: string | null
-}
+export type ApiRestlisteIncident = Out<'RestlisteIncident'>
 
 /**
  * One material unit still standing at an address — an Abholliste line.
@@ -617,40 +206,9 @@ export interface ApiRestlisteIncident {
  * Address · unit · since when: the sheet somebody takes along the next morning
  * (decision 25). A *different day's* job, kept apart from the Trupp-Abholung.
  */
-export interface ApiRestlisteUnit {
-  incident_id: string
-  incident_title: string
-  /** As on `ApiRestlisteIncident`. */
-  number: number | null
-  location_address: string | null
-  location_display: string | null
-  /** Null on an untracked entry — a name has no assignment (decision 18). */
-  assignment_id: string | null
-  material_id: string | null
-  name: string
-  location: string | null
-  since: string | null
-  /**
-   * False for a "Weiteres Material" entry the crew left behind (§18.35). It is
-   * on the driving list like every other line — something is standing at that
-   * address either way — but nothing can be released against it, and `since` is
-   * when the rapport saying so was filed rather than when it was dispatched.
-   */
-  tracked: boolean
-}
+export type ApiRestlisteUnit = Out<'RestlisteUnit'>
 
-export interface ApiEventRestliste {
-  event_id: string
-  /** The denominator of "4 von 23 Schadenplätzen ohne Rapport". */
-  incident_total: number
-  missing_rapport: ApiRestlisteIncident[]
-  material_on_site: ApiRestlisteUnit[]
-  open_pickups: ApiRestlisteIncident[]
-  /** Archive dialog (07.09.): incidents short of «Abschluss». */
-  open_incidents: ApiRestlisteIncident[]
-  /** …and how many people are still checked in. */
-  attendees_present: number
-}
+export type ApiEventRestliste = Out<'EventRestliste'>
 
 /**
  * What both photo doors answer.
@@ -659,57 +217,12 @@ export interface ApiEventRestliste {
  * coverage that retried an upload re-syncs from the next answer instead of
  * accumulating a duplicate.
  */
-export interface ApiRapportPhotosResponse {
-  incident_id: string
-  photos: string[]
-  /** The file just stored; null on a delete. */
-  filename: string | null
-}
+export type ApiRapportPhotosResponse = Out<'RapportPhotosResponse'>
 
 /** One row of "Material zurück – freigeben" (decision 17). */
-export interface ApiMaterialReturnUnit {
-  assignment_id: string
-  material_id: string | null
-  name: string
-  location: string | null
-  used: boolean
-  /**
-   * Did the crew settle this unit? A row nobody ticked "vor Ort verblieben" on
-   * still lands in `returned`, which is right for the release list and wrong
-   * for the completion gate — that one prefills from the rapport and has to
-   * know what it still needs to ask.
-   *
-   * Since §18.32 removed the three-state `used`, the verdict comes from the
-   * rapport rather than from the row: a **filed** rapport settled every unit on
-   * its checklist, a **draft** only the ones where the crew contradicted the
-   * prefill.
-   */
-  answered: boolean
-}
+export type ApiMaterialReturnUnit = Out<'MaterialReturnUnit'>
 
-export interface ApiMaterialReturnResponse {
-  returned: ApiMaterialReturnUnit[]
-  /** Listed separately and deliberately NOT in the release set (decision 15). */
-  left_on_site: ApiMaterialReturnUnit[]
-  /**
-   * Names from "Weiteres gebrauchtes Material" the crew marked *vor Ort
-   * verblieben* (§18.35). Shown, never releasable: there is no assignment under
-   * a name. They travel so the list can say that out loud — an operator who has
-   * just freed the last pump must not read the rest of the dialog as "the
-   * address is clear", when the Abholliste is about to send somebody there.
-   */
-  left_on_site_named: string[]
-  /** Who filed the rapport these answers come from; null when there is none. */
-  rapport_by: string | null
-  rapport_submitted_at: string | null
-  /**
-   * True when the answers come from a rapport the crew has NOT filed (§18.23).
-   * Only ever true for a caller that asked for drafts — the completion gate —
-   * and that caller must say so ("Aus dem Rapport-Entwurf von X"): an operator
-   * weighing a half-finished answer has to know it is half-finished.
-   */
-  rapport_is_draft: boolean
-}
+export type ApiMaterialReturnResponse = Out<'MaterialReturnResponse'>
 
 /**
  * «Neue Meldung» from the field.
@@ -718,29 +231,7 @@ export interface ApiMaterialReturnResponse {
  * no Melder fields, because the reporter IS the Melder and their name is on the
  * audit row already.
  */
-export interface ApiFeldIncidentCreate {
-  title: string
-  type: string
-  priority: string
-  location_address?: string | null
-  location_lat?: string | null
-  location_lng?: string | null
-  description?: string | null
-  /** «Weitere Hinweise» — the board's Notizen. Kept apart from `description`,
-   *  which IS the Meldung the card prints and the radio reads out. */
-  internal_notes?: string | null
-  /** "Wir übernehmen das gleich" — see `ApiFeldIncidentCreated.takeover`. */
-  take_over?: boolean
-  /** The Telefondienst variant: a call written down, not a thing seen. Only
-   *  honoured for somebody who actually holds the role — the server checks,
-   *  because provenance is never faked from the client. */
-  as_phone_call?: boolean
-  contact?: string | null
-  contact_phone?: string | null
-  /** «Zusammenführen»: the Meldung becomes a Nachtrag on this open card instead
-   *  of a new one; `take_over` is then ignored. */
-  merge_into_incident_id?: string | null
-}
+export type ApiFeldIncidentCreate = In<'FeldIncidentCreate'>
 
 /**
  * A correction to a Meldung that has not been disponiert yet.
@@ -749,18 +240,7 @@ export interface ApiFeldIncidentCreate {
  * "clear it" — the sheet sends the whole form back, and a Meldung whose
  * description was fixed must not lose its address on the way.
  */
-export interface ApiFeldIncidentUpdate {
-  title?: string | null
-  type?: string | null
-  priority?: string | null
-  location_address?: string | null
-  location_lat?: string | null
-  location_lng?: string | null
-  description?: string | null
-  internal_notes?: string | null
-  contact?: string | null
-  contact_phone?: string | null
-}
+export type ApiFeldIncidentUpdate = In<'FeldIncidentUpdate'>
 
 /**
  * One Meldung this person sent in — the «Von mir gemeldet» list.
@@ -770,32 +250,7 @@ export interface ApiFeldIncidentUpdate {
  * question, "what did I send in". `editable` is the server's answer to "may I
  * still correct this", so the phone never has to know the status vocabulary.
  */
-export interface ApiFeldOwnReport {
-  incident_id: string
-  title: string
-  type: string
-  priority: string
-  description: string | null
-  /** «Weitere Hinweise», so a correction prefills what was actually typed. */
-  internal_notes: string | null
-  location_address: string | null
-  /** Server-formatted address (home city stripped), like every other row. */
-  location_display: string | null
-  location_lat: string | null
-  location_lng: string | null
-  contact: string | null
-  contact_phone: string | null
-  status: string
-  created_at: string
-  /** Still «Eingegangen»: nobody has been sent, so the reporter may fix it. */
-  editable: boolean
-  /** What the KP put on it — «das TLF 2 fährt hin». */
-  vehicles: string[]
-  /** The KP merged it into an open card (a second report of the same
-   *  Schadenplatz): that card, and its short address. */
-  merged_into_id?: string | null
-  merged_into_label?: string | null
-}
+export type ApiFeldOwnReport = Out<'FeldOwnReport'>
 
 /**
  * What became of it. `takeover` lets the confirmation be specific:
@@ -805,9 +260,4 @@ export interface ApiFeldOwnReport {
  *   auftrag — their single job became a route, this is its second stop
  *   solo    — nobody was on anything, so it is theirs alone
  */
-export interface ApiFeldIncidentCreated {
-  incident_id: string
-  takeover: 'none' | 'stop' | 'auftrag' | 'solo'
-  /** Set when the Meldung was merged into an open card: that card's id. */
-  merged_into?: string | null
-}
+export type ApiFeldIncidentCreated = Out<'FeldIncidentCreated'>

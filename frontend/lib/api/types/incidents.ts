@@ -80,7 +80,7 @@ export type ApiIncidentTimelineEvent = Omit<
 }
 
 /** The three kinds of resource an assignment holds. */
-export type ApiResourceType = 'personnel' | 'vehicle' | 'material'
+export type ApiResourceType = Out<'AssignmentResponse'>['resource_type']
 
 /** The Reko report's fields as the Chronik names them (`backend/app/services/reko_history.py`). */
 export type RekoChangeField =

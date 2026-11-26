@@ -10860,8 +10860,11 @@ export interface components {
          * @description Counts and reaction times for one priority (or ``all``).
          */
         PriorityFigures: {
-            /** Priority */
-            priority: string;
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "all" | "high" | "medium" | "low";
             /** Total */
             total: number;
             /** Waiting */

@@ -28429,6 +28429,12 @@
         "properties": {
           "priority": {
             "type": "string",
+            "enum": [
+              "all",
+              "high",
+              "medium",
+              "low"
+            ],
             "title": "Priority"
           },
           "total": {

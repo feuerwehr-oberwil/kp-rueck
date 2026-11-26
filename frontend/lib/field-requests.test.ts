@@ -35,6 +35,7 @@ function request(overrides: Partial<ApiFieldRequest> = {}): ApiFieldRequest {
     in_progress_by_name: null,
     done_at: null,
     done_by_name: null,
+    done_in_field: false,
     ...overrides,
   }
 }
