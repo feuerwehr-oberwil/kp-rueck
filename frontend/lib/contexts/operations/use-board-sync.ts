@@ -187,6 +187,14 @@ export function useBoardSync(input: BoardSyncInput) {
     return true
   }, [selectedEvent, setOperations, setGroups, setIsLoading])
 
+  // A reload that waits its turn like a socket event: held while a mutation's cooldown holds,
+  // then run once. For an action that learnt the server differs from what it showed (a 409),
+  // where an explicit refresh could read the board before another pending write commits.
+  const reloadWhenSettled = useCallback(() => {
+    pendingReplayRef.current = true
+    replayPendingUpdatesRef.current?.()
+  }, [replayPendingUpdatesRef])
+
   // Load initial data and set up WebSocket/polling
   useEffect(() => {
     if (authLoading || !isAuthenticated) {
@@ -199,6 +207,7 @@ export function useBoardSync(input: BoardSyncInput) {
       setGroups([])
       setPersonnel([])
       setMaterials([])
+      setSpecialFunctions([])
       // No Ereignis, no board to be fresh or stale about.
       boardEventIdRef.current = null
       setLastSyncAt(null)
@@ -226,8 +235,9 @@ export function useBoardSync(input: BoardSyncInput) {
     // loaded». The known ids go too, or B's high-priority incidents would all
     // ring as «new» the moment they land. Station-wide state (vehicles,
     // settings, home city) stays: it is the same across Ereignisse.
-    // Same id (the event object was refetched) is not a switch.
-    if (boardEventIdRef.current !== null && boardEventIdRef.current !== eventId) {
+    // Same id (the event object was refetched) is not a switch; coming from no Ereignis is one
+    // (A → none → B), and on the first mount the reset finds the state empty already.
+    if (boardEventIdRef.current !== eventId) {
       setOperations([])
       setGroups([])
       setPersonnel([])
@@ -696,5 +706,6 @@ export function useBoardSync(input: BoardSyncInput) {
     vehicles,
     settings,
     refreshOperations,
+    reloadWhenSettled,
   }
 }

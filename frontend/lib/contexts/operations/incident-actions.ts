@@ -414,7 +414,13 @@ export function createIncidentActions(board: BoardMutationContext) {
   ) => {
     // Persist the status (debounced backend update + completion side effects).
     updateOperation(operationId, { status: newStatus, ...extraUpdates })
-    // The new in-column order with this card first – shown at once, then persisted.
+    // To the front of the list at once: several moves before the next render (a whole
+    // Auftrag disponiert) each land on top of the one before.
+    setOperations((ops) => {
+      const target = ops.find((o) => o.id === operationId)
+      return target ? [target, ...ops.filter((o) => o.id !== operationId)] : ops
+    })
+    // Persist the new in-column order with this card first.
     const ids = [
       operationId,
       ...operations

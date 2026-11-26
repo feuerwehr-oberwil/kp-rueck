@@ -9,6 +9,7 @@ import { formatClockTime } from '@/lib/incident-time';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { useOperations } from '@/lib/contexts/operations-context';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -86,6 +87,9 @@ export function useStationSettings({
   onSaved?: (key: string, value: string) => void;
 }): StationSettings {
   const t = useTranslations('settings');
+  // The board reads the settings with its snapshot (station point, home city): a save here
+  // reloads it, or this tab's board kept the old values until its next load.
+  const { refreshOperations } = useOperations();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [serverSettings, setServerSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -133,6 +137,7 @@ export function useStationSettings({
       setSettings((prev) => ({ ...prev, [key]: value }));
       setServerSettings((prev) => ({ ...prev, [key]: value }));
       setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
+      void refreshOperations();
       onSaved?.(key, value);
     } catch (err) {
       console.error(`Failed to update setting ${key}:`, err);

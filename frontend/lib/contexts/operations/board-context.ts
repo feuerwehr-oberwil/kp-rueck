@@ -57,4 +57,6 @@ export interface BoardMutationContext {
   releaseAssignmentCooldown: (graceMs?: number) => void
   beginAssignmentSettling: () => () => void
   refreshOperations: () => Promise<boolean>
+  /** A reload held back until no mutation's cooldown holds (`useBoardSync`). */
+  reloadWhenSettled: () => void
 }

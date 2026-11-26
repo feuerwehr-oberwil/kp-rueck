@@ -219,6 +219,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     vehicles,
     settings,
     refreshOperations,
+    reloadWhenSettled,
   } = useBoardSync({
     authLoading,
     isAuthenticated,
@@ -292,6 +293,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     releaseAssignmentCooldown,
     beginAssignmentSettling,
     refreshOperations,
+    reloadWhenSettled,
   }
   const {
     removeCrew,

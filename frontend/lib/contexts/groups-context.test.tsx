@@ -305,11 +305,10 @@ describe("#23 stop add for a vehicle", () => {
 })
 
 describe("route resources", () => {
-  it("assigns optimistically, then takes the server's row from the reload", async () => {
+  it("assigns optimistically, then takes the server's row from the answer", async () => {
     api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
     api.assignGroupResource.mockResolvedValue(apiAssignment())
-    api.getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [apiAssignment()] })])
 
     await act(async () => {
       await result.current.assignResource(GROUP_ID, "vehicle", "v1")
@@ -322,12 +321,8 @@ describe("route resources", () => {
     api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
     api.assignGroupResource.mockResolvedValue(apiAssignment())
-    api.getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [apiAssignment()] })])
-    // The reload after the assign reads the special functions first, then the driver check.
     let answerDrivers: (functions: unknown[]) => void = () => {}
-    api.getEventSpecialFunctions
-      .mockResolvedValueOnce([])
-      .mockImplementationOnce(() => new Promise((resolve) => (answerDrivers = resolve)))
+    api.getEventSpecialFunctions.mockImplementationOnce(() => new Promise((resolve) => (answerDrivers = resolve)))
 
     await act(async () => {
       await result.current.assignResource(GROUP_ID, "vehicle", "v1")
@@ -372,7 +367,6 @@ describe("route resources", () => {
     api.getIncidentGroups.mockResolvedValue([apiGroup({ assignments: [onRoute] })])
     const { result } = await renderLoaded()
     api.unassignGroupResource.mockRejectedValueOnce(new ApiError("Zuweisung nicht gefunden", 404, true))
-    api.getIncidentGroups.mockResolvedValue([apiGroup()])
 
     let ok: boolean | undefined
     await act(async () => {

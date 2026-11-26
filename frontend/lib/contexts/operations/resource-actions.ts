@@ -36,6 +36,7 @@ export function createResourceActions(board: BoardMutationContext) {
     operationsRef,
     recentRemovalsRef,
     rekoOrderQueueRef,
+    reloadWhenSettled,
     armAssignmentCooldown,
     releaseAssignmentCooldown,
     beginAssignmentSettling,
@@ -838,7 +839,7 @@ export function createResourceActions(board: BoardMutationContext) {
           description: translateOutsideReact("map.rekoMode.orderFailedDescription"),
         })
       }
-      await refreshOperations()
+      reloadWhenSettled()
     } finally {
       releaseAssignmentCooldown()
     }

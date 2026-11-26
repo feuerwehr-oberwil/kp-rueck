@@ -4,7 +4,6 @@ import { useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
-import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 
 /**

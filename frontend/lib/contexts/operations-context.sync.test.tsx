@@ -111,6 +111,7 @@ const api = vi.hoisted(() => ({
   getIncidentGroups: vi.fn(),
   updateIncident: vi.fn(),
   updateAssignment: vi.fn(),
+  reorderIncidents: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -683,6 +684,21 @@ const filedReko = (summaryText: string) => ({
     },
   },
   total: 1,
+})
+
+describe("OperationsProvider — column order", () => {
+  it("moves several cards to the top before a render: the last one moved is on top", async () => {
+    api.reorderIncidents.mockResolvedValue(undefined)
+    const { result } = await renderLoaded([incident("1"), incident("2"), incident("3")])
+
+    // «Ganzen Auftrag disponieren»: every stop moves in one go.
+    act(() => {
+      result.current.changeStatusToTop("1", "enroute")
+      result.current.changeStatusToTop("2", "enroute")
+    })
+    const enroute = result.current.operations.filter((op) => op.status === "enroute").map((op) => op.id)
+    expect(enroute).toEqual(["2", "1"])
+  })
 })
 
 describe("OperationsProvider — demo reset", () => {

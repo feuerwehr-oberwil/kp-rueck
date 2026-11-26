@@ -5,6 +5,8 @@ import { renderWithIntl } from "@/test-utils/render-with-intl";
 const getAllSettings = vi.fn();
 const getPrinterStatus = vi.fn();
 
+// The board's refresh after a settings save (no board under this test).
+vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => ({ refreshOperations: async () => true }) }))
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
     getAllSettings: (...args: unknown[]) => getAllSettings(...args),

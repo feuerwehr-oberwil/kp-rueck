@@ -8,11 +8,11 @@
  * the display pages import from there.
  */
 
-import type { ApiDangersAssessment, ApiEventRestliste, ApiIncident, ApiIncidentGroup } from "@/lib/api-client"
+import type { ApiDangersAssessment, ApiEventRestliste, ApiGroupAssignment, ApiIncident, ApiIncidentGroup } from "@/lib/api-client"
 import { apiCoordinatesToTuple } from "@/lib/coordinate-parser"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { darkenForWhiteText } from "@/lib/map-colors"
-import type { IncidentGroup } from "@/lib/types/groups"
+import type { GroupAssignment, IncidentGroup } from "@/lib/types/groups"
 import type { Operation } from "../operations-context"
 import type { MaterialOnSiteLocation } from "./types"
 
@@ -139,13 +139,7 @@ export function apiIncidentGroupToGroup(g: ApiIncidentGroup): IncidentGroup {
     updatedAt: new Date(g.updated_at),
     createdBy: g.created_by ? String(g.created_by) : null,
     stopIds: g.stop_ids.map(String),
-    assignments: (g.assignments ?? []).map((a) => ({
-      id: String(a.id),
-      resourceType: a.resource_type,
-      resourceId: String(a.resource_id),
-      driverStay: a.driver_stay,
-      isLeader: a.is_leader,
-    })),
+    assignments: (g.assignments ?? []).map(apiGroupAssignmentToAssignment),
     progress: { total: g.progress?.total ?? 0, done: g.progress?.done ?? 0 },
     // Both the timestamp and the fingerprint have to be there for the record to mean anything –
     // a half-written one would silently force the full announcement forever.
@@ -157,5 +151,16 @@ export function apiIncidentGroupToGroup(g: ApiIncidentGroup): IncidentGroup {
           full: Boolean(g.last_announced_full),
         }
       : null,
+  }
+}
+
+/** One route-owned resource row as the board holds it. */
+export function apiGroupAssignmentToAssignment(a: ApiGroupAssignment): GroupAssignment {
+  return {
+    id: String(a.id),
+    resourceType: a.resource_type,
+    resourceId: String(a.resource_id),
+    driverStay: a.driver_stay,
+    isLeader: a.is_leader,
   }
 }

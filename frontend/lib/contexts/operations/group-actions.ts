@@ -11,7 +11,7 @@ import { refusalReason } from "@/lib/assignment-refusal"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import type { GroupAssignment, IncidentGroup } from "@/lib/types/groups"
 import { isValidUUID, randomId } from "@/lib/utils/validation"
-import { apiIncidentGroupToGroup } from "./mapping"
+import { apiGroupAssignmentToAssignment, apiIncidentGroupToGroup } from "./mapping"
 import type { BoardMutationContext } from "./board-context"
 import type { CreateGroupInput, GroupActions, StopRestoreResult, UpdateGroupInput, VehicleStopAddResult } from "./types"
 
@@ -22,17 +22,21 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     vehicles,
     groupsRef,
     setGroups,
+    selectedEventIdRef,
     stopOrderQueueRef,
     setVehicleNeedingDriver,
     armAssignmentCooldown,
     releaseAssignmentCooldown,
     beginAssignmentSettling,
-    refreshOperations,
+    reloadWhenSettled,
   } = board
 
   const eventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
   const groupById = (id: string) => groupsRef.current.find((g) => g.id === id)
   const replaceGroup = (id: string, next: IncidentGroup) => setGroups((gs) => gs.map((g) => (g.id === id ? next : g)))
+  // A whole-list rollback only onto the Ereignis it was taken from: after a switch the list on
+  // screen is another Ereignis's routes.
+  const stillOnEvent = () => selectedEventIdRef.current === eventId
   const vehicleName = (vehicleId: string) => vehicles.find((v) => String(v.id) === vehicleId)?.name ?? vehicleId
 
   /** Run `request` under one cooldown hold: no automatic reload lands until it settled. */
@@ -137,7 +141,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
         return true
       } catch (error) {
         console.error("Failed to delete Auftrag:", error)
-        setGroups(snapshot)
+        if (stillOnEvent()) setGroups(snapshot)
         toast.error(translateOutsideReact("notifications.groups.deleteFailed"))
         return false
       }
@@ -162,7 +166,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
         return true
       } catch (error) {
         console.error("Failed to reorder Aufträge:", error)
-        setGroups(snapshot)
+        if (stillOnEvent()) setGroups(snapshot)
         toast.error(translateOutsideReact("notifications.groups.reorderFailed"))
         return false
       }
@@ -209,7 +213,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
       })
       if (outcome === "restored") setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, stopIds: orderedIds } : g)))
       // Our copy is the stale one – show what the route looks like now.
-      else if (outcome === "conflict") void refreshOperations()
+      else if (outcome === "conflict") reloadWhenSettled()
       return outcome
     })
 
@@ -237,7 +241,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
         replaceGroup(groupId, previous)
         // 409: the Einsatz or the vehicle's Auftrag changed; 404: the Auftrag is gone.
         if (guarded && error instanceof ApiError && (error.status === 409 || error.status === 404)) {
-          void refreshOperations()
+          reloadWhenSettled()
           return "changed"
         }
         console.error("Failed to add stops:", error)
@@ -311,9 +315,16 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     return held(async () => {
       setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, assignments: [...g.assignments, optimistic] } : g)))
       try {
-        await apiClient.assignGroupResource(groupId, { resource_type: resourceType, resource_id: resourceId })
-        // Reconcile with the server truth (canonical assignment id + progress).
-        await refreshOperations()
+        // The server's row replaces the placeholder (its id is what a release names); the
+        // group_update broadcast brings the rest, in its turn.
+        const created = apiGroupAssignmentToAssignment(
+          await apiClient.assignGroupResource(groupId, { resource_type: resourceType, resource_id: resourceId }),
+        )
+        setGroups((gs) =>
+          gs.map((g) =>
+            g.id === groupId ? { ...g, assignments: g.assignments.map((a) => (a.id === tempId ? created : a)) } : g,
+          ),
+        )
         if (resourceType === "vehicle") void promptIfDriverless(groupId, resourceId).finally(settled)
         return true
       } catch (error) {
@@ -339,13 +350,10 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
       )
       try {
         await apiClient.unassignGroupResource(groupId, assignmentId)
-        await refreshOperations()
         return true
       } catch (error) {
-        if (error instanceof ApiError && error.status === 404) {
-          await refreshOperations()
-          return true
-        }
+        // The assignment or the Auftrag is gone: the resource is free already.
+        if (error instanceof ApiError && error.status === 404) return true
         console.error("Failed to release route resource:", error)
         replaceGroup(groupId, previous)
         toast.error(translateOutsideReact("notifications.groups.unassignFailed"))
