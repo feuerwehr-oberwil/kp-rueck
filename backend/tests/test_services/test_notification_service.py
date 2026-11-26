@@ -11,15 +11,18 @@ Tests notification evaluation, settings management, and notification lifecycle i
 
 import asyncio
 import json
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete, select, text, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.crud.events import update_event_activity
 from app.models import (
     Event,
     EventAttendance,
@@ -1836,10 +1839,11 @@ async def test_a_standby_box_writes_no_bell_rows_into_an_ereignis_it_does_not_le
     assert await shown() == ["field_message", "missing_location"]
 
 
-async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_standby_box(monkeypatch, test_engine):
-    """A hosted takeover the sync brings in mid-poll waits for the phase that is writing, and the
-    poll's next phase sees it and writes nothing. A fatigue row widened after the box lost the
-    lead would merge with the hosted dismissal and mark people acknowledged nobody saw."""
+@pytest_asyncio.fixture
+async def box_led(monkeypatch, test_engine) -> AsyncGenerator[tuple[async_sessionmaker[AsyncSession], UUID]]:
+    """A standby box that leads an Ereignis, committed for real (lock tests need a second
+    transaction): its lead row, the Ereignis out of the stream, and an Einsatz under way without
+    a position – which raises «missing_location», a write after the fatigue step."""
     monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
     sessions = async_sessionmaker(test_engine, expire_on_commit=False)
     event_id = uuid4()
@@ -1848,7 +1852,6 @@ async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_
         await db.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
         db.add(Event(id=event_id, name="Offline geführt", training_flag=False))
         await db.flush()
-        # Without a position, an Einsatz under way raises «missing_location» – a later-phase write.
         db.add_all(
             [
                 EventLead(event_id=event_id, holder="standby", since=datetime.now(UTC)),
@@ -1860,35 +1863,69 @@ async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_
         await db.execute(text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": event_id})
         await db.commit()
     try:
-        async with sessions() as fatigue, sessions() as polling, sessions() as syncing:
-            # Another board's poll is in the fatigue step: this poll stops there, lead in hand.
-            await fatigue.execute(
-                text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"}
-            )
-            poll = asyncio.create_task(evaluate_notifications(polling, event_id))
-            await wait_until_blocked(sessions)
-            takeover = asyncio.create_task(
-                syncing.execute(update(EventLead).where(EventLead.event_id == event_id).values(holder="hosted"))
-            )
-            # Both tasks finish either way, so a failure is reported instead of hanging the cleanup.
-            try:
-                await wait_until_blocked(sessions, count=2)
-                takeover_waited = True
-            except AssertionError:
-                takeover_waited = False
-            await fatigue.rollback()
-            await asyncio.wait_for(takeover, timeout=10)
-            await syncing.commit()
-            shown = await asyncio.wait_for(poll, timeout=10)
-            await polling.commit()
-
-        assert takeover_waited, "the takeover did not wait for the poll's fatigue write"
-        assert shown == []
-        async with sessions() as db:
-            assert list(await db.scalars(select(Notification.type).where(Notification.event_id == event_id))) == []
+        yield sessions, event_id
     finally:
         async with sessions() as db:
             await db.execute(delete(Incident).where(Incident.event_id == event_id))
             await db.execute(delete(Event).where(Event.id == event_id))
             await db.execute(text("DROP SCHEMA IF EXISTS standby CASCADE"))
             await db.commit()
+
+
+async def _bell_types(sessions: async_sessionmaker[AsyncSession], event_id: UUID) -> list[str]:
+    async with sessions() as db:
+        return list(await db.scalars(select(Notification.type).where(Notification.event_id == event_id)))
+
+
+async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_standby_box(box_led):
+    """A hosted takeover the sync brings in mid-poll waits for the phase that is writing, and the
+    poll's next phase sees it and writes nothing. A fatigue row widened after the box lost the
+    lead would merge with the hosted dismissal and mark people acknowledged nobody saw. A status
+    update's stamp on the Ereignis row does not wait for the poll."""
+    sessions, event_id = box_led
+    async with sessions() as fatigue, sessions() as polling, sessions() as syncing, sessions() as stamping:
+        # Another board's poll is in the fatigue step: this poll stops there, lead in hand.
+        await fatigue.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"}
+        )
+        poll = asyncio.create_task(evaluate_notifications(polling, event_id))
+        await wait_until_blocked(sessions)
+        # Every step below finishes either way, so a failure is reported instead of hanging the cleanup.
+        await stamping.execute(text("SET LOCAL lock_timeout = '2s'"))
+        try:
+            await update_event_activity(stamping, event_id)
+            stamped = True
+        except DBAPIError:
+            stamped = False
+        await stamping.rollback()
+        takeover = asyncio.create_task(
+            syncing.execute(update(EventLead).where(EventLead.event_id == event_id).values(holder="hosted"))
+        )
+        try:
+            await wait_until_blocked(sessions, count=2)
+            takeover_waited = True
+        except AssertionError:
+            takeover_waited = False
+        await fatigue.rollback()
+        await asyncio.wait_for(takeover, timeout=10)
+        await syncing.commit()
+        shown = await asyncio.wait_for(poll, timeout=10)
+        await polling.commit()
+
+    assert stamped, "a status update's stamp waited for the poll"
+    assert takeover_waited, "the takeover did not wait for the poll's fatigue write"
+    assert shown == []
+    assert await _bell_types(sessions, event_id) == []
+
+
+async def test_a_bell_poll_on_a_standby_box_writes_nothing_while_a_takeover_is_being_applied(box_led):
+    """The sync applies a takeover by locking the lead row, then the Ereignis row; the poll holds
+    the Ereignis row. So the poll never waits for the lead row: locked means «not now»."""
+    sessions, event_id = box_led
+    async with sessions() as syncing, sessions() as polling:
+        await syncing.execute(select(EventLead.event_id).where(EventLead.event_id == event_id).with_for_update())
+        await polling.execute(text("SET LOCAL lock_timeout = '2s'"))
+        assert await evaluate_notifications(polling, event_id) == []
+        await polling.commit()
+        await syncing.rollback()
+    assert await _bell_types(sessions, event_id) == []

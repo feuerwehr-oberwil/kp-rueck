@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Callable
 
 from sqlalchemy import column, select, table, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..environment import ROLE_STANDBY, deployment_role
@@ -16,6 +17,8 @@ from ..models import Event, EventLead
 
 # app/standby.py's list of Ereignisse a standby box has taken offline.
 _DETACHED_EVENTS = table("detached_events", column("event_id"), schema="standby")
+# PostgreSQL's lock_not_available: a NOWAIT lock found the row taken.
+_LOCK_NOT_AVAILABLE = "55P03"
 
 
 async def system_leads(db: AsyncSession) -> Callable[[uuid.UUID], bool]:
@@ -41,17 +44,28 @@ async def box_leads_locked(db: AsyncSession, event_id: uuid.UUID) -> bool:
 
     Locked and read in one query: a takeover committed between a separate lock and read would
     leave the writes unlocked. No such row – mirrored, taken back, or a takeover not committed
-    yet – means «not leading». The Ereignis row is key-shared first, the lock every row the
-    writer inserts takes through its foreign key anyway: a permanent delete of the Ereignis
-    (its row, then the lead row by cascade) waits for the writer instead of deadlocking with it.
+    yet – means «not leading».
+
+    Two writers take these rows in opposite orders: a permanent delete of the Ereignis (its row,
+    then the lead row by cascade) and the sync applying a takeover (the lead row, then the
+    Ereignis row). So the Ereignis row is key-shared first – the lock the writer's inserts take
+    through their foreign keys anyway, which the delete waits for – and the lead row is never
+    waited for: while a takeover is being applied (the row is locked), this answers «not leading»
+    and the caller writes nothing this time.
     """
     if await db.scalar(text("SELECT to_regclass('standby.detached_events')")) is None:
         return False
-    await db.execute(select(Event.id).where(Event.id == event_id).with_for_update(key_share=True))
-    led = await db.scalar(
-        select(EventLead.event_id)
-        .join(_DETACHED_EVENTS, _DETACHED_EVENTS.c.event_id == EventLead.event_id)
-        .where(EventLead.event_id == event_id, EventLead.holder == "standby")
-        .with_for_update(read=True, of=EventLead)
-    )
+    await db.execute(select(Event.id).where(Event.id == event_id).with_for_update(read=True, key_share=True))
+    try:
+        async with db.begin_nested():
+            led = await db.scalar(
+                select(EventLead.event_id)
+                .join(_DETACHED_EVENTS, _DETACHED_EVENTS.c.event_id == EventLead.event_id)
+                .where(EventLead.event_id == event_id, EventLead.holder == "standby")
+                .with_for_update(read=True, nowait=True, of=EventLead)
+            )
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) != _LOCK_NOT_AVAILABLE:
+            raise
+        return False
     return led is not None
