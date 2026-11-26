@@ -55,8 +55,8 @@ export class MainPage extends BasePage {
     }
     await this.modalCreateButton.click();
 
-    // A successful create shows no toast (new-emergency-modal.tsx raises one only for
-    // validation errors). The modal closing is the post-condition the callers depend on.
+    // The modal closes once the card exists; a validation error stays in the form, under its
+    // field. The close is the post-condition the callers depend on.
     await this.incidentModal.waitFor({ state: 'hidden', timeout: 15000 });
   }
 
@@ -64,10 +64,10 @@ export class MainPage extends BasePage {
    * Enter the address in the modal's LocationInput.
    *
    * Typing is NOT enough: LocationInput is a combobox, and its search box only holds a local
-   * query. The value reaches the form — and so enables the create button, which is disabled
-   * on `!formData.location` — only when the address is *committed*, either by picking a
-   * geocoder result or via the "«…» übernehmen" freetext option that appears when the
-   * geocoder returns nothing. Until then the create button stays disabled.
+   * query. The value reaches the form only when the address is *committed*, either by picking
+   * a geocoder result or via the "«…» übernehmen" freetext option that appears when the
+   * geocoder returns nothing. Until then a submit is refused for a missing address, so a
+   * create that times out points here first.
    *
    * Both paths are handled because CI's network to the geocoder is not something a test
    * should depend on: whichever of the two appears first is taken.
