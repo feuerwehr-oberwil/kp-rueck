@@ -5,7 +5,9 @@ row. Two writers take the Ereignis row before cards: a standby sync batch
 (``standby_sync.apply_ops``) and each write phase of the bell poll
 (``notification_service.evaluate_notifications``). They take the gate shared as the first lock of
 their transaction, the delete takes it exclusively: they never wait for each other, and the delete
-waits until they are done (and they while it runs), so the two orders never meet.
+waits until they are done (and they while it runs), so the two orders never meet. The box's sync
+round applies a batch in one transaction; the hosted board's ``POST /api/standby/sync`` runs each
+op in its own (``api/standby._driver``), so there it holds nothing across ops.
 
 Plain strings, no app imports: the standby sidecar runs ``standby_sync`` with asyncpg alone.
 """

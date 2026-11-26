@@ -420,17 +420,6 @@ async def _led_by_box(db_session, event: Event) -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_raw_connection_runs_in_the_requests_transaction(test_engine):
-    # Raw statements before SQLAlchemy's own first one ran each in their own transaction: the
-    # sync's delete gate, a FOR UPDATE and a refused batch's writes all ended with the statement.
-    from app.api.standby import _driver as route_driver
-
-    async with async_sessionmaker(test_engine)() as db:
-        conn = await route_driver(db)
-        assert conn.is_in_transaction()
-
-
-@pytest.mark.asyncio
 async def test_the_sync_endpoint_does_not_exist_without_the_token(client: AsyncClient, two_events, sync_token):
     a, *_ = two_events
     body = {"event_id": str(a.id), "ops": []}

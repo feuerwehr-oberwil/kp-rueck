@@ -17,7 +17,6 @@ from typing import Annotated, Any, Literal
 import asyncpg
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -29,7 +28,7 @@ from ..middleware.rate_limit import RateLimits, limiter
 from ..models import JournalEntry, User
 from ..services.photo_storage import photo_storage
 from ..standby import Lead, MirrorState, StandbyError, hosted_leads, mirror_state, take_over
-from ..standby_sync import CONFLICTS, HOSTED, STANDBY, Op, apply_ops, enter_ereignis_gate, event_tables
+from ..standby_sync import CONFLICTS, HOSTED, STANDBY, Op, apply_ops, event_tables
 from ..websocket_manager import broadcast_group_update, broadcast_incident_update
 
 router = APIRouter(prefix="/standby", tags=["standby"])
@@ -40,13 +39,7 @@ _contact: dict[uuid.UUID, tuple[datetime, int]] = {}
 
 
 async def _driver(db: AsyncSession) -> asyncpg.Connection:
-    """The asyncpg connection under the request's session – same transaction, same commit.
-
-    The transaction is begun through SQLAlchemy first: SQLAlchemy sends its BEGIN only with its
-    own first statement, so raw statements before it ran each in their own transaction (a row
-    lock or an advisory lock ended with the statement, and a refused batch kept its writes).
-    """
-    await db.execute(text("SELECT 1"))
+    """The asyncpg connection under the request's session – same transaction, same commit."""
     raw = await (await db.connection()).get_raw_connection()
     conn: asyncpg.Connection = raw.driver_connection
     return conn
@@ -344,16 +337,10 @@ async def resolve_conflict(
     """
     conn = await _driver(db)
     await conn.execute("SET LOCAL TIME ZONE 'UTC'")
-    # The delete gate before the conflict row's lock: an Ereignis delete would cascade to it.
-    gate_event_id = await conn.fetchval("SELECT event_id FROM public.event_conflicts WHERE id = $1", conflict_id)
-    if gate_event_id is None:
-        raise HTTPException(status_code=404, detail="Konflikt nicht gefunden.")
-    await enter_ereignis_gate(conn, gate_event_id)
     conflict = await conn.fetchrow(
         "SELECT event_id, table_name, row_id, kind, deleted_on, columns::text AS columns, row::text AS row, resolved_at "
-        "FROM public.event_conflicts WHERE id = $1 AND event_id = $2 FOR UPDATE",
+        "FROM public.event_conflicts WHERE id = $1 FOR UPDATE",
         conflict_id,
-        gate_event_id,
     )
     if conflict is None:
         raise HTTPException(status_code=404, detail="Konflikt nicht gefunden.")
