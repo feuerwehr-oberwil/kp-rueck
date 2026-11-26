@@ -22,7 +22,7 @@
 
 import { formatDateTime } from '@/lib/format-time'
 import { useCallback, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { CarTaxiFront, ChevronDown, ChevronRight, FileWarning, Package, Printer } from 'lucide-react'
 import { toast } from 'sonner'
@@ -72,10 +72,9 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
 
   // Silent on failure: the Restliste is an extra on a card that has to render regardless. An
   // event list that fails to load because one roll-up query did is worse than a missing badge.
-  const restliste = useQuery({
-    queryKey: queryKeys.eventRestliste.of(eventId),
-    queryFn: () => apiClient.getEventRestliste(eventId),
-  })
+  const queryClient = useQueryClient()
+  const restlisteKey = queryKeys.eventRestliste.of(eventId)
+  const restliste = useQuery({ queryKey: restlisteKey, queryFn: () => apiClient.getEventRestliste(eventId) })
   const data = restliste.data ?? null
   const [open, setOpen] = useState<Section | null>(null)
   const [printing, setPrinting] = useState(false)
@@ -222,7 +221,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                     requestedAt={row.since ? new Date(row.since) : null}
                     variant="compact"
                     incidentId={row.incident_id}
-                    onCleared={() => void restliste.refetch()}
+                    onCleared={() => queryClient.invalidateQueries({ queryKey: restlisteKey })}
                     canEdit={canEdit}
                     className="shrink-0"
                   />

@@ -60,4 +60,15 @@ describe('bridgeSocketToQueries', () => {
     expect(b).toHaveBeenCalledTimes(3)
     stop()
   })
+
+  it('asks again when the event comes while the first read is still out', async () => {
+    const client = makeQueryClient()
+    const stop = bridgeSocketToQueries(client)
+    const read = shownDiveraRead(client, 'ev-a')
+    expect(read).toHaveBeenCalledTimes(1)
+
+    socket.emit('personnel_update', { action: 'checkin', data: null })
+    await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(2))
+    stop()
+  })
 })

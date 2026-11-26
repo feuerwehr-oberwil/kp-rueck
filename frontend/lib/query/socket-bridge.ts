@@ -1,4 +1,4 @@
-import type { QueryClient } from "@tanstack/react-query"
+import type { QueryClient, QueryKey } from "@tanstack/react-query"
 import { wsClient, type WebSocketStatus, type WsEventName, type WsEvents } from "@/lib/websocket-client"
 import { queryKeys } from "./keys"
 
@@ -7,6 +7,15 @@ interface Route {
   /** The kinds (`queryKeys.x.all`) this event can refresh. */
   kinds: readonly (readonly [string])[]
   listen: (client: QueryClient) => () => void
+}
+
+/**
+ * Read everything under `queryKey` again. A read already out may predate the change: it is
+ * dropped and asked again, not joined (TanStack would join a first read that has no data yet).
+ */
+async function refresh(client: QueryClient, queryKey: QueryKey) {
+  await client.cancelQueries({ queryKey })
+  await client.invalidateQueries({ queryKey })
 }
 
 /**
@@ -25,8 +34,8 @@ function refetch<K extends WsEventName>(
       wsClient.on(event, (payload) => {
         const scope = ids?.(payload)
         for (const kind of kinds) {
-          if (!scope) void client.invalidateQueries({ queryKey: kind })
-          else for (const id of scope) void client.invalidateQueries({ queryKey: [...kind, id] })
+          if (!scope) void refresh(client, kind)
+          else for (const id of scope) void refresh(client, [...kind, id])
         }
       }),
   }
@@ -58,7 +67,7 @@ export function bridgeSocketToQueries(client: QueryClient): () => void {
     if (status === last) return // the subscription replays the current status
     last = status
     if (status !== "connected") return
-    for (const kind of kinds) void client.invalidateQueries({ queryKey: kind })
+    for (const kind of kinds) void refresh(client, kind)
   })
   return () => {
     offs.forEach((off) => off())
