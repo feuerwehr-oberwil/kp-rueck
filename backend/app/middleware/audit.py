@@ -7,6 +7,7 @@ TaskGroup/ExceptionGroup crashes when stacked with other middlewares.
 import asyncio
 import logging
 import time
+from collections.abc import Coroutine
 from typing import TYPE_CHECKING
 
 from starlette.requests import Request
@@ -16,8 +17,6 @@ from ..database import audit_session_maker
 from ..services.audit import log_action
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
     from ..models.user import User
 
 logger = logging.getLogger(__name__)
@@ -26,59 +25,51 @@ logger = logging.getLogger(__name__)
 _inflight_audit_tasks: set[asyncio.Task[None]] = set()
 
 
-async def _log_api_request(
-    user: "User | None",
-    path: str,
-    method: str,
-    duration_ms: float,
-    test_db_session: "AsyncSession | None" = None,
-) -> None:
-    """Background task to log API request to audit log using separate connection pool."""
-    # In test mode with injected session, use that session directly (no commit needed)
-    if test_db_session is not None:
-        try:
-            await log_action(
-                db=test_db_session,
-                action_type=f"{method.lower()}_request",
-                resource_type="api",
-                user=user,
-                changes={
-                    "path": path,
-                    "method": method,
-                    "duration_ms": duration_ms,
-                },
-                request=None,
-            )
-            await test_db_session.commit()
-        except Exception as e:
-            logger.error("Audit logging failed: %s", e)
-    else:
-        # Production: use separate connection pool
-        # Catch pool timeout errors gracefully - audit should never block requests
-        try:
-            async with audit_session_maker() as db:
-                try:
-                    await log_action(
-                        db=db,
-                        action_type=f"{method.lower()}_request",
-                        resource_type="api",
-                        user=user,
-                        changes={
-                            "path": path,
-                            "method": method,
-                            "duration_ms": duration_ms,
-                        },
-                        request=None,
-                    )
-                    await db.commit()
-                except Exception as e:
-                    logger.error("Audit logging failed: %s", e)
-        except TimeoutError:
-            # Pool exhausted - log warning but don't fail
-            logger.warning("Audit pool timeout - request not logged: %s %s", method, path)
-        except Exception as e:
-            # Any other pool/connection error
-            logger.error("Audit session error: %s", e)
+async def _log_api_request(user: "User | None", path: str, method: str, duration_ms: float) -> None:
+    """Write one mutation's audit row through `audit_session_maker`, its own connection pool.
+
+    Never raises: a failed or timed-out audit write is logged, the request is not affected.
+    """
+    # Catch pool timeout errors gracefully - audit should never block requests
+    try:
+        async with audit_session_maker() as db:
+            try:
+                await log_action(
+                    db=db,
+                    action_type=f"{method.lower()}_request",
+                    resource_type="api",
+                    user=user,
+                    changes={
+                        "path": path,
+                        "method": method,
+                        "duration_ms": duration_ms,
+                    },
+                    request=None,
+                )
+                await db.commit()
+            except Exception as e:
+                logger.error("Audit logging failed: %s", e)
+    except TimeoutError:
+        # Pool exhausted - log warning but don't fail
+        logger.warning("Audit pool timeout - request not logged: %s %s", method, path)
+    except Exception as e:
+        # Any other pool/connection error
+        logger.error("Audit session error: %s", e)
+
+
+async def _dispatch(write: Coroutine[None, None, None]) -> None:
+    """Start the audit write in the background and return at once: a slow write never adds
+    latency to the request.
+
+    The tests' `client` fixture (`tests/conftest.py` `route_audit_into`) replaces this with
+    an awaited write into the test session, whose one connection cannot run two statements
+    at once.
+    """
+    # Strong reference until it finishes: asyncio keeps only a weak one, so an
+    # unreferenced task can be collected mid-flight and the audit entry is lost.
+    task = asyncio.create_task(write)
+    _inflight_audit_tasks.add(task)
+    task.add_done_callback(_inflight_audit_tasks.discard)
 
 
 class AuditMiddleware:
@@ -132,30 +123,6 @@ class AuditMiddleware:
             duration_ms = round((time.time() - start_time) * 1000, 2)
             user = getattr(request.state, "user", None)
 
-            # Check if test session is injected
-            test_db_session = getattr(request.app.state, "test_db_session", None)
-
-            if test_db_session is not None:
-                # Test mode: log synchronously to ensure tests can verify immediately
-                await _log_api_request(
-                    user=user,
-                    path=request.url.path,
-                    method=request.method,
-                    duration_ms=duration_ms,
-                    test_db_session=test_db_session,
-                )
-            else:
-                # Production: fire-and-forget
-                # Strong reference until it finishes: asyncio keeps only a weak one, so an
-                # unreferenced task can be collected mid-flight and the audit entry is lost.
-                task = asyncio.create_task(
-                    _log_api_request(
-                        user=user,
-                        path=request.url.path,
-                        method=request.method,
-                        duration_ms=duration_ms,
-                        test_db_session=None,
-                    )
-                )
-                _inflight_audit_tasks.add(task)
-                task.add_done_callback(_inflight_audit_tasks.discard)
+            await _dispatch(
+                _log_api_request(user=user, path=request.url.path, method=request.method, duration_ms=duration_ms)
+            )
