@@ -82,7 +82,7 @@ import { LoadingStatus } from "@/components/ui/shell-loader"
 import { readWeatherLayerPref, writeWeatherLayerPref } from "@/lib/weather"
 
 // Dynamically import map to avoid SSR issues – MapLibre GL needs a browser (WebGL, workers)
-const MapView = dynamic(() => import("@/components/map-view"), {
+const MapView = dynamic(() => import("@/components/map/map-view"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">

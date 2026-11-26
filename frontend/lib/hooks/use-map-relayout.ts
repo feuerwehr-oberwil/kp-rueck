@@ -9,7 +9,7 @@ export interface RelayoutMap {
 
 /**
  * Runs `measure` – a placement pass over a map, e.g. which side an open incident card hangs on
- * (components/map-view.tsx, `useCardSide`) – whenever its answer can change:
+ * (components/map/incident-label.tsx, `useCardSide`) – whenever its answer can change:
  *
  * - now, and every time the map comes to rest (`moveend`);
  * - when `target` changes size (the card's content loads);

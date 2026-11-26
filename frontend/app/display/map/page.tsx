@@ -23,7 +23,7 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { readWeatherLayerPref, writeWeatherLayerPref } from "@/lib/weather"
 import { PersonNamingProvider } from "@/components/person-name"
 
-const MapView = dynamic(() => import("@/components/map-view"), {
+const MapView = dynamic(() => import("@/components/map/map-view"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-muted rounded-lg">

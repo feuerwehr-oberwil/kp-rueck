@@ -9,7 +9,7 @@
  * Same address = the same coordinates to 6 decimals (≈ 10 cm): a geocoded address lands on one
  * point, two houses next door do not.
  *
- * Pure, so it is unit-tested; drawn by `components/map-view.tsx`.
+ * Pure, so it is unit-tested; drawn by `components/map/map-view.tsx`.
  */
 
 import { byUrgency } from './map-clusters'

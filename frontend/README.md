@@ -81,7 +81,7 @@ The application will be available at `http://localhost:3000`
   - `layout.tsx` - Root layout with providers
 - `components/` - Reusable UI components
   - `ui/` - shadcn/ui components
-  - `map-view.tsx` - MapLibre GL map component
+  - `map/` - the MapLibre Lagekarte (`map-view.tsx`) and its parts
 - `lib/` - Utilities and business logic
   - `contexts/` - React contexts
     - `operations-context.tsx` - State management with API sync
