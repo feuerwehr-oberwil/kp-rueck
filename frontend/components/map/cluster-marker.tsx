@@ -29,7 +29,7 @@ export function ClusterMarker({
   const name = t("view.clusterAria", { count: cluster.incidents.length, priority: priorityName(t, priority) })
   const zoomIn = () => {
     if (!map) return
-    const bounds = boundsOfLatLng(cluster.incidents.map((inc) => [inc.location_lat!, inc.location_lng!] as LatLngPoint))
+    const bounds = boundsOfLatLng(cluster.incidents.map((inc): LatLngPoint => [inc.location_lat, inc.location_lng]))
     if (!bounds) return
     const camera = map.cameraForBounds(bounds, { padding: padding(60) })
     const zoom = Math.min(Math.max(camera?.zoom ?? 0, map.getZoom() + 1), MAX_FOCUS_ZOOM)

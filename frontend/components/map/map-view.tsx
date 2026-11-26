@@ -19,7 +19,7 @@ import type { Map as MlMap } from "maplibre-gl"
 import { NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import type { StatusGroup } from "@/lib/types/incidents"
-import { shortAddressOf, type MapIncident } from "@/lib/map-incident"
+import { isLocatedIncident, shortAddressOf, type MapIncident } from "@/lib/map-incident"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import type { ApiVehiclePosition, ApiVehicle } from "@/lib/api-client"
@@ -298,8 +298,7 @@ export default function MapView({
   // gate unconditionally — it is rendered on top of the filters, not by them.
   const mappableIncidents = useMemo(
     () =>
-      incidents.filter((inc) => {
-        if (inc.location_lat === null || inc.location_lng === null) return false
+      incidents.filter(isLocatedIncident).filter((inc) => {
         if (inc.id === filterExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status]
         return group && statusFilters[group]
@@ -311,7 +310,7 @@ export default function MapView({
   const incidentsWithoutLocation = useMemo(
     () =>
       incidents.filter((inc) => {
-        if (inc.location_lat !== null && inc.location_lng !== null) return false
+        if (isLocatedIncident(inc)) return false
         if (inc.id === filterExceptionId) return true
         const group = STATUS_TO_GROUP[inc.status]
         return group && statusFilters[group]
@@ -359,7 +358,7 @@ export default function MapView({
     const byId = new Map(mappableIncidents.map((inc) => [inc.id, inc]))
     return (rekoRoute?.incidentIds ?? []).flatMap((id): [number, number][] => {
       const inc = byId.get(id)
-      return inc ? [[inc.location_lat!, inc.location_lng!]] : []
+      return inc ? [[inc.location_lat, inc.location_lng]] : []
     })
   }, [rekoRoute, mappableIncidents])
   // Below street level overlapping pins merge into count bubbles, phone and desktop. The selected
@@ -436,11 +435,10 @@ export default function MapView({
   // Leaflet's `center` was — `MapContainer` ignored every later change) and then owned by
   // `useFitBoundsOnce`, which frames the incidents the moment the first one arrives.
   const [initialViewState] = useState(() => {
-    const located = mappableIncidents.filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
-    const [latitude, longitude] = located.length > 0
+    const [latitude, longitude] = mappableIncidents.length > 0
       ? [
-          located.reduce((sum, inc) => sum + inc.location_lat!, 0) / located.length,
-          located.reduce((sum, inc) => sum + inc.location_lng!, 0) / located.length,
+          mappableIncidents.reduce((sum, inc) => sum + inc.location_lat, 0) / mappableIncidents.length,
+          mappableIncidents.reduce((sum, inc) => sum + inc.location_lng, 0) / mappableIncidents.length,
         ]
       : firestationCoords
     return { longitude, latitude, zoom: 13 }

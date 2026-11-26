@@ -42,9 +42,8 @@ function useValidity() {
   const t = useTranslations("map.weather")
   const intlLocale = useIntlLocale()
   return (warning: WeatherWarning, now: number) => {
-    const onset = warning.onset ? Date.parse(warning.onset) : null
-    if (onset !== null && onset > now) {
-      return t("from", { time: formatWeatherTime(warning.onset!, intlLocale, now) })
+    if (warning.onset && Date.parse(warning.onset) > now) {
+      return t("from", { time: formatWeatherTime(warning.onset, intlLocale, now) })
     }
     if (warning.expires) return t("until", { time: formatWeatherTime(warning.expires, intlLocale, now) })
     return t("untilRevoked")

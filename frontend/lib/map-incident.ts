@@ -30,6 +30,14 @@ export type MapIncident = Pick<
   crewCount: number
 }
 
+/** A MapIncident with coordinates – one the map can place. */
+export type LocatedIncident = MapIncident & { location_lat: number; location_lng: number }
+
+/** `incidents.filter(isLocatedIncident)`: the ones the map can place. */
+export function isLocatedIncident(incident: MapIncident): incident is LocatedIncident {
+  return incident.location_lat !== null && incident.location_lng !== null
+}
+
 /** The map's view of one board card. */
 export function toMapIncident(op: Operation): MapIncident {
   return {

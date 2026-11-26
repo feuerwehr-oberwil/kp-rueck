@@ -31,11 +31,12 @@ export interface ClusterPin {
   count?: number
 }
 
-export interface PinCluster {
+/** A bubble of pins – `P` is the caller's pin type, so each pin can carry what it stands for. */
+export interface PinCluster<P extends ClusterPin = ClusterPin> {
   /** Every pin in the bubble, at least two. */
-  pins: ClusterPin[]
+  pins: P[]
   /** The one whose mark the bubble wears – see `clusterLead`. */
-  lead: ClusterPin
+  lead: P
   /** The incidents under the bubble – the number it shows (pins weighted by `count`). */
   count: number
 }
@@ -65,7 +66,7 @@ export function byUrgency(a: Urgency, b: Urgency): number {
 }
 
 /** The pin a bubble speaks for – the most urgent (`byUrgency`). */
-export function clusterLead(pins: readonly ClusterPin[]): ClusterPin {
+export function clusterLead<P extends ClusterPin>(pins: readonly P[]): P {
   return [...pins].sort(byUrgency)[0]
 }
 
@@ -81,16 +82,16 @@ export function clusterLead(pins: readonly ClusterPin[]): ClusterPin {
  *
  * Returns the bubbles only; every pin not in one is drawn as itself.
  */
-export function clusterPins(
-  pins: readonly ClusterPin[],
+export function clusterPins<P extends ClusterPin>(
+  pins: readonly P[],
   {
     pinSize,
     bubbleSize,
     badge,
     gap = 4,
   }: { pinSize: number; bubbleSize: number; badge?: { dx: number; dy: number; size: number }; gap?: number },
-): PinCluster[] {
-  type Node = { pins: ClusterPin[]; x: number; y: number }
+): PinCluster<P>[] {
+  type Node = { pins: P[]; x: number; y: number }
   type Circle = { x: number; y: number; r: number }
   const circles = (node: Node): Circle[] => {
     if (node.pins.length > 1) return [{ x: node.x, y: node.y, r: bubbleSize / 2 }]
