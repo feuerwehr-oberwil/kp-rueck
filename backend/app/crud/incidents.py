@@ -1378,8 +1378,10 @@ async def reorder_incidents(
         updated += 1
 
     if updated:
-        await events_crud.update_event_activity(db, event_id)
+        # The positions first, the Ereignis row last (crud/locking.py): the session does not
+        # autoflush, and stamped first, an Ereignis delete holding one of them waited for us.
         await db.flush()
+        await events_crud.update_event_activity(db, event_id)
 
     return updated
 

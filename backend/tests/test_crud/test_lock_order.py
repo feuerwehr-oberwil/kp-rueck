@@ -928,3 +928,79 @@ async def test_an_ereignis_delete_and_a_standby_sync_batch_do_not_deadlock(board
         assert await asyncio.wait_for(batch, timeout=10) == ["changed", "changed"]
 
     assert deleted is True
+
+
+async def test_an_ereignis_delete_and_a_card_reorder_do_not_deadlock(board: Board):
+    # The reorder stamped the Ereignis row before it wrote the positions; the delete held a card
+    # it reorders and waited for the Ereignis row.
+    lower, higher = sorted((board.stop_id, board.loose_id))
+    await _archive(board)
+    # Like the app's sessions (database.py): with autoflush the positions were written first anyway.
+    async with board.sessions() as holder, board.sessions() as deleting, board.sessions(autoflush=False) as reordering:
+        # The delete takes the lower card and queues for the higher one.
+        await lock_incident(holder, higher)
+        user = await deleting.get(User, board.user_id)
+        deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+        await wait_until_blocked(board.sessions)
+        # Moves the lower card to position 1: it must wait for the delete without the Ereignis row.
+        reorder = asyncio.create_task(incidents_crud.reorder_incidents(reordering, board.event_id, [higher, lower]))
+        await wait_until_blocked(board.sessions, count=2)
+        await holder.rollback()
+
+        deleted = await asyncio.wait_for(deletion, timeout=10)
+        await deleting.commit()
+        # The cards are gone by the time the reorder goes on: whatever it answers, it is no deadlock.
+        try:
+            await asyncio.wait_for(reorder, timeout=10)
+        except Exception as error:
+            assert "deadlock" not in str(error).lower()
+        await reordering.rollback()
+
+    assert deleted is True
+
+
+async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_do_not_deadlock(board: Board):
+    # On the hosted board each sync op is its own transaction: a batch that entered the gate before
+    # the delete began went on without it. Its op deleting the Ereignis locked the Ereignis row, then
+    # the cards in the cascade – the delete the other way round.
+    higher = max(board.stop_id, board.loose_id)
+    note_id = uuid4()
+    async with board.sessions() as db:
+        db.add(Notification(id=note_id, type="field_message", severity="info", message="x", event_id=board.event_id))
+        await db.commit()
+    await _archive(board)
+    async with (
+        board.sessions() as note_holder,
+        board.sessions() as card_holder,
+        board.sessions() as deleting,
+        board.sessions() as syncing,
+    ):
+        # Raw, outside any transaction – as `api/standby._driver` hands it to the sync route.
+        conn = (await (await syncing.connection()).get_raw_connection()).driver_connection
+        tables = await event_tables(conn)
+        rows = {name: (await fetch_rows(conn, tables[name], board.event_id))[0] for name in ("events", "notifications")}
+        event = rows["events"][("events", str(board.event_id))]
+        note = rows["notifications"][("notifications", str(note_id))]
+        ops = [
+            Op("notifications", str(note_id), {**note, "message": "y"}, note),
+            Op("events", str(board.event_id), None, event),
+        ]
+        # The batch passes the gate and waits on its first op.
+        await note_holder.execute(select(Notification.id).where(Notification.id == note_id).with_for_update())
+        batch = asyncio.create_task(apply_ops(conn, tables, board.event_id, ops))
+        await wait_until_blocked(board.sessions)
+        # The delete takes the gate and the lower card, and queues for the higher one.
+        await lock_incident(card_holder, higher)
+        user = await deleting.get(User, board.user_id)
+        deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+        await wait_until_blocked(board.sessions, count=2)
+        # The batch's second op starts now; then the delete goes on.
+        await note_holder.rollback()
+        await asyncio.sleep(0.5)
+        await card_holder.rollback()
+
+        deleted = await asyncio.wait_for(deletion, timeout=10)
+        await deleting.commit()
+        assert await asyncio.wait_for(batch, timeout=10) == ["ok", "ok"]  # nothing left to delete
+
+    assert deleted is True

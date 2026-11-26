@@ -715,6 +715,9 @@ async def apply_ops(
                 continue
             try:
                 async with conn.transaction():
+                    # Again inside the op's own transaction: on the hosted board each op is one
+                    # (`api/standby._driver`), and an op can delete the Ereignis row itself.
+                    await enter_ereignis_gate(conn, event_id)
                     results[i] = await _apply_one(conn, table, event_id, op)
             except OpRefusedError:
                 results[i] = "refused"
