@@ -315,15 +315,18 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     return held(async () => {
       setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, assignments: [...g.assignments, optimistic] } : g)))
       try {
-        // The server's row replaces the placeholder (its id is what a release names); the
-        // group_update broadcast brings the rest, in its turn.
+        // The server's row replaces the placeholder (its id is what a release names) – or joins
+        // the route when a newer copy of it (a rename's answer, an R reload) dropped the
+        // placeholder. The group_update broadcast brings the rest, in its turn.
         const created = apiGroupAssignmentToAssignment(
           await apiClient.assignGroupResource(groupId, { resource_type: resourceType, resource_id: resourceId }),
         )
         setGroups((gs) =>
-          gs.map((g) =>
-            g.id === groupId ? { ...g, assignments: g.assignments.map((a) => (a.id === tempId ? created : a)) } : g,
-          ),
+          gs.map((g) => {
+            if (g.id !== groupId) return g
+            const rest = g.assignments.filter((a) => a.id !== tempId && a.id !== created.id)
+            return { ...g, assignments: [...rest, created] }
+          }),
         )
         if (resourceType === "vehicle") void promptIfDriverless(groupId, resourceId).finally(settled)
         return true
@@ -352,8 +355,12 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
         await apiClient.unassignGroupResource(groupId, assignmentId)
         return true
       } catch (error) {
-        // The assignment or the Auftrag is gone: the resource is free already.
-        if (error instanceof ApiError && error.status === 404) return true
+        // The assignment or the whole Auftrag is gone: the resource is free already, and the
+        // board learns which in its next settled reload (a failed request broadcasts nothing).
+        if (error instanceof ApiError && error.status === 404) {
+          reloadWhenSettled()
+          return true
+        }
         console.error("Failed to release route resource:", error)
         replaceGroup(groupId, previous)
         toast.error(translateOutsideReact("notifications.groups.unassignFailed"))

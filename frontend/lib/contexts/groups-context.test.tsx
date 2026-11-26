@@ -100,6 +100,7 @@ const api = vi.hoisted(() => ({
   getIncidentGroups: vi.fn(),
   // The Auftrag actions
   createIncidentGroup: vi.fn(),
+  updateIncidentGroup: vi.fn(),
   reorderGroupStops: vi.fn(),
   addStopsToGroup: vi.fn(),
   assignGroupResource: vi.fn(),
@@ -135,6 +136,7 @@ beforeEach(() => {
   api.getEventRekoSummaries.mockReset().mockResolvedValue({ summaries: {} })
   api.getIncidentGroups.mockReset().mockResolvedValue([])
   api.createIncidentGroup.mockReset()
+  api.updateIncidentGroup.mockReset()
   api.reorderGroupStops.mockReset()
   api.addStopsToGroup.mockReset()
   api.assignGroupResource.mockReset()
@@ -314,6 +316,28 @@ describe("route resources", () => {
       await result.current.assignResource(GROUP_ID, "vehicle", "v1")
     })
     expect(api.assignGroupResource).toHaveBeenCalledWith(GROUP_ID, { resource_type: "vehicle", resource_id: "v1" })
+    expect(result.current.groups[0].assignments.map((a) => a.id)).toEqual(["a1"])
+  })
+
+  it("keeps an assignment whose placeholder a rename's answer dropped while the POST was out", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
+    const { result } = await renderLoaded()
+    let answerAssign: (row: ApiGroupAssignment) => void = () => {}
+    api.assignGroupResource.mockImplementation(() => new Promise((resolve) => (answerAssign = resolve)))
+    api.updateIncidentGroup.mockResolvedValue(apiGroup({ name: "Neu" }))
+
+    let assigned: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      assigned = result.current.assignResource(GROUP_ID, "material", "m1")
+    })
+    await act(async () => {
+      await result.current.updateGroup(GROUP_ID, { name: "Neu" })
+    })
+    await act(async () => {
+      answerAssign(apiAssignment({ resource_type: "material", resource_id: "m1" }))
+      await assigned
+    })
+    expect(result.current.groups[0].name).toBe("Neu")
     expect(result.current.groups[0].assignments.map((a) => a.id)).toEqual(["a1"])
   })
 
