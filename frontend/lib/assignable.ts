@@ -25,13 +25,3 @@ export function takesAssignments(incident: HasStatus): boolean {
 export function auftragTakesAssignments(stops: readonly (HasStatus | undefined)[]): boolean {
   return stops.length === 0 || stops.some((stop) => !stop || takesAssignments(stop))
 }
-
-/** A drag that would assign something: a person, a vehicle (driver chip) or material. */
-export function isResourceDrag(data: Record<string | symbol, unknown>): boolean {
-  return (
-    data.type === 'person' ||
-    data.type === 'driver-vehicle' ||
-    data.type === 'material' ||
-    data.type === 'material-group'
-  )
-}

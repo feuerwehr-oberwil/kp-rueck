@@ -2,28 +2,13 @@
  * Event + special-function + event-stats types.
  */
 
-export interface ApiEvent {
-  id: string // UUID
-  name: string
-  training_flag: boolean
-  auto_attach_divera: boolean
-  created_at: string
-  updated_at: string
-  archived_at: string | null
-  last_activity_at: string
-  incident_count: number
-}
+import type { In, Out } from '../wire'
 
-export interface ApiEventCreate {
-  name: string
-  training_flag: boolean
-  auto_attach_divera?: boolean
-}
+export type ApiEvent = Out<'EventResponse'>
 
-export interface ApiEventListResponse {
-  events: ApiEvent[]
-  total: number
-}
+export type ApiEventCreate = In<'EventCreate'>
+
+export type ApiEventListResponse = Out<'EventListResponse'>
 
 /**
  * The roles a person can hold for one Ereignis.
@@ -38,79 +23,23 @@ export interface ApiEventListResponse {
  */
 export type FunctionType = 'driver' | 'reko' | 'magazin' | 'telefondienst' | 'kommandoposten'
 
-export interface ApiEventSpecialFunctionCreate {
-  personnel_id: string // UUID
-  function_type: FunctionType
-  vehicle_id?: string | null // Required for driver assignments
-}
+export type ApiEventSpecialFunctionCreate = In<'EventSpecialFunctionCreate'>
 
-export interface ApiEventSpecialFunctionDelete {
-  personnel_id: string // UUID
-  function_type: FunctionType
-  vehicle_id?: string | null // Required for driver unassignments
-}
+export type ApiEventSpecialFunctionDelete = In<'EventSpecialFunctionDelete'>
 
-export interface ApiEventSpecialFunctionResponse {
-  id: string // UUID
-  event_id: string // UUID
-  personnel_id: string // UUID
-  personnel_name: string // Computed field
-  function_type: FunctionType
-  vehicle_id: string | null // UUID
-  vehicle_name: string | null // Computed field for drivers
-  assigned_at: string
-  assigned_by: string | null // UUID
-}
+export type ApiEventSpecialFunctionResponse = Out<'EventSpecialFunctionResponse'>
 
 /** Median and nearest-rank P90 of one stage time, over `count` incidents. */
-export interface ApiStageFigures {
-  count: number
-  median_seconds: number | null
-  p90_seconds: number | null
-}
+export type ApiStageFigures = Out<'StageFigures'>
 
 /** Counts and reaction times for one priority, or `all`. */
-export interface ApiPriorityFigures {
-  priority: 'high' | 'medium' | 'low' | 'all'
-  total: number
-  /** Not yet dispatched: Eingegangen, Reko, Reko abgeschlossen. */
-  waiting: number
-  /** Disponiert, Im Einsatz, Rückfahrt. */
-  in_progress: number
-  done: number
-  dispatched: ApiStageFigures
-  on_scene: ApiStageFigures
-  closed: ApiStageFigures
-}
+export type ApiPriorityFigures = Out<'PriorityFigures'>
 
 /**
  * The Kennzahlen of one Ereignis (`backend/app/services/reaction_times.py`, the
  * same stage times as the PDF's Reaktionszeiten table).
  */
-export interface ApiEventFigures {
-  total: number
-  waiting: number
-  in_progress: number
-  done: number
-  overall: ApiPriorityFigures
-  by_priority: ApiPriorityFigures[]
-  oldest_waiting_high: { incident_id: string; title: string; created_at: string } | null
-}
+export type ApiEventFigures = Out<'EventFigures'>
 
 /** One checked-in person's time on duty (backend `PersonnelActivity`, longest on duty first). */
-export interface ApiPersonnelActivity {
-  personnel_id: string // UUID
-  name: string
-  role: string | null
-  /** "assigned" while on an incident or Auftrag, else the roster status. */
-  status: string
-  /** Since check-in (arrival) — not since the current assignment. */
-  active_duration_minutes: number
-  /** Einsätze worked this Ereignis: distinct incidents + Aufträge, finished and current. */
-  assignment_count: number
-  /** On an incident or Auftrag since check-in (overlaps once); on duty minus this is the Pause. */
-  assigned_minutes: number
-  /** Where they are now (short address / Auftrag name), « · »-joined. */
-  current_incident_title: string | null
-  checked_in_at: string | null
-}
+export type ApiPersonnelActivity = Out<'PersonnelActivity'>

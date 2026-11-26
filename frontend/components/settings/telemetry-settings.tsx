@@ -111,7 +111,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!res.ok) throw new Error(String(res.status))
-  return res.json() as Promise<T>
+  const body: unknown = await res.json()
+  return body as T
 }
 
 /** One of the two exits, as a radio in everything but markup: `aria-pressed` rather than a

@@ -8,6 +8,7 @@ import { type Person, type Operation, type Material, type OperationStatus } from
 import { type GroupResourceType } from "@/lib/api-client"
 import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
 import { applyResourceDrop } from "@/lib/hooks/use-kanban-drag-drop"
+import type { BoardDropTarget } from "@/lib/board-drag"
 import { useCommandDispatch, type DispatchCommand } from "@/lib/hooks/use-command-dispatch"
 import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
 import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
@@ -174,7 +175,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
   })
 
   const assignFromPalette = (resource: DispatchResource, operationId: string) => {
-    const destination = { type: "operation-drop", operationId }
+    const destination = { type: "operation-drop", operationId } satisfies BoardDropTarget
     const deps = {
       operations,
       assignPersonToOperation: boardAssignPerson,

@@ -17,7 +17,7 @@ function person(overrides: Partial<ApiRapportPersonnelRow> = {}): ApiRapportPers
 }
 
 function candidate(overrides: Partial<ApiRapportPersonnelCandidate> = {}): ApiRapportPersonnelCandidate {
-  return { personnel_id: 'c1', name: 'Koch René', checked_in: true, ...overrides }
+  return { personnel_id: 'c1', name: 'Koch René', kennung: null, role: null, tags: [], checked_in: true, ...overrides }
 }
 
 function render(props: Partial<React.ComponentProps<typeof FeldPersonnelChecklist>> = {}) {

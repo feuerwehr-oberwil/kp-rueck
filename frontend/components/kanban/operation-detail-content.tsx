@@ -80,7 +80,8 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
 import { rekoPhotoUrl } from '@/lib/reko-photos'
-import { isResourceDrag, takesAssignments } from '@/lib/assignable'
+import { takesAssignments } from '@/lib/assignable'
+import { isResourceDrag, type BoardDropTarget } from '@/lib/board-drag'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
@@ -429,7 +430,7 @@ export function OperationDetailContent({
     // A closed Einsatz takes no new assignment (lib/assignable.ts): no target, no ring.
     if (!root || layout !== 'panel' || !canEdit || !acceptsAssignments) return
 
-    const dropData = () => ({ type: 'operation-drop', operationId: operation.id })
+    const dropData = () => ({ type: 'operation-drop', operationId: operation.id }) satisfies BoardDropTarget
 
     const block = resourcesRef.current
     return combine(
@@ -1466,7 +1467,7 @@ export function OperationDetailContent({
               disabled={!canEdit || !onChangeStatus}
               onValueChange={(next) => {
                 const target = columns.find((col) => col.id === next)
-                if (target) onChangeStatus?.(operation.id, target.status[0])
+                if (target) onChangeStatus?.(operation.id, target.id)
               }}
             >
               <SelectTrigger id="edit-status" className={DENSE_CONTROL} tabIndex={0}>

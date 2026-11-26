@@ -21,8 +21,6 @@ export const LAGEBLATT_AUTODOWNLOAD_KEY = 'kp-lageblatt-autodownload'
 export const LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY = 'kp-lageblatt-autodownload-interval'
 /** Default download interval in minutes. */
 export const LAGEBLATT_AUTODOWNLOAD_DEFAULT_MIN = 15
-/** Fired after either key changes so an already-mounted UserMenu picks it up. */
-export const LAGEBLATT_AUTODOWNLOAD_EVENT = 'kp-lageblatt-autodownload-changed'
 
 /** Read + clamp the per-device download interval (minutes) from localStorage. */
 export function readLageblattInterval(): number {

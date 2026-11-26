@@ -41,6 +41,7 @@ const row = (id: string, receivedAt: string, overrides: Partial<ApiDiveraEmergen
   attached_at: null,
   created_incident_id: null,
   is_archived: false,
+  is_training: false,
   ...overrides,
 })
 const answer = (emergencies: ApiDiveraEmergency[], total = emergencies.length) => ({

@@ -135,7 +135,7 @@ export function IncidentDetailModal({
 
   if (!operation) return null
 
-  const statusColumnId = columns.find((c) => c.status.includes(operation.status))?.id
+  const statusColumnId = columns.find((c) => c.id === operation.status)?.id
 
   // A material chip names the device, as on the card and the detail: the ∞ of
   // Verbrauchsmaterial belongs to the resource lists, not to an assigned chip.

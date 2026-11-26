@@ -2,120 +2,32 @@
  * Divera 24/7 integration types — emergency pool + personnel sync.
  */
 
-export interface ApiDiveraEmergency {
-  id: string // UUID
-  /** Delivering system: "divera", "webhook", or a custom per-sender slug. */
-  source: string
-  /** Sender-side alarm id (dedupe key); null on older rows. */
-  source_id: string | null
-  /** Divera's internal id — null for alarms from the generic webhook. */
-  divera_id: number | null
-  /** e.g., "E-123" */
-  divera_number: string | null
-  title: string
-  text: string | null
-  address: string | null
-  /** Decimal as string */
-  latitude: string | null
-  /** Decimal as string */
-  longitude: string | null
-  // Note: priority is not stored - it's inferred when creating incidents
-  received_at: string
-  /** UUID */
-  attached_to_event_id: string | null
-  attached_at: string | null
-  /** UUID */
-  created_incident_id: string | null
-  is_archived: boolean
-  /** Simulated alarm injected by the Übungssteuerung (ÜBUNG badge). */
-  is_training?: boolean
-}
+import type { In, Out } from '../wire'
 
-export interface ApiDiveraEmergencyListResponse {
-  emergencies: ApiDiveraEmergency[]
-  total: number
-  /** Count of unattached, non-archived emergencies */
-  unattached_count: number
-}
+export type ApiDiveraEmergency = Out<'DiveraEmergencyResponse'>
+
+export type ApiDiveraEmergencyListResponse = Out<'DiveraEmergencyListResponse'>
 
 // Personnel sync
-export interface ApiDiveraMemberPreview {
-  divera_id: number
-  name: string
-}
+export type ApiDiveraMemberPreview = Out<'DiveraMemberPreview'>
 
-export interface ApiDiveraSyncPreviewItem {
-  member: ApiDiveraMemberPreview
-  status: 'new' | 'unchanged' | 'not_in_divera'
-  existing_id: string | null
-  /** For "unchanged" matches: whether the local person already has the Divera id. */
-  divera_linked?: boolean
-}
+export type ApiDiveraSyncPreviewItem = Out<'DiveraSyncPreviewItem'>
 
-export interface ApiDiveraSyncPreview {
-  new: ApiDiveraSyncPreviewItem[]
-  unchanged: ApiDiveraSyncPreviewItem[]
-  not_in_divera: ApiDiveraSyncPreviewItem[]
-}
+export type ApiDiveraSyncPreview = Out<'DiveraSyncPreview'>
 
-export interface ApiDiveraSyncResult {
-  created: number
-  deleted: number
-  unchanged: number
-  /** Existing people backfilled with their Divera id during this sync. */
-  linked?: number
-  /** Not in Divera any more, but kept: still on an open Einsatz or Auftrag
-   *  (only with `remove_stale`). Absent from an older backend. */
-  kept_assigned?: number
-}
+export type ApiDiveraSyncResult = Out<'DiveraSyncResult'>
 
 // Outbound alarm (ausalarmierung)
-export interface ApiDiveraAlarmRecipient {
-  personnel_id: string
-  name: string
-  divera_user_id?: number | null
-  /** Why this recipient was skipped, if skipped. */
-  reason?: string | null
-}
+export type ApiDiveraAlarmRecipient = Out<'DiveraAlarmRecipient'>
 
-export interface ApiDiveraAlarmResult {
-  success: boolean
-  foreign_id: string
-  divera_alarm_id?: number | null
-  sent: ApiDiveraAlarmRecipient[]
-  skipped: ApiDiveraAlarmRecipient[]
-  count_recipients?: number | null
-  error?: string | null
-  /** True for a training run: the flow ran but nothing was sent to Divera. */
-  simulated?: boolean
-}
+export type ApiDiveraAlarmResult = Out<'DiveraAlarmResponse'>
 
 // Mitteilung ("news") — informational, NOT an alarm
-export interface ApiDiveraGroup {
-  divera_id: number
-  name: string
-}
+export type ApiDiveraGroup = Out<'DiveraGroupPreview'>
 
-export interface SendDiveraMessageOptions {
-  text: string
-  title?: string
-  /** No default on purpose — reaching the whole Feuerwehr is a decision. */
-  target: 'groups' | 'all'
-  group_ids?: number[]
-  /** Lets the backend simulate instead of sending when the event is a drill. */
-  event_id?: string
-}
+export type SendDiveraMessageOptions = In<'DiveraMessageRequest'>
 
-export interface ApiDiveraMessageResult {
-  success: boolean
-  foreign_id: string
-  divera_message_id?: number | null
-  target: 'groups' | 'all'
-  /** Names of the groups actually addressed, echoed back for the confirmation. */
-  group_names: string[]
-  /** True for a training run: the flow ran but nothing was sent to Divera. */
-  simulated?: boolean
-}
+export type ApiDiveraMessageResult = Out<'DiveraMessageResponse'>
 
 // Polling / connection status (for the Verbindung indicator)
 export interface ApiDiveraPollingStatus {
@@ -131,45 +43,14 @@ export interface ApiDiveraPollingStatus {
   message?: string
 }
 
-export interface SendDiveraAlarmOptions {
-  personnel_ids: string[]
-  title?: string
-  text?: string
-  priority?: boolean
-  send_push?: boolean
-  send_sms?: boolean
-  send_call?: boolean
-  send_mail?: boolean
-}
+export type SendDiveraAlarmOptions = In<'DiveraAlarmRequest'>
 
 // Rückmeldungen — GET /api/divera/events/{id}/responses
 // (backend/app/services/divera_responses.py; the same rules as KP Front's half). Yes/no only.
 
 /** kommt / kommt nicht. Other Divera statuses («Rückruf erbeten») are not kept at all. */
-export type ApiDiveraResponseKind = 'coming' | 'not_coming'
+export type ApiDiveraResponseKind = Out<'DiveraResponsePerson'>['kind']
 
-export interface ApiDiveraResponsePerson {
-  /** Via the person's `divera` identity. Answers nobody on the roster is linked to are never
-   *  listed — only counted in `unmapped`. */
-  personnel_id: string
-  name: string
-  role: string | null
-  tags: string[]
-  kind: ApiDiveraResponseKind
-  /** Any attendance record on this Ereignis (in now, or in and out again): never «anrückend». */
-  attended: boolean
-}
+export type ApiDiveraResponsePerson = Out<'DiveraResponsePerson'>
 
-export interface ApiDiveraResponsesSummary {
-  /** false = the block is absent: Divera not configured, nothing here came from Divera, or no
-   *  alarm of the last 6 h carries answers (`no_data`). */
-  available: boolean
-  reason: 'not_configured' | 'not_linked' | 'no_data' | null
-  alarm_count: number
-  /** Per kind, unmapped members included. */
-  counts: Record<ApiDiveraResponseKind, number>
-  people: ApiDiveraResponsePerson[]
-  /** Answers from Divera members no roster person is linked to. */
-  unmapped: number
-  updated_at: string | null
-}
+export type ApiDiveraResponsesSummary = Out<'DiveraResponsesSummary'>

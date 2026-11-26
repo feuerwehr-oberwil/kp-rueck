@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api-client"
 import { wsClient } from "@/lib/websocket-client"
 import { useOperations } from "@/lib/contexts/operations-context"
 import type { ApiEventSpecialFunctionResponse } from "@/lib/api/types/events"
+import { onAppEvent } from "@/lib/app-events"
 
 /** A vehicle's driver. The id is there so `PersonName` / `usePersonNaming` can
  *  add the namesake Kennung – a driver is named on the radio like anybody else. */
@@ -73,11 +74,10 @@ export function useVehicleDriverState(eventId: string | null | undefined, enable
     const unsubscribeWs = wsClient.on("special_function_update", () => {
       load()
     })
-    const handleDriverChanged = () => load()
-    window.addEventListener("driver-assignment-changed", handleDriverChanged)
+    const offDriverChanged = onAppEvent("driver-assignment-changed", () => load())
     return () => {
       unsubscribeWs()
-      window.removeEventListener("driver-assignment-changed", handleDriverChanged)
+      offDriverChanged()
     }
   }, [enabled, load])
 

@@ -42,6 +42,7 @@ import { ViewerApi } from './api/resources/viewer'
 import { PrintApi } from './api/resources/print'
 import { UsersApi } from './api/resources/users'
 import { SystemApi } from './api/resources/system'
+import { NotificationsApi } from './api/resources/notifications'
 
 const RESOURCES = [
   SettingsApi,
@@ -64,28 +65,16 @@ const RESOURCES = [
   PrintApi,
   UsersApi,
   SystemApi,
+  NotificationsApi,
 ] as const
 
-type ApiClient = SettingsApi &
-  EventsApi &
-  IncidentsApi &
-  GroupsApi &
-  JournalApi &
-  AssignmentsApi &
-  PersonnelApi &
-  VehiclesApi &
-  MaterialsApi &
-  RekoApi &
-  ExportsApi &
-  TrainingApi &
-  DiveraApi &
-  TrackingApi &
-  FeldApi &
-  RapportApi &
-  ViewerApi &
-  PrintApi &
-  UsersApi &
-  SystemApi
+/** `A | B | C` → `A & B & C`: the client carries every resource's methods at once. */
+type UnionToIntersection<U> = (U extends unknown ? (union: U) => void : never) extends (all: infer I) => void
+  ? I
+  : never
+
+/** The client's type is read off `RESOURCES`, so a resource is in both or in neither. */
+type ApiClient = UnionToIntersection<InstanceType<(typeof RESOURCES)[number]>>
 
 /**
  * One prototype carrying every resource's methods, copied with their own

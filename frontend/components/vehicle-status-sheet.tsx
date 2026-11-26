@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { LoadingStatus, ShellLoader } from "@/components/ui/shell-loader"
 import { Truck, User, MapPin, Clock, Radio, RefreshCw, AlertTriangle, Plus, Waypoints, Ban, MoreHorizontal, ArrowUpRight, ArrowLeftRight } from "lucide-react"
-import { apiClient, type ApiEventSpecialFunctionResponse, type ApiVehicleStatus } from "@/lib/api-client"
+import { apiClient, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicleStatus } from "@/lib/api-client"
 import { isIncidentStatus } from "@/lib/types/incidents"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
@@ -31,6 +31,7 @@ import { boardDetailHref } from "@/lib/incident-detail"
 import { OVERVIEW_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 import { shortDate } from "@/lib/board-sidebar"
+import { emitAppEvent } from '@/lib/app-events'
 
 /** What the sheet shows for one Ereignis: the fleet and the event's special functions
  *  (the driver dialog needs those). */
@@ -302,7 +303,8 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
       setSnapshot(next)
     } catch (error) {
       console.error("Error loading vehicle statuses:", error)
-      if (!silent) {
+      // No answer at all is the outage's to say (one voice: lib/api/http.ts).
+      if (!silent && !NetworkError.isNetworkError(error)) {
         toast.error(t('vehicleStatus.loadError'))
       }
     } finally {
@@ -337,7 +339,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
     // Reload vehicle statuses after driver assignment
     loadVehicleStatuses(true)
     // Notify sidebar (same-tab instant feedback)
-    window.dispatchEvent(new Event('driver-assignment-changed'))
+    emitAppEvent('driver-assignment-changed')
   }
 
   const displayedVehicles = vehicles

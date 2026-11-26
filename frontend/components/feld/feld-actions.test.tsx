@@ -63,6 +63,15 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     group_id: null,
     group_name: null,
     group_position: null,
+    location_display: null,
+    source_vehicle: null,
+    has_been_dispatched: false,
+    pickup_seen: false,
+    pickup_vehicle: null,
+    pickup_resolved_at: null,
+    kp_messages: [],
+    field_requests: [],
+    group_color: null,
     ...overrides,
   }
 }
@@ -101,6 +110,7 @@ function request(overrides: Partial<ApiFieldRequest> = {}): ApiFieldRequest {
     in_progress_by_name: null,
     done_at: null,
     done_by_name: null,
+    done_in_field: false,
     ...overrides,
   }
 }

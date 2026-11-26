@@ -39,6 +39,15 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     group_id: null,
     group_name: null,
     group_position: null,
+    location_display: null,
+    source_vehicle: null,
+    has_been_dispatched: false,
+    pickup_seen: false,
+    pickup_vehicle: null,
+    pickup_resolved_at: null,
+    kp_messages: [],
+    field_requests: [],
+    group_color: null,
     ...overrides,
   }
 }
@@ -52,12 +61,13 @@ describe('the field briefing (§18.22)', () => {
           contact: 'A. Bürgin',
           contact_phone: '079 000 00 00',
           crew: ['Muster Hans', 'Frey Marc'],
-          vehicles: [{ name: 'TLF 1', driver: 'MÜLLER Beat' }, { name: 'MTW', driver: null }],
+          vehicles: [{ name: 'TLF 1', driver: 'MÜLLER Beat', stays: null, via_auftrag: false }, { name: 'MTW', driver: null, stays: null, via_auftrag: false }],
           materials: [
             { name: 'Tauchpumpe', count: 2, location: 'Magazin 1' },
             { name: 'Nassauger', count: 1, location: null },
           ],
           reko: {
+            is_relevant: null,
             summary: 'Keller 20 cm unter Wasser.',
             notes: 'Zugang über Hinterhof.',
             dangers: ['electrical'],
@@ -113,6 +123,7 @@ describe('the field briefing (§18.22)', () => {
       <FeldBriefing
         assignment={assignment({
           reko: {
+            is_relevant: null,
             summary: null,
             notes: null,
             // An unknown key must be dropped, not rendered as a raw string.
@@ -135,9 +146,10 @@ describe('the condensed row', () => {
         assignment={assignment({
           description: 'Wasser im Keller',
           crew: ['Muster Hans'],
-          vehicles: [{ name: 'TLF 1', driver: null }],
-          materials: [{ name: 'Tauchpumpe', count: 1 }],
+          vehicles: [{ name: 'TLF 1', driver: null, stays: null, via_auftrag: false }],
+          materials: [{ name: 'Tauchpumpe', count: 1, location: null }],
           reko: {
+            is_relevant: null,
             summary: 'Keller 20 cm unter Wasser.',
             notes: null,
             dangers: ['collapse'],

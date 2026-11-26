@@ -23,6 +23,8 @@
  * its freshly started animations to the handed-over clock — before the next paint.
  */
 
+import { isRecord } from './utils/safe-storage'
+
 /** Read by app/layout.tsx (server) to render `<html data-snail="standing">`. */
 export const SNAIL_STANDING_COOKIE = 'kp-rueck-snail'
 
@@ -43,7 +45,9 @@ function takeHandover(): number {
     const raw = sessionStorage.getItem(KEY)
     if (!raw) return 0
     sessionStorage.removeItem(KEY)
-    const { start, at } = JSON.parse(raw) as { start: number; at: number }
+    const stored: unknown = JSON.parse(raw)
+    if (!isRecord(stored) || typeof stored.start !== 'number' || typeof stored.at !== 'number') return 0
+    const { start, at } = stored
     const now = Date.now()
     if (!(now - at >= 0 && now - at <= SNAIL_HANDOVER_MAX_MS)) return 0
     return Math.max(0, now - start)

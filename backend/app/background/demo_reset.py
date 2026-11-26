@@ -182,8 +182,7 @@ async def reset_demo() -> None:
     try:
         from app.websocket_manager import broadcast_message
 
-        await broadcast_message({"type": "demo_reset"})
-        logger.info("Broadcasted demo_reset WebSocket message")
+        await broadcast_message("demo_reset", {})
     except Exception as e:
         logger.warning(f"Failed to broadcast demo_reset message: {e}")
 

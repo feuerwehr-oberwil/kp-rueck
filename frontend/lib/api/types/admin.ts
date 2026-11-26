@@ -2,8 +2,10 @@
  * Admin / training import-export types.
  */
 
+import type { Out } from '../wire'
+
 /** `merge` used to be accepted here and did exactly what `replace` does. It is a 400 now. */
-export type ExcelImportMode = 'replace' | 'append'
+export type ExcelImportMode = Out<'ExcelImportPreview'>['mode']
 
 /** What the previewed import would DELETE. All zero for `append`.
  *
@@ -22,46 +24,22 @@ export type ExcelImportMode = 'replace' | 'append'
  *  Everything past the first five is optional on purpose: they were added after this
  *  shape shipped and are absent from a backend older than that (they are not in the
  *  schema's `required` list). Treat `undefined` as "not reported", never as zero. */
-export interface ApiExcelImportDeletions {
-  personnel: number
-  vehicles: number
-  materials: number
-  incident_assignments: number
-  active_incident_assignments: number
-  incident_group_assignments?: number
-  active_incident_group_assignments?: number
-  /** Check-ins (Anwesenheiten) of every event, gone with the roster. */
-  cascade_event_attendance?: number
-  /** Assigned Spezialfunktionen – also cascaded by deleting a vehicle (Fahrer), not personnel-only. */
-  cascade_event_special_functions?: number
-  /** Links between a person and their alerting-provider account; have to be re-synced. */
-  cascade_personnel_identities?: number
-}
+export type ApiExcelImportDeletions = Out<'ExcelImportDeletions'>
 
 /** One spreadsheet row of the import preview, keyed by column: a cell is text, a number or empty. */
 export type ApiExcelPreviewRow = Record<string, string | number | boolean | null>
 
-export interface ApiExcelImportPreview {
+/** The backend publishes the preview rows as `dict[str, Any]`: one sheet row, cell by cell. */
+export type ApiExcelImportPreview = Omit<
+  Out<'ExcelImportPreview'>,
+  'personnel_preview' | 'vehicles_preview' | 'materials_preview'
+> & {
   personnel_preview: ApiExcelPreviewRow[]
-  personnel_total: number
   vehicles_preview: ApiExcelPreviewRow[]
-  vehicles_total: number
   materials_preview: ApiExcelPreviewRow[]
-  materials_total: number
-  mode: ExcelImportMode
-  deletions: ApiExcelImportDeletions
 }
 
-export interface ApiExcelImportResult {
-  success: boolean
-  mode: string
-  counts: {
-    personnel: number
-    vehicles: number
-    materials: number
-  }
-  timestamp: string
-}
+export type ApiExcelImportResult = Out<'ExcelImportResult'>
 
 /**
  * The shared secret a dispatch provider signs its alarm webhooks with
@@ -72,47 +50,20 @@ export interface ApiExcelImportResult {
  * wins over the database, so a rotation here would report success and change
  * nothing the webhook actually checks – the backend answers 409 instead.
  */
-export interface ApiAlarmWebhookSecret {
-  secret: string
-  source: 'env' | 'database'
-  configured: boolean
-}
+export type ApiAlarmWebhookSecret = Out<'AlarmWebhookSecret'>
 
-export interface ApiEmergencyTemplate {
-  id: string // UUID
-  title_pattern: string
-  incident_type: string
-  category: 'normal' | 'critical'
-  message_pattern: string
-  title_variations: string[] | null
-  message_variations: string[] | null
-  created_at: string
-  is_active: boolean
-}
+export type ApiEmergencyTemplate = Out<'EmergencyTemplateResponse'>
 
-export interface ApiTrainingLocation {
-  id: string // UUID
-  street: string
-  house_number: string
-  postal_code: string
-  city: string
-  building_type: string | null
-  latitude: number | null
-  longitude: number | null
-  is_active: boolean
-}
+export type ApiTrainingLocation = Out<'TrainingLocationResponse'>
 
 /** The training Automatik (`PUT /api/training/events/{id}/autogen`, the Regie state): the switch, and its run – the Übung it
  *  feeds, since when (the «heisse Phase» counts from there), and `stopped: 'max'` once it switched
  *  itself off at the maximum. `run` is null before the first start. */
-export interface ApiAutogenState {
-  enabled: boolean
-  run: { event_id: string; started_at: string; stopped: 'max' | null } | null
-}
+export type ApiAutogenState = Out<'AutogenStateResponse'>
 
 /** Übungstempo of the Regie: scales the Autopilot's dwell times, the Automatik interval and
  *  the GPS drive speed (Ruhig 0.5 · Normal 1 · Sturm 2). */
-export type ApiRegieTempo = 'ruhig' | 'normal' | 'sturm'
+export type ApiRegieTempo = Out<'RegieStateResponse'>['tempo']
 
 /** One field step of an incident, the server's lifecycle (primary first). */
 export type ApiRegieStepKey =
@@ -124,76 +75,21 @@ export type ApiRegieStepKey =
   | 'drive_to_magazin'
   | 'rapport'
 
-export interface ApiRegieStep {
-  incident_id: string
-  key: ApiRegieStepKey
-  /** When the Autopilot runs it; null while held, Mitspieler or unknown. */
-  due_at: string | null
-  /** A GPS drive for this step is under way. */
-  rolling: boolean
-  /** 0..1 of the slowest drive, while rolling. */
-  progress: number | null
-  eta_seconds: number | null
-}
+export type ApiRegieStep = Out<'RegieStep'>
 
-export interface ApiRegieIncident {
-  incident_id: string
-  held: boolean
-  /** Somebody on its crew plays along on /feld: the Autopilot leaves it alone. */
-  mitspieler: boolean
-  steps: ApiRegieStep[]
-}
+export type ApiRegieIncident = Out<'RegieIncident'>
 
 /** One line of «Vorhin»: what the Regie did, newest first. `text` is German (server-built). */
-export interface ApiRegieHistoryItem {
-  at: string
-  incident_id: string | null
-  text: string
-  by: 'autopilot' | 'trainer'
-}
+export type ApiRegieHistoryItem = Out<'RegieHistoryItem'>
 
 /** `GET /api/training/events/{id}/regie`: the Übungs-Steuerung's whole state, computed on read. */
-export interface ApiRegieState {
-  event_id: string
-  autopilot: boolean
-  tempo: ApiRegieTempo
-  paused_at: string | null
-  /** First switch-on of Autopilot or Automatik – the «Übung läuft · m:ss» clock. */
-  started_at: string | null
-  /** Un-paused seconds since `started_at` when this state was computed. */
-  running_seconds: number | null
-  automatik: ApiAutogenState
-  /** When the Automatik raises its next alarm; null while off or paused. */
-  automatik_next_at: string | null
-  /** Every open incident of the Übung, plus completed ones that still owe a Rapport. */
-  incidents: ApiRegieIncident[]
-  history: ApiRegieHistoryItem[]
-  /** False in demo mode: no simulated drives. */
-  gps_available: boolean
-  magazin_configured: boolean
-}
+export type ApiRegieState = Out<'RegieStateResponse'>
 
 /** One simulated Schadenplatz-Rapport, as the Übungssteuerung reports it back
  *  (plan 25 §16). `filed_by` is null when the incident had nobody assigned and
  *  the KP had to enter it – the honest provenance for that case. */
-export interface ApiSimulatedRapport {
-  incident_id: string
-  incident_title: string
-  filed_by: string | null
-  /** How many of the incident's vehicles the simulated crew confirmed as present. */
-  vehicles_present: number
-  materials_ticked: number
-  /** Scene photos the simulated crew attached – 0 most of the time, like a real one. */
-  photos: number
-  message: string
-}
+export type ApiSimulatedRapport = Out<'SimulateRapportResponse'>
 
 /** The bulk inject. `skipped` is not a failure count: those gaps are the
  *  Restliste, and finding them is the exercise. */
-export interface ApiSimulatedRapportBulk {
-  candidates: number
-  covered: number
-  skipped: number
-  rapports: ApiSimulatedRapport[]
-  message: string
-}
+export type ApiSimulatedRapportBulk = Out<'SimulateBulkRapportResponse'>

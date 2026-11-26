@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type {
   ApiDeployment,
   ApiStandby,
@@ -63,7 +63,7 @@ export class SystemApi {
     choice: 'kept' | 'other' | 'both',
     text?: Record<string, string>,
   ): Promise<void> {
-    await httpRequest(`/api/standby/conflicts/${encodeURIComponent(conflictId)}/resolve`, {
+    await requestVoid(`/api/standby/conflicts/${encodeURIComponent(conflictId)}/resolve`, {
       method: 'POST',
       body: JSON.stringify({ choice, text }),
     })

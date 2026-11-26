@@ -83,19 +83,20 @@ export const STATUS_ACCENT: Record<OperationStatus, StatusAccent> = {
 // never been told otherwise": ABGESCHLOSSEN is finished work by definition and
 // its width is better spent on the live columns. Nothing else starts hidden;
 // at 3am a column may only disappear because someone folded it.
-export const columns: Array<{
+export interface BoardColumn {
   id: OperationStatus
-  status: OperationStatus[]
   color: string
   collapsible?: boolean
-}> = [
-  { id: "incoming", status: ["incoming"], color: STATUS_ACCENT.incoming.surface },
-  { id: "reko", status: ["reko"], color: STATUS_ACCENT.reko.surface },
-  { id: "reko_done", status: ["reko_done"], color: STATUS_ACCENT.reko_done.surface },
-  { id: "enroute", status: ["enroute"], color: STATUS_ACCENT.enroute.surface },
-  { id: "active", status: ["active"], color: STATUS_ACCENT.active.surface },
-  { id: "returning", status: ["returning"], color: STATUS_ACCENT.returning.surface },
-  { id: "complete", status: ["complete"], color: STATUS_ACCENT.complete.surface, collapsible: true },
+}
+
+export const columns: BoardColumn[] = [
+  { id: "incoming", color: STATUS_ACCENT.incoming.surface },
+  { id: "reko", color: STATUS_ACCENT.reko.surface },
+  { id: "reko_done", color: STATUS_ACCENT.reko_done.surface },
+  { id: "enroute", color: STATUS_ACCENT.enroute.surface },
+  { id: "active", color: STATUS_ACCENT.active.surface },
+  { id: "returning", color: STATUS_ACCENT.returning.surface },
+  { id: "complete", color: STATUS_ACCENT.complete.surface, collapsible: true },
 ]
 
 /**
@@ -513,7 +514,7 @@ export function isOverdue(
 /** Where a status sits in the board's column order — the one place that knows
  *  «später» means «weiter rechts». -1 for a status no column carries. */
 function statusColumnIndex(status: OperationStatus): number {
-  return columns.findIndex((column) => column.status.includes(status))
+  return columns.findIndex((column) => column.id === status)
 }
 
 /**

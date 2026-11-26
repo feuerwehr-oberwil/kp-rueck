@@ -9,7 +9,6 @@ A step that cannot run now raises `StepRefusedError` with the German reason.
 
 import random
 from datetime import UTC, datetime
-from typing import Literal
 from uuid import UUID
 
 from fastapi import Request
@@ -22,7 +21,7 @@ from app.crud import reko as reko_crud
 from app.database import after_rollback
 from app.models import Incident, IncidentAssignment, RekoReport, User, Vehicle
 from app.schemas import RekoReportUpdate
-from app.services.gps_simulation import SimulatedDrive, gps_simulation
+from app.services.gps_simulation import DriveKind, SimulatedDrive, gps_simulation
 from app.services.photo_storage import photo_storage
 from app.services.rapport_rows import STATUS_LABELS
 from app.services.reko_history import RekoAuthor
@@ -31,7 +30,7 @@ from app.services.training import simulated_filer, stranded_pickup_note
 from app.services.training_photos import attach_training_photos
 from app.services.training_simulation_data import generate_reko_report_data, scene_type
 
-DriveTarget = Literal["incident", "magazin"]
+DriveTarget = DriveKind
 
 # Start of a drive when nothing better is known (Oberwil).
 _FALLBACK_START = (47.51637699933488, 7.561800450458299)

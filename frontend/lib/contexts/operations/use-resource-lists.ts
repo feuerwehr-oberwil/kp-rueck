@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-import { apiClient, type ApiMaterialGroup, type ApiMaterialResource, type ApiPersonnel } from "@/lib/api-client"
+import { apiClient, NetworkError, type ApiMaterialGroup, type ApiMaterialResource, type ApiPersonnel } from "@/lib/api-client"
 import { isValidUUID } from "@/lib/utils/validation"
 import type { Person, PersonRole } from "../personnel-context"
 import type { Material, MaterialGroup } from "../materials-context"
@@ -92,7 +92,8 @@ export function usePersonnelList(eventId: string | null) {
         return personnelList
       } catch (error) {
         console.error("Failed to load personnel:", error)
-        if (!hasShownLoadErrorRef.current) {
+        // No answer at all is the outage's to say (one voice: lib/api/http.ts).
+        if (!hasShownLoadErrorRef.current && !NetworkError.isNetworkError(error)) {
           hasShownLoadErrorRef.current = true
           toast.error(translateOutsideReact("notifications.personnel.loadFailedTitle"), {
             description: translateOutsideReact("notifications.personnel.loadFailedDescription"),
@@ -133,7 +134,7 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
         return materialsList
       } catch (error) {
         console.error("Failed to load materials:", error)
-        if (!hasShownMaterialsErrorRef.current) {
+        if (!hasShownMaterialsErrorRef.current && !NetworkError.isNetworkError(error)) {
           hasShownMaterialsErrorRef.current = true
           toast.error(translateOutsideReact("notifications.materials.loadFailedTitle"), {
             description: translateOutsideReact("notifications.materials.loadFailedDescription"),
@@ -154,7 +155,7 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
       hasShownGroupsErrorRef.current = false
     } catch (error) {
       console.error("Failed to load material groups:", error)
-      if (!hasShownGroupsErrorRef.current) {
+      if (!hasShownGroupsErrorRef.current && !NetworkError.isNetworkError(error)) {
         hasShownGroupsErrorRef.current = true
         toast.error(translateOutsideReact("notifications.materials.groupsLoadFailed"))
       }

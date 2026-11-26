@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { toast } from "sonner"
 import { BUILD_ID } from "@/lib/build-info"
 import { translateOutsideReact } from "@/lib/i18n-messages"
+import { isRecord } from "@/lib/utils/safe-storage"
 
 /** Same cadence as KP Front: a foregrounded tab learns about a deploy within 5 minutes. */
 export const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000
@@ -51,8 +52,8 @@ export async function fetchServerBuildId(fetchImpl: typeof fetch = fetch): Promi
   try {
     const response = await fetchImpl("/build-info", { cache: "no-store" })
     if (!response.ok) return null
-    const body = (await response.json()) as { id?: unknown }
-    return typeof body.id === "string" ? body.id : null
+    const body: unknown = await response.json()
+    return isRecord(body) && typeof body.id === "string" ? body.id : null
   } catch {
     return null
   }

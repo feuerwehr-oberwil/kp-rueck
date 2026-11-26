@@ -9,7 +9,7 @@ import { boardDetailHref } from '@/lib/incident-detail'
 import type { FieldNudgeKind } from '@/components/kanban/field-status-nudge'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
-import { getApiUrl } from '@/lib/env'
+import { apiClient } from '@/lib/api-client'
 import { isValidUUID } from '@/lib/utils/validation'
 import { isStringArray, readItem, readJson, writeItem, writeJson } from '@/lib/utils/safe-storage'
 import { wsClient } from '@/lib/websocket-client'
@@ -133,17 +133,7 @@ type NotificationFetchResult =
  */
 async function fetchSettings(): Promise<NotificationSettings | null> {
   try {
-    const apiUrl = getApiUrl()
-    const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
-      credentials: 'include',
-    })
-
-    if (!response.ok) {
-      console.error('Failed to fetch notification settings:', response.statusText)
-      return null
-    }
-
-    return await response.json()
+    return await apiClient.getNotificationSettings()
   } catch (error) {
     console.error('Error fetching notification settings:', error)
     return null
@@ -312,38 +302,16 @@ export function NotificationProvider({
     }
 
     try {
-      const apiUrl = getApiUrl()
       // Runs on a ~5s poll — stay quiet on the happy path, surface only real failures.
-      const response = await fetch(`${apiUrl}/api/notifications/?event_id=${eventId}`, {
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        console.error('[Notifications] Failed to fetch:', response.status, response.statusText)
-        return { status: 'failed' }
-      }
-
-      const data = await response.json()
-
-      // Convert created_at strings to Date objects. `message` and `params` pass
-      // through as sent: the bell, the sidebar and the toasts say them in the
-      // operator's language at render time (lib/notification-format.ts).
+      const rows = await apiClient.getNotifications(eventId)
+      // `message` and `params` pass through as sent: the bell, the sidebar and the toasts
+      // say them in the operator's language at render time (lib/notification-format.ts).
       return {
         status: 'ok',
-        notifications: (data as (Omit<Notification, 'created_at'> & { created_at: string })[]).map((n) => ({
-          ...n,
-          created_at: new Date(n.created_at),
-        })),
+        notifications: rows.map((n) => ({ ...n, created_at: new Date(n.created_at) })),
       }
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
-      // fetch() rejects with a TypeError only when the request never got an answer.
-      if (error instanceof TypeError) {
-        console.error('[Notifications] This is likely a CORS or network error. Check:')
-        console.error('  1. Backend is running on', getApiUrl())
-        console.error('  2. CORS allows credentials')
-        console.error('  3. Network connection is stable')
-      }
       return { status: 'failed' }
     }
   }, [authLoading, eventId, isAuthenticated])
@@ -353,20 +321,7 @@ export function NotificationProvider({
   const dismissNotification = useCallback(async (id: string) => {
     if (!isEditor) return
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/api/notifications/${id}/dismiss`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        console.error('Failed to dismiss notification:', response.statusText)
-        toast.error(translateOutsideReact('notifications.center.dismissFailedTitle'), {
-          description: translateOutsideReact('notifications.center.retryDescription'),
-        })
-        return
-      }
-
+      await apiClient.dismissNotification(id)
       // Update local state
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, dismissed: true } : n))
@@ -389,25 +344,17 @@ export function NotificationProvider({
     }
 
     try {
-      const apiUrl = getApiUrl()
-
       // Dismiss all notifications in parallel
-      const dismissPromises = activeNotifications.map((notification) =>
-        fetch(`${apiUrl}/api/notifications/${notification.id}/dismiss`, {
-          method: 'POST',
-          credentials: 'include',
-        })
+      const results = await Promise.allSettled(
+        activeNotifications.map((notification) => apiClient.dismissNotification(notification.id)),
       )
 
-      const results = await Promise.allSettled(dismissPromises)
-
-      // A rejected promise or a non-2xx response both mean the dismiss failed —
-      // only mark the confirmed ones as dismissed locally, otherwise they would
-      // resurrect on the next poll.
+      // A rejected dismiss failed — only mark the confirmed ones as dismissed locally,
+      // otherwise they would resurrect on the next poll.
       const dismissedIds = new Set<string>()
       let failedCount = 0
       results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.ok) {
+        if (result.status === 'fulfilled') {
           dismissedIds.add(activeNotifications[index].id)
         } else {
           failedCount++
@@ -438,26 +385,7 @@ export function NotificationProvider({
   // Update notification settings
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
     try {
-      const apiUrl = getApiUrl()
-      const response = await fetch(`${apiUrl}/api/notifications/settings/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(newSettings),
-      })
-
-      if (!response.ok) {
-        console.error('Failed to update notification settings:', response.statusText)
-        toast.error(translateOutsideReact('notifications.center.settingsSaveFailedTitle'), {
-          description: translateOutsideReact('notifications.center.retryDescription'),
-        })
-        return
-      }
-
-      const updated = await response.json()
-      setSettings(updated)
+      setSettings(await apiClient.updateNotificationSettings(newSettings))
     } catch (error) {
       console.error('Error updating notification settings:', error)
       toast.error(translateOutsideReact('notifications.center.settingsSaveFailedTitle'), {

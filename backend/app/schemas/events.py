@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -124,7 +125,7 @@ class PriorityFigures(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    priority: str
+    priority: Literal["all", "high", "medium", "low"]
     total: int
     waiting: int
     in_progress: int

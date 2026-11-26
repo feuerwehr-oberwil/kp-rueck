@@ -314,7 +314,7 @@ async def test_demo_reset_admin_allowed(admin_client: AsyncClient, monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"status": "reset_complete"}
-    broadcast.assert_awaited_once_with({"type": "demo_reset"})
+    broadcast.assert_awaited_once_with("demo_reset", {})
 
 
 @pytest.mark.asyncio

@@ -11,27 +11,11 @@
  * and nowhere else.
  */
 
-import type { OperationStatus } from "@/lib/contexts/operations-context"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-
-/** The status keys, as a set. `Record<OperationStatus, true>` keeps it
- *  exhaustive: add a status to the union and this stops compiling. */
-const OPERATION_STATUSES: Record<OperationStatus, true> = {
-  incoming: true,
-  reko: true,
-  reko_done: true,
-  enroute: true,
-  active: true,
-  returning: true,
-  complete: true,
-}
-
-function isOperationStatus(value: string): value is OperationStatus {
-  return value in OPERATION_STATUSES
-}
+import { isIncidentStatus } from "@/lib/types/incidents"
 
 export function getOperationStatusLabel(status: string): string {
-  return isOperationStatus(status)
+  return isIncidentStatus(status)
     ? translateOutsideReact(`kanban.columns.${status}`)
     : status
 }

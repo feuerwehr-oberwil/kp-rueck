@@ -8,7 +8,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 import socketio
 
@@ -16,6 +16,34 @@ from app.environment import is_production_environment
 
 from .auth.socket_sessions import SocketIdentity, cookie_identity, current_socket_roles, socket_identity
 from .config import settings
+
+#: Every event the boards hear (`frontend/lib/websocket-client.ts` `WsEvents` holds the
+#: same names with their payloads). A name no client listens to does not go out.
+WsEvent = Literal[
+    "incident_update",
+    "group_update",
+    "personnel_update",
+    "vehicle_update",
+    "material_update",
+    "assignment_update",
+    "planned_assignment_update",
+    "special_function_update",
+    "reko_update",
+    "notification_update",
+    "print_job_update",
+    "kp_message_update",
+    "journal_update",
+    "divera_responses_update",
+    "vehicle_positions_update",
+    "vehicle_trails_update",
+    "assignments_transferred",
+    "divera_emergency_received",
+    "gps_release_prompt",
+    "gps_sim_status",
+    "training_regie",
+    "training_autogen",
+    "demo_reset",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +254,7 @@ class WebSocketManager:
             return True
         return False
 
-    async def broadcast_update(self, event: str, data: Any, room: str | None = None) -> None:
+    async def broadcast_update(self, event: WsEvent, data: Any, room: str | None = None) -> None:
         """Broadcast an update to all connected clients or specific room."""
         try:
             await self.revalidate_sessions()
@@ -446,13 +474,6 @@ async def broadcast_vehicle_trails(trails_data: list[dict[str, Any]]) -> None:
     await ws_manager.broadcast_update("vehicle_trails_update", {"data": trails_data}, room="operations")
 
 
-async def broadcast_message(data: dict[str, Any], room: str = "operations") -> None:
-    """
-    Generic broadcast function for custom messages.
-
-    Args:
-        data: Dictionary containing message type and payload
-        room: Target room (default: 'operations')
-    """
-    message_type = data.get("type", "update")
-    await ws_manager.broadcast_update(message_type, data, room=room)
+async def broadcast_message(event: WsEvent, data: dict[str, Any], room: str = "operations") -> None:
+    """Send `event` with a flat payload; the payload also carries the name as ``type``."""
+    await ws_manager.broadcast_update(event, {"type": event, **data}, room=room)

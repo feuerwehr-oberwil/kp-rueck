@@ -1370,8 +1370,8 @@ async def transfer_assignments(
 
     background_tasks.add_task(
         broadcast_message,
-        data={
-            "type": "assignments_transferred",
+        "assignments_transferred",
+        {
             "source_incident_id": str(incident_id),
             "target_incident_id": str(transfer_request.target_incident_id),
             "assignment_ids": [str(aid) for aid in result["assignment_ids"]],

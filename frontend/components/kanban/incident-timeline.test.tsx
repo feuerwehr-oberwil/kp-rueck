@@ -8,7 +8,16 @@ import { IncidentTimeline } from "./incident-timeline"
 
 // The Verlauf keeps both writes of a race; the one confirmed after «Gerade geändert» is marked.
 
+// A Chronik row as served: every field present, the ones its `event_type` does not use null.
+const NO_FIELDS = {
+  from_status: null, to_status: null, notes: null, seen_status: null, stale_seconds: null,
+  assignment_action: null, resource_type: null, resource_name: null, message: null, source: null,
+  merged_incident_id: null, merge_active: null, journal_kind: null, journal_data: null,
+  reko_field: null, old_value: null, new_value: null,
+} satisfies Omit<ApiIncidentTimelineEvent, "event_type" | "timestamp" | "actor_name">
+
 const move = (overrides: Partial<ApiIncidentTimelineEvent>): ApiIncidentTimelineEvent => ({
+  ...NO_FIELDS,
   event_type: "status_change",
   timestamp: "2026-10-24T16:38:02Z",
   actor_name: null,
@@ -49,6 +58,7 @@ describe("IncidentTimeline – a stale move", () => {
 
 describe("IncidentTimeline – a Reko change (#6, 23.11.2026)", () => {
   const change = (overrides: Partial<ApiIncidentTimelineEvent>): ApiIncidentTimelineEvent => ({
+    ...NO_FIELDS,
     event_type: "reko_change",
     timestamp: "2026-11-23T19:21:00Z",
     actor_name: "Keller Marco",
@@ -80,6 +90,7 @@ describe("IncidentTimeline – a Reko change (#6, 23.11.2026)", () => {
 describe("IncidentTimeline – facts a notification announced (23.11.2026)", () => {
   it("says the journal fact, its vehicle, its source and who reported it", () => {
     const fact = (type: string, overrides: Partial<ApiIncidentTimelineEvent> = {}): ApiIncidentTimelineEvent => ({
+      ...NO_FIELDS,
       event_type: "journal",
       timestamp: "2026-11-23T20:00:00Z",
       actor_name: null,

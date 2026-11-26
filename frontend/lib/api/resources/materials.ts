@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type {
   BulkCategorySortOrderUpdate,
   ApiMaterialResource,
@@ -60,7 +60,7 @@ export class MaterialsApi {
    */
   async deleteMaterialResource(id: string, options?: { permanent?: boolean }): Promise<void> {
     const query = options?.permanent ? '?permanent=true' : ''
-    return httpRequest<void>(`/api/materials/${id}${query}`, {
+    return requestVoid(`/api/materials/${id}${query}`, {
       method: 'DELETE',
     })
   }
@@ -92,7 +92,7 @@ export class MaterialsApi {
   }
 
   async deleteMaterialGroup(id: string): Promise<void> {
-    return httpRequest<void>(`/api/material-groups/${id}`, {
+    return requestVoid(`/api/material-groups/${id}`, {
       method: 'DELETE',
     })
   }

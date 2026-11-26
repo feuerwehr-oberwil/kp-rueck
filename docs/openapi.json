@@ -20166,6 +20166,11 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "new",
+              "unchanged",
+              "not_in_divera"
+            ],
             "title": "Status"
           },
           "existing_id": {
@@ -23513,6 +23518,10 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "incident",
+              "magazin"
+            ],
             "title": "Kind"
           },
           "progress": {
@@ -28471,6 +28480,12 @@
         "properties": {
           "priority": {
             "type": "string",
+            "enum": [
+              "all",
+              "high",
+              "medium",
+              "low"
+            ],
             "title": "Priority"
           },
           "total": {

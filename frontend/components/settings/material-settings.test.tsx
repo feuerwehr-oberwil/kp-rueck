@@ -13,6 +13,7 @@ const apiMaterial = (
   type: "Pumpe",
   status: "available",
   location: "TLF",
+  description: null,
   location_sort_order: 0,
   consumable: false,
   group_id: null,

@@ -4,16 +4,34 @@
  */
 
 import { getApiUrl } from './env';
+import type { ApiUser } from './api/types';
+import type { Out } from './api/wire';
+import { detailOf } from './api/error-codes';
+import { isRecord } from './utils/safe-storage';
 import { translateOutsideReact } from './i18n-messages';
 
-export interface User {
-  id: string;
-  username: string;
-  role: 'admin' | 'editor' | 'viewer';
-  display_name: string;
-  is_active: boolean;
-  created_at: string;
-  last_login: string | null;
+/** The signed-in account, as every auth route answers it (backend `User`). */
+export type User = ApiUser;
+
+/** The answer of an auth route that signs somebody in: a `User`, or a contract error. */
+async function readUser(response: Response): Promise<User> {
+  const body: unknown = await response.json();
+  // The transport does not validate bodies (`lib/api/http.ts`); an account without an id
+  // and a username is not one this board can sign in.
+  if (!isRecord(body) || typeof body.id !== 'string' || typeof body.username !== 'string') {
+    throw new AuthError('Ungültige Antwort des Servers', AuthErrorType.SERVER_ERROR, response.status);
+  }
+  return body as User;
+}
+
+/** A refusal's German `detail`, or `fallback` when the body says nothing usable. */
+async function refusalDetail(response: Response, fallback: string): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    return detailOf(body) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 /**
@@ -101,16 +119,14 @@ export async function login(username: string, password: string): Promise<User> {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: 'Login fehlgeschlagen' }));
       throw new AuthError(
-        errorData.detail || 'Login fehlgeschlagen',
+        await refusalDetail(response, 'Login fehlgeschlagen'),
         response.status === 401 ? AuthErrorType.UNAUTHORIZED : AuthErrorType.SERVER_ERROR,
         response.status
       );
     }
 
-    const user = await response.json();
-    return user;
+    return await readUser(response);
   } catch (error) {
     if (error instanceof AuthError) {
       throw error;
@@ -150,7 +166,7 @@ export async function localLogin(): Promise<User | null> {
     // everywhere, so neither is logged.
     if (!response.ok) return null;
 
-    return await response.json();
+    return await readUser(response);
   } catch {
     // Network error/timeout: ProtectedRoute's own backend probe reports that on screen.
     return null;
@@ -182,8 +198,7 @@ export async function getCurrentUser(): Promise<User | null> {
       return null;
     }
 
-    const user = await response.json();
-    return user;
+    return await readUser(response);
   } catch (error) {
     // Silently handle expected network errors during development
     // (backend not running, network unavailable, etc.)
@@ -240,21 +255,18 @@ export async function fetchWsToken(): Promise<string | null> {
     }
     if (!response.ok) return null;
     const data: unknown = await response.json();
-    const token = (data as { token?: unknown }).token;
-    return typeof token === 'string' ? token : null;
+    return isRecord(data) && typeof data.token === 'string' ? data.token : null;
   } catch {
     return null;
   }
 }
 
-/**
- * Microsoft auth configuration from backend
- */
-export interface MicrosoftAuthConfig {
-  enabled: boolean;
-  client_id: string;
-  tenant_id: string;
-  redirect_uri: string;
+/** Microsoft auth configuration from the backend (`MicrosoftAuthConfig`). */
+export type MicrosoftAuthConfig = Out<'MicrosoftAuthConfig'>;
+
+function isEnabledMicrosoftConfig(value: unknown): value is MicrosoftAuthConfig {
+  return isRecord(value) && value.enabled === true && typeof value.client_id === 'string'
+    && typeof value.tenant_id === 'string' && typeof value.redirect_uri === 'string';
 }
 
 /**
@@ -269,8 +281,8 @@ export async function getMicrosoftAuthConfig(): Promise<MicrosoftAuthConfig | nu
 
     if (!response.ok) return null;
 
-    const config = await response.json();
-    return config.enabled ? config : null;
+    const config: unknown = await response.json();
+    return isEnabledMicrosoftConfig(config) ? config : null;
   } catch {
     return null;
   }
@@ -312,19 +324,14 @@ export async function microsoftLogin(code: string, state: string): Promise<User>
     });
 
     if (!response.ok) {
-      let detail = translateOutsideReact('errors.microsoftLoginFailed');
-      try {
-        const errorData = await response.json();
-        detail = errorData.detail || detail;
-      } catch { /* not JSON */ }
       throw new AuthError(
-        detail,
+        await refusalDetail(response, translateOutsideReact('errors.microsoftLoginFailed')),
         response.status === 401 ? AuthErrorType.UNAUTHORIZED : AuthErrorType.SERVER_ERROR,
         response.status
       );
     }
 
-    return await response.json();
+    return await readUser(response);
   } catch (error) {
     if (error instanceof AuthError) throw error;
     throw new AuthError(
@@ -351,8 +358,7 @@ export async function refreshToken(): Promise<User | null> {
       return null;
     }
 
-    const user = await response.json();
-    return user;
+    return await readUser(response);
   } catch {
     // Token refresh failed - user will need to log in again
     return null;

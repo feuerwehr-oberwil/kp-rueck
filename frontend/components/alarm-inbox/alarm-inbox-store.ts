@@ -100,8 +100,6 @@ async function fetchPool(): Promise<Pick<AlarmPool, 'emergencies' | 'total'>> {
     apiClient.getDiveraEmergencies({ include_archived: true, limit: PAGE }),
     apiClient.getDiveraEmergencies({ attached: false, include_archived: false, limit: WAITING_MAX }),
   ])
-  // An offline read resolves to nothing (lib/api/http.ts) – that is a failure, not an empty pool.
-  if (!page || !waiting) throw new NetworkError()
   const onPage = new Set(page.emergencies.map((e) => e.id))
   const beyond = waiting.emergencies.filter((e) => !onPage.has(e.id))
   const emergencies =
@@ -164,8 +162,8 @@ function startListening() {
   wsClient.connect()
   const offAlarm = wsClient.on('divera_emergency_received', () => void reloadAlarmPool())
   // An attach (here, on another board, or the server's auto-attach) creates an incident.
-  const offIncident = wsClient.on('incident_update', (data: { action?: string } | undefined) => {
-    if (data?.action === 'create') void reloadAlarmPool()
+  const offIncident = wsClient.on('incident_update', (update) => {
+    if (update.action === 'create') void reloadAlarmPool()
   })
   // Sent on every attach, merge and re-attach – a merge from another window makes no new card.
   // Rückmeldungen send it too; a burst of them folds into one more fetch (above).

@@ -3,30 +3,20 @@
 import type { useEvent } from "../event-context"
 import type { useMaterialList, usePersonnelList } from "./use-resource-lists"
 import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type MutableRefObject } from "react"
-import { apiClient, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
+import { apiClient, type ApiAssignment, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
 import { setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { rememberStationName } from "@/lib/station-name"
 import { isValidUUID } from "@/lib/utils/validation"
 import type { Person } from "../personnel-context"
 import type { Material } from "../materials-context"
-import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import { decideCooldownClearAction, decidePollTickAction, decideRemoteUpdateAction, shouldStartPollingOnMount } from "@/lib/sync-cooldown"
 import { ReloadScheduler } from "@/lib/reload-scheduler"
 import { toMaterialOnSite } from "./mapping"
 import { buildEventState } from "./reconcile"
-import type { Operation, OperationsContextType, DriverStayPayload } from "./types"
-
-/**
- * `request()` lets a GET resolve to nothing when the connection is dead (a soft
- * degrade meant for pollers). For the board's snapshot «nothing» must not pass
- * for «empty» — this turns it back into the failure it is.
- */
-function answered<T>(value: T | undefined): T {
-  if (value === undefined || value === null) throw new NetworkError()
-  return value
-}
+import type { Operation, OperationsContextType } from "./types"
 
 /**
  * `next`, unless it says exactly what `prev` says – then `prev`. The fleet and
@@ -268,9 +258,9 @@ export function useBoardSync(input: BoardSyncInput) {
         // list off the UI — we write reconciled, event-scoped state below in one go,
         // avoiding a flicker where every person briefly reads as "available".
         //
-        // A failed fetch never becomes an empty list: the reload fails as a
-        // whole and the board keeps its last good state (`answered`, and the
-        // rejecting refreshPersonnel/refreshMaterials). Settings and the
+        // A failed fetch never becomes an empty list: every read rejects (an
+        // offline one with `NetworkError`), the reload fails as a whole and the
+        // board keeps its last good state. Settings and the
         // Restliste are the exceptions — a failure there keeps the previous
         // value instead of failing the board.
         //
@@ -295,13 +285,13 @@ export function useBoardSync(input: BoardSyncInput) {
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
           apiClient.getAllSettings().catch(() => undefined),
-          apiClient.getVehicles().then(answered),
+          apiClient.getVehicles(),
           // Never fatal: a board that cannot say which pump is still in a cellar is
           // still a board.
           apiClient.getEventRestliste(eventId).catch(() => undefined),
-          apiClient.getEventSpecialFunctions(eventId).then(answered),
-          apiClient.getAssignmentsByEvent(eventId).then(answered),
-          apiClient.getEventRekoSummaries(eventId).then(answered),
+          apiClient.getEventSpecialFunctions(eventId),
+          apiClient.getAssignmentsByEvent(eventId),
+          apiClient.getEventRekoSummaries(eventId),
         ])
         const apiIncidents = incidentPage.incidents
 
@@ -475,14 +465,13 @@ export function useBoardSync(input: BoardSyncInput) {
     // sender (it already applied the value optimistically).
     // A board load already in flight read the assignments BEFORE this toggle: the epoch
     // bump drops its snapshot and replays a fresh load, or it would turn the flag back.
-    const applyDriverStayUpdate = (data: DriverStayPayload) => {
-      if (!data?.id || !data?.incident_id) return
+    const applyDriverStayUpdate = (data: ApiAssignment) => {
       mutationEpochRef.current++
       setOperations((ops) =>
         ops.map((op) => {
           if (op.id !== data.incident_id) return op
           if (!op.vehicles.some((v) => v.assignmentId === data.id)) return op
-          const driverStay = data.driver_stay ?? false
+          const driverStay = data.driver_stay
           return { ...op, vehicles: op.vehicles.map((v) => (v.assignmentId === data.id ? { ...v, driverStay } : v)) }
         })
       )
@@ -496,8 +485,8 @@ export function useBoardSync(input: BoardSyncInput) {
     // both read them off this load, and nothing else would bring another
     // client's change in.
     const unsubscribeSpecialFunctionUpdate = wsClient.on('special_function_update', handleRemoteUpdate)
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate<DriverStayPayload>) => {
-      if (update?.action === 'driver_stay') {
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update) => {
+      if (update.action === 'driver_stay') {
         applyDriverStayUpdate(update.data)
         return
       }

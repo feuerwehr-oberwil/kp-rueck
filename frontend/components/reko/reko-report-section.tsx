@@ -118,8 +118,8 @@ export default function RekoReportSection({
   // WebSocket for instant updates – every save of the report sends one, drafts too – and a
   // poll only while the socket is down (`usePolling` also runs once the moment it is back).
   useEffect(() => {
-    return wsClient.on('reko_update', (data: { data: { incident_id?: string } }) => {
-      if (data.data?.incident_id === incidentId) void loadReport()
+    return wsClient.on('reko_update', (update) => {
+      if (update.data.incident_id === incidentId) void loadReport()
     })
   }, [loadReport, incidentId])
   usePolling(loadReport, { intervalMs: POLL_INTERVAL_MS, skipWhileWsConnected: true })

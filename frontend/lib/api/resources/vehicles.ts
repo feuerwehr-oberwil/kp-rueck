@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type { ApiVehicle, ApiVehicleCreate, ApiVehicleStatus, ApiVehicleUpdate } from '../types'
 
 export class VehiclesApi {
@@ -54,7 +54,7 @@ export class VehiclesApi {
    */
   async deleteVehicle(id: string, options?: { permanent?: boolean }): Promise<void> {
     const query = options?.permanent ? '?permanent=true' : ''
-    return httpRequest<void>(`/api/vehicles/${id}${query}`, {
+    return requestVoid(`/api/vehicles/${id}${query}`, {
       method: 'DELETE',
     })
   }

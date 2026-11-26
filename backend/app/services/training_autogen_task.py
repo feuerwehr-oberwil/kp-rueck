@@ -131,7 +131,7 @@ async def automatik_next_at(db: AsyncSession, state: AutogenStateResponse, regie
 
 async def broadcast_autogen_state(state: AutogenStateResponse) -> None:
     """Tell every open Übungssteuerung that the Automatik changed (switch, or stop at the max)."""
-    await broadcast_message({"type": "training_autogen", **state.model_dump(mode="json")})
+    await broadcast_message("training_autogen", state.model_dump(mode="json"))
 
 
 class TrainingAutoGenTask:

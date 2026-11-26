@@ -111,7 +111,7 @@ export function VehicleTrails({
   usePolling(fetchTrails, { intervalMs: pollInterval, enabled, pauseWhenHidden, skipWhileWsConnected: true })
   useEffect(() => {
     if (!enabled) return
-    return wsClient.on('vehicle_trails_update', (data: { data: ApiVehicleTrail[] }) => {
+    return wsClient.on('vehicle_trails_update', (data) => {
       setTrails(data.data)
     })
   }, [enabled])

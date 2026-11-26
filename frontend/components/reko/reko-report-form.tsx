@@ -43,20 +43,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils'
 import { FormMessage, focusFirstBlockingField, formMessageId } from '@/components/ui/form-message'
 import PhotoUpload, { type PhotoTransport } from '@/components/reko/photo-upload'
-import type { ApiDangersAssessment, ApiEffortEstimation, ApiRekoReportResponse } from '@/lib/api/types'
+import type { ApiDangersAssessment, ApiEffortEstimation, ApiPowerSupply, ApiRekoReportResponse } from '@/lib/api/types'
 import { ShellLoader } from '@/components/ui/shell-loader'
 
 /** The five hazards, in the order both mounts ask them. */
 const DANGER_KEYS = ['fire_danger', 'explosion', 'collapse', 'chemical', 'electrical'] as const
 
 /** The four answers to «Stromversorgung», in the order both mounts offer them. */
-const POWER_OPTIONS = ['unknown', 'available', 'unavailable', 'emergency_needed'] as const
+const POWER_OPTIONS = ['unknown', 'available', 'unavailable', 'emergency_needed'] as const satisfies readonly ApiPowerSupply[]
+
+/** The Select hands back a string: one of the four, or nothing to write. */
+function isPowerSupply(value: string): value is ApiPowerSupply {
+  return POWER_OPTIONS.some(option => option === value)
+}
 
 export interface RekoFormData {
   is_relevant: boolean | null
   dangers_json: ApiDangersAssessment
   effort_json: ApiEffortEstimation
-  power_supply: string
+  power_supply: ApiPowerSupply
   photos_json: string[]
   summary_text: string
   additional_notes: string
@@ -384,7 +389,7 @@ export function RekoReportForm({
           <Select
             value={value.power_supply}
             disabled={disabled}
-            onValueChange={option => update('power_supply', option)}
+            onValueChange={option => { if (isPowerSupply(option)) update('power_supply', option) }}
           >
             <SelectTrigger id="power-supply" className={cn(DENSE_CONTROL, "w-auto min-w-[10rem] text-sm")} tabIndex={0}>
               <SelectValue />

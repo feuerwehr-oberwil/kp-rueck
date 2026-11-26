@@ -6,6 +6,7 @@ import {
 } from "@/lib/hooks/use-kanban-drag-drop"
 import type { Material, OperationStatus, Person } from "@/lib/contexts/operations-context"
 import { makeOperation } from "@/test-utils/operation-fixtures"
+import type { BoardDragSource, BoardDropTarget } from "@/lib/board-drag"
 
 const ungrouped = makeOperation({ id: "op-2", status: "incoming", crew: [], materials: [] })
 /** A stop of an Auftrag — the case where a drop used to vanish. */
@@ -26,8 +27,8 @@ const deps = () => ({
   assignGroupResource,
 })
 
-const onCard = { type: "operation-drop", operationId: "op-2", index: 0 }
-const onStop = { type: "operation-drop", operationId: "op-3", index: 0 }
+const onCard = { type: "operation-drop", operationId: "op-2", index: 0 } satisfies BoardDropTarget
+const onStop = { type: "operation-drop", operationId: "op-3", index: 0 } satisfies BoardDropTarget
 const busyMaterial = { id: "m-1", name: "Tauchpumpe", status: "assigned", consumable: false } as unknown as Material
 const busyPerson = { id: "p-1", name: "Muster Hans", status: "assigned" } as unknown as Person
 
@@ -96,7 +97,7 @@ describe("applyResourceDrop", () => {
   })
 
   it("leaves an operation card being moved to the monitor", () => {
-    const source = { type: "operation", operation: ungrouped, index: 0 }
+    const source = { type: "operation", operation: ungrouped, index: 0 } satisfies BoardDragSource
     expect(applyResourceDrop(source, onCard, deps())).toBe(false)
   })
 })
@@ -146,7 +147,7 @@ describe("applyOperationDrop", () => {
     applyOperationDrop(
       {
         type: "operation",
-        operation: operations.find(op => op.id === sourceId),
+        operation: operations.find(op => op.id === sourceId) ?? card(sourceId, "incoming"),
         index: sourceIndex,
       },
       { type: "operation-drop", operationId: targetId, index: targetIndex },

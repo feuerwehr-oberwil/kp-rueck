@@ -13,6 +13,7 @@ import type {
 import type { IncidentCoordinates } from "@/lib/coordinate-parser"
 import type { Person } from "../personnel-context"
 import type { Material, MaterialGroup } from "../materials-context"
+import type { Priority } from "@/lib/priority"
 
 export type PersonRole = string
 
@@ -31,13 +32,6 @@ export interface StatusWriteGuard {
   override?: OperationStatus
 }
 export type VehicleType = string | null
-
-/** Payload of an `assignment_update` with `action: 'driver_stay'`. */
-export interface DriverStayPayload {
-  id?: string
-  incident_id?: string
-  driver_stay?: boolean
-}
 
 export interface RekoSummary {
   /** «Einsatz relevant?» as filed – null when it was not answered (old or crew data): never
@@ -93,7 +87,7 @@ export interface Operation {
   incidentType: string
   dispatchTime: Date
   crew: CrewMember[]
-  priority: "high" | "medium" | "low"
+  priority: Priority
   status: OperationStatus
   coordinates: IncidentCoordinates
   materials: string[]

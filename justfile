@@ -729,9 +729,10 @@ restore dump:
 
 # `just --list` shows only the LAST comment line, so the summary goes last.
 # Run this in the same change that adds or renames a route.
-# Regenerate the committed OpenAPI spec (a pytest fails when docs/openapi.json drifts)
+# Regenerate the committed OpenAPI spec and its TS types (a pytest and a Vitest fail when they drift)
 openapi:
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
+    cd frontend && pnpm openapi:types
 
 # ============================================
 # Offline Maps

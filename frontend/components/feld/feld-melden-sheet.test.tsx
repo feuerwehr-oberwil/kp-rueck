@@ -175,6 +175,8 @@ describe('FeldMeldenSheet', () => {
       created_at: '2026-08-17T19:14:00Z',
       editable: true,
       vehicles: [],
+      merged_into_id: null,
+      merged_into_label: null,
     }
     updateFeldReport.mockResolvedValue({ ...report, location_address: 'Hauptstrasse 21' })
 
@@ -213,6 +215,7 @@ describe('FeldMeldenSheet', () => {
       description: 'Ölspur', internal_notes: null, location_address: 'Hauptstrasse 12',
       location_display: 'Hauptstrasse 12', location_lat: null, location_lng: null, contact: null,
       contact_phone: null, status: 'incoming', created_at: '2026-08-17T19:14:00Z', editable: true, vehicles: [],
+      merged_into_id: null, merged_into_label: null,
     }
     // The message is whatever the client localized it to — the sheet must not depend on it.
     updateFeldReport.mockRejectedValue(

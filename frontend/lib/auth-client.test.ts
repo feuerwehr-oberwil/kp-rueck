@@ -7,11 +7,15 @@ vi.mock('./i18n-messages', () => ({ translateOutsideReact: () => 'Anmeldung fehl
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** A signed-in account as the auth routes answer it. */
+const account = (fields: { username?: string; role: string }) =>
+  JSON.stringify({ id: 'u-1', username: 'kp', display_name: 'KP', is_active: true, ...fields });
+
 describe('legacy session upgrade for sockets', () => {
   it('refreshes once and retries when a session needs a family binding', async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response('', { status: 409 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ role: 'editor' })))
+      .mockResolvedValueOnce(new Response(account({ role: 'editor' })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ token: 'family-bound-ws' })));
     vi.stubGlobal('fetch', fetch);
     expect(await fetchWsToken()).toBe('family-bound-ws');
@@ -23,7 +27,7 @@ describe('legacy session upgrade for sockets', () => {
   it('does not loop when the retry still fails', async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(new Response('', { status: 409 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ role: 'editor' })))
+      .mockResolvedValueOnce(new Response(account({ role: 'editor' })))
       .mockResolvedValueOnce(new Response('', { status: 409 }));
     vi.stubGlobal('fetch', fetch);
     expect(await fetchWsToken()).toBeNull();
@@ -42,7 +46,7 @@ describe('Microsoft browser transaction', () => {
   });
 
   it('redeems both callback values with the browser cookie', async () => {
-    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ role: 'viewer' })));
+    const fetch = vi.fn().mockResolvedValue(new Response(account({ role: 'viewer' })));
     vi.stubGlobal('fetch', fetch);
     await microsoftLogin('authorization-code', 'transaction-state');
     expect(fetch).toHaveBeenCalledWith('/backend-api/api/auth/microsoft-login', expect.objectContaining({
@@ -69,7 +73,7 @@ it.each([
 
 describe('passwordless local login', () => {
   it('asks the backend once, with cookies, and nothing in the body', async () => {
-    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ username: 'station-notebook', role: 'editor' })));
+    const fetch = vi.fn().mockResolvedValue(new Response(account({ username: 'station-notebook', role: 'editor' })));
     vi.stubGlobal('fetch', fetch);
 
     expect(await localLogin()).toMatchObject({ username: 'station-notebook', role: 'editor' });

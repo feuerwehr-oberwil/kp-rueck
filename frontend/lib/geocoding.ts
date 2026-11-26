@@ -73,7 +73,8 @@ async function lookup(path: string, params: URLSearchParams, callerSignal?: Abor
         continue
       }
       if (!response.ok) return null
-      return await response.json()
+      const body: unknown = await response.json()
+      return body
     }
     return null
   } finally {

@@ -4,14 +4,13 @@
  * the operations provider that resolves the prompt sits ABOVE `PlannedProvider`.
  *
  * It says the outcome itself (a toast either way) and tells `PlannedProvider` to reload at once
- * (`PLANNED_CHANGED`); the server's broadcast would do it a moment later anyway.
+ * (`kp:planned-changed`, `lib/app-events.ts`); the server's broadcast would do it a moment later anyway.
  */
 
 import { toast } from "sonner"
 import { apiClient, ApiError, type ApiPlannedAssignment } from "@/lib/api-client"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-
-export const PLANNED_CHANGED = "kp:planned-changed"
+import { emitAppEvent } from "@/lib/app-events"
 
 export type PlanTarget = { kind: "incident"; id: string } | { kind: "group"; id: string }
 
@@ -28,7 +27,7 @@ export async function planNext(
       resource_id: resourceId,
       ...(target.kind === "incident" ? { incident_id: target.id } : { incident_group_id: target.id }),
     })
-    if (typeof window !== "undefined") window.dispatchEvent(new Event(PLANNED_CHANGED))
+    emitAppEvent("kp:planned-changed")
     toast.success(translateOutsideReact("notifications.planned.plannedTitle", { name: resourceName }), {
       description: translateOutsideReact("notifications.planned.plannedDescription", { target: target.label }),
     })

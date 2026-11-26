@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { ApiPlannedAssignment } from "@/lib/api-client"
 import type { Notification } from "@/lib/types/notification"
 import { collectTodos, isOverdue, TODO_OVERDUE_MS, type TodoBoard } from "./todos"
+import { UNSET_NOTIFICATION_FIELDS } from '@/test-utils/notification-fixtures'
 
 const board: TodoBoard = {
   operations: [
@@ -34,6 +35,7 @@ function plan(over: Partial<ApiPlannedAssignment>): ApiPlannedAssignment {
 
 function gps(type: "gps_arrival" | "gps_release", incident: string, params: Record<string, string>): Notification {
   return {
+    ...UNSET_NOTIFICATION_FIELDS,
     id: `n-${incident}`,
     type,
     severity: "info",

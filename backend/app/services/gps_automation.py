@@ -853,15 +853,6 @@ async def _fire_arrival_prompt(
         key=f"arrival:{incident_id}",
     )
     await db.commit()
-    # The old live prompt stays as a nudge for tabs still on the previous build.
-    await broadcast_message(
-        {
-            "type": "gps_arrival_prompt",
-            "incident_id": str(incident_id),
-            "vehicle_name": vehicle_name,
-            "incident_label": incident_label,
-        }
-    )
 
 
 async def _fire_return_prompt(
@@ -892,14 +883,14 @@ async def _fire_return_prompt(
     )
     await db.commit()
     await broadcast_message(
+        "gps_release_prompt",
         {
-            "type": "gps_release_prompt",
             "assignment_id": str(assignment_id),
             "incident_id": str(incident_id),
             "vehicle_id": str(vehicle_id),
             "vehicle_name": vehicle_name,
             "incident_label": incident_label,
-        }
+        },
     )
 
 
@@ -929,13 +920,3 @@ async def _fire_group_return_prompt(
         key=f"release:{assignment_id}",
     )
     await db.commit()
-    await broadcast_message(
-        {
-            "type": "gps_group_release_prompt",
-            "assignment_id": str(assignment_id),
-            "group_id": str(group_id),
-            "vehicle_id": str(vehicle_id),
-            "vehicle_name": vehicle_name,
-            "incident_label": group_label,
-        }
-    )

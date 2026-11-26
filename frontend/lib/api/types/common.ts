@@ -1,6 +1,8 @@
 /**
  * Shared / cross-domain API types.
  */
+
+import type { In, Out } from '../wire'
 import { translateOutsideReact } from "@/lib/i18n-messages"
 
 /**
@@ -30,10 +32,10 @@ export class ApiError extends Error {
 }
 
 /**
- * Thrown when a request never reached the server (offline, DNS, refused).
- * Mutations must reject with this so callers roll back optimistic state —
- * silently resolving made the UI report success for writes that never
- * happened. Polling GETs still resolve to undefined instead (soft degrade).
+ * Thrown when a request never reached the server (offline, DNS, refused, timed
+ * out) after its retries – a read as well as a write. A write's caller rolls back
+ * its optimistic state; a poller keeps its last known state. «No answer» never
+ * resolves to a value, so it cannot pass for an empty list.
  */
 export class NetworkError extends Error {
   constructor(message: string = translateOutsideReact('errors.networkError')) {
@@ -46,132 +48,40 @@ export class NetworkError extends Error {
   }
 }
 
-export interface CategorySortOrder {
-  /** The category name (role for personnel, location for materials). */
-  category: string
-  /** The new sort order value. */
-  sort_order: number
-}
+export type CategorySortOrder = In<'CategorySortOrder'>
 
-export interface BulkCategorySortOrderUpdate {
-  categories: CategorySortOrder[]
-}
+export type BulkCategorySortOrderUpdate = In<'BulkCategorySortOrderUpdate'>
 
-export interface ApiAuditLog {
-  id: string
-  user_id: string | null
-  action_type: string
-  resource_type: string
-  resource_id: string | null
-  changes_json: Record<string, unknown> | null
-  timestamp: string
-  ip_address: string | null
-  user_agent: string | null
-}
+export type ApiAuditLog = Out<'AuditLogEntry'>
 
 // Provider capability registry (GET /api/integrations)
-export interface ApiProviderCapability {
-  /** Provider slug ("divera", "traccar") or null when only built-ins are available. */
-  provider: string | null
-  display_name: string | null
-  configured: boolean
-  capabilities: string[]
-  /** True when the deployment role refuses this domain outright. Orthogonal to `configured`:
-   *  a staging copy is fully configured for alerting and still will not send. */
-  blocked: boolean
-  /** German sentence naming why, when `blocked`. */
-  blocked_reason: string | null
-}
+export type ApiProviderCapability = Out<'ProviderCapability'>
 
 /** What this instance may do to the outside world (GET /api/deployment, backend
  *  `app/environment.py`). Set by the DEPLOYMENT_ROLE variable, deliberately not by a
  *  setting — staging runs on a copy of the production database. */
-export interface ApiDeployment {
-  role: string
-  /** Short German label for a non-production role ("Staging – Übungssystem"), else null. */
-  label: string | null
-  /** Effect domains this role refuses (today only "alerting"). Empty on production. */
-  blocked_domains: string[]
-}
+export type ApiDeployment = Out<'DeploymentRole'>
 
 /** A link the board hands out (backend `ShareLinkResponse`): check-in, viewer, alarm intake,
  *  `/feld`, Reko. `link` is relative – prefix the page's own origin. `qr_code_data` is what the
  *  QR code encodes; `valid_until` (ISO) is set where the slip prints its expiry (the `/feld` poster). */
-export interface ApiShareLink {
-  token: string
-  link: string
-  qr_code_data: string
-  valid_until: string | null
-}
+export type ApiShareLink = Out<'ShareLinkResponse'>
 
 /** The standby box's mirror of the hosted board (GET /api/standby, backend `StandbyStatus`).
  *  `mirror` is false on every other deployment, and then the mirror fields are null. */
-export interface ApiStandby {
-  /** This is a standby box that mirrors a hosted board. False on the hosted board itself. */
-  mirror: boolean
-  /** The subscription to the hosted database exists. */
-  configured: boolean | null
-  /** The hosted board was heard from within the last ~90 s – the mirror is up to date. */
-  current: boolean | null
-  /** When the hosted board was last heard from: the «Stand» of the band. */
-  last_received_at: string | null
-  /** Ereignisse that left the mirror for the two-way sync, oldest first. */
-  detached: { event_id: string; detached_at: string }[] | null
-  /** Every Ereignis a standby box took over at some point – on the box AND on the hosted board. */
-  leads: ApiStandbyLead[]
-}
+export type ApiStandby = Out<'StandbyStatus'>
 
 /** Who leads one Ereignis, and how its two-way sync stands (backend `app/standby_sync.py`). */
-export interface ApiStandbyLead {
-  event_id: string
-  holder: 'standby' | 'hosted'
-  since: string
-  /** Changes not yet on the other system – on the box: its own; on the hosted board: as the box last said. */
-  pending: number
-  /** The last time box and hosted board reached each other for this Ereignis. */
-  contact_at: string | null
-  open_conflicts: number
-}
+export type ApiStandbyLead = Out<'StandbyLead'>
 
 /** Something both systems changed while they could not talk; the leader's version stands. */
-export interface ApiStandbyConflict {
-  id: string
-  table_name: string
-  row_id: string
-  kind: 'field' | 'deleted' | 'duplicate'
-  kept_on: 'standby' | 'hosted'
-  /** For `deleted`: the system on which the row was deleted. */
-  deleted_on: 'standby' | 'hosted' | null
-  /** For `field`: per column what stands and what lost; `text` = «Beide zusammen» can join it. */
-  columns: Record<string, { kept: unknown; lost: unknown; text?: boolean }> | null
-  /** For `deleted`/`duplicate`: the version that did not survive. */
-  row: Record<string, unknown> | null
-  subject: { incident_id: string | null; number: number | null; address: string | null } | null
-  lost_at: string | null
-  detected_at: string
-  resolved_at: string | null
-  resolved_by: string | null
-  resolution: 'kept' | 'other' | 'both' | null
-}
+export type ApiStandbyConflict = Out<'StandbyConflict'>
 
-export interface ApiStandbyConflicts {
-  /** This system leads the Ereignis, so its conflicts are decided here. */
-  decidable: boolean
-  conflicts: ApiStandbyConflict[]
-}
+export type ApiStandbyConflicts = Out<'StandbyConflicts'>
 
 /** One provider this build knows about, whether or not this station uses it. `implemented`
  *  is false for a provider whose contract is published but whose ingestion is not built. */
-export interface ApiKnownProvider {
-  provider: string
-  display_name: string
-  domain: 'alarms' | 'alerting' | 'personnel' | 'vehicles'
-  configured: boolean
-  implemented: boolean
-  capabilities: string[]
-  /** Repository-relative path to the published contract, when the provider has one. */
-  contract: string | null
-}
+export type ApiKnownProvider = Out<'KnownProvider'>
 
 /** The last roster-snapshot run (GET /api/integrations/roster-snapshot; backend
  *  `roster_snapshot_ingest.status_json` plus the attempt/success stamps). Every field optional:
@@ -214,19 +124,4 @@ export interface ApiRosterSnapshot {
   status: ApiRosterSnapshotStatus | null
 }
 
-export interface ApiIntegrations {
-  /** Inbound alarm delivery into the pool */
-  alarms: ApiProviderCapability
-  /** Outbound alerting (Ausalarmierung) */
-  alerting: ApiProviderCapability
-  /** Personnel roster sync */
-  personnel: ApiProviderCapability
-  /** Vehicle GPS tracking */
-  vehicles: ApiProviderCapability
-  /** Always-available ingest paths (not providers) */
-  builtin_alarm_paths: string[]
-  /** Every provider this build knows about — the domains above say which one is active. */
-  known_providers: ApiKnownProvider[]
-  /** What this instance may do to the outside world, whatever the database says. */
-  deployment: ApiDeployment
-}
+export type ApiIntegrations = Out<'IntegrationsResponse'>

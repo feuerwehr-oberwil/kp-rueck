@@ -40,7 +40,7 @@ function operationToIncidentCreate(
     event_id: eventId,
     title: operation.location,
     type: (operation.incidentType || "elementarereignis") as ApiIncidentCreate['type'],
-    priority: operation.priority as "low" | "medium" | "high",
+    priority: operation.priority,
     location_address: operation.location,
     ...coordinatesToApiFields(operation.coordinates),
     status: "incoming" as const,

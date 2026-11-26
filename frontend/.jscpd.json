@@ -13,7 +13,8 @@
     "**/__screenshots__/**",
     "**/*.snap",
     "pnpm-lock.yaml",
-    "public/**"
+    "public/**",
+    "lib/api/schema.d.ts"
   ],
   "reporters": ["console"],
   "absolute": false

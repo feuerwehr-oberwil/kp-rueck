@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type {
   ApiEvent,
   ApiEventCreate,
@@ -66,7 +66,7 @@ export class EventsApi {
   }
 
   async deleteEvent(eventId: string): Promise<void> {
-    return httpRequest<void>(`/api/events/${eventId}`, {
+    return requestVoid(`/api/events/${eventId}`, {
       method: 'DELETE',
     })
   }
@@ -84,7 +84,7 @@ export class EventsApi {
   }
 
   async unassignSpecialFunction(eventId: string, data: ApiEventSpecialFunctionDelete): Promise<void> {
-    return httpRequest<void>(`/api/events/${eventId}/special-functions/`, {
+    return requestVoid(`/api/events/${eventId}/special-functions/`, {
       method: 'DELETE',
       body: JSON.stringify(data),
     })

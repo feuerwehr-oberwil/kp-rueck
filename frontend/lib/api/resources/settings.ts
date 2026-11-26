@@ -6,8 +6,9 @@
  */
 
 import { getApiUrl } from '../../env'
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type { ApiAuditLog, ApiAlarmWebhookSecret } from '../types'
+import { detailOf } from '../error-codes'
 
 export class SettingsApi {
   // Audit Logs
@@ -53,15 +54,11 @@ export class SettingsApi {
    * `getAllSettings()`: credential-valued keys are masked there and refused by
    * `GET /api/settings/{key}`, so this is the only way to see it.
    *
-   * Resolves to `undefined` when the request never reached the backend: `request()`
-   * lets a failed GET degrade softly so polling callers keep their last known state
-   * (see the network-error branch above), and `skipToast` means it does so without a
-   * word. That is right for a poll and wrong for a button, so the type says it out
-   * loud – the caller has to decide what "no answer" looks like. HTTP failures
-   * (401/403/404) still reject with an `ApiError` carrying the backend's detail.
+   * Rejects with `NetworkError` when the request never reached the backend (quietly:
+   * `skipToast`), and with an `ApiError` carrying the backend's detail for 401/403/404/429.
    */
-  async getAlarmWebhookSecret(): Promise<ApiAlarmWebhookSecret | undefined> {
-    return httpRequest<ApiAlarmWebhookSecret | undefined>('/api/settings/alarm-webhook-secret', {
+  async getAlarmWebhookSecret(): Promise<ApiAlarmWebhookSecret> {
+    return httpRequest<ApiAlarmWebhookSecret>('/api/settings/alarm-webhook-secret', {
       skipToast: true,
     })
   }
@@ -70,9 +67,8 @@ export class SettingsApi {
    * Generate a new secret. Rejects with a 409 `ApiError` when `source` is `env`
    * – the caller shows that message, it names the file to edit.
    *
-   * Unlike the GET above this never resolves to nothing on a dead connection:
-   * `request()` throws `NetworkError` for mutations, precisely so a write that
-   * was never sent cannot be mistaken for one that succeeded.
+   * A dead connection rejects with `NetworkError`, so a write that was never sent
+   * cannot be mistaken for one that succeeded.
    */
   async rotateAlarmWebhookSecret(): Promise<ApiAlarmWebhookSecret> {
     return httpRequest<ApiAlarmWebhookSecret>('/api/settings/alarm-webhook-secret/rotate', {
@@ -104,13 +100,14 @@ export class SettingsApi {
       signal: AbortSignal.timeout(60000),
     })
     if (!response.ok) {
-      const detail = await response.json().catch(() => null)
-      throw new Error(detail?.detail || `Upload fehlgeschlagen (${response.status})`)
+      const refusal: unknown = await response.json().catch(() => null)
+      throw new Error(detailOf(refusal) ?? `Upload fehlgeschlagen (${response.status})`)
     }
-    return response.json()
+    const stored: unknown = await response.json()
+    return stored as { size: number }
   }
 
   async deleteReportLogo(): Promise<void> {
-    await httpRequest<void>('/api/settings/branding/logo', { method: 'DELETE' })
+    await requestVoid('/api/settings/branding/logo', { method: 'DELETE' })
   }
 }

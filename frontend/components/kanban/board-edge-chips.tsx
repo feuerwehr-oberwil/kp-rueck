@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { cn } from '@/lib/utils'
 import { PriorityGlyph } from '@/components/ui/priority-glyph'
-import { COLUMN_HEADER_CLASS, STATUS_ACCENT } from '@/lib/kanban-utils'
+import { COLUMN_HEADER_CLASS, STATUS_ACCENT, type BoardColumn } from '@/lib/kanban-utils'
 import {
   computeEdgeOverflow,
   scrollTargetFor,
@@ -14,6 +14,7 @@ import {
   type EdgeOverflow,
 } from '@/lib/board-edge-overflow'
 import type { Operation, OperationStatus } from '@/lib/contexts/operations-context'
+import type { BoardDropTarget } from '@/lib/board-drag'
 
 const NONE: EdgeOverflow = { left: [], right: [] }
 
@@ -90,18 +91,18 @@ export function useBoardEdgeOverflow(scroller: HTMLElement | null) {
 /** Finished work does not fly a Hoch signal – same reasoning as `isOverdue`. */
 const FINISHED: readonly OperationStatus[] = ['returning', 'complete']
 
-type BoardColumn = { id: OperationStatus; status: OperationStatus[] }
+type ChipColumn = Pick<BoardColumn, "id">
 
 /** What one chip shows – also what its width depends on. */
 interface ChipFacts {
-  column: BoardColumn
+  column: ChipColumn
   count: number
   high: number
 }
 
-function chipFacts(columns: ReadonlyArray<BoardColumn>, ids: readonly string[], operations: readonly Operation[]): ChipFacts[] {
+function chipFacts(columns: ReadonlyArray<ChipColumn>, ids: readonly string[], operations: readonly Operation[]): ChipFacts[] {
   return columns.filter((c) => ids.includes(c.id)).map((column) => {
-    const ops = operations.filter((op) => column.status.includes(op.status))
+    const ops = operations.filter((op) => column.id === op.status)
     const high = FINISHED.includes(column.id) ? 0 : ops.filter((op) => op.priority === 'high').length
     return { column, count: ops.length, high }
   })
@@ -131,7 +132,7 @@ function EdgeChip({ column, count, high, side, onShow, compact }: EdgeChipProps)
     return dropTargetForElements({
       element,
       canDrop: ({ source }) => source.data.type === 'operation',
-      getData: () => ({ type: 'column', columnId: column.id }),
+      getData: () => ({ type: 'column', columnId: column.id }) satisfies BoardDropTarget,
       onDragEnter: () => setIsOver(true),
       onDragLeave: () => setIsOver(false),
       onDrop: () => setIsOver(false),
@@ -184,7 +185,7 @@ interface BoardEdgeChipBarProps {
   /** The hidden column ids per side, from `useBoardEdgeOverflow`. */
   left: readonly string[]
   right: readonly string[]
-  columns: ReadonlyArray<BoardColumn>
+  columns: ReadonlyArray<ChipColumn>
   /** The operations the board draws (after search/filter) – the chip counts match the columns. */
   operations: readonly Operation[]
   onShow: (id: string) => void

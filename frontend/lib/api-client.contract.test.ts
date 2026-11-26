@@ -20,7 +20,7 @@ const toast = vi.hoisted(() =>
 )
 vi.mock('sonner', () => ({ toast }))
 
-import { apiClient, ApiError, getRestReachable, onRestReachableChange } from './api-client'
+import { apiClient, ApiError, getRestReachable, NetworkError, onRestReachableChange } from './api-client'
 import { claimOutageVoice } from './api/http'
 
 const BASE = 'http://test-backend'
@@ -84,7 +84,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'createPersonnel', 'createRekoReportAsEditor', 'createUser', 'createVehicle', 'deleteAuftragTemplate',
     'deleteEvent', 'deleteFeldPhoto', 'deleteIncident', 'deleteIncidentGroup', 'deleteMaterialGroup',
     'deleteMaterialResource', 'deletePersonnel', 'deleteRapportPhoto', 'deleteRekoPhoto',
-    'deleteRekoPhotoAsEditor', 'deleteReportLogo', 'deleteUser', 'deleteVehicle', 'detachEmergency', 'dismissDuplicate',
+    'deleteRekoPhotoAsEditor', 'deleteReportLogo', 'deleteUser', 'deleteVehicle', 'detachEmergency', 'dismissDuplicate', 'dismissNotification',
     'downloadImportTemplate', 'executeDiveraSync', 'executeExcelImport', 'exportAllData', 'exportEventAudit',
     'exportEventEinsaetze', 'exportEventLageblatt', 'exportEventReport', 'feldPhotoUrl', 'feldReportArrived',
     'feldReportComplete', 'feldReportPickup', 'feldSendMessage', 'generateAlarmLink', 'generateCheckInLink',
@@ -101,7 +101,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'getIncident', 'getIncidentGroups', 'getIncidentParticipants',
     'getIncidentRapport', 'getIncidentRekoReports', 'getIncidentTimeline',
     'getIncidents', 'getIncidentsWithTotal', 'getIntakeContext', 'getIntegrations', 'getJournal',
-    'getMaterialGroups',
+    'getMaterialGroups', 'getNotificationSettings', 'getNotifications',
     'getPlannedAssignments', 'getPrintJob', 'getPrinterStatus', 'getRapportMaterialReturn',
     'getRegie', 'getRekoForm', 'getReportLogoUrl', 'getRosterSnapshot', 'getSetupStatus', 'getStandby',
     'getStandbyConflicts',
@@ -127,7 +127,7 @@ describe('apiClient — the method names callers (and their mocks) rely on', () 
     'unassignSpecialFunction', 'undoCollectMaterial', 'undoTransferToAuftrag', 'unlockFeld', 'unlockFeldWithSession', 'unmergeIncident', 'updateAssignment',
     'updateAuftragTemplate', 'updateFeldReport', 'updateGroupAssignment', 'updateIncident',
     'updateIncidentGroup', 'updateIncidentStatus', 'updateMaterialCategorySortOrder', 'updateMaterialGroup',
-    'updateMaterialResource', 'updatePersonnel', 'updatePersonnelCategorySortOrder', 'updateRekoReport',
+    'updateMaterialResource', 'updateNotificationSettings', 'updatePersonnel', 'updatePersonnelCategorySortOrder', 'updateRekoReport',
     'updateSetting', 'updateUser', 'updateVehicle', 'uploadFeldPhoto',
     'uploadRapportPhoto', 'uploadRekoPhoto', 'uploadRekoPhotoAsEditor', 'uploadReportLogo',
     'weatherRadarFrameUrl',
@@ -359,11 +359,23 @@ describe('apiClient — the transport rules every method inherits', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('a 204 or a non-JSON answer resolves to undefined', async () => {
+  it('a bodyless route resolves on 204; a route that promises a body refuses an answer without one', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
     await expect(apiClient.deleteIncident('i1')).resolves.toBeUndefined()
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await expect(apiClient.getIncident('i1')).rejects.toBeInstanceOf(ApiError)
     fetchMock.mockResolvedValueOnce(new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } }))
-    await expect(apiClient.getIncident('i1')).resolves.toBeUndefined()
+    await expect(apiClient.getIncident('i1')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it("the bell's lost answer stays the bell's: no board-wide outage, no toast", async () => {
+    await apiClient.getAllSettings() // reachable
+    fetchMock.mockImplementation(async () => {
+      throw new TypeError('Load failed')
+    })
+    await expect(apiClient.getNotificationSettings()).rejects.toBeInstanceOf(NetworkError)
+    expect(getRestReachable()).toBe(true)
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('an outage raises ONE persistent toast and flips reachability; the next answer clears both', async () => {
@@ -373,11 +385,11 @@ describe('apiClient — the transport rules every method inherits', () => {
     fetchMock.mockImplementation(async () => {
       throw new TypeError('Failed to fetch')
     })
-    const first = apiClient.getAllSettings()
-    const second = apiClient.getAllSettings()
+    const first = expect(apiClient.getAllSettings()).rejects.toBeInstanceOf(NetworkError)
+    const second = expect(apiClient.getAllSettings()).rejects.toBeInstanceOf(NetworkError)
     await vi.runAllTimersAsync()
-    await expect(first).resolves.toBeUndefined()
-    await expect(second).resolves.toBeUndefined()
+    await first
+    await second
     expect(getRestReachable()).toBe(false)
     expect(toast.error).toHaveBeenCalledTimes(1)
     expect(toast.error.mock.calls[0][1]).toMatchObject({ id: 'api-connection-lost', duration: Infinity })
@@ -396,7 +408,7 @@ describe('apiClient — the transport rules every method inherits', () => {
     fetchMock.mockImplementation(async () => {
       throw new TypeError('Failed to fetch')
     })
-    const outage = apiClient.getAllSettings()
+    const outage = expect(apiClient.getAllSettings()).rejects.toBeInstanceOf(NetworkError)
     await vi.runAllTimersAsync()
     await outage
     expect(toast.error).toHaveBeenCalledTimes(1)
@@ -404,7 +416,7 @@ describe('apiClient — the transport rules every method inherits', () => {
 
     const release = claimOutageVoice()
     expect(toast.dismiss).toHaveBeenCalledWith('api-connection-lost')
-    const again = apiClient.getAllSettings()
+    const again = expect(apiClient.getAllSettings()).rejects.toBeInstanceOf(NetworkError)
     await vi.runAllTimersAsync()
     await again
     expect(toast.error).toHaveBeenCalledTimes(1)
