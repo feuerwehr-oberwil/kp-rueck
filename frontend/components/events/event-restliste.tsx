@@ -75,8 +75,10 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
   // event list that fails to load because one roll-up query did is worse than a missing badge.
   const queryClient = useQueryClient()
   const reader = useReader()
-  const restlisteKey = queryKeys.eventRestliste.of(reader, eventId)
-  const restliste = useQuery({ queryKey: restlisteKey, queryFn: () => apiClient.getEventRestliste(eventId) })
+  const restliste = useQuery({
+    queryKey: queryKeys.eventRestliste.of(reader, eventId),
+    queryFn: () => apiClient.getEventRestliste(eventId),
+  })
   const data = restliste.data ?? null
   const [open, setOpen] = useState<Section | null>(null)
   const [printing, setPrinting] = useState(false)
@@ -223,7 +225,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                     requestedAt={row.since ? new Date(row.since) : null}
                     variant="compact"
                     incidentId={row.incident_id}
-                    onCleared={() => queryClient.invalidateQueries({ queryKey: restlisteKey })}
+                    onCleared={() => queryClient.invalidateQueries({ predicate: queryKeys.eventRestliste.byId(eventId) })}
                     canEdit={canEdit}
                     className="shrink-0"
                   />
