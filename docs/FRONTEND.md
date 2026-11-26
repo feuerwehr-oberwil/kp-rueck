@@ -101,6 +101,9 @@ change. Read the section you touch. The visual rules and their reasons are
     A head that must shrink while typing keeps the frame and pulls its body up instead
     (`[:root[data-kb]_&]:-mt-2` on the `SheetBody`, «Neuer Einsatz»): a className on the
     `SheetHeader` drops the frame.
+  - A window that is a sheet on the phone and a dialog on the desk is a `ResponsiveDialog`
+    (`components/ui/responsive-dialog.tsx`). It owns the switch and this frame; its classNames
+    style the desk only. Never build both branches by hand (`responsive-dialog.test.tsx`).
   - Fields that are not the operator's own data (Meldung, Einsatzort, Melder, Telefon) carry
     `autoComplete="off"`, or iOS offers «AutoFill Contact».
 - **Phone forms: labels ABOVE their field**, never beside it. `DetailField`, `DetailToggle`,
