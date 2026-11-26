@@ -4,7 +4,6 @@ import type { Operation } from "@/lib/contexts/operations-context"
 
 const transferAssignments = vi.hoisted(() => vi.fn())
 const transferToAuftrag = vi.hoisted(() => vi.fn())
-const refreshGroups = vi.hoisted(() => vi.fn())
 const getIncidents = vi.hoisted(() => vi.fn())
 const refreshOperations = vi.hoisted(() => vi.fn())
 const operations = vi.hoisted(() => [] as Operation[])
@@ -33,7 +32,6 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     groups,
     getGroupResources: () => ({ personnel: [], vehicles: [], materials: [] }),
     unassignResource: vi.fn(),
-    refreshGroups,
   }),
 }))
 
@@ -47,7 +45,6 @@ beforeEach(() => {
   groups.splice(0, groups.length)
   transferAssignments.mockReset().mockResolvedValue(undefined)
   transferToAuftrag.mockReset().mockResolvedValue({ group_assignment_ids: [], released_assignment_ids: [] })
-  refreshGroups.mockReset().mockResolvedValue(undefined)
   getIncidents.mockReset().mockResolvedValue([])
   refreshOperations.mockReset().mockResolvedValue(undefined)
 })
@@ -86,7 +83,7 @@ describe("useIncidentDialogs", () => {
     expect(result.current.view.transfer).toBeNull()
   })
 
-  it("transfers onto an Auftrag and reloads the board and the Aufträge", async () => {
+  it("transfers onto an Auftrag and reloads the board (its Aufträge with it)", async () => {
     const { result } = renderHook(() => useIncidentDialogs())
 
     await act(() => result.current.openTransfer("incident-1"))
@@ -94,7 +91,7 @@ describe("useIncidentDialogs", () => {
 
     expect(transferToAuftrag).toHaveBeenCalledWith("g1", "incident-1")
     expect(transferAssignments).not.toHaveBeenCalled()
-    expect(refreshGroups).toHaveBeenCalledOnce()
+    expect(refreshOperations).toHaveBeenCalledOnce()
     expect(result.current.view.transfer).toBeNull()
   })
 

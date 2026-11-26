@@ -1,4 +1,4 @@
-import { PRIORITY_COLORS } from "./priority"
+import { PRIORITY_COLORS, type Priority } from "./priority"
 import { STATUS_GROUP_BORDER_STYLE, type StatusGroup } from "./types/incidents"
 /**
  * Named map-marker colors.
@@ -114,7 +114,7 @@ export function incidentPinRings(size: number, compact: boolean, group: StatusGr
  * is filled by priority or by Einsatzart, never by both, and the legend says
  * which is active.
  */
-export const PRIORITY_MARKER_COLORS: Record<"high" | "medium" | "low", string> = PRIORITY_COLORS
+export const PRIORITY_MARKER_COLORS: Record<Priority, string> = PRIORITY_COLORS
 
 /**
  * Incident type → marker fill. An explicit table, because the alternative was a HASH of the

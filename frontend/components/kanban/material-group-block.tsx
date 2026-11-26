@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils"
 import { RESOURCE_FREE_TEXT_CLASS } from "@/lib/resource-status"
 import { ArrowRight, ArrowUpRight, ChevronDown, ChevronRight, Layers } from "lucide-react"
 import { Reveal } from "@/components/ui/reveal"
+import { emitAppEvent } from '@/lib/app-events'
+import type { BoardDragSource } from "@/lib/board-drag"
 
 interface MaterialGroupBlockProps {
   group: MaterialGroup
@@ -79,15 +81,15 @@ export function MaterialGroupBlock({
 
     return draggable({
       element,
-      getInitialData: () => ({
-        type: "material-group",
-        materials: materials.filter(m => m.status === 'available'),
-        group,
-      }),
+      getInitialData: () =>
+        ({
+          type: "material-group",
+          materials: materials.filter(m => m.status === 'available'),
+        }) satisfies BoardDragSource,
       onDragStart: () => setIsDragging(true),
       onDrop: () => setIsDragging(false),
     })
-  }, [materials, group, hasAvailable])
+  }, [materials, hasAvailable])
 
   return (
     <Card
@@ -281,5 +283,5 @@ function followDeviceBinding(binding: DeviceBinding): void {
     requestIncidentHighlight(binding.targetId, { ...RESOURCES_TARGET, allowModal: false })
     return
   }
-  window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: binding.targetId } }))
+  emitAppEvent('kp:open-auftraege', { groupId: binding.targetId })
 }

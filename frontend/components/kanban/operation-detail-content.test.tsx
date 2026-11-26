@@ -26,7 +26,6 @@ const sourcePerson = vi.hoisted((): Person => ({
 vi.mock("@/lib/contexts/operations-context", () => ({
   useOperations: () => ({
     formatLocation: (value: string) => value,
-    setOperations: vi.fn(),
     refreshOperations,
     removeReko,
     operations: [],
@@ -58,7 +57,6 @@ vi.mock("@/lib/contexts/groups-context", () => ({
     groups: groupsState.groups,
     getGroupResources: () => groupsState.resources,
     unassignResource: vi.fn(),
-    refreshGroups: vi.fn(async () => {}),
   }),
 }))
 vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({

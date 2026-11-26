@@ -9,7 +9,7 @@
  * (owner pick 4A, phone sweep 24.11.2026) – and is sent to the phone board from every other
  * page. A viewer on anything wider never reaches the interactive app: it is sent to
  * `/display/board`, the read-only wall view the shared/kiosk viewer account exists for
- * (`backend/app/seed.py`). The gate follows the viewport: a phone turned past `md` goes to
+ * (`backend/app/seeds/boot.py`). The gate follows the viewport: a phone turned past `md` goes to
  * the wall board.
  *
  * Two consequences worth knowing before changing anything here:

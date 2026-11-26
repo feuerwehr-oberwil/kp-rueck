@@ -374,10 +374,9 @@ async def broadcast_emergency_received(
     from ..websocket_manager import broadcast_message
 
     message: dict[str, Any] = {
-        "type": "divera_emergency_received",
         "emergency": emergency_data,
         "auto_attached": auto_attached,
     }
     if source:
         message["source"] = source
-    await broadcast_message(message)
+    await broadcast_message("divera_emergency_received", message)

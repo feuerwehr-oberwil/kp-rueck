@@ -22,7 +22,6 @@ import { sortCrewByLeader } from "@/lib/crew-order"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useOperations } from "@/lib/contexts/operations-context"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { useVehicleChipMenu } from "@/components/kanban/vehicle-chip-menu"
 import {
   OPERATION_DETAIL_TABS,
@@ -80,7 +79,8 @@ import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { PhotoViewerProvider } from '@/components/photos/photo-viewer'
 import { rekoPhotoUrl } from '@/lib/reko-photos'
-import { isResourceDrag, takesAssignments } from '@/lib/assignable'
+import { takesAssignments } from '@/lib/assignable'
+import { isResourceDrag, type BoardDropTarget } from '@/lib/board-drag'
 
 /**
  * An action that belongs to a `DetailField` row rather than to a toolbar.
@@ -255,8 +255,7 @@ export function OperationDetailContent({
   onChangeStatus,
 }: OperationDetailContentProps) {
   const t = useTranslations('kanban')
-  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko } = useOperations()
-  const toggleDriverStay = useToggleDriverStay()
+  const { formatLocation, refreshOperations, requestVehicleDriver, undoMerge, removeReko, toggleDriverStay } = useOperations()
   const vehicleChipMenu = useVehicleChipMenu()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
@@ -326,7 +325,7 @@ export function OperationDetailContent({
   // The quick-assign fleet behind `1`..`5` – editors only; off the board sync.
   const fleet = useVehicleShortcuts()
   const availableVehicleCount = canEdit ? fleet.length : 0
-  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState()
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
 
@@ -429,7 +428,7 @@ export function OperationDetailContent({
     // A closed Einsatz takes no new assignment (lib/assignable.ts): no target, no ring.
     if (!root || layout !== 'panel' || !canEdit || !acceptsAssignments) return
 
-    const dropData = () => ({ type: 'operation-drop', operationId: operation.id })
+    const dropData = () => ({ type: 'operation-drop', operationId: operation.id }) satisfies BoardDropTarget
 
     const block = resourcesRef.current
     return combine(
@@ -1466,7 +1465,7 @@ export function OperationDetailContent({
               disabled={!canEdit || !onChangeStatus}
               onValueChange={(next) => {
                 const target = columns.find((col) => col.id === next)
-                if (target) onChangeStatus?.(operation.id, target.status[0])
+                if (target) onChangeStatus?.(operation.id, target.id)
               }}
             >
               <SelectTrigger id="edit-status" className={DENSE_CONTROL} tabIndex={0}>

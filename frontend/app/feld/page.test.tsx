@@ -15,7 +15,7 @@ import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import type { ApiFeldAssignment, ApiFeldMaterialItem, ApiFeldPersonnel } from '@/lib/api/types'
-import { ApiError } from '@/lib/api/types/common'
+import { ApiError, NetworkError } from '@/lib/api/types/common'
 
 const searchParams = vi.hoisted(() => new URLSearchParams())
 const routerPush = vi.hoisted(() => vi.fn())
@@ -85,7 +85,9 @@ import FeldPage from '@/app/feld/page'
 const PERSON: ApiFeldPersonnel = {
   personnel_id: 'p-1',
   name: 'Muster Hans',
+  kennung: null,
   role: 'Offizier',
+  checked_in: false,
   incident_count: 2,
   open_count: 2,
   missing_rapport_count: 2,
@@ -125,6 +127,15 @@ function assignment(overrides: Partial<ApiFeldAssignment> = {}): ApiFeldAssignme
     group_id: null,
     group_name: null,
     group_position: null,
+    location_display: null,
+    source_vehicle: null,
+    has_been_dispatched: false,
+    pickup_seen: false,
+    pickup_vehicle: null,
+    pickup_resolved_at: null,
+    kp_messages: [],
+    field_requests: [],
+    group_color: null,
     ...overrides,
   }
 }
@@ -725,7 +736,7 @@ describe('/feld opens a Reko auftrag straight into the form', () => {
 })
 
 /**
- * A cellar or a dead spot (phone sweep 24.11.2026). An offline GET resolves to nothing
+ * A cellar or a dead spot (phone sweep 24.11.2026). An offline GET rejects with `NetworkError`
  * (`lib/api/http.ts`), which is what these mocks answer. The rows stay and the page says how old
  * they are; with nothing loaded yet it says it could not load, never «kein Auftrag».
  */
@@ -748,7 +759,7 @@ describe('/feld without a connection', () => {
   })
 
   it('keeps the rows after a failed refresh and says since when', async () => {
-    getFeldAssignments.mockResolvedValueOnce(answer).mockResolvedValue(undefined)
+    getFeldAssignments.mockResolvedValueOnce(answer).mockRejectedValue(new NetworkError())
     renderWithIntl(<FeldPage />)
     await screen.findByText('Hauptstrasse 1')
     expect(screen.queryByText(/Keine Verbindung/)).not.toBeInTheDocument()
@@ -798,7 +809,7 @@ describe('/feld without a connection', () => {
   })
 
   it('a first load that failed is not an empty list, and «Erneut versuchen» loads it', async () => {
-    getFeldAssignments.mockResolvedValueOnce(undefined).mockResolvedValue(answer)
+    getFeldAssignments.mockRejectedValueOnce(new NetworkError()).mockResolvedValue(answer)
     const user = userEvent.setup()
     renderWithIntl(<FeldPage />)
 

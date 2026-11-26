@@ -18,6 +18,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ..json_columns import CostSnapshotEntry
 from .field_requests import FieldRequestResponse
 from .fields import OptionalText50
 from .incidents import IncidentFields, IncidentPriority, IncidentType, LocationFields
@@ -838,7 +839,7 @@ class SchadenplatzRapport(BaseModel):
     personnel_count: int | None = None
     personnel_count_corrected: bool = False
     # Frozen at submit; null while the report is a draft.
-    cost_snapshot_json: list[dict[str, str | None]] | None = None
+    cost_snapshot_json: list[CostSnapshotEntry] | None = None
 
     arrived_at: datetime | None = None
 

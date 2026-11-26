@@ -24,8 +24,7 @@ export interface AssignmentConflictInputs {
 
 /**
  * The board's Doppelbelegung questions that span BOTH kinds of holder — an
- * Auftrag (route) and an Einsatz — which the operations provider alone cannot
- * ask, because it never sees the routes (`GroupsProvider` sits inside it).
+ * Auftrag (route) and an Einsatz — asked over both before a drop lands.
  *
  * - vehicles onto a route or an incident, when a route or incident already has it;
  *   a vehicle that drives an Auftrag, put on a lone Einsatz, asks whether that

@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 from PIL import Image
 
-from app.seed_training import EMERGENCY_TEMPLATES
+from app.seeds.training import EMERGENCY_TEMPLATES
 from app.services.training_photos import (
     SUMMARY_IMAGE_DIR,
     load_summary_image_manifest,

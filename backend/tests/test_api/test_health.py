@@ -307,14 +307,14 @@ async def test_demo_reset_admin_allowed(admin_client: AsyncClient, monkeypatch):
         patch("app.background.demo_reset.assert_disposable_database", new_callable=AsyncMock),
         patch("app.background.demo_reset._truncate_all_tables", new_callable=AsyncMock),
         patch("app.background.demo_reset._clear_photos"),
-        patch("app.seed_demo.seed_demo_database", new_callable=AsyncMock),
+        patch("app.seeds.demo.seed_demo_database", new_callable=AsyncMock),
         patch("app.websocket_manager.broadcast_message", new_callable=AsyncMock) as broadcast,
     ):
         response = await admin_client.post("/api/demo/reset")
 
     assert response.status_code == 200
     assert response.json() == {"status": "reset_complete"}
-    broadcast.assert_awaited_once_with({"type": "demo_reset"})
+    broadcast.assert_awaited_once_with("demo_reset", {})
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,6 @@ import { useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api-client"
-import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 
 /**
@@ -53,17 +52,17 @@ export function usePromoteToLeader() {
  */
 export function usePromoteRouteLeader() {
   const t = useTranslations("kanban")
-  const { refreshGroups } = useGroups()
+  const { refreshOperations } = useOperations()
 
   return useCallback(
     async (groupId: string, assignmentId: string) => {
       try {
         await apiClient.updateGroupAssignment(groupId, assignmentId, { is_leader: true })
-        await refreshGroups()
+        await refreshOperations()
       } catch {
         toast.error(t("detail.leaderFailed"))
       }
     },
-    [refreshGroups, t],
+    [refreshOperations, t],
   )
 }

@@ -30,6 +30,8 @@ const refreshMaterials = vi.hoisted(() => vi.fn())
 const NO_GROUPS = vi.hoisted(() => [] as unknown[])
 const setMaterialOutOfService = vi.hoisted(() => vi.fn())
 vi.mock("./operations/use-resource-lists", () => ({
+  // One map for every render: a fresh one would change the board value on each.
+  useRosterNames: ((names: ReadonlyMap<string, string>) => () => names)(new Map()),
   usePersonnelList: () => {
     const [personnel, setPersonnel] = useState<unknown[]>([])
     return { personnel, setPersonnel, refreshPersonnel }
@@ -59,6 +61,7 @@ const api = vi.hoisted(() => ({
   getEventSpecialFunctions: vi.fn(),
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
+  getIncidentGroups: vi.fn(),
   assignResource: vi.fn(),
   unassignResource: vi.fn(),
   unassignSpecialFunction: vi.fn(),
@@ -123,6 +126,9 @@ const FULL: ApiIncident = {
   pickup_requested_by: "p-crew",
   leader_name: "Leader of record",
   effective_leader_id: "p-record",
+  source_ref: null,
+  field_requests: [],
+  possible_duplicate_of_id: null,
 }
 
 /** The shape an older backend (or a bare row) sends: every optional absent. */
@@ -290,6 +296,7 @@ beforeEach(() => {
   api.getEventSpecialFunctions.mockReset().mockResolvedValue(SPECIAL_FUNCTIONS)
   api.getAssignmentsByEvent.mockReset().mockResolvedValue(ASSIGNMENTS)
   api.getEventRekoSummaries.mockReset().mockResolvedValue(REKO_SUMMARIES)
+  api.getIncidentGroups.mockReset().mockResolvedValue([])
   refreshPersonnel.mockReset().mockResolvedValue(PERSONNEL)
   refreshMaterials.mockReset().mockResolvedValue(MATERIALS)
 })
@@ -308,7 +315,6 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       number: 14,
       location: "Hauptstrasse 12, 4104 Oberwil",
       locationDisplay: "Hauptstrasse 12",
-      vehicle: null,
       vehicles: [
         { vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: "Omega 1", driverStay: true },
         { vehicleId: "v-mtw", assignmentId: "a-mtw", name: "MTW", callsign: null, driverStay: false },
@@ -380,7 +386,6 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       number: null,
       location: "Baum auf Strasse",
       locationDisplay: undefined,
-      vehicle: null,
       vehicles: [],
       incidentType: "elementarereignis",
       dispatchTime: new Date("2026-09-23T09:00:00Z"),

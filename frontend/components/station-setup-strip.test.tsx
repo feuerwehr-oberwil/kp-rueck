@@ -14,6 +14,8 @@ const state = vi.hoisted(() => ({
   personnel: [] as unknown[],
   vehicles: [] as unknown[],
 }))
+// The board's refresh after a settings save (no board under this test).
+vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ refreshOperations: async () => true }) }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => state.auth }))
 vi.mock('@/lib/api-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api-client')>()),

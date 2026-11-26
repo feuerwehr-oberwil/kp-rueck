@@ -31,7 +31,6 @@ import { useEvent } from '@/lib/contexts/event-context'
 import { useNotifications } from '@/lib/contexts/notification-context'
 import { useOperations } from '@/lib/contexts/operations-context'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
-import { useAuftragRoster } from '@/lib/hooks/use-auftrag-roster'
 import { usePersonEngagements } from '@/lib/hooks/use-person-engagements'
 import { usePersonPlaces } from '@/lib/hooks/use-person-matcher'
 import { usePrintBoard } from '@/lib/hooks/use-print-board'
@@ -53,8 +52,7 @@ export function PhoneQuickSheets({ open, onOpenChange, onPersonnelCloseFocus }: 
   const { isEditor } = useAuth()
   const { operations, refreshOperations } = useOperations()
   // Auftrag crews folded in, as the board's sidebar draws them – the raw list calls them frei.
-  const personnel = useAuftragRoster()
-  const { refreshPersonnel } = usePersonnel()
+  const { personnel, refreshPersonnel } = usePersonnel()
   const { navigateToIncident, settings } = useNotifications()
   const personEngagements = usePersonEngagements()
   const personPlaces = usePersonPlaces()

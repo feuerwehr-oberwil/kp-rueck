@@ -8,6 +8,7 @@ import {
   type SupersedeOperation,
 } from './notification-policy'
 import type { Notification, NotificationSeverity, NotificationType } from './types/notification'
+import { UNSET_NOTIFICATION_FIELDS } from '@/test-utils/notification-fixtures'
 
 let clock = 0
 
@@ -18,6 +19,7 @@ function make(
 ): Notification {
   clock += 1000
   return {
+    ...UNSET_NOTIFICATION_FIELDS,
     id: overrides.id ?? `n-${clock}`,
     type,
     severity,

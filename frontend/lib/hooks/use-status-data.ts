@@ -4,7 +4,6 @@ import type { VehicleDriver } from "@/lib/hooks/use-vehicle-drivers"
 import { useMemo } from "react"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
-import { useGroups } from "@/lib/contexts/groups-context"
 import { useMaterials } from "@/lib/contexts/materials-context"
 import type { ApiVehiclePosition } from "@/lib/api-client"
 import { columns } from "@/lib/kanban-utils"
@@ -39,27 +38,9 @@ export interface StatusStats {
 
 export function useStatusData() {
   const { operations, vehicles: boardVehicles } = useOperations()
-  const { personnel: rosterPersonnel } = usePersonnel()
-  const { occupiedResourceIds } = useGroups()
+  // `isOnAuftrag` folded in by the board: five people driving a Sturm route are not «verfügbar».
+  const { personnel } = usePersonnel()
   const { materials } = useMaterials()
-
-  /**
-   * The roster with «steht auf einem Auftrag» folded in — the same enrichment the
-   * board does, for the same reason.
-   *
-   * A route's crew lives on the group, and `GroupsProvider` sits inside
-   * `OperationsProvider`, so the reconciliation that sets `status` cannot see it.
-   * Without this the Statusanzeige on the wall read «5 verfügbar / 0 im Einsatz»
-   * for five people driving a Sturm route, while the board in the same room had
-   * them greyed out — the one number a Kommandant reads off that wall, wrong.
-   */
-  const personnel = useMemo(
-    () =>
-      rosterPersonnel.map((person) =>
-        occupiedResourceIds.personnel.has(person.id) ? { ...person, isOnAuftrag: true } : person,
-      ),
-    [rosterPersonnel, occupiedResourceIds],
-  )
   // The fleet off the board sync, which reloads it on every `vehicle_update` and
   // polls while the socket is down — so «Nicht einsatzbereit» set mid-shift
   // reaches the wall without a reload (a display runs for days).
@@ -83,7 +64,7 @@ export function useStatusData() {
     const byStatus: Record<string, Operation[]> = {}
     columns.forEach((col) => { byStatus[col.id] = [] })
     operations.forEach((op) => {
-      const col = columns.find((c) => c.status.includes(op.status))
+      const col = columns.find((c) => c.id === op.status)
       if (col) byStatus[col.id].push(op)
     })
 

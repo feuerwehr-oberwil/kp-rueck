@@ -35,14 +35,6 @@ from .active_resources import active_deployments
 from .locking import lock_groups, lock_incident_with_group, lock_resources
 
 
-class InvalidIncidentGroupError(ValueError):
-    """Incident group is missing, deleted, or belongs to another event."""
-
-
-class IncompleteCoordinatesError(ValueError):
-    """An update would leave only one of latitude/longitude set – a pin nobody can place."""
-
-
 class StatusChangedError(Exception):
     """A status move refused because the card moved after the client last saw it.
 
@@ -219,9 +211,9 @@ async def _dispatch_print_due(db: AsyncSession, incident_id: uuid.UUID, old_stat
 async def _validate_and_lock_group(db: AsyncSession, group_id: uuid.UUID, event_id: uuid.UUID) -> IncidentGroup:
     group = await db.scalar(select(IncidentGroup).where(IncidentGroup.id == group_id).with_for_update())
     if group is None or group.deleted_at is not None:
-        raise InvalidIncidentGroupError("Auftrag nicht gefunden oder gelöscht")
+        raise DomainError(ErrorCode.AUFTRAG_NOT_FOUND, "Auftrag nicht gefunden oder gelöscht", status_code=400)
     if group.event_id != event_id:
-        raise InvalidIncidentGroupError("Auftrag gehört zu einem anderen Ereignis")
+        raise DomainError(ErrorCode.AUFTRAG_OTHER_EVENT, "Auftrag gehört zu einem anderen Ereignis", status_code=400)
     return group
 
 
@@ -836,9 +828,14 @@ async def update_incident(
 
     for field, value in update_data.items():
         setattr(incident, field, value)
-    # The schema checks each coordinate; only the merged row shows half a pair.
+    # The schema checks each coordinate; only the merged row shows half a pair – a pin nobody
+    # can place.
     if (incident.location_lat is None) != (incident.location_lng is None):
-        raise IncompleteCoordinatesError("Koordinaten nur als Paar: Breiten- und Längengrad angeben oder beide leeren.")
+        raise DomainError(
+            ErrorCode.COORDINATES_INCOMPLETE,
+            "Koordinaten nur als Paar: Breiten- und Längengrad angeben oder beide leeren.",
+            status_code=422,
+        )
 
     if attaching_group_id is not None:
         max_pos = await db.scalar(
@@ -936,10 +933,9 @@ async def update_incident(
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 
-        printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-        auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
-
-        if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
+        if await settings_service.read(db, settings_service.PRINTER_ENABLED) and await settings_service.read(
+            db, settings_service.PRINTER_AUTO_ANFAHRT
+        ):
             try:
                 # Wakes the agent after the commit itself (`print_crud.enqueue`).
                 await print_crud.queue_assignment_print(db, incident_id)
@@ -1067,10 +1063,9 @@ async def update_incident_status(
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
 
-        printer_enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-        auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
-
-        if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
+        if await settings_service.read(db, settings_service.PRINTER_ENABLED) and await settings_service.read(
+            db, settings_service.PRINTER_AUTO_ANFAHRT
+        ):
             try:
                 # Wakes the agent after the commit itself (`print_crud.enqueue`).
                 await print_crud.queue_assignment_print(db, incident_id)

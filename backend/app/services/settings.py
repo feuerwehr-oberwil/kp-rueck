@@ -1,6 +1,25 @@
-"""Settings management service."""
+"""Station settings: the registry of every key, its one default, and its typed reader.
 
+Each row of the ``settings`` table is declared once below, with its type and default:
+
+    PRINTER_ENABLED = BoolSetting("printer.enabled", False)
+    if await read(db, PRINTER_ENABLED): ...
+
+``read`` returns the declared type (``bool`` here), and a value that does not parse – or lies
+outside the declared range – reads as the default, the same way the frontend reads it.
+``DEFAULT_SETTINGS`` – the rows ``initialize_default_settings`` creates on every boot and the
+keys the generic ``PATCH /api/settings/{key}`` admits – is built from these declarations, so
+a key has exactly one default. A misspelt constant fails mypy; a key built by hand that is not
+declared here fails in ``read``.
+
+Rows outside the registry (job state, the telemetry consent, notification settings) are read
+raw with ``get_setting``.
+"""
+
+import math
 import secrets
+from collections.abc import Sequence
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy import select
@@ -14,239 +33,327 @@ def _generate_webhook_secret() -> str:
     return secrets.token_urlsafe(32)
 
 
-DEFAULT_SETTINGS = {
-    "alarm_webhook_secret": "",  # Auto-generated on first init
-    # Training auto-generation (Übungssteuerung → "Automatik"). The background
-    # monitor (services/training_autogen_task.py) idles until enabled and then
-    # feeds the Übung it was switched on for (state row `training_autogen.run`).
-    # The switch itself has its own endpoint – see GENERIC_WRITE_DENY_REASONS.
-    "training_autogen_enabled": "false",  # Master toggle for auto-generation
-    "training_autogen_interval_min": "5",  # Minutes between generated alarms
-    "training_autogen_mode": "board",  # "board" (incidents) or "divera" (pool alarms)
-    "training_boost_multiplicator": "2.0",  # Interval divisor during the boost phase
-    "training_boost_duration_min": "30",  # Boost phase length after the Automatik is switched on
-    "training_autogen_max_emergencies": "50",
-    # Paper fallback: periodic automatic board snapshots to the thermal printer
-    # (background/fallback_print.py idles until enabled; needs printer.enabled too)
-    "fallback.auto_print_enabled": "false",
-    "fallback.auto_print_interval_min": "15",
-    # Thermal printer settings (local installations only)
-    "printer.enabled": "false",  # Master toggle for printer functionality
-    "printer.ip": "",  # Printer IP address (e.g., "192.168.1.100")
-    "printer.port": "9100",  # Printer port (default ESC/POS port)
-    # Auto-print the assignment slip ONCE, when an incident reaches "enroute"
-    # (Disponiert / Anfahrt). Keeps its historic key name so installations that switched it
-    # on stay switched on — see crud/incidents.py for why the second trigger ("active") went.
-    "printer.auto_anfahrt": "true",
-    "funkrufname": "Omega",  # Radio callsign for Funkdurchsage (e.g., "Omega", "Gamma")
-    # Kommandant's name, pre-printed next to the «Kommandant» signature line on the
-    # Einsatzrapport (same idea as KP-Front's setting). Empty = just the label.
-    "kommandant_name": "",
-    # Station identity + map preferences.
-    #
-    # These are WRITTEN by the seed and READ all over the frontend, but were missing from
-    # this dict – and api/settings.py rejects any key that is not in here. So the Einstellungen
-    # page rendered editors for home_city, map_mode and map_style whose every save 404'd behind
-    # a generic "Speichern fehlgeschlagen" toast, and firestation_latitude/longitude (read by
-    # the map, the location picker and route planning) were writable by nothing at all.
-    #
-    # map_mode is the offline-map switch – the one control that exists specifically for an
-    # internet outage, and it was the one that could not be set.
-    "home_city": "",
-    # Station overrides for the Grad abbreviations the board sidebar shows
-    # («Wachtmeister» → «Wm»), as a JSON object {role: abbreviation}. Empty =
-    # the frontend's built-in table (lib/roster-order.ts).
-    "personnel.role_abbreviations": "",
-    # "auto", not "online". The offline fallback is the one thing this control exists for,
-    # and shipping "online" meant a fresh install had no fallback at all — while the in-app
-    # help has always described "Auto (Standard): zuerst online, bei einem Fehler automatisch
-    # offline". "auto" behaves exactly like "online" until the tiles fail, so nothing changes
-    # for a station with a working internet connection. Only NEW installations move: this dict
-    # seeds a missing key, so an existing station keeps whatever its settings row already says.
-    "map_mode": "auto",  # online=OSM only, auto=fallback to local tiles, offline=local only
-    "map_style": "osm",  # osm | topo | carto-light | carto-dark
-    # Which time an incident chip shows everywhere (board, detail, map, wall display).
-    # start = when it came in (HH:MM), column = time in the current status, total = since
-    # the alarm. The station default; each device may override it locally.
-    "incident_time_display": "column",  # start | column | total
-    "firestation_name": "",
-    "firestation_latitude": "",
-    "firestation_longitude": "",
-    # Station logo for printed exports (base64 PNG). Written and read through
-    # /api/settings/branding/logo only – see BLOB_SETTING_KEYS below for why it is
-    # a known key that the generic settings endpoints refuse to touch.
-    "branding.report_logo": "",
-    # Incident message templates. Section-based: {token} placeholders are filled
-    # from the incident, a line whose tokens are all empty is dropped, blank runs
-    # collapse. Rendered CLIENT-SIDE (see frontend/lib/message-template.ts) – the
-    # defaults here must match the DEFAULT_* constants there. Stored in the DB so
-    # they sync across devices and are editable from Settings → Alarmierung.
-    "whatsapp.incident_template": (
-        "🚨 *{type}*\n"
-        "📍 {location}\n"
-        "📝 {notes}\n"
-        "☎️ {contact}\n"
-        "📋 {internal_notes}\n"
-        "\n"
-        "🚒 {vehicles}\n"
-        "👤 {crew}\n"
-        "🧰 {materials}\n"
-        "\n"
-        "{reko}\n"
-        "\n"
-        "_Erstellt: {timestamp}_"
-    ),
-    # Setup-Checkliste. Two kinds of station-owned content:
-    #
-    # The two WhatsApp templates the checklist copies (Standby / Einrücken). They
-    # were editable in Settings → Alarmierung and every save 404'd here — the same
-    # class of bug the home_city comment above describes: the page rendered an
-    # editor for a key this dict never admitted. Defaults live in
-    # frontend/lib/checklist-tasks.ts (the checklist falls back to them when the
-    # value is unset or blank), so they are stored EMPTY here rather than
-    # duplicated — a copy would drift and silently overwrite the real default.
-    #
-    # ...and the shape of the checklist itself: which steps this station runs, and
-    # its own «für wen · wie viele Ausdrucke» note per step. JSON, because a list
-    # and a map do not fit a string-valued table any other way; both readers
-    # tolerate a broken value (see applyChecklistSettings) — the checklist is read
-    # while a command post is being started and must not be takeable down by a
-    # hand-edited setting.
-    "whatsapp_message_1": "",
-    "whatsapp_message_2": "",
-    "checklist.hidden_tasks": "[]",
-    "checklist.notes": "{}",
-    # Outbound alarm (Ausalarmierung) – optional, OFF by default. Only takes
-    # effect when an alerting provider is configured (currently: DIVERA_ACCESS_KEY).
-    # Installations without a provider leave this off and see no send UI.
-    # The alarm title/text are rendered from these templates (same engine as the
-    # WhatsApp template). The dialog renders client-side and sends the result; the
-    # backend only renders these as a fallback (see _render_alarm_template).
-    # Renamed from divera.alarm_* in migration e5b2c9d4a8f1.
-    "alerting.enabled": "false",  # Master toggle for outbound alarms
-    "alerting.title_template": "KP: {type}",  # Push title (Stichwort)
-    "alerting.text_template": (
-        "📝 {notes}\n☎️ {contact}\n📋 {internal_notes}\n\n🚒 {vehicles}\n👤 {crew}\n🧰 {materials}"
-    ),
-    # GPS-driven status automation (plan 10) – opt-in, OFF by default. GPS is noisy
-    # here (the Traccar feed returns frequent 404/no-fix), so all rules are gated on the
-    # master switch and survive jitter via the debounce/freshness/speed guards below.
-    # Also active in training events; never acts in demo mode. See app/services/gps_automation.py.
-    "gps.automation_enabled": "false",  # Master switch for all GPS automation
-    "gps.rule_arrival_enabled": "false",  # Rule A: arrival at incident -> advance to einsatz
-    "gps.rule_arrival_silent": "false",  # Rule A opt-in: advance SILENTLY (no operator confirm)
-    "gps.rule_return_enabled": "true",  # Rule B: prompt to release a vehicle back at magazin (confirm-only, safe default ON)
-    "gps.station_lat": "",  # Magazin/home-base latitude (Rule B geofence centre)
-    "gps.station_lng": "",  # Magazin/home-base longitude (Rule B geofence centre)
-    "gps.station_radius_meters": "100",  # Tight radius so passing vehicles don't trigger
-    # Tuning constants (shared by both rules). Arrival radius reuses geofence_radius_meters.
-    # Defaults tuned against real Traccar tracks (2026-07-06 field test): parked clients
-    # throttle to one fix every ~30-100 s, so freshness must be generous while the
-    # actual "standing there" requirement lives in min_dwell_seconds.
-    "geofence_radius_meters": "200",  # Rule A: arrival radius (m) around the incident (edited in Settings → GPS)
-    "gps.debounce_count": "2",  # N consecutive confirming fixes required
-    "gps.freshness_seconds": "180",  # Ignore fixes older than this (staleness tolerance only)
-    "gps.min_dwell_seconds": "10",  # Confirming fixes must span at least this long – kept
-    # short so the prompt lands while the vehicle is still rolling to a stop; the
-    # speed gate + confirm-modal carry the false-positive protection.
-    "gps.speed_gate_kmh": "10",  # Treat as stationary only below this speed
-    # Lagekarte, not automation: from how many minutes on a vehicle pill shows the time of its
-    # last GPS report (frontend lib/map-vehicles.ts; Settings → GPS «Fahrzeuge auf der Lagekarte»).
-    # Also handed to the wall display with the viewer payload (api/viewer.py).
-    "gps.stale_after_minutes": "10",
-    # `/feld` Freitext-Meldung: the one-tap chips a crew sends instead of typing
-    # (plan 25, decision 20). Station-configurable and deliberately NOT i18n –
-    # the same reasoning that already makes the outbound message templates above
-    # deployment config rather than translation: a station rewords them without a
-    # translation round.
-    #
-    # Stored ONE CHIP PER LINE, because the settings table is string-valued and
-    # the Einstellungen page edits it in the same Textarea shape as the templates
-    # next to it. Blank lines are dropped on read (`parse_message_chips`).
-    #
-    # «Verstärkung nötig» and «Material nötig» used to be chips here. Since R13
-    # they are fixed, structured buttons on /feld (what, how many), so they left
-    # the default; a station that kept them in its own list does not see them
-    # twice — `without_structured_chips` drops them on the way to the phone.
-    "feld.message_chips": "fertig in ~30 Min\nEinsatzstelle übergeben",
-    # The same, for a FAHRER. A driver may not report «Angekommen» or «Einsatz
-    # beendet» — those are the working crew's statements about a Schadenplatz and
-    # the server refuses them (`WORK_SOURCES`) — so the crew's chips read wrong
-    # for the one person sitting outside in the vehicle. These are the things a
-    # driver actually radios in, sent as an ordinary Meldung with their name and
-    # the time on it. Same one-chip-per-line storage, same Textarea. «Warte auf Einsatz», not
-    # «… Auftrag»: an Auftrag is the multi-stop object (23.11.2026). The migration c4f1a8d2e6b3 renames
-    # that one line in a stored list too; the station's other lines stay as written.
-    "feld.driver_message_chips": "Bin vor Ort\nFahrzeug parkiert\nFahre zurück ins Magazin\nWarte auf Einsatz",
-    # Two ways to tidy the text an alarm provider puts into every alarm, both applied to
-    # the INCIDENT's description only and both EMPTY BY DEFAULT – a fresh install passes
-    # every alarm description through untouched. What a dispatch system prepends is that
-    # station's arrangement with its Leitstelle, so nobody else's vocabulary belongs in
-    # our shipped defaults; a station types its own lines into Settings → Alarmierung.
-    #
-    # Same storage shape as the `/feld` chips above – ONE PREFIX PER LINE, edited in a
-    # Textarea, blank lines dropped on read (`parse_message_chips`).
-    #
-    # (1) Whole lines to DROP. Divera lets a brigade configure boilerplate
-    #     ("Ausrückeordnung: 1. TLF → 2. PIO") that then arrives on every emergency –
-    #     identical each time, so it is noise on the board and in every printout.
-    "alarm.description_filter_prefixes": "",
-    # (2) Labels to STRIP off the front of a line that is otherwise kept. Divera labels
-    #     its lines ("Meldung: Wasser dringt ein"), and our own UI already puts a
-    #     «Meldung» heading above that field, so the label reads twice on the card. A line
-    #     left with nothing behind its label is dropped: a label alone is not content.
-    "alarm.description_label_prefixes": "",
-    # Divera Rückmeldungen («Anrückend» in the Appell and the Personen-Leiste): which of the
-    # Einheit's own response statuses mean «kommt» / «kommt nicht». A JSON object keyed by
-    # Divera status id ("13") or status name ("Komme nicht", case/diacritic-insensitive),
-    # value "coming" | "not_coming" | "other"; an id beats a name. EMPTY = the built-in name
-    # heuristic, which already reads «Komme», «Komme in 10 min», «Komme nicht» right. See
-    # services/divera_responses.py and docs/ALARM-INTEGRATIONS.md.
-    "divera.response_classification": "",
-}
+@dataclass(frozen=True)
+class StationSetting[T]:
+    """One key of the settings table with its default; subclasses say how the string reads."""
 
-FELD_MESSAGE_CHIPS_KEY = "feld.message_chips"
-FELD_DRIVER_MESSAGE_CHIPS_KEY = "feld.driver_message_chips"
+    key: str
+    default: T
 
-ALARM_DESCRIPTION_FILTER_PREFIXES_KEY = "alarm.description_filter_prefixes"
-ALARM_DESCRIPTION_LABEL_PREFIXES_KEY = "alarm.description_label_prefixes"
+    def parse(self, raw: str) -> T:
+        raise NotImplementedError
+
+    def default_text(self) -> str:
+        """The default as the settings table stores it (``DEFAULT_SETTINGS``)."""
+        return str(self.default)
 
 
-def parse_message_chips(value: str | None) -> list[str]:
-    """The `/feld` chips as a list, from the newline-separated settings value.
+@dataclass(frozen=True)
+class TextSetting(StationSetting[str]):
+    """A string, read as stored."""
 
-    Tolerant on purpose: an operator editing a Textarea leaves blank lines and
-    trailing spaces, and a chip row is not worth a validation error on a page
-    that saves on blur.
+    default: str = ""
+
+    def parse(self, raw: str) -> str:
+        return raw
+
+
+@dataclass(frozen=True)
+class BoolSetting(StationSetting[bool]):
+    """``"true"`` (any case) is on, everything else off – what the settings switches write."""
+
+    def parse(self, raw: str) -> bool:
+        return raw.strip().lower() == "true"
+
+    def default_text(self) -> str:
+        return "true" if self.default else "false"
+
+
+@dataclass(frozen=True)
+class FloatSetting(StationSetting[float]):
+    """A number. Unparseable, not finite or outside the range reads as the default.
+
+    ``positive`` admits only values above 0 – a 0 there has always meant «not set».
     """
-    if not value:
-        return []
-    return [line.strip() for line in value.splitlines() if line.strip()]
 
+    minimum: float | None = None
+    maximum: float | None = None
+    positive: bool = False
+
+    def parse(self, raw: str) -> float:
+        try:
+            value = float(raw)
+        except ValueError:
+            return self.default
+        if not math.isfinite(value) or not _in_range(value, self.minimum, self.maximum):
+            return self.default
+        return self.default if self.positive and value <= 0 else value
+
+    def default_text(self) -> str:
+        return format(self.default, "g")  # 100.0 → "100", as the Einstellungen page writes it
+
+
+@dataclass(frozen=True)
+class IntSetting(StationSetting[int]):
+    """A whole number (``"2.0"`` reads as 2). A fraction, out of range or unparseable reads as the default."""
+
+    minimum: int | None = None
+    maximum: int | None = None
+
+    def parse(self, raw: str) -> int:
+        try:
+            number = float(raw)
+        except ValueError:
+            return self.default
+        if not number.is_integer() or not _in_range(number, self.minimum, self.maximum):
+            return self.default
+        return int(number)
+
+
+@dataclass(frozen=True)
+class CoordinateSetting(StationSetting[float | None]):
+    """A latitude or longitude; empty or unparseable is None (not configured)."""
+
+    default: float | None = None
+
+    def parse(self, raw: str) -> float | None:
+        try:
+            value = float(raw)
+        except ValueError:
+            return None
+        return value if math.isfinite(value) else None
+
+    def default_text(self) -> str:
+        return "" if self.default is None else str(self.default)
+
+
+@dataclass(frozen=True)
+class LinesSetting(StationSetting[tuple[str, ...]]):
+    """One entry per line, edited in a Textarea. Blank lines and stray spaces are dropped.
+
+    Tolerant on purpose: an operator editing a Textarea leaves blank lines and trailing
+    spaces, and a chip row is not worth a validation error on a page that saves on blur.
+    """
+
+    default: tuple[str, ...] = ()
+
+    def parse(self, raw: str) -> tuple[str, ...]:
+        return tuple(line.strip() for line in raw.splitlines() if line.strip())
+
+    def default_text(self) -> str:
+        return "\n".join(self.default)
+
+
+def _in_range(value: float, minimum: float | None, maximum: float | None) -> bool:
+    return (minimum is None or value >= minimum) and (maximum is None or value <= maximum)
+
+
+# ---------------------------------------------------------------------------
+# The registry. Every key the app reads or the Einstellungen page writes.
+# ---------------------------------------------------------------------------
+
+ALARM_WEBHOOK_SECRET = TextSetting("alarm_webhook_secret")  # generated on first init
+
+# Training auto-generation (Übungssteuerung → "Automatik"). The background monitor
+# (services/training_autogen_task.py) idles until enabled and then feeds the Übung it was
+# switched on for (state row `training_autogen.run`). The switch itself has its own
+# endpoint – see GENERIC_WRITE_DENY_REASONS.
+TRAINING_AUTOGEN_ENABLED = BoolSetting("training_autogen_enabled", False)
+# Bounded so the next alarm time stays representable (a 1e12-minute interval overflows).
+TRAINING_AUTOGEN_INTERVAL_MIN = FloatSetting("training_autogen_interval_min", 5.0, maximum=1440, positive=True)
+TRAINING_AUTOGEN_MODE = TextSetting("training_autogen_mode", "board")  # "board" (incidents) or "divera" (pool alarms)
+TRAINING_BOOST_MULTIPLICATOR = FloatSetting(
+    "training_boost_multiplicator", 2.0, minimum=0.1, maximum=100
+)  # interval divisor
+TRAINING_BOOST_DURATION_MIN = IntSetting("training_boost_duration_min", 30, minimum=0)  # boost after switch-on
+TRAINING_AUTOGEN_MAX_EMERGENCIES = IntSetting("training_autogen_max_emergencies", 50, minimum=0)
+
+# Paper fallback: periodic automatic board snapshots to the thermal printer
+# (background/fallback_print.py idles until enabled; needs printer.enabled too)
+FALLBACK_AUTO_PRINT_ENABLED = BoolSetting("fallback.auto_print_enabled", False)
+FALLBACK_AUTO_PRINT_INTERVAL_MIN = IntSetting("fallback.auto_print_interval_min", 15, minimum=5, maximum=120)
+
+# Thermal printer settings (local installations only)
+PRINTER_ENABLED = BoolSetting("printer.enabled", False)  # master toggle for printing
+PRINTER_IP = TextSetting("printer.ip")  # e.g. "192.168.1.100"
+PRINTER_PORT = IntSetting("printer.port", 9100, minimum=1, maximum=65535)  # ESC/POS port
+# Auto-print the assignment slip ONCE, on the first dispatch (Disponiert / Anfahrt). Keeps its
+# historic key name so installations that switched it on stay switched on – see
+# crud/incidents.py `_dispatch_print_due`.
+PRINTER_AUTO_ANFAHRT = BoolSetting("printer.auto_anfahrt", True)
+
+FUNKRUFNAME = TextSetting("funkrufname", "Omega")  # radio callsign for Funkdurchsage («Omega», «Gamma»)
+# Kommandant's name, pre-printed next to the «Kommandant» signature line on the
+# Einsatzrapport (same idea as KP-Front's setting). Empty = just the label.
+KOMMANDANT_NAME = TextSetting("kommandant_name")
+
+# Station identity + map preferences, read all over the frontend.
+HOME_CITY = TextSetting("home_city")
+# Station overrides for the Grad abbreviations the board sidebar shows («Wachtmeister» →
+# «Wm»), as a JSON object {role: abbreviation}. Empty = the frontend's built-in table
+# (lib/roster-order.ts).
+PERSONNEL_ROLE_ABBREVIATIONS = TextSetting("personnel.role_abbreviations")
+# The offline-map switch: online = OSM only, auto = fall back to local tiles, offline = local
+# only. "auto" behaves like "online" until the tiles fail, and the in-app help describes it as
+# the default. Only NEW installations get it: an existing station keeps its row.
+MAP_MODE = TextSetting("map_mode", "auto")
+MAP_STYLE = TextSetting("map_style", "osm")  # osm | topo | carto-light | carto-dark
+# Which time an incident chip shows everywhere (board, detail, map, wall display): start =
+# when it came in (HH:MM), column = time in the current status, total = since the alarm. The
+# station default; each device may override it locally.
+INCIDENT_TIME_DISPLAY = TextSetting("incident_time_display", "column")  # start | column | total
+FIRESTATION_NAME = TextSetting("firestation_name")
+FIRESTATION_LATITUDE = CoordinateSetting("firestation_latitude")
+FIRESTATION_LONGITUDE = CoordinateSetting("firestation_longitude")
+# Station logo for printed exports (base64 PNG). Written and read through
+# /api/settings/branding/logo only – see BLOB_SETTING_KEYS below for why it is a known key
+# that the generic settings endpoints refuse to touch.
+BRANDING_REPORT_LOGO = TextSetting("branding.report_logo")
+
+# Incident message templates. Section-based: {token} placeholders are filled from the
+# incident, a line whose tokens are all empty is dropped, blank runs collapse. Rendered
+# CLIENT-SIDE (see frontend/lib/message-template.ts) – the defaults here must match the
+# DEFAULT_* constants there. Stored in the DB so they sync across devices and are editable
+# from Settings → Alarmierung.
+WHATSAPP_INCIDENT_TEMPLATE = TextSetting(
+    "whatsapp.incident_template",
+    "🚨 *{type}*\n"
+    "📍 {location}\n"
+    "📝 {notes}\n"
+    "☎️ {contact}\n"
+    "📋 {internal_notes}\n"
+    "\n"
+    "🚒 {vehicles}\n"
+    "👤 {crew}\n"
+    "🧰 {materials}\n"
+    "\n"
+    "{reko}\n"
+    "\n"
+    "_Erstellt: {timestamp}_",
+)
+# Setup-Checkliste. The two WhatsApp templates the checklist copies (Standby / Einrücken):
+# their defaults live in frontend/lib/checklist-tasks.ts (the checklist falls back to them
+# when the value is blank), so they are stored EMPTY here – a copy would drift. And the
+# checklist's shape: which steps this station runs, and its own «für wen · wie viele
+# Ausdrucke» note per step, as JSON. Both frontend readers tolerate a broken value (see
+# applyChecklistSettings) – the checklist must not be takeable down by a hand-edited setting.
+WHATSAPP_MESSAGE_1 = TextSetting("whatsapp_message_1")
+WHATSAPP_MESSAGE_2 = TextSetting("whatsapp_message_2")
+CHECKLIST_HIDDEN_TASKS = TextSetting("checklist.hidden_tasks", "[]")
+CHECKLIST_NOTES = TextSetting("checklist.notes", "{}")
+
+# Outbound alarm (Ausalarmierung) – optional, OFF by default. Only takes effect when an
+# alerting provider is configured (currently: DIVERA_ACCESS_KEY). The alarm title/text are
+# rendered from these templates (same engine as the WhatsApp template). The dialog renders
+# client-side and sends the result; the backend renders these only as a fallback (see
+# api/divera.py `_render_alarm_template`). Renamed from divera.alarm_* in migration e5b2c9d4a8f1.
+ALERTING_ENABLED = BoolSetting("alerting.enabled", False)
+ALERTING_TITLE_TEMPLATE = TextSetting("alerting.title_template", "KP: {type}")  # push title (Stichwort)
+ALERTING_TEXT_TEMPLATE = TextSetting(
+    "alerting.text_template",
+    "📝 {notes}\n☎️ {contact}\n📋 {internal_notes}\n\n🚒 {vehicles}\n👤 {crew}\n🧰 {materials}",
+)
+
+# GPS-driven status automation (plan 10) – opt-in, OFF by default. GPS is noisy here (the
+# Traccar feed returns frequent 404/no-fix), so all rules are gated on the master switch and
+# survive jitter via the debounce/freshness/speed guards below. Also active in training
+# events; never acts in demo mode. See services/gps_automation.py.
+GPS_AUTOMATION_ENABLED = BoolSetting("gps.automation_enabled", False)  # master switch
+GPS_RULE_ARRIVAL_ENABLED = BoolSetting("gps.rule_arrival_enabled", False)  # A: arrival → einsatz
+GPS_RULE_ARRIVAL_SILENT = BoolSetting("gps.rule_arrival_silent", False)  # A, without the operator's confirm
+# Rule B: prompt to release a vehicle back at the Magazin. Confirm-only, so ON by default
+# (migration c7d8e9f0a1b2 rolled the default out to existing rows).
+GPS_RULE_RETURN_ENABLED = BoolSetting("gps.rule_return_enabled", True)
+# Legacy Magazin position (Rule B geofence centre); see get_station_coordinates.
+GPS_STATION_LAT = CoordinateSetting("gps.station_lat")
+GPS_STATION_LNG = CoordinateSetting("gps.station_lng")
+GPS_STATION_RADIUS_METERS = FloatSetting("gps.station_radius_meters", 100.0, positive=True)  # tight: passers-by
+# Tuning constants (shared by both rules). Each is positive: a 0 reads as the default, as it
+# always has. Tuned against real Traccar tracks (2026-07-06 field test): parked clients
+# throttle to one fix every ~30-100 s, so freshness is generous while the «standing there»
+# requirement lives in min_dwell_seconds.
+GEOFENCE_RADIUS_METERS = FloatSetting("geofence_radius_meters", 200.0, positive=True)  # Rule A arrival radius
+GPS_DEBOUNCE_COUNT = IntSetting("gps.debounce_count", 2, minimum=1)  # consecutive confirming fixes
+GPS_FRESHNESS_SECONDS = FloatSetting("gps.freshness_seconds", 180.0, positive=True)  # ignore older fixes
+# Confirming fixes must span at least this long – short, so the prompt lands while the vehicle
+# is still rolling to a stop; the speed gate + confirm modal carry the false-positive protection.
+GPS_MIN_DWELL_SECONDS = FloatSetting("gps.min_dwell_seconds", 10.0, positive=True)
+GPS_SPEED_GATE_KMH = FloatSetting("gps.speed_gate_kmh", 10.0, positive=True)  # stationary below this
+# Lagekarte, not automation: from how many minutes on a vehicle pill shows the time of its last
+# GPS report (frontend lib/map-vehicles.ts `parseStaleMinutes` reads it the same way). Also
+# handed to the wall display with the viewer payload (api/viewer.py).
+GPS_STALE_AFTER_MINUTES = FloatSetting("gps.stale_after_minutes", 10.0, positive=True)
+
+# `/feld` Freitext-Meldung: the one-tap chips a crew sends instead of typing (plan 25,
+# decision 20). Station-configurable and deliberately NOT i18n, like the message templates
+# above: a station rewords them without a translation round. «Verstärkung nötig» and
+# «Material nötig» are structured buttons on /feld since R13; `without_structured_chips`
+# drops them from a station's own list.
+FELD_MESSAGE_CHIPS = LinesSetting("feld.message_chips", ("fertig in ~30 Min", "Einsatzstelle übergeben"))
+# The same, for a FAHRER. A driver may not report «Angekommen» or «Einsatz beendet» (the server
+# refuses them, `WORK_SOURCES`), so these are the things a driver actually radios in.
+# «Warte auf Einsatz», not «… Auftrag»: an Auftrag is the multi-stop object (migration
+# c4f1a8d2e6b3 renamed that line in stored lists too).
+FELD_DRIVER_MESSAGE_CHIPS = LinesSetting(
+    "feld.driver_message_chips",
+    ("Bin vor Ort", "Fahrzeug parkiert", "Fahre zurück ins Magazin", "Warte auf Einsatz"),
+)
+
+# Two ways to tidy the text an alarm provider puts into every alarm, both applied to the
+# INCIDENT's description only and both EMPTY BY DEFAULT: what a dispatch system prepends is
+# that station's arrangement with its Leitstelle. Applied by `services/divera_intake`.
+# (1) Whole lines to DROP – boilerplate such as «Ausrückeordnung: 1. TLF → 2. PIO».
+ALARM_DESCRIPTION_FILTER_PREFIXES = LinesSetting("alarm.description_filter_prefixes")
+# (2) Labels to STRIP off the front of a kept line («Meldung: Wasser dringt ein»); a line left
+#     with nothing behind its label is dropped.
+ALARM_DESCRIPTION_LABEL_PREFIXES = LinesSetting("alarm.description_label_prefixes")
+
+# Divera Rückmeldungen («Anrückend» in the Appell and the Personen-Leiste): which of the
+# Einheit's own response statuses mean «kommt» / «kommt nicht». A JSON object keyed by Divera
+# status id or name, value "coming" | "not_coming" | "other". EMPTY = the built-in name
+# heuristic. See services/divera_responses.py and docs/ALARM-INTEGRATIONS.md.
+DIVERA_RESPONSE_CLASSIFICATION = TextSetting("divera.response_classification")
+
+
+# Every declaration above, collected from the module so a new one cannot be left out:
+# the declared objects by key (for `read`), and their defaults as stored text.
+_DECLARED: dict[str, object] = {}
+DEFAULT_SETTINGS: dict[str, str] = {}
+for _value in list(globals().values()):
+    if isinstance(_value, StationSetting):
+        if _value.key in _DECLARED:
+            raise RuntimeError(f"settings key declared twice: {_value.key}")
+        _DECLARED[_value.key] = _value
+        DEFAULT_SETTINGS[_value.key] = _value.default_text()
+del _value
 
 # The chips that became structured /feld requests (R13). Compared case- and
 # space-insensitively, because a station typed them into a Textarea.
 STRUCTURED_REQUEST_CHIPS: frozenset[str] = frozenset({"verstärkung nötig", "material nötig"})
 
 
-def without_structured_chips(chips: list[str]) -> list[str]:
+def without_structured_chips(chips: Sequence[str]) -> list[str]:
     """The chips minus the two that are fixed request buttons on /feld now."""
     return [chip for chip in chips if " ".join(chip.casefold().split()) not in STRUCTURED_REQUEST_CHIPS]
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:
-    """Get setting value by key."""
+    """The raw stored value, or None without a row. For rows outside the registry."""
     result = await db.execute(select(Setting).where(Setting.key == key))
     setting = result.scalar_one_or_none()
     return setting.value if setting else None
 
 
-async def get_setting_value(db: AsyncSession, key: str, default: str | None = None) -> str:
-    """Get setting value with fallback to default."""
-    value = await get_setting(db, key)
-    if value is None:
-        return default if default is not None else DEFAULT_SETTINGS.get(key, "")
-    return value
+async def read[T](db: AsyncSession, setting: StationSetting[T]) -> T:
+    """The setting's value as its declared type; its default without a row.
+
+    Raises ``KeyError`` for a setting that is not declared in this module – a key typed by
+    hand elsewhere would otherwise read as its default forever.
+    """
+    if _DECLARED.get(setting.key) is not setting:
+        raise KeyError(f"undeclared station setting: {setting.key!r}")
+    raw = await get_setting(db, setting.key)
+    return setting.default if raw is None else setting.parse(raw)
 
 
 async def get_station_coordinates(db: AsyncSession) -> tuple[float, float] | None:
@@ -260,38 +367,15 @@ async def get_station_coordinates(db: AsyncSession) -> tuple[float, float] | Non
     return geofence, the Magazin map marker, simulated drives) reads THIS, so
     filling in either pair makes all of them work.
     """
-    for lat_key, lng_key in (
-        ("gps.station_lat", "gps.station_lng"),
-        ("firestation_latitude", "firestation_longitude"),
+    for lat_setting, lng_setting in (
+        (GPS_STATION_LAT, GPS_STATION_LNG),
+        (FIRESTATION_LATITUDE, FIRESTATION_LONGITUDE),
     ):
-        try:
-            lat = float(await get_setting_value(db, lat_key, ""))
-            lng = float(await get_setting_value(db, lng_key, ""))
-        except (TypeError, ValueError):
-            continue
-        return (lat, lng)
+        lat = await read(db, lat_setting)
+        lng = await read(db, lng_setting)
+        if lat is not None and lng is not None:
+            return (lat, lng)
     return None
-
-
-async def get_alarm_description_filter_prefixes(db: AsyncSession) -> list[str]:
-    """Line prefixes whose whole line is dropped from an alarm description (one per line).
-
-    Stored and parsed exactly like the `/feld` chips – a string-valued settings row
-    edited in a Textarea – so the same tolerance for blank lines and stray spaces
-    applies. Empty by default: filter nothing until a station says otherwise.
-    Applied by `services/divera_intake.filter_description_lines`.
-    """
-    return parse_message_chips(await get_setting_value(db, ALARM_DESCRIPTION_FILTER_PREFIXES_KEY))
-
-
-async def get_alarm_description_label_prefixes(db: AsyncSession) -> list[str]:
-    """Labels stripped off the front of a KEPT alarm-description line (one per line).
-
-    The sibling of `get_alarm_description_filter_prefixes`: that one removes the whole
-    line, this one removes only the label and keeps what follows it. Empty by default.
-    Applied by `services/divera_intake.strip_description_labels`.
-    """
-    return parse_message_chips(await get_setting_value(db, ALARM_DESCRIPTION_LABEL_PREFIXES_KEY))
 
 
 # Marks a database as disposable – written only by the demo seeder, checked by the demo
@@ -321,7 +405,7 @@ async def get_alarm_webhook_secret(db: AsyncSession) -> str:
 
     if app_settings.alarm_webhook_secret:
         return app_settings.alarm_webhook_secret
-    return await get_setting(db, "alarm_webhook_secret") or ""
+    return await get_setting(db, ALARM_WEBHOOK_SECRET.key) or ""
 
 
 async def alarm_webhook_secret_is_pinned() -> bool:
@@ -345,7 +429,7 @@ async def rotate_alarm_webhook_secret(db: AsyncSession, user_id: UUID | None = N
     is exactly the corner that made `SELECT value FROM settings` a documented setup step.
     """
     new_secret = _generate_webhook_secret()
-    await update_setting(db, "alarm_webhook_secret", new_secret, user_id)
+    await update_setting(db, ALARM_WEBHOOK_SECRET.key, new_secret, user_id)
     return new_secret
 
 
@@ -354,7 +438,7 @@ async def rotate_alarm_webhook_secret(db: AsyncSession, user_id: UUID | None = N
 # to any authenticated user – including read-only viewers. The webhook secret has a
 # dedicated, careful path (ALARM_WEBHOOK_SECRET, or the admin reveal-and-rotate endpoints),
 # so nothing legitimate needs to read it out of the generic endpoint. The frontend never does.
-SECRET_SETTING_KEYS = frozenset({"alarm_webhook_secret"})
+SECRET_SETTING_KEYS = frozenset({ALARM_WEBHOOK_SECRET.key})
 
 SECRET_PLACEHOLDER = "***"  # noqa: S105 – the mask itself, not a credential
 
@@ -363,7 +447,7 @@ SECRET_PLACEHOLDER = "***"  # noqa: S105 – the mask itself, not a credential
 # masked: nothing on the settings page can render a ~100 KB base64 string, and shipping it
 # with every settings fetch would put it on the wire on every visit to Einstellungen. Their
 # own endpoint serves the bytes with an image content type instead.
-BLOB_SETTING_KEYS = frozenset({"branding.report_logo"})
+BLOB_SETTING_KEYS = frozenset({BRANDING_REPORT_LOGO.key})
 
 # Rows a background job writes ABOUT itself, not configuration anyone sets: the last
 # roster-snapshot run (services/roster_snapshot_sync.py) and the training Automatik's run
@@ -379,7 +463,7 @@ STATE_SETTING_KEYS = frozenset({"roster_snapshot.status", "training_autogen.run"
 # reason: a PATCH could store any string at all under it, and every export would then try
 # to draw it.
 GENERIC_WRITE_DENY_REASONS: dict[str, str] = {
-    "branding.report_logo": "Das Logo wird über /api/settings/branding/logo gesetzt, nicht hier.",
+    BRANDING_REPORT_LOGO.key: "Das Logo wird über /api/settings/branding/logo gesetzt, nicht hier.",
     # Masked on read and 403'd by name, but it was still writable through the generic PATCH
     # by any EDITOR – write-without-read on the credential that authorises writing incidents
     # onto the board. An editor could pin it to a value they knew, or simply break the
@@ -389,10 +473,10 @@ GENERIC_WRITE_DENY_REASONS: dict[str, str] = {
     # `SELECT value FROM settings …`.
     # The switch alone would leave the run row (which Übung, since when) behind – the
     # Automatik would feed the wrong Übung and boost from the wrong start.
-    "training_autogen_enabled": (
+    TRAINING_AUTOGEN_ENABLED.key: (
         "Die Automatik wird in der Übungs-Steuerung geschaltet (/api/training/events/{id}/autogen), nicht hier."
     ),
-    "alarm_webhook_secret": (
+    ALARM_WEBHOOK_SECRET.key: (
         "Dieser Wert wird über /api/settings/alarm-webhook-secret gesetzt oder rotiert, nicht hier."
     ),
 }
@@ -460,7 +544,7 @@ async def initialize_default_settings(db: AsyncSession) -> None:
             # Reading it back no longer needs SQL either – an admin can reveal or rotate it in
             # the app (GET/POST /api/settings/alarm-webhook-secret, Einstellungen → Alarmierung),
             # which is what this message used to send people to psql for.
-            if key == "alarm_webhook_secret" and not value:
+            if key == ALARM_WEBHOOK_SECRET.key and not value:
                 value = _generate_webhook_secret()
                 logger.info(
                     "Generated alarm_webhook_secret (not logged – it authorises writes to the "

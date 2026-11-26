@@ -4,7 +4,7 @@
 # The fast loop for one browser test. It brings up its own stack on its own ports, runs
 # Playwright once, keeps a trace of a failure and takes the stack down again:
 #   1. an empty Postgres container (never the dev database), migrated and seeded the way the
-#      CI job «E2E (@smoke)» does it (`alembic upgrade head`, `python -m app.seed` with the
+#      CI job «E2E (@smoke)» does it (`alembic upgrade head`, `python -m app.seeds` with the
 #      CI password, no ENVIRONMENT=production – the specs need the dev fixture board);
 #   2. the backend and `pnpm dev` on their own ports, split-origin like CI
 #      (NEXT_PUBLIC_API_URL → the backend);
@@ -107,7 +107,7 @@ echo "→ migrate + seed"
 (cd "$work" && "${py[@]}" alembic -c "$root/backend/alembic.ini" upgrade head >"$logs/migrate.log" 2>&1) \
   || { tail -20 "$logs/migrate.log" >&2; exit 1; }
 (cd "$work" && "${py[@]}" env "ADMIN_SEED_PASSWORD=$password" "VIEWER_PASSWORD=$password" \
-  python -m app.seed >"$logs/seed.log" 2>&1) || { tail -20 "$logs/seed.log" >&2; exit 1; }
+  python -m app.seeds >"$logs/seed.log" 2>&1) || { tail -20 "$logs/seed.log" >&2; exit 1; }
 
 echo "→ backend on :${api_port}, frontend (pnpm dev) on :${web_port}"
 (cd "$work" && exec setsid "${py[@]}" env "CORS_ORIGINS=http://localhost:${web_port}" \

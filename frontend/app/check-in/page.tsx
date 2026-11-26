@@ -65,14 +65,12 @@ function CheckInKiosk({ token }: { token: string | null }) {
     try {
       const data = await apiClient.getCheckInList(token)
       if (revision !== rosterRevision.current) return
-      if (data) {
-        setPersonnel(data.personnel)
-        setEventName(data.event_name)
-        setEventId(data.event_id)
-        setLoading(false)
-        setRetrying(false)
-        return
-      }
+      setPersonnel(data.personnel)
+      setEventName(data.event_name)
+      setEventId(data.event_id)
+      setLoading(false)
+      setRetrying(false)
+      return
     } catch (error) {
       if (revision !== rosterRevision.current) return
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
@@ -259,7 +257,15 @@ function CheckInKiosk({ token }: { token: string | null }) {
                 id: newPerson.id,
                 name: newPerson.name,
                 checked_in: newPerson.checked_in,
-                is_assigned: false
+                is_assigned: false,
+                kennung: null,
+                role: null,
+                status: 'available',
+                tags: null,
+                checked_in_at: null,
+                checked_out_at: null,
+                planned_from: null,
+                planned_until: null,
               }])
             }
             // Clear the search so the freshly added person is visible in the

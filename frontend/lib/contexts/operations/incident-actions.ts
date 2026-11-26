@@ -40,7 +40,7 @@ function operationToIncidentCreate(
     event_id: eventId,
     title: operation.location,
     type: (operation.incidentType || "elementarereignis") as ApiIncidentCreate['type'],
-    priority: operation.priority as "low" | "medium" | "high",
+    priority: operation.priority,
     location_address: operation.location,
     ...coordinatesToApiFields(operation.coordinates),
     status: "incoming" as const,
@@ -64,6 +64,15 @@ function operationToIncidentCreate(
 
 /** The server's code for «not merged (any more)» — `services/duplicates.unmerge_report`. */
 const NOT_MERGED_CODE = "incident_not_merged"
+
+/** `ops` with the cards of `orderedIds` in that order: each takes one of the slots they held
+ *  together, every other card keeps its slot (so other columns do not move). */
+function inOrder(ops: Operation[], orderedIds: readonly string[]): Operation[] {
+  const rank = new Map(orderedIds.map((id, index) => [id, index]))
+  const moved = ops.filter((op) => rank.has(op.id)).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+  let next = 0
+  return ops.map((op) => (rank.has(op.id) ? moved[next++] : op))
+}
 
 export function createIncidentActions(board: BoardMutationContext) {
   const {
@@ -352,7 +361,11 @@ export function createIncidentActions(board: BoardMutationContext) {
   // assignment cooldown updateOperation uses, so a poll/WS reload mid-write
   // can't clobber the optimistic order before the POST lands.
   const reorderColumn = (orderedIds: string[]) => {
-    if (!isLoaded || !selectedEvent || !isValidUUID(selectedEvent.id) || orderedIds.length === 0) return
+    if (orderedIds.length === 0) return
+    // On screen at once, and a reload already out cannot paint the old order back.
+    mutationEpochRef.current++
+    setOperations((ops) => inOrder(ops, orderedIds))
+    if (!isLoaded || !selectedEvent || !isValidUUID(selectedEvent.id)) return
 
     // Serialize the POSTs: two rapid drags in flight together can commit in
     // reverse order server-side, silently persisting the FIRST drag's order.
@@ -401,12 +414,11 @@ export function createIncidentActions(board: BoardMutationContext) {
   ) => {
     // Persist the status (debounced backend update + completion side effects).
     updateOperation(operationId, { status: newStatus, ...extraUpdates })
-    // Optimistically move the card to the front of the array so it renders at the
-    // top of its (single-status) column immediately.
+    // To the front of the list at once: several moves before the next render (a whole
+    // Auftrag disponiert) each land on top of the one before.
     setOperations((ops) => {
       const target = ops.find((o) => o.id === operationId)
-      if (!target) return ops
-      return [target, ...ops.filter((o) => o.id !== operationId)]
+      return target ? [target, ...ops.filter((o) => o.id !== operationId)] : ops
     })
     // Persist the new in-column order with this card first.
     const ids = [

@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any, NamedTuple
 from zoneinfo import ZoneInfo
 
+from ..json_columns import RapportExtraMaterialEntry, RapportMaterialEntry, RapportPersonnelEntry, RapportVehicleEntry
 from ..models import RekoReport, SchadenplatzReport
 from .audit_export_service import EventReportData
 from .reaction_times import is_merge_transition
@@ -344,7 +345,7 @@ def rapport_by_incident(data: EventReportData) -> dict[uuid.UUID, SchadenplatzRe
     return {report.incident_id: report for report in data.schadenplatz_reports}
 
 
-def material_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+def material_checklist_rows(report: SchadenplatzReport | None) -> list[RapportMaterialEntry]:
     """``materials_json`` as a list of dicts, defensively (it is JSONB)."""
     if report is None or not report.materials_json:
         return []
@@ -409,7 +410,7 @@ def left_on_site_assignment_ids(report: SchadenplatzReport | None) -> list[uuid.
     return ids
 
 
-def extra_material_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+def extra_material_rows(report: SchadenplatzReport | None) -> list[RapportExtraMaterialEntry]:
     """ "Weiteres gebrauchtes Material" as ``{name, left_on_site}`` rows (§18.35).
 
     Read defensively like every other JSONB list here, and named rather than
@@ -417,7 +418,7 @@ def extra_material_rows(report: SchadenplatzReport | None) -> list[dict[str, Any
     """
     if report is None or not report.extra_materials_json:
         return []
-    rows: list[dict[str, Any]] = []
+    rows: list[RapportExtraMaterialEntry] = []
     for raw in report.extra_materials_json:
         if not isinstance(raw, dict):
             continue
@@ -450,14 +451,14 @@ def extra_material_left_on_site_names(report: SchadenplatzReport | None) -> list
     ]
 
 
-def vehicle_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+def vehicle_checklist_rows(report: SchadenplatzReport | None) -> list[RapportVehicleEntry]:
     """``vehicles_json`` as a list of dicts, defensively (it is JSONB)."""
     if report is None or not report.vehicles_json:
         return []
     return [row for row in report.vehicles_json if isinstance(row, dict)]
 
 
-def personnel_checklist_rows(report: SchadenplatzReport | None) -> list[dict[str, Any]]:
+def personnel_checklist_rows(report: SchadenplatzReport | None) -> list[RapportPersonnelEntry]:
     """``personnel_json`` as a list of dicts, defensively (it is JSONB)."""
     if report is None or not report.personnel_json:
         return []

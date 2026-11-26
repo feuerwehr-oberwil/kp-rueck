@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { linkRequest, request as httpRequest } from '../http'
+import { linkRequest, linkRequestVoid, request as httpRequest, requestVoid } from '../http'
 import type {
   ApiAssignment,
   ApiRekoReportUpdate,
@@ -126,7 +126,7 @@ export class RekoApi {
   }
 
   async deleteRekoPhoto(incidentId: string, token: string, filename: string): Promise<void> {
-    await linkRequest(`/api/reko/${incidentId}/photos/${filename}`, {
+    await linkRequestVoid(`/api/reko/${incidentId}/photos/${filename}`, {
       method: 'DELETE',
       headers: { 'X-Reko-Token': token },
     })
@@ -134,7 +134,7 @@ export class RekoApi {
 
   /** Board door, see `uploadRekoPhotoAsEditor`. */
   async deleteRekoPhotoAsEditor(incidentId: string, filename: string): Promise<void> {
-    await httpRequest(`/api/reko/${incidentId}/photos/${filename}`, { method: 'DELETE' })
+    await requestVoid(`/api/reko/${incidentId}/photos/${filename}`, { method: 'DELETE' })
   }
 
   /** The Einsatz's Reko report as a list: empty, or THE one (one per Einsatz since 23.11.2026). */
@@ -181,7 +181,7 @@ export class RekoApi {
    * (`ApiError.isConflict`) and nothing changes.
    */
   async reorderRekoAssignments(personnelId: string, eventId: string, orderedIds: string[], expectedIds?: string[]): Promise<void> {
-    await httpRequest<void>(`/api/reko/personnel/${personnelId}/order`, {
+    await requestVoid(`/api/reko/personnel/${personnelId}/order`, {
       method: 'POST',
       body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds, expected_ids: expectedIds ?? null }),
     })
@@ -189,7 +189,7 @@ export class RekoApi {
 
   /** `assignmentId`: release exactly the row the board shows (404 when it is gone). */
   async unassignRekoPersonnel(incidentId: string, personnelId: string, assignmentId: string): Promise<void> {
-    return httpRequest<void>(
+    return requestVoid(
       `/api/reko/incidents/${incidentId}/unassign-reko/${personnelId}?assignment_id=${encodeURIComponent(assignmentId)}`,
       {
         method: 'DELETE',

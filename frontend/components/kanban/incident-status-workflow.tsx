@@ -140,7 +140,7 @@ export interface CompletionRelease {
 }
 
 /** Which assignment a «bleibt vor Ort | kehrt zurück» toggle writes: the Einsatz's own vehicle
- *  (`useToggleDriverStay`) or its Auftrag's (`setRouteDriverStay`). */
+ *  (`toggleDriverStay`) or its Auftrag's (`setRouteDriverStay`). */
 export type DriverStayTarget =
   | { kind: "incident"; operationId: string; vehicleId: string }
   | { kind: "route"; groupId: string; assignmentId: string }

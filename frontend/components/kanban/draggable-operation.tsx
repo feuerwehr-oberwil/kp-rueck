@@ -28,7 +28,8 @@ import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/prag
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { sameCrew, sameVehicles } from "@/lib/operation-equality"
-import { isResourceDrag, takesAssignments } from "@/lib/assignable"
+import { takesAssignments } from "@/lib/assignable"
+import { isResourceDrag, type BoardDragSource, type BoardDropTarget } from "@/lib/board-drag"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -47,6 +48,7 @@ import { formatDurationHours } from "@/lib/duration"
 import { metaFacts } from "@/lib/meta-line"
 import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
+import { emitAppEvent } from '@/lib/app-events'
 
 const widthHasSidePanel = () => window.innerWidth >= SIDE_PANEL_BREAKPOINT
 
@@ -242,8 +244,8 @@ function DraggableOperationBase({
   const { groups, getGroupResources } = useGroups()
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
-  // the page via a window event (mirrors the driver-assignment-changed pattern),
-  // avoiding prop threading through the column/side-panel render trees.
+  // the page via a window event, avoiding prop threading through the
+  // column/side-panel render trees.
   const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
   // This incident's 1-based position in the route (e.g. "Stop 3/5"). Derive from
@@ -400,7 +402,7 @@ function DraggableOperationBase({
         ? [
             draggable({
               element,
-              getInitialData: () => ({ type: "operation", operation, index }),
+              getInitialData: () => ({ type: "operation", operation, index }) satisfies BoardDragSource,
               onDragStart: () => {
                 setIsDragging(true)
                 isDraggingRef.current = true
@@ -426,7 +428,7 @@ function DraggableOperationBase({
         canDrop: ({ source }) => !isResourceDrag(source.data) || takesAssignments(operation),
         getData: ({ input }) => {
           return attachClosestEdge(
-            { type: "operation-drop", operationId: operation.id, index },
+            { type: "operation-drop", operationId: operation.id, index } satisfies BoardDropTarget,
             { element, input, allowedEdges: ['top', 'bottom'] }
           )
         },
@@ -962,7 +964,7 @@ function DraggableOperationBase({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
+                  emitAppEvent('kp:open-auftraege', { groupId: auftrag.id })
                 }}
                 className="group/auftrag flex w-full min-w-0 items-start gap-1.5 text-left transition-colors"
                 // The whole row, not just the name: this attribute used to carry

@@ -4,7 +4,7 @@
  * Moved verbatim out of `OperationsProvider` (see `BoardMutationContext`).
  */
 
-import { apiClient } from "@/lib/api-client"
+import { ApiError, apiClient } from "@/lib/api-client"
 import { assignFailureDescription } from "@/lib/assignment-refusal"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import type { PersonStatus } from "../personnel-context"
@@ -15,6 +15,7 @@ import { findRecentRemoval, recordRemoval } from "@/lib/recent-removals"
 import { formatAgo } from "@/lib/duration"
 import { drivenElsewhere, type DrivenElsewhere } from "@/lib/driver-conflict"
 import { planNext } from "@/lib/planned-actions"
+import { isOpenReko, mergeOpenOrder, rekosOf } from "@/lib/reko-order"
 import type { Operation, OperationStatus, OperationsContextType } from "./types"
 import type { BoardMutationContext } from "./board-context"
 
@@ -34,6 +35,8 @@ export function createResourceActions(board: BoardMutationContext) {
     setVehicleNeedingDriver,
     operationsRef,
     recentRemovalsRef,
+    rekoOrderQueueRef,
+    reloadWhenSettled,
     armAssignmentCooldown,
     releaseAssignmentCooldown,
     beginAssignmentSettling,
@@ -767,6 +770,81 @@ export function createResourceActions(board: BoardMutationContext) {
     }
   }
 
+  /**
+   * «bleibt vor Ort» ↔ «kehrt zurück» for a vehicle on an incident. The flag is read out in the
+   * Funkdurchsage, printed on the slip and shown on the card, so every surface that assigns a
+   * vehicle offers it. Optimistic: the chip flips at once and reverts with a toast when the
+   * PATCH fails. No-op while the assign POST is still out (no row to patch yet).
+   */
+  const toggleDriverStay = (operationId: string, vehicleId: string) => {
+    const vehicle = operations.find((op) => op.id === operationId)?.vehicles.find((v) => v.vehicleId === vehicleId)
+    const assignmentId = vehicle?.assignmentId
+    if (!assignmentId) return
+
+    const previous = vehicle.driverStay ?? false
+    const applyStay = (driverStay: boolean) =>
+      setOperations((ops) =>
+        ops.map((op) =>
+          op.id === operationId
+            ? { ...op, vehicles: op.vehicles.map((v) => (v.vehicleId === vehicleId ? { ...v, driverStay } : v)) }
+            : op,
+        ),
+      )
+
+    armAssignmentCooldown()
+    applyStay(!previous)
+    apiClient
+      .updateAssignment(operationId, assignmentId, { driver_stay: !previous })
+      .catch(() => {
+        toast.error(translateOutsideReact("kanban.common.updateFailed"))
+        applyStay(previous)
+      })
+      .finally(() => releaseAssignmentCooldown())
+  }
+
+  /**
+   * The Reko-Editor drag: put one Reko person's open Rekos in a new order. Shows the new numbers
+   * at once (`rekoPosition`), then sends the person's WHOLE list (`mergeOpenOrder`) with the set
+   * it was made from as `expected_ids`. A 409 – somebody added, released or handed over one of
+   * their Rekos meanwhile – says so and reloads the board; nothing is resent. Drags of one person
+   * go out one at a time, so the server sees them in order.
+   */
+  const reorderRekos = async (personId: string, nextOpenIds: string[]): Promise<void> => {
+    if (!selectedEvent) return
+    const eventId = selectedEvent.id
+    const all = rekosOf(operations, personId)
+    const allIds = all.map((op) => op.id)
+    const next = mergeOpenOrder(allIds, all.filter(isOpenReko).map((op) => op.id), nextOpenIds)
+    if (!next) return
+
+    const position = new Map(next.map((id, index) => [id, index]))
+    armAssignmentCooldown()
+    setOperations((ops) =>
+      ops.map((op) =>
+        op.assignedReko?.id === personId && position.has(op.id) ? { ...op, rekoPosition: position.get(op.id) } : op,
+      ),
+    )
+    try {
+      await rekoOrderQueueRef.current.run(personId, () =>
+        apiClient.reorderRekoAssignments(personId, eventId, next, allIds),
+      )
+    } catch (error) {
+      if (ApiError.isConflictError(error)) {
+        toast.error(translateOutsideReact("map.rekoMode.orderChangedTitle"), {
+          description: translateOutsideReact("map.rekoMode.orderChangedDescription"),
+        })
+      } else {
+        console.error("Failed to reorder Rekos:", error)
+        toast.error(translateOutsideReact("map.rekoMode.orderFailedTitle"), {
+          description: translateOutsideReact("map.rekoMode.orderFailedDescription"),
+        })
+      }
+      reloadWhenSettled()
+    } finally {
+      releaseAssignmentCooldown()
+    }
+  }
+
   return {
     removeCrew,
     removeReko,
@@ -777,5 +855,7 @@ export function createResourceActions(board: BoardMutationContext) {
     assignMaterialToOperation,
     assignVehicleToOperation,
     resolveResourceConflict,
+    toggleDriverStay,
+    reorderRekos,
   }
 }

@@ -60,7 +60,6 @@ import { useStandby } from "@/lib/contexts/standby-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { planNext } from "@/lib/planned-actions"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
@@ -78,7 +77,6 @@ import { filterIncidents } from "@/lib/incident-search"
 import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
 import { MobileIncidentListView, type MobileOpenRequest } from "@/components/mobile/mobile-incident-list-view"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
-import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
@@ -102,11 +100,11 @@ import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
 import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
+import { onAppEvent } from "@/lib/app-events"
 
 export default function FireStationDashboard() {
   const {
     operations,
-    setOperations,
     formatLocation,
     refreshOperations,
     removeCrew,
@@ -115,6 +113,7 @@ export default function FireStationDashboard() {
     removeReko,
     updateOperation,
     reorderColumn,
+    toggleDriverStay,
     changeStatusToTop,
     setBoardDragging,
     createOperation,
@@ -137,7 +136,7 @@ export default function FireStationDashboard() {
   } = useOperations()
   // The board's roster is "everybody checked in", so the Appell writing an
   // attendance row changes it — see `onAttendanceChange` on the modal below.
-  const { refreshPersonnel } = usePersonnel()
+  const { personnel, refreshPersonnel } = usePersonnel()
   const {
     groups,
     addStops: addStopsToGroup,
@@ -159,9 +158,6 @@ export default function FireStationDashboard() {
   // The right-click actions and two views as commands (Ctrl K) – same early
   // registration, filled in below once the dialogs and the checklist exist.
   const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
-
-  // The roster the board draws, with «steht auf einem Auftrag» folded in.
-  const personnel = useAuftragRoster()
 
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)
@@ -536,7 +532,6 @@ export default function FireStationDashboard() {
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
-  const toggleDriverStay = useToggleDriverStay()
 
   // The Einsatz dialogs this page shares with the Lagekarte (assignment, Auftrag
   // picker, transfer, Divera, the status gates) – see incident-dialogs.tsx.
@@ -640,7 +635,7 @@ export default function FireStationDashboard() {
 
   // Who drives what, for the whole board. One roster call here rather than one
   // per card; the cards render the driver next to the Funkrufname.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
+  const vehicleDrivers = useVehicleDrivers()
 
   // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
   const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
@@ -676,7 +671,6 @@ export default function FireStationDashboard() {
     requestResourceConflict,
     operations,
     updateOperation,
-    setOperations,
     reorderColumn,
     removeVehicle,
     assignVehicleToOperation,
@@ -996,7 +990,6 @@ export default function FireStationDashboard() {
     isMounted,
     canEdit: isEditor,
     operations,
-    setOperations,
     updateOperation,
     reorderColumn,
     assignPersonToOperation: boardAssignPerson,
@@ -1023,28 +1016,25 @@ export default function FireStationDashboard() {
 
   // Board Auftrag chips signal the page via a window event (no prop threading
   // through the column/side-panel trees) to open the Aufträge sheet on that route.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const groupId = (e as CustomEvent<{ groupId: string }>).detail?.groupId ?? null
-      setAuftraegeFocusGroupId(groupId)
-      setActiveFooterSheet('auftraege')
-    }
-    window.addEventListener('kp:open-auftraege', handler)
-    return () => window.removeEventListener('kp:open-auftraege', handler)
-  }, [])
+  useEffect(
+    () =>
+      onAppEvent('kp:open-auftraege', ({ groupId }) => {
+        setAuftraegeFocusGroupId(groupId)
+        setActiveFooterSheet('auftraege')
+      }),
+    [],
+  )
 
   // Same channel for the Auftrags-Editor: a card's context menu opens its route
   // directly, with that stop focused, instead of detouring through the sheet.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ groupId: string; focusIncidentId?: string }>).detail
-      if (!detail?.groupId) return
-      setRoutenEditorGroupId(detail.groupId)
-      setRoutenEditorFocusIncidentId(detail.focusIncidentId ?? null)
-    }
-    window.addEventListener('kp:open-routen-editor', handler)
-    return () => window.removeEventListener('kp:open-routen-editor', handler)
-  }, [])
+  useEffect(
+    () =>
+      onAppEvent('kp:open-routen-editor', ({ groupId, focusIncidentId }) => {
+        setRoutenEditorGroupId(groupId)
+        setRoutenEditorFocusIncidentId(focusIncidentId ?? null)
+      }),
+    [],
+  )
 
   // No scroll lock while a footer sheet is open. There used to be one here
   // (`overflow: hidden` on `#kanban-main` and every column body), from when the
@@ -1558,7 +1548,7 @@ export default function FireStationDashboard() {
             ) : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
-                  const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
+                  const columnOps = filteredOperations.filter((op) => column.id === op.status)
                   return (
                     <DroppableColumn
                       key={column.id}

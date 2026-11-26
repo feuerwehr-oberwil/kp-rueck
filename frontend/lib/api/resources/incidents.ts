@@ -5,9 +5,8 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import {
-  NetworkError,
   type IncidentStatus,
   type ApiIncident,
   type ApiIncidentCreate,
@@ -80,10 +79,8 @@ export class IncidentsApi {
    * callers must treat null as "unknown", never as zero, or the banner would claim a full
    * board is truncated.
    *
-   * ⚠️ Rejects with `NetworkError` when the request never got an answer. `request()` lets a
-   * GET resolve to nothing on a dead connection, and this used to turn that into `[]` – a
-   * failed load and an Ereignis without incidents were the same value, and the board wiped
-   * every card on a timed-out poll (2026-09-23).
+   * ⚠️ Rejects with `NetworkError` when the request never got an answer: a failed load and
+   * an Ereignis without incidents must never be the same value.
    */
   async getIncidentsWithTotal(eventId: string, params?: {
     status?: IncidentStatus
@@ -107,7 +104,6 @@ export class IncidentsApi {
         },
       },
     )
-    if (incidents === undefined) throw new NetworkError()
     return { incidents, total }
   }
 
@@ -145,7 +141,7 @@ export class IncidentsApi {
    * `orderedIds` is the column's cards in their new order (204 No Content).
    */
   async reorderIncidents(eventId: string, orderedIds: string[]): Promise<void> {
-    await httpRequest<void>('/api/incidents/reorder', {
+    await requestVoid('/api/incidents/reorder', {
       method: 'POST',
       body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds }),
     })
@@ -172,7 +168,7 @@ export class IncidentsApi {
   }
 
   async deleteIncident(id: string): Promise<void> {
-    return httpRequest<void>(`/api/incidents/${id}`, {
+    return requestVoid(`/api/incidents/${id}`, {
       method: 'DELETE',
     })
   }

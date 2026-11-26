@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
-import { apiClient, type ApiMaterialGroup, type ApiMaterialResource, type ApiPersonnel } from "@/lib/api-client"
+import { apiClient, NetworkError, type ApiMaterialGroup, type ApiMaterialResource, type ApiPersonnel } from "@/lib/api-client"
 import { isValidUUID } from "@/lib/utils/validation"
 import type { Person, PersonRole } from "../personnel-context"
 import type { Material, MaterialGroup } from "../materials-context"
@@ -92,7 +92,8 @@ export function usePersonnelList(eventId: string | null) {
         return personnelList
       } catch (error) {
         console.error("Failed to load personnel:", error)
-        if (!hasShownLoadErrorRef.current) {
+        // No answer at all is the outage's to say (one voice: lib/api/http.ts).
+        if (!hasShownLoadErrorRef.current && !NetworkError.isNetworkError(error)) {
           hasShownLoadErrorRef.current = true
           toast.error(translateOutsideReact("notifications.personnel.loadFailedTitle"), {
             description: translateOutsideReact("notifications.personnel.loadFailedDescription"),
@@ -109,6 +110,28 @@ export function usePersonnelList(eventId: string | null) {
   )
 
   return { personnel, setPersonnel, refreshPersonnel }
+}
+
+/**
+ * id → name for everybody who could be on an Auftrag: the WHOLE roster with the Ereignis's own
+ * guests, not checked-in-only. A route assignment outlives a check-out on purpose (the board
+ * warns and proceeds, /feld lets somebody go home while still assigned), and a route chip, the
+ * Funkspruch and the printout must still name them. Fetched once per sign-in and Ereignis: it
+ * answers «what is this id called», not who is on duty.
+ */
+export function useRosterNames(eventId: string | null, authReady: boolean): ReadonlyMap<string, string> {
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map())
+  useEffect(() => {
+    if (!authReady) return
+    const scope = eventId && isValidUUID(eventId) ? eventId : null
+    apiClient
+      .getAllPersonnel(scope ? { event_id: scope } : undefined)
+      .then((list) => setNames(new Map(list.map((person) => [String(person.id), person.name]))))
+      .catch(() => {
+        // Silent: names fall back to the live roster, then «Unbekannt».
+      })
+  }, [authReady, eventId])
+  return names
 }
 
 /** The depot (station-wide, deployment per Ereignis) and its material groups. */
@@ -133,7 +156,7 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
         return materialsList
       } catch (error) {
         console.error("Failed to load materials:", error)
-        if (!hasShownMaterialsErrorRef.current) {
+        if (!hasShownMaterialsErrorRef.current && !NetworkError.isNetworkError(error)) {
           hasShownMaterialsErrorRef.current = true
           toast.error(translateOutsideReact("notifications.materials.loadFailedTitle"), {
             description: translateOutsideReact("notifications.materials.loadFailedDescription"),
@@ -154,7 +177,7 @@ export function useMaterialList(eventId: string | null, authReady: boolean) {
       hasShownGroupsErrorRef.current = false
     } catch (error) {
       console.error("Failed to load material groups:", error)
-      if (!hasShownGroupsErrorRef.current) {
+      if (!hasShownGroupsErrorRef.current && !NetworkError.isNetworkError(error)) {
         hasShownGroupsErrorRef.current = true
         toast.error(translateOutsideReact("notifications.materials.groupsLoadFailed"))
       }

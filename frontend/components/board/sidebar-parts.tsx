@@ -23,6 +23,7 @@ import type { Material } from "@/lib/contexts/operations-context"
 import { materialResourceState, RESOURCE_FREE_TEXT_CLASS, RESOURCE_STATE_DOT_CLASSES, type ResourceSummary } from "@/lib/resource-status"
 import { cn } from "@/lib/utils"
 import { LoadingStatus } from "@/components/ui/shell-loader"
+import type { BoardDragSource } from '@/lib/board-drag'
 
 /**
  * What a resource sidebar shows while the first load is still in flight.
@@ -346,7 +347,7 @@ export function AggregatedMaterialRow({
     if (!element) return
     return draggable({
       element,
-      getInitialData: () => ({ type: 'material', material: dragUnit }),
+      getInitialData: () => ({ type: 'material', material: dragUnit }) satisfies BoardDragSource,
       onDragStart: () => setIsDragging(true),
       onDrop: () => setIsDragging(false),
     })

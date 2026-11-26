@@ -66,7 +66,7 @@ for preset in "${presets[@]}"; do
   (cd backend && DATABASE_URL=$db_url uv run alembic upgrade head >"$log/migrate.log" 2>&1) || { tail -20 "$log/migrate.log" >&2; exit 1; }
   # the dev seed: admin login plus the fixture roster the generator tops up
   (cd backend && DATABASE_URL=$db_url ADMIN_SEED_PASSWORD=$password VIEWER_PASSWORD=$password \
-    uv run python -m app.seed >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
+    uv run python -m app.seeds >"$log/seed.log" 2>&1) || { tail -20 "$log/seed.log" >&2; exit 1; }
 
   # production mode, as prod runs (start.sh: one uvicorn worker): it also silences the
   # per-packet Socket.IO logging, which would otherwise be a measurable share of the CPU here

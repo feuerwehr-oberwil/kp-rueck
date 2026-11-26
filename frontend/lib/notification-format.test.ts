@@ -29,7 +29,7 @@ type Row = { type: string; params?: Record<string, unknown> | null; message?: st
 /** NBSP (a figure stays with its «h») compared as a plain space, so the expectations stay readable. */
 const plain = (text: string | undefined) => text?.replace(/\u00a0/g, ' ')
 const parts = (row: Row, t: NotificationTranslator = de) => {
-  const p = notificationParts({ type: row.type as never, params: row.params, message: row.message ?? 'German fallback' }, t)
+  const p = notificationParts({ type: row.type as never, params: row.params ?? null, message: row.message ?? 'German fallback' }, t)
   return Object.fromEntries(
     Object.entries(p).map(([key, value]) => [key, typeof value === 'string' ? plain(value) : value]),
   ) as typeof p

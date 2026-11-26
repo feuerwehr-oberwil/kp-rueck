@@ -161,7 +161,7 @@ echo "→ Migrating up (a dump from an older release is expected) …"
 docker exec "$BACKEND_CONTAINER" uv run alembic upgrade head
 
 echo "→ Re-seeding the dev logins …"
-docker exec "$BACKEND_CONTAINER" uv run python -m app.seed --dev-logins
+docker exec "$BACKEND_CONTAINER" uv run python -m app.seeds --dev-logins
 
 echo "→ Restarting the dev backend …"
 docker restart "$BACKEND_CONTAINER" >/dev/null

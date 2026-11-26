@@ -9,6 +9,7 @@
  */
 
 import type { ApiFeldAssignment } from '@/lib/api-client'
+import { decodeJwtPayload } from '@/lib/jwt-payload'
 import { rapportApplies } from '@/lib/rapport-visibility'
 
 /**
@@ -70,15 +71,10 @@ export function isLiveAssignment(assignment: ApiFeldAssignment): boolean {
  * access.
  */
 export function decodeFeldCredential(token: string): { personnelId: string | null } | null {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    if (payload?.type === 'feld' && payload.unlocked) {
-      return { personnelId: payload.personnel_id && payload.claim_id ? String(payload.personnel_id) : null }
-    }
-  } catch {
-    // Not a readable JWT — the poster-token path below handles it.
-  }
-  return null
+  // Not a readable JWT (a poster token): null, and the poster path handles it.
+  const payload = decodeJwtPayload(token)
+  if (payload?.type !== 'feld' || !payload.unlocked) return null
+  return { personnelId: payload.personnel_id && payload.claim_id ? String(payload.personnel_id) : null }
 }
 
 /**

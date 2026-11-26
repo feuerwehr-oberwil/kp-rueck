@@ -22,6 +22,7 @@ const alarm = (id: string, overrides: Partial<ApiDiveraEmergency> = {}): ApiDive
   attached_at: null,
   created_incident_id: null,
   is_archived: false,
+  is_training: false,
   ...overrides,
 })
 

@@ -90,7 +90,6 @@ export function matchesIncidentQuery(
     return (
       NEEDS_VEHICLE.has(operation.status) &&
       operation.vehicles.length === 0 &&
-      !operation.vehicle &&
       !operation.zuFuss &&
       !operation.groupId
     )
@@ -101,9 +100,6 @@ export function matchesIncidentQuery(
     operation.incidentType.toLowerCase().includes(needle) ||
     getIncidentTypeLabel(operation.incidentType).toLowerCase().includes(needle) ||
     matchesCodedField(operation.priority, labels.priority, needle) ||
-    // `vehicle` is the legacy single field, `vehicles` the array — both, so an
-    // incident created before the migration is still findable by its vehicle.
-    (!!operation.vehicle && operation.vehicle.toLowerCase().includes(needle)) ||
     operation.vehicles.some(({ name }) => name.toLowerCase().includes(needle)) ||
     operation.crew.some(({ name }) => name.toLowerCase().includes(needle)) ||
     operation.materials.some((materialId) => {

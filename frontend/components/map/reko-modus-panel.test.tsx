@@ -12,9 +12,8 @@ import de from "@/messages/de.json"
 import type { Person } from "@/lib/contexts/personnel-context"
 
 const reorder = vi.hoisted(() => vi.fn(async () => {}))
-vi.mock("@/lib/hooks/use-reko-reorder", () => ({ useRekoReorder: () => reorder }))
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ personnel: [], operations: [], refreshOperations: vi.fn(), formatLocation: (a: string) => a }),
+  useOperations: () => ({ personnel: [], operations: [], refreshOperations: vi.fn(), reorderRekos: reorder, formatLocation: (a: string) => a }),
 }))
 vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => ({ selectedEvent: { id: "e1" } }) }))
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => false }))

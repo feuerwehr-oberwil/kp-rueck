@@ -1,100 +1,18 @@
-export type NotificationSeverity = 'critical' | 'warning' | 'info'
+import type { Out } from '@/lib/api/wire'
 
-export type NotificationType =
-  | 'time_overdue'
-  | 'no_personnel'
-  | 'no_materials'
-  | 'fatigue_warning'
-  // What the backend actually sends for time on duty: ONE event-level row for
-  // everybody past the threshold, rewritten in place (lib/crew-duty.ts).
-  | 'personnel_fatigue'
-  // 15' before a checked-in person's planned «geht um» (lib/planned-times.ts).
-  | 'personnel_leaving'
-  | 'missing_location'
-  | 'event_size_limit'
-  | 'vehicle_arrived'
-  | 'vehicle_returned'
-  // Field reporting (/feld, plan 25). The sidebar renders by severity, so these
-  // need no card of their own — but the union has to know them, or a field
-  // notification arrives typed as something it is not.
-  // `field_pickup` is the only warning of the group: a crew waiting to be
-  // collected is the one field event that is time-critical for the KP.
-  | 'rapport_submitted'
-  | 'field_arrived'
-  | 'field_complete'
-  | 'field_message'
-  | 'field_pickup'
-  // A whole new Schadenplatz, reported by somebody standing in front of it.
-  | 'field_report'
-  // Reconnaissance: the crew tapped «Ich bin vor Ort» on /reko, or filed its
-  // Bericht. Only the field paths notify — the KP logging the same facts from
-  // a radio message must not ring its own bell (suppressed server-side).
-  | 'reko_arrived'
-  | 'reko_submitted'
-  // The door: the Feld-Code was rotated after too many wrong guesses from any
-  // address. Event-level (no incident_id); a warning, so it toasts.
-  | 'feld_code_rotated'
-  // Übungssteuerung: a new exercise incident or an inject (escalation, …).
-  | 'training_emergency'
-  // «Zu erledigen» (24.11.2026): GPS questions as bell to-dos with their own buttons – the
-  // popups are gone. params: vehicle, place, vehicle_id, assignment_id?, group_id?, key.
-  | 'gps_arrival'
-  | 'gps_release'
+export type NotificationSeverity = Out<'NotificationSeverity'>
 
-export interface Notification {
-  id: string
-  type: NotificationType
-  severity: NotificationSeverity
-  /** The backend's German sentence — shown only when `params` is absent or not understood. */
-  message: string
-  /**
-   * The facts the sentence is made of, one shape per type
-   * (backend/app/services/notification_params.py); rendered in the operator's
-   * language by lib/notification-format.ts. Null on rows from before it existed.
-   */
-  params?: Record<string, unknown> | null
-  incident_id?: string
-  created_at: Date
-  dismissed: boolean
-}
+/** What the backend's `NotificationType` enum sends. A row's facts are `params`, one shape
+ *  per type (backend/app/services/notification_params.py), worded by
+ *  lib/notification-format.ts. */
+export type NotificationType = Out<'NotificationType'>
 
-export interface NotificationSettings {
-  // Time thresholds (in minutes/hours)
-  live_eingegangen_min: number
-  live_reko_min: number
-  live_disponiert_min: number
-  live_einsatz_hours: number
-  live_rueckfahrt_min: number
-  live_archive_hours: number
+/** A bell row as the board holds it: the wire row (`NotificationResponse`) with
+ *  `created_at` parsed. `message` is the backend's German sentence, shown only when
+ *  `params` is absent or not understood. */
+export type Notification = Omit<Out<'NotificationResponse'>, 'created_at'> & { created_at: Date }
 
-  training_eingegangen_min: number
-  training_reko_min: number
-  training_disponiert_min: number
-  training_einsatz_hours: number
-  training_rueckfahrt_min: number
-  training_archive_hours: number
-
-  // Resource thresholds
-  fatigue_hours: number
-  material_depletion_threshold: Record<string, number>
-
-  // Event size limits
-  database_size_limit_gb: number
-  photo_size_limit_gb: number
-
-  // Geofence settings
-  enabled_geofence_alerts: boolean
-  geofence_radius_meters: number
-
-  // Enabled alerts (can toggle individual types)
-  enabled_time_alerts: boolean
-  enabled_resource_alerts: boolean
-  enabled_data_quality_alerts: boolean
-  enabled_event_alerts: boolean
-
-  // How long non-critical toasts stay on screen (seconds)
-  toast_duration_seconds: number
-}
+export type NotificationSettings = Out<'NotificationSettings'>
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   // Live mode thresholds
@@ -133,4 +51,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 
   // Toast display
   toast_duration_seconds: 8,
+
+  // Re-alarm: off
+  re_alarm_interval_min: 0,
 }

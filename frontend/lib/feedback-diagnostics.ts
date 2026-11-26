@@ -46,7 +46,8 @@ function diagnosticsFilename(bundle: Pick<DiagnosticsBundle, 'app' | 'generatedA
 export async function fetchDiagnostics(): Promise<DiagnosticsBundle> {
   const res = await fetch(`${getApiUrl()}/api/diag/export`, { credentials: 'include' })
   if (!res.ok) throw new Error(String(res.status))
-  return (await res.json()) as DiagnosticsBundle
+  const bundle: unknown = await res.json()
+  return bundle as DiagnosticsBundle
 }
 
 /** Save the bundle to the device. Returns the filename so the UI can name it in the note that

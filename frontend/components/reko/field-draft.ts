@@ -1,3 +1,5 @@
+import { decodeJwtPayload } from '@/lib/jwt-payload'
+import { isRecord } from '@/lib/utils/safe-storage'
 import { randomUuid } from '@/lib/utils/validation'
 import type { ApiDangersAssessment, ApiEffortEstimation } from '@/lib/api/types'
 import { EMPTY_REKO_FORM, type RekoFormData } from './reko-report-form'
@@ -80,12 +82,8 @@ export interface RecoverableDraft {
 /** The form link's own id (its `jti` claim) – not secret, unlike the token. Decoded without
  *  verifying: it only names a local draft; the server checks the token on every request. */
 function linkId(token: string): string | null {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return typeof payload?.jti === 'string' ? payload.jti : null
-  } catch {
-    return null
-  }
+  const jti = decodeJwtPayload(token)?.jti
+  return typeof jti === 'string' ? jti : null
 }
 
 // Keyed by report AND by the person the link names (`personnel_id`), or by the link itself
@@ -111,11 +109,13 @@ export class ReportDrafts {
       const raw = localStorage.getItem(key)
       if (!raw) continue
       try {
-        const { changes, previous, attempts, savedAt } = JSON.parse(raw)
-        if (!changes || !previous) continue
-        const draft: FieldDraft = { changes, previous, attempts }
+        const stored: unknown = JSON.parse(raw)
+        // `write` below stored it; a damaged or foreign value is skipped.
+        if (!isRecord(stored) || !isRecord(stored.changes) || !isRecord(stored.previous)) continue
+        const draft = { changes: stored.changes, previous: stored.previous, attempts: stored.attempts } as FieldDraft
+        const savedAt = typeof stored.savedAt === 'number' ? stored.savedAt : 0
         const signature = JSON.stringify(draft)
-        const version: RecoverableDraft = versions.get(signature) ?? { draft, savedAt: savedAt ?? 0, revisions: [] }
+        const version: RecoverableDraft = versions.get(signature) ?? { draft, savedAt, revisions: [] }
         version.revisions.push({ key, raw })
         versions.set(signature, version)
       } catch {

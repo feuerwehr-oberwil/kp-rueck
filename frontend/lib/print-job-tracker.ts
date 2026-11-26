@@ -15,7 +15,7 @@
  */
 
 import { toast } from 'sonner'
-import { wsClient, type WebSocketUpdate } from './websocket-client'
+import { wsClient } from './websocket-client'
 
 // `expired` is never broadcast today (the server expires jobs in bulk, long after
 // GIVE_UP_MS); it is in the union so the type matches every status a job can hold.
@@ -172,7 +172,7 @@ function applyEvent(entry: TrackedJob, job: PrintJobEvent) {
 
 function ensureSubscribed() {
   if (unsubscribe) return
-  unsubscribe = wsClient.on('print_job_update', (update: WebSocketUpdate<PrintJobEvent>) => {
+  unsubscribe = wsClient.on('print_job_update', (update) => {
     const job = update?.data
     if (!job?.id) return
     const entry = tracked.get(job.id)

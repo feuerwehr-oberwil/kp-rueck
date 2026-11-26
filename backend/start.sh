@@ -152,7 +152,7 @@ uv run alembic upgrade head
 
 # Seed the database (will skip if already seeded)
 echo "Seeding database..."
-uv run python -m app.seed
+uv run python -m app.seeds
 
 # Ensure shared accounts exist even on an already-seeded DB (no-op unless the
 # corresponding env vars are set). Creates/rotates the read-only viewer login.

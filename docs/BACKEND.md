@@ -26,6 +26,10 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
 - Put lifecycle code in the `lifespan` context (`tests/test_lifespan_only.py` fails on `on_event`). A
   background job is one row in `backend/app/background/jobs.py`, with where it runs (standby, demo).
 - SQLAlchemy 2.0 mapped-column syntax; full type hints.
+- **Station settings** (the `settings` table) are declared once in `services/settings.py`
+  (`PRINTER_PORT = IntSetting("printer.port", 9100, …)`) and read with `read(db, PRINTER_PORT)`,
+  which returns the declared type. A new key gets a declaration there – that is also what lets
+  the Einstellungen page save it.
 - **CRUD and services flush, the request commits** (once, before the response – `commit_request`).
   Send anything that a board or another session reacts to after the commit: `after_commit(db, …)`
   or a background task. Every other explicit commit has a comment beside it that says why. The
@@ -50,7 +54,8 @@ Alarm intake: `/api/alarms` (POST) – provider-neutral webhook, any dispatch sy
 Integrations: `/api/integrations` (GET) – capability registry (which provider is configured per domain)
 
 Full docs: [`openapi.json`](openapi.json) – the committed contract. To regenerate it, run
-`just openapi` (a pytest fails when it drifts). Live Swagger UI while the backend runs:
+`just openapi` (a pytest fails when it drifts; it also regenerates the frontend's
+`lib/api/schema.d.ts`). Live Swagger UI while the backend runs:
 http://localhost:8000/docs
 
 **Integration seams** (provider-neutral, see [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)):

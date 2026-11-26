@@ -174,7 +174,7 @@ async def reset_demo() -> None:
     await _truncate_all_tables()
     _clear_photos()
 
-    from app.seed_demo import seed_demo_database
+    from app.seeds.demo import seed_demo_database
 
     await seed_demo_database()
     _next_reset_time = _next_midnight_naive()
@@ -182,8 +182,7 @@ async def reset_demo() -> None:
     try:
         from app.websocket_manager import broadcast_message
 
-        await broadcast_message({"type": "demo_reset"})
-        logger.info("Broadcasted demo_reset WebSocket message")
+        await broadcast_message("demo_reset", {})
     except Exception as e:
         logger.warning(f"Failed to broadcast demo_reset message: {e}")
 

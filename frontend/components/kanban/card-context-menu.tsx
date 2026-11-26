@@ -14,6 +14,7 @@ import type { MoveTo } from "@/lib/move-in-list"
 import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 import { takesAssignments } from "@/lib/assignable"
 import { useFieldReportWrites } from "@/lib/hooks/use-field-report-writes"
+import { emitAppEvent } from '@/lib/app-events'
 
 interface CardContextMenuProps {
   operation: Operation
@@ -139,13 +140,9 @@ export function CardContextMenu({
               the stop under the cursor arrives focused. */}
           {canOpenRouteEditor && (
             <ContextMenuItem
-              onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent('kp:open-routen-editor', {
-                    detail: { groupId: auftragId, focusIncidentId: operation.id },
-                  })
-                )
-              }
+              onClick={() => {
+                if (auftragId) emitAppEvent('kp:open-routen-editor', { groupId: auftragId, focusIncidentId: operation.id })
+              }}
             >
               <Route className="h-4 w-4" />
               {t('common.openRoutenEditor')}

@@ -1,8 +1,12 @@
 /**
  * One board load, reconciled: the fetched incidents, roster, depot, fleet,
- * special functions, assignments and Reko summaries of ONE Ereignis turned
- * into the cards, the event-scoped roster and the material deployment the
- * board draws.
+ * special functions, assignments, Reko summaries and Aufträge of ONE Ereignis
+ * turned into the cards, the event-scoped roster, the material deployment and
+ * the routes the board draws. `reconcileEvent` is the part a share-link display
+ * runs too (lib/viewer-data), so the wall and the board read alike.
+ * `deriveAuftragState` then reads what the routes mean for the rest of the
+ * board – on every state change, not only per load, because the Auftrag
+ * actions write the routes optimistically.
  *
  * Pure — no fetches, no refs, no state. Moved out of the provider's
  * `loadData` verbatim (2026-09-23): the fetches, the stale-load and
@@ -15,10 +19,12 @@ import type {
   ApiEventRekoSummariesResponse,
   ApiEventSpecialFunctionResponse,
   ApiIncident,
+  ApiIncidentGroup,
   ApiVehicle,
 } from "@/lib/api-client"
+import type { GroupResourceType, GroupResources, IncidentGroup } from "@/lib/types/groups"
 import type { Material, Operation, Person, PersonStatus } from "../operations-context"
-import { apiIncidentToOperation, rekoDangerTypes } from "./mapping"
+import { apiIncidentGroupToGroup, apiIncidentToOperation, rekoDangerTypes } from "./mapping"
 
 /** What one board load fetched, as `loadData` hands it over. */
 export interface EventSnapshot {
@@ -29,25 +35,69 @@ export interface EventSnapshot {
   specialFunctions: ApiEventSpecialFunctionResponse[]
   assignmentsByIncident: Record<string, ApiAssignment[]>
   rekoSummaries: ApiEventRekoSummariesResponse
+  apiGroups: ApiIncidentGroup[]
 }
 
 export interface EventState {
   ops: Operation[]
   eventScopedPersonnel: Person[]
   eventScopedMaterials: Material[]
+  /** The Aufträge, in `position` order. */
+  groups: IncidentGroup[]
 }
 
-export function buildEventState({
-  apiIncidents,
-  personnelList,
-  materialsList,
-  vehiclesList,
-  specialFunctions,
-  assignmentsByIncident,
-  rekoSummaries,
-}: EventSnapshot): EventState {
-  const ops = apiIncidents.map(apiIncidentToOperation)
+/** The rows `reconcileEvent` reads: the board's own and the share payload's narrower ones fit. */
+export interface EventRows {
+  personnelList: Person[]
+  materialsList: Material[]
+  vehiclesList: ReadonlyArray<Pick<ApiVehicle, "id" | "name" | "radio_call_sign" | "display_order">>
+  specialFunctions: ReadonlyArray<
+    Pick<ApiEventSpecialFunctionResponse, "personnel_id" | "function_type" | "vehicle_id" | "vehicle_name">
+  >
+  assignmentsByIncident: Readonly<
+    Record<
+      string,
+      ReadonlyArray<
+        Pick<ApiAssignment, "id" | "resource_type" | "resource_id" | "driver_stay" | "is_leader"> &
+          Partial<Pick<ApiAssignment, "purpose" | "reko_position">>
+      >
+    >
+  >
+}
 
+export function buildEventState({ apiIncidents, rekoSummaries, apiGroups, ...rows }: EventSnapshot): EventState {
+  const ops = apiIncidents.map(apiIncidentToOperation)
+  const { eventScopedPersonnel, eventScopedMaterials } = reconcileEvent(ops, rows)
+
+  ops.forEach(op => {
+    const summary = rekoSummaries.summaries[op.id]
+    if (summary?.has_completed_reko) {
+      const dangerTypes = rekoDangerTypes(summary.dangers_json)
+      op.hasCompletedReko = true
+      op.rekoSummary = {
+        isRelevant: summary.is_relevant ?? null,
+        hasDangers: dangerTypes.length > 0,
+        dangerTypes,
+        personnelCount: summary.effort_json?.personnel_count ?? null,
+        estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
+        summaryText: summary.summary_text ?? null,
+        photos: summary.photos_json ?? [],
+      }
+    }
+  })
+
+  return { ops, eventScopedPersonnel, eventScopedMaterials, groups: apiGroups.map(apiIncidentGroupToGroup) }
+}
+
+/**
+ * Fills `ops` (in place) with their crew, Reko, leader, material and vehicles from the
+ * assignments, in the fleet's display order, and returns the roster and the depot scoped to
+ * this Ereignis: who is assigned, who holds which special function, what is deployed.
+ */
+export function reconcileEvent(
+  ops: Operation[],
+  { personnelList, materialsList, vehiclesList, specialFunctions, assignmentsByIncident }: EventRows,
+): Pick<EventState, "eventScopedPersonnel" | "eventScopedMaterials"> {
   const rekoPersonnelIds = new Set<string>()
   const driverPersonnelIds = new Map<string, { vehicleId: string; vehicleName: string }>()
   const magazinPersonnelIds = new Set<string>()
@@ -131,24 +181,6 @@ export function buildEventState({
     ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a.vehicleId) ?? 0) - (vehicleOrder.get(b.vehicleId) ?? 0)))
   }
 
-  // Process reko summaries
-  ops.forEach(op => {
-    const summary = rekoSummaries.summaries[op.id]
-    if (summary?.has_completed_reko) {
-      const dangerTypes = rekoDangerTypes(summary.dangers_json)
-      op.hasCompletedReko = true
-      op.rekoSummary = {
-        isRelevant: summary.is_relevant ?? null,
-        hasDangers: dangerTypes.length > 0,
-        dangerTypes,
-        personnelCount: summary.effort_json?.personnel_count ?? null,
-        estimatedDuration: summary.effort_json?.estimated_duration_hours ?? null,
-        summaryText: summary.summary_text ?? null,
-        photos: summary.photos_json ?? [],
-      }
-    }
-  })
-
   const eventScopedPersonnel = personnelList.map(person => ({
     ...person,
     status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
@@ -174,5 +206,81 @@ export function buildEventState({
     status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
   }))
 
-  return { ops, eventScopedPersonnel, eventScopedMaterials }
+  return { eventScopedPersonnel, eventScopedMaterials }
+}
+
+/** What names a route's resources: the fleet, the depot and everybody who could be on a route. */
+export interface AuftragNames {
+  vehicles: readonly ApiVehicle[]
+  /** id → name, checked-out people too: a route assignment outlives a check-out. */
+  personnelNames: ReadonlyMap<string, string>
+  materials: readonly Material[]
+  /** The name of a resource none of the lists knows – never its id. */
+  unknown: string
+}
+
+/** What the Aufträge mean for the rest of the board. */
+export interface AuftragState {
+  /** Auftrag id → its route-owned resources, named and split by kind. */
+  resourcesByGroup: ReadonlyMap<string, GroupResources>
+  /** Every resource that stands on some Auftrag, by kind. */
+  occupiedResourceIds: Record<GroupResourceType, ReadonlySet<string>>
+}
+
+/**
+ * The routes' resources, named once for every surface. A route holds its crew, vehicles and
+ * material itself (the stops carry none), so this is the only place they are read off it.
+ */
+export function deriveAuftragState(groups: readonly IncidentGroup[], names: AuftragNames): AuftragState {
+  const vehicleById = new Map(names.vehicles.map((v) => [String(v.id), v]))
+  const materialById = new Map(names.materials.map((m) => [m.id, m]))
+  const resourcesByGroup = new Map<string, GroupResources>()
+  for (const group of groups) {
+    const resources: GroupResources = { vehicles: [], personnel: [], materials: [] }
+    // `|| unknown` on a TRIMMED name: an empty name would render as a blank chip, which looks
+    // like nothing is assigned at all. The name also goes into the Funkspruch and the printout.
+    for (const a of group.assignments) {
+      if (a.resourceType === "vehicle") {
+        const v = vehicleById.get(a.resourceId)
+        resources.vehicles.push({
+          assignmentId: a.id,
+          resourceId: a.resourceId,
+          name: v?.name?.trim() || names.unknown,
+          callsign: v?.radio_call_sign?.trim() || null,
+          driverStay: a.driverStay,
+        })
+      } else if (a.resourceType === "personnel") {
+        resources.personnel.push({
+          assignmentId: a.id,
+          resourceId: a.resourceId,
+          name: names.personnelNames.get(a.resourceId)?.trim() || names.unknown,
+          isLeader: a.isLeader,
+        })
+      } else {
+        const m = materialById.get(a.resourceId)
+        resources.materials.push({
+          assignmentId: a.id,
+          resourceId: a.resourceId,
+          name: m?.name?.trim() || names.unknown,
+          location: m?.category?.trim() || undefined,
+        })
+      }
+    }
+    resourcesByGroup.set(group.id, resources)
+  }
+  return { resourcesByGroup, occupiedResourceIds: auftragOccupancy(groups) }
+}
+
+/** Every resource that stands on some Auftrag, by kind. */
+export function auftragOccupancy(groups: readonly IncidentGroup[]): Record<GroupResourceType, ReadonlySet<string>> {
+  const occupied = { vehicle: new Set<string>(), personnel: new Set<string>(), material: new Set<string>() }
+  for (const group of groups) for (const a of group.assignments) occupied[a.resourceType].add(a.resourceId)
+  return occupied
+}
+
+/** The roster with «steht auf einem Auftrag» folded in (`isOnAuftrag`): the event-scoped
+ *  reconciliation reads incident rows only, and a route's crew is held on the route. */
+export function withAuftragCrew(personnel: Person[], onAuftrag: ReadonlySet<string>): Person[] {
+  if (onAuftrag.size === 0) return personnel
+  return personnel.map((person) => (onAuftrag.has(person.id) ? { ...person, isOnAuftrag: true } : person))
 }

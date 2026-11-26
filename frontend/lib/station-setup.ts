@@ -1,13 +1,13 @@
 /**
  * What a freshly claimed station still has to set up, read from what the server holds.
  *
- * A production install starts with a placeholder identity (backend/app/seed.py: «Musterstadt»
+ * A production install starts with a placeholder identity (backend/app/seeds/boot.py: «Musterstadt»
  * and its coordinates) and with no roster and no fleet at all. The claim (/setup) only asks
  * for the station's name and the admin password, so the board would open with a map centred
  * on a town that does not exist and an empty sidebar – and say nothing about either.
  */
 
-/** The seed's placeholder Magazin (backend/app/seed.py, production branch). */
+/** The seed's placeholder Magazin (backend/app/seeds/boot.py, production branch). */
 export const PLACEHOLDER_STATION = { latitude: 47.5596, longitude: 7.5886, homeCity: "Musterstadt" } as const
 
 export interface StationSetupInput {

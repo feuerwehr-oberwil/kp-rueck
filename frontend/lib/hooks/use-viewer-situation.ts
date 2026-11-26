@@ -13,11 +13,9 @@ export function useViewerFeed(token: string | null) {
     if (!token) return
     try {
       const payload = await apiClient.getViewerData(token)
-      if (payload) {
-        setSnapshot({ payload, received: new Date() })
-        setStatus('ready')
-        return
-      }
+      setSnapshot({ payload, received: new Date() })
+      setStatus('ready')
+      return
     } catch (error) {
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {
         setSnapshot(null)

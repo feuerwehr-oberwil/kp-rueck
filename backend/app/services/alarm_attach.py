@@ -34,7 +34,7 @@ from ..websocket_manager import broadcast_divera_responses_update, broadcast_inc
 from . import duplicates, incident_display
 from .board_cards import board_response, broadcast_repointed
 from .divera_intake import incident_create_from_emergency
-from .settings import get_alarm_description_filter_prefixes, get_alarm_description_label_prefixes
+from .settings import ALARM_DESCRIPTION_FILTER_PREFIXES, ALARM_DESCRIPTION_LABEL_PREFIXES, read
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +67,8 @@ async def attach(
     card_data = incident_create_from_emergency(
         emergency,
         event_id,
-        description_filter_prefixes=await get_alarm_description_filter_prefixes(db),
-        description_label_prefixes=await get_alarm_description_label_prefixes(db),
+        description_filter_prefixes=list(await read(db, ALARM_DESCRIPTION_FILTER_PREFIXES)),
+        description_label_prefixes=list(await read(db, ALARM_DESCRIPTION_LABEL_PREFIXES)),
     )
     duplicate_of: uuid.UUID | None = None
     if merge_into is None:

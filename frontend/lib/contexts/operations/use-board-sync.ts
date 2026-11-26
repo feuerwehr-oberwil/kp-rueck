@@ -3,30 +3,21 @@
 import type { useEvent } from "../event-context"
 import type { useMaterialList, usePersonnelList } from "./use-resource-lists"
 import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type MutableRefObject } from "react"
-import { apiClient, NetworkError, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
+import { apiClient, type ApiAssignment, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
 import { setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { rememberStationName } from "@/lib/station-name"
 import { isValidUUID } from "@/lib/utils/validation"
 import type { Person } from "../personnel-context"
 import type { Material } from "../materials-context"
-import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import { decideCooldownClearAction, decidePollTickAction, decideRemoteUpdateAction, shouldStartPollingOnMount } from "@/lib/sync-cooldown"
 import { ReloadScheduler } from "@/lib/reload-scheduler"
 import { toMaterialOnSite } from "./mapping"
 import { buildEventState } from "./reconcile"
-import type { Operation, OperationsContextType, DriverStayPayload } from "./types"
-
-/**
- * `request()` lets a GET resolve to nothing when the connection is dead (a soft
- * degrade meant for pollers). For the board's snapshot «nothing» must not pass
- * for «empty» — this turns it back into the failure it is.
- */
-function answered<T>(value: T | undefined): T {
-  if (value === undefined || value === null) throw new NetworkError()
-  return value
-}
+import type { IncidentGroup } from "@/lib/types/groups"
+import type { Operation, OperationsContextType } from "./types"
 
 /**
  * `next`, unless it says exactly what `prev` says – then `prev`. The fleet and
@@ -51,6 +42,7 @@ export interface BoardSyncInput {
   setPersonnel: Dispatch<SetStateAction<Person[]>>
   setMaterials: Dispatch<SetStateAction<Material[]>>
   setOperations: Dispatch<SetStateAction<Operation[]>>
+  setGroups: Dispatch<SetStateAction<IncidentGroup[]>>
   setIsLoaded: Dispatch<SetStateAction<boolean>>
   setIsLoading: Dispatch<SetStateAction<boolean>>
   isLoadingRef: MutableRefObject<boolean>
@@ -67,8 +59,8 @@ export interface BoardSyncInput {
  * The board's ONE loader and its live wiring: the snapshot load behind a
  * single-flight scheduler, WebSocket subscriptions, the polling fallback and the
  * sync freshness (`BoardSyncStatus`). Owns the station-wide state that only a
- * load writes (settings, home city, fleet, special functions, Restliste).
- * Moved verbatim out of `OperationsProvider`.
+ * load writes (settings, home city, fleet, special functions, Restliste); the
+ * cards, roster, depot and Aufträge it writes into the provider's state.
  */
 export function useBoardSync(input: BoardSyncInput) {
   const {
@@ -81,6 +73,7 @@ export function useBoardSync(input: BoardSyncInput) {
     setPersonnel,
     setMaterials,
     setOperations,
+    setGroups,
     setIsLoaded,
     setIsLoading,
     isLoadingRef,
@@ -178,10 +171,19 @@ export function useBoardSync(input: BoardSyncInput) {
     // No sync effect running: signed out, or no Ereignis selected – nothing to be stale about.
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
+      setGroups([])
       setIsLoading(false)
     }
     return true
-  }, [selectedEvent, setOperations, setIsLoading])
+  }, [selectedEvent, setOperations, setGroups, setIsLoading])
+
+  // A reload that waits its turn like a socket event: held while a mutation's cooldown holds,
+  // then run once. For an action that learnt the server differs from what it showed (a 409),
+  // where an explicit refresh could read the board before another pending write commits.
+  const reloadWhenSettled = useCallback(() => {
+    pendingReplayRef.current = true
+    replayPendingUpdatesRef.current?.()
+  }, [replayPendingUpdatesRef])
 
   // Load initial data and set up WebSocket/polling
   useEffect(() => {
@@ -192,8 +194,10 @@ export function useBoardSync(input: BoardSyncInput) {
 
     if (!selectedEvent || !isValidUUID(selectedEvent.id)) {
       setOperations([])
+      setGroups([])
       setPersonnel([])
       setMaterials([])
+      setSpecialFunctions([])
       // No Ereignis, no board to be fresh or stale about.
       boardEventIdRef.current = null
       setLastSyncAt(null)
@@ -221,9 +225,11 @@ export function useBoardSync(input: BoardSyncInput) {
     // loaded». The known ids go too, or B's high-priority incidents would all
     // ring as «new» the moment they land. Station-wide state (vehicles,
     // settings, home city) stays: it is the same across Ereignisse.
-    // Same id (the event object was refetched) is not a switch.
-    if (boardEventIdRef.current !== null && boardEventIdRef.current !== eventId) {
+    // Same id (the event object was refetched) is not a switch; coming from no Ereignis is one
+    // (A → none → B), and on the first mount the reset finds the state empty already.
+    if (boardEventIdRef.current !== eventId) {
       setOperations([])
+      setGroups([])
       setPersonnel([])
       setMaterials([])
       setMaterialOnSite(new Map())
@@ -268,18 +274,18 @@ export function useBoardSync(input: BoardSyncInput) {
         // list off the UI — we write reconciled, event-scoped state below in one go,
         // avoiding a flicker where every person briefly reads as "available".
         //
-        // A failed fetch never becomes an empty list: the reload fails as a
-        // whole and the board keeps its last good state (`answered`, and the
-        // rejecting refreshPersonnel/refreshMaterials). Settings and the
+        // A failed fetch never becomes an empty list: every read rejects (an
+        // offline one with `NetworkError`), the reload fails as a whole and the
+        // board keeps its last good state. Settings and the
         // Restliste are the exceptions — a failure there keeps the previous
         // value instead of failing the board.
         //
-        // ⚠️ Special functions, assignments and reko summaries are part of the snapshot, not
-        // decoration: they used to be allSettled and «non-fatal», so a failed assignments
+        // ⚠️ Special functions, assignments, reko summaries and Aufträge are part of the snapshot,
+        // not decoration: they used to be allSettled and «non-fatal», so a failed assignments
         // fetch painted every card without its crew and every person as available — a board
-        // that invites a double dispatch. Any of them failing fails the reload, and the
-        // board keeps its last good state. They depend on nothing but the Ereignis, so they
-        // go out with the rest instead of a round trip later.
+        // that invites a double dispatch. A route's crew is held on its Auftrag alone. Any of
+        // them failing fails the reload, and the board keeps its last good state. They depend
+        // on nothing but the Ereignis, so they go out with the rest instead of a round trip later.
         const [
           incidentPage,
           personnelList,
@@ -290,23 +296,25 @@ export function useBoardSync(input: BoardSyncInput) {
           specialFunctions,
           assignmentsByIncident,
           rekoSummaries,
+          apiGroups,
         ] = await Promise.all([
           apiClient.getIncidentsWithTotal(eventId),
           refreshPersonnel({ skipStateUpdate: true }),
           refreshMaterials({ skipStateUpdate: true }),
           apiClient.getAllSettings().catch(() => undefined),
-          apiClient.getVehicles().then(answered),
+          apiClient.getVehicles(),
           // Never fatal: a board that cannot say which pump is still in a cellar is
           // still a board.
           apiClient.getEventRestliste(eventId).catch(() => undefined),
-          apiClient.getEventSpecialFunctions(eventId).then(answered),
-          apiClient.getAssignmentsByEvent(eventId).then(answered),
-          apiClient.getEventRekoSummaries(eventId).then(answered),
+          apiClient.getEventSpecialFunctions(eventId),
+          apiClient.getAssignmentsByEvent(eventId),
+          apiClient.getEventRekoSummaries(eventId),
+          apiClient.getIncidentGroups(eventId),
         ])
         const apiIncidents = incidentPage.incidents
 
         // Cards, roster and depot for THIS Ereignis — see ./operations/reconcile.
-        const { ops, eventScopedPersonnel, eventScopedMaterials } = buildEventState({
+        const { ops, eventScopedPersonnel, eventScopedMaterials, groups } = buildEventState({
           apiIncidents,
           personnelList,
           materialsList,
@@ -314,6 +322,7 @@ export function useBoardSync(input: BoardSyncInput) {
           specialFunctions,
           assignmentsByIncident,
           rekoSummaries,
+          apiGroups,
         })
 
         // Fetched for an Ereignis that is no longer on screen: drop it whole —
@@ -363,6 +372,7 @@ export function useBoardSync(input: BoardSyncInput) {
         }
 
         setOperations(ops)
+        setGroups(groups)
         setPersonnel(eventScopedPersonnel)
         setMaterials(eventScopedMaterials)
         if (restliste) setMaterialOnSite(toMaterialOnSite(restliste))
@@ -475,14 +485,13 @@ export function useBoardSync(input: BoardSyncInput) {
     // sender (it already applied the value optimistically).
     // A board load already in flight read the assignments BEFORE this toggle: the epoch
     // bump drops its snapshot and replays a fresh load, or it would turn the flag back.
-    const applyDriverStayUpdate = (data: DriverStayPayload) => {
-      if (!data?.id || !data?.incident_id) return
+    const applyDriverStayUpdate = (data: ApiAssignment) => {
       mutationEpochRef.current++
       setOperations((ops) =>
         ops.map((op) => {
           if (op.id !== data.incident_id) return op
           if (!op.vehicles.some((v) => v.assignmentId === data.id)) return op
-          const driverStay = data.driver_stay ?? false
+          const driverStay = data.driver_stay
           return { ...op, vehicles: op.vehicles.map((v) => (v.assignmentId === data.id ? { ...v, driverStay } : v)) }
         })
       )
@@ -496,8 +505,8 @@ export function useBoardSync(input: BoardSyncInput) {
     // both read them off this load, and nothing else would bring another
     // client's change in.
     const unsubscribeSpecialFunctionUpdate = wsClient.on('special_function_update', handleRemoteUpdate)
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate<DriverStayPayload>) => {
-      if (update?.action === 'driver_stay') {
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update) => {
+      if (update.action === 'driver_stay') {
         applyDriverStayUpdate(update.data)
         return
       }
@@ -511,6 +520,11 @@ export function useBoardSync(input: BoardSyncInput) {
     // get it too. Through the scheduler like the rest: an auto-saving Reko form sends one
     // per save, and the debounce turns a burst into one load.
     const unsubscribeRekoUpdate = wsClient.on('reko_update', handleRemoteUpdate)
+    // An Auftrag changed (stops, route crew, name, Funkdurchsage): the routes are part of the snapshot.
+    const unsubscribeGroupUpdate = wsClient.on('group_update', handleRemoteUpdate)
+    // The demo was wiped and seeded again (nightly, or «Demo zurücksetzen»): every id on screen,
+    // the selected Ereignis's too, is gone. Only a fresh page picks the new ones up.
+    const unsubscribeDemoReset = wsClient.on('demo_reset', () => window.location.reload())
 
     // Fallback polling
     let pollTimeout: NodeJS.Timeout | undefined
@@ -632,6 +646,8 @@ export function useBoardSync(input: BoardSyncInput) {
       unsubscribeAssignmentUpdate()
       unsubscribeAssignmentsTransferred()
       unsubscribeRekoUpdate()
+      unsubscribeGroupUpdate()
+      unsubscribeDemoReset()
       statusUnsubscribe()
       stopPolling()
       reloadScheduler.dispose()
@@ -652,6 +668,7 @@ export function useBoardSync(input: BoardSyncInput) {
     // Stable (state setters and refs handed in by the provider): listed only
     // because they arrive as arguments now; they never re-run the effect.
     setOperations,
+    setGroups,
     setIsLoaded,
     setIsLoading,
     isLoadingRef,
@@ -678,5 +695,6 @@ export function useBoardSync(input: BoardSyncInput) {
     vehicles,
     settings,
     refreshOperations,
+    reloadWhenSettled,
   }
 }

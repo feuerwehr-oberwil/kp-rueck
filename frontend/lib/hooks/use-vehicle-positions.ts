@@ -65,7 +65,7 @@ export function useVehiclePositions({
 
   useEffect(() => {
     if (!live) return
-    return wsClient.on("vehicle_positions_update", (data: { data: ApiVehiclePosition[] }) => {
+    return wsClient.on("vehicle_positions_update", (data) => {
       setPositions(data.data)
     })
   }, [live])

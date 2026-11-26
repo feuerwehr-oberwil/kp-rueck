@@ -27,9 +27,8 @@
  *    device?" is the ringed card, not a modal over it.
  */
 
+import { emitAppEvent, onAppEvent } from '@/lib/app-events'
 import type { OperationDetailSection, OperationDetailTab } from '@/lib/hooks/use-operation-detail-shortcuts'
-
-const HIGHLIGHT_EVENT = 'kp:incident-highlight'
 
 export interface IncidentHighlightOptions {
   tab?: OperationDetailTab
@@ -38,32 +37,25 @@ export interface IncidentHighlightOptions {
   allowModal?: boolean
 }
 
-interface IncidentHighlightDetail extends IncidentHighlightOptions {
-  incidentId: string
-}
-
 /** Ask whichever board is mounted to scroll to this card, ring it, and open its
  *  detail — on `tab` when the caller knows which part it meant. */
 export function requestIncidentHighlight(
   incidentId: string,
   options: IncidentHighlightOptions = {},
 ): void {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(
-    new CustomEvent<IncidentHighlightDetail>(HIGHLIGHT_EVENT, {
-      detail: { incidentId, tab: options.tab, section: options.section, allowModal: options.allowModal ?? false },
-    })
-  )
+  emitAppEvent('kp:incident-highlight', {
+    incidentId,
+    tab: options.tab,
+    section: options.section,
+    allowModal: options.allowModal ?? false,
+  })
 }
 
 /** Subscribe to highlight requests. Returns the unsubscribe function. */
 export function onIncidentHighlight(
   handler: (incidentId: string, options: IncidentHighlightOptions) => void
 ): () => void {
-  const listener = (event: Event) => {
-    const detail = (event as CustomEvent<IncidentHighlightDetail>).detail
-    if (detail?.incidentId) handler(detail.incidentId, { tab: detail.tab, section: detail.section, allowModal: detail.allowModal })
-  }
-  window.addEventListener(HIGHLIGHT_EVENT, listener)
-  return () => window.removeEventListener(HIGHLIGHT_EVENT, listener)
+  return onAppEvent('kp:incident-highlight', ({ incidentId, tab, section, allowModal }) =>
+    handler(incidentId, { tab, section, allowModal }),
+  )
 }

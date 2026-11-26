@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useIntegrationCapability } from "@/lib/hooks/use-integrations"
 import { SettingUnavailableNote } from "@/components/settings/setting-unavailable"
+import { stationPoint } from "@/lib/station-point"
 import { COORDINATE_DECIMALS, normalizeDecimal, validateRangedSetting, type SettingRange, type SettingValidationError } from "@/components/settings/setting-validation"
 import { FormMessage, fieldMessageProps, formMessageId } from "@/components/ui/form-message"
 import { DEFAULT_STALE_MINUTES, GPS_STALE_SETTING } from "@/lib/map-vehicles"
@@ -22,8 +23,6 @@ const MASTER_KEY = "gps.automation_enabled"
 const ARRIVAL_KEY = "gps.rule_arrival_enabled"
 const ARRIVAL_SILENT_KEY = "gps.rule_arrival_silent"
 const RETURN_KEY = "gps.rule_return_enabled"
-const STATION_LAT_KEY = "gps.station_lat"
-const STATION_LNG_KEY = "gps.station_lng"
 const STATION_RADIUS_KEY = "gps.station_radius_meters"
 const ARRIVAL_RADIUS_KEY = "geofence_radius_meters"
 const DEBOUNCE_KEY = "gps.debounce_count"
@@ -85,17 +84,8 @@ export function GpsSettingsCard({
   // gps.station_* und lief auseinander – wer die eine Hälfte ausfüllte, sah hier weiter
   // die Warnung. Der Abschnitt fragt nicht mehr selbst; ein Altbestand in gps.station_*
   // wird weiterhin gelesen (er gewinnt sogar, damit kein Geofence stillschweigend
-  // umzieht – siehe get_station_coordinates im Backend).
-  const legacyLat = Number.parseFloat(settings[STATION_LAT_KEY] ?? "")
-  const legacyLng = Number.parseFloat(settings[STATION_LNG_KEY] ?? "")
-  const generalLat = Number.parseFloat(settings.firestation_latitude ?? "")
-  const generalLng = Number.parseFloat(settings.firestation_longitude ?? "")
-  const effectiveCoords =
-    Number.isFinite(legacyLat) && Number.isFinite(legacyLng)
-      ? ([legacyLat, legacyLng] as const)
-      : Number.isFinite(generalLat) && Number.isFinite(generalLng)
-        ? ([generalLat, generalLng] as const)
-        : null
+  // umzieht – siehe get_station_coordinates im Backend, und `stationPoint`).
+  const effectiveCoords = stationPoint(settings)
   const stationConfigured = effectiveCoords !== null
 
   // Default fallbacks for every numeric key (used when the setting is unset).

@@ -68,8 +68,10 @@ vi.mock("@/lib/contexts/operations-context", () => ({
 }))
 
 import { NotificationToasts } from "./notification-toasts"
+import { UNSET_NOTIFICATION_FIELDS } from '@/test-utils/notification-fixtures'
 
 const fieldMessage = (overrides: Partial<Notification> = {}): Notification => ({
+  ...UNSET_NOTIFICATION_FIELDS,
   id: `n-${Math.random().toString(36).slice(2)}`,
   type: "field_message",
   severity: "info",

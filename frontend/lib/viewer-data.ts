@@ -1,19 +1,19 @@
 /**
  * Shared helpers for the read-only display views (/display/*?token=…).
  *
- * The share-token payload carries raw API rows; these helpers rebuild the same
- * event-scoped view-model the logged-in board derives from its contexts:
- * assignments → crew/material/vehicle per incident, special functions →
- * reko/driver flags, and "assigned vs. available" statuses computed from the
- * assignments rather than the (never event-scoped) availability column.
+ * The share-token payload carries raw API rows, narrower than the board's own (the
+ * allowlist is explicit: `ApiViewer*` in lib/api/resources/viewer.ts and
+ * backend/app/schemas/viewer.py). These helpers map them onto the board's shapes and run
+ * the board's own reconciliation, so a shared display shows what the board shows.
  */
 
 import type { VehicleDriver } from "@/lib/hooks/use-vehicle-drivers"
 import { type ApiViewerData, type ApiViewerGroup, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
 import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
-import { type Person, type PersonStatus } from "@/lib/contexts/personnel-context"
-import { type Material } from "@/lib/contexts/materials-context"
+import { auftragOccupancy, reconcileEvent, withAuftragCrew } from "@/lib/contexts/operations/reconcile"
+import { type Person } from "@/lib/contexts/personnel-context"
+import { type Material, withAuftragDeployment } from "@/lib/contexts/materials-context"
 import { type GroupResourceType, type IncidentGroup } from "@/lib/types/groups"
 import { type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns } from "@/lib/kanban-utils"
@@ -79,14 +79,8 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
     id: a.id,
     location: a.location_address || a.title,
     locationDisplay: a.location_display ?? undefined,
-    vehicle: "" as unknown as Operation["vehicle"],
-    vehicles: (a.assigned_vehicles ?? []).map((v) => ({
-      vehicleId: v.vehicle_id,
-      assignmentId: v.assignment_id,
-      name: v.name,
-      callsign: null,
-      driverStay: v.driver_stay,
-    })),
+    // From the assignments, as on the board (`reconcileEvent`).
+    vehicles: [],
     incidentType: a.type,
     dispatchTime: new Date(a.created_at),
     crew: [],
@@ -158,117 +152,37 @@ function liveGroupAssignments(group: ApiViewerGroup) {
   return (group.assignments ?? []).filter((assignment) => !assignment.unassigned_at)
 }
 
-/** Build the full display view-model from a share-token payload. */
+/**
+ * Build the full display view-model from a share-token payload: the rows mapped onto the
+ * board's own shapes, then the board's own reconciliation (`reconcileEvent`) – crew, Reko,
+ * leader, vehicles in display order, Telefondienst/KP flags – and its Auftrag folds, so the
+ * QR wall reads like the board.
+ */
 export function buildSituationData(payload: ApiViewerData): SituationData {
   const rekoSummaries = payload.reko_summaries ?? {}
   const operations: Operation[] = payload.incidents.map((incident) =>
     viewerIncidentToOperation(incident, rekoSummaries[incident.id])
   )
-
-  // Special functions: reko people are tracked per-incident (not crew); every
-  // other function (driver, magazin, …) counts its person as assigned —
-  // mirrors the logged-in board's reconciliation in operations-context.
-  const rekoPersonnelIds = new Set<string>()
-  const driverInfoByPerson = new Map<string, { vehicleId: string; vehicleName: string }>()
-  const magazinPersonnelIds = new Set<string>()
-  const assignedPersonIds = new Set<string>()
-  const assignedMaterialIds = new Set<string>()
-  for (const func of payload.special_functions ?? []) {
-    if (func.function_type === "reko") {
-      rekoPersonnelIds.add(func.personnel_id)
-    } else {
-      assignedPersonIds.add(func.personnel_id)
-      if (func.function_type === "driver") {
-        driverInfoByPerson.set(func.personnel_id, {
-          vehicleId: func.vehicle_id ?? "",
-          vehicleName: func.vehicle_name ?? "",
-        })
-      } else if (func.function_type === "magazin") {
-        magazinPersonnelIds.add(func.personnel_id)
-      }
-    }
-  }
-
-  const personnelById = new Map(payload.personnel.map((p) => [String(p.id), p]))
-  const vehiclesById = new Map(payload.vehicles.map((v) => [String(v.id), v]))
-
-  // Assignments: populate crew/material/vehicle details per incident and
-  // collect the event-scoped "assigned" sets.
-  const assignmentsByIncident = payload.assignments ?? {}
-  for (const op of operations) {
-    for (const assignment of assignmentsByIncident[op.id] ?? []) {
-      if (assignment.resource_type === "personnel") {
-        const person = personnelById.get(assignment.resource_id)
-        if (!person) continue
-        if (rekoPersonnelIds.has(String(person.id))) {
-          op.assignedReko = { id: String(person.id), name: person.name }
-          continue
-        }
-        op.crew.push({ personnelId: String(person.id), assignmentId: assignment.id, name: person.name })
-        // Marks which crew member leads — the displays sort the crew
-        // leader-first off this, like the logged-in board.
-        if (assignment.is_leader) {
-          op.leaderId = String(person.id)
-          op.leaderName = person.name
-        }
-        assignedPersonIds.add(String(person.id))
-      } else if (assignment.resource_type === "material") {
-        op.materials.push(assignment.resource_id)
-        op.materialAssignments.set(assignment.resource_id, assignment.id)
-        assignedMaterialIds.add(assignment.resource_id)
-      } else if (assignment.resource_type === "vehicle") {
-        const vehicle = vehiclesById.get(assignment.resource_id)
-        if (!vehicle) continue
-        const assigned = {
-          vehicleId: String(vehicle.id),
-          assignmentId: assignment.id,
-          name: vehicle.name,
-          callsign: vehicle.radio_call_sign || null,
-          driverStay: assignment.driver_stay || false,
-        }
-        // The incident row may already carry it (`assigned_vehicles`): replace, never double.
-        const at = op.vehicles.findIndex((v) => v.vehicleId === assigned.vehicleId)
-        if (at === -1) op.vehicles.push(assigned)
-        else op.vehicles[at] = assigned
-      }
-    }
-  }
-
-  // A route's crew lives on the Auftrag, not on its stops: «steht auf einem Auftrag», the
-  // same enrichment `useStatusData` does for the logged-in display.
-  const onAuftragPersonIds = new Set<string>()
-  for (const group of payload.groups ?? []) {
-    for (const assignment of liveGroupAssignments(group)) {
-      if (assignment.resource_type === "personnel") onAuftragPersonIds.add(String(assignment.resource_id))
-      if (assignment.resource_type === "material") assignedMaterialIds.add(String(assignment.resource_id))
-    }
-  }
-
-  const personnel: Person[] = payload.personnel.map((p) => ({
+  const roster: Person[] = payload.personnel.map((p) => ({
     id: String(p.id),
     name: p.name,
     kennung: p.kennung ?? null,
     role: p.role ?? "",
-    status: (assignedPersonIds.has(String(p.id)) ? "assigned" : "available") as PersonStatus,
+    // Event-scoped below, from this Ereignis's assignments.
+    status: "available",
     tags: p.tags ?? undefined,
-    isReko: rekoPersonnelIds.has(String(p.id)),
-    isDriver: driverInfoByPerson.has(String(p.id)),
-    driverVehicleId: driverInfoByPerson.get(String(p.id))?.vehicleId || undefined,
-    driverVehicleName: driverInfoByPerson.get(String(p.id))?.vehicleName || undefined,
-    isMagazin: magazinPersonnelIds.has(String(p.id)),
-    isOnAuftrag: onAuftragPersonIds.has(String(p.id)),
     roleSortOrder: p.role_sort_order,
     // Not in the share payload — whether a person is linked to another system
     // is nothing a display draws, and a viewer never sends alarms.
     diveraLinked: false,
   }))
-
-  const materials: Material[] = payload.materials.map((m) => ({
+  const depot: Material[] = payload.materials.map((m) => ({
     id: m.id,
     name: m.name,
     category: m.location || "General",
     type: m.type || "Sonstiges",
-    status: (assignedMaterialIds.has(m.id) ? "assigned" : "available") as Material["status"],
+    // Event-scoped below, from this Ereignis's assignments.
+    status: "available",
     // Readiness comes down the wire now (`ViewerMaterial.out_of_service`) — the
     // one availability fact a display cannot derive from this event's
     // assignments, and the reason a defective pump used to draw green here.
@@ -280,6 +194,27 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     consumable: m.consumable ?? false,
     groupId: m.group_id,
   }))
+
+  const { eventScopedPersonnel, eventScopedMaterials } = reconcileEvent(operations, {
+    personnelList: roster,
+    materialsList: depot,
+    vehiclesList: payload.vehicles,
+    specialFunctions: payload.special_functions ?? [],
+    assignmentsByIncident: payload.assignments ?? {},
+  })
+  // A vehicle archived since its assignment is not in the share payload's fleet, but the
+  // incident row still names it (`assigned_vehicles`): drawn last, without a call sign.
+  payload.incidents.forEach((incident, index) => {
+    const op = operations[index]
+    for (const v of incident.assigned_vehicles ?? []) {
+      if (op.vehicles.some((known) => known.vehicleId === v.vehicle_id)) continue
+      op.vehicles.push({ vehicleId: v.vehicle_id, assignmentId: v.assignment_id, name: v.name, callsign: null, driverStay: v.driver_stay })
+    }
+  })
+  // A route's crew and material live on the Auftrag, not on its stops.
+  const onAuftrag = auftragOccupancy(viewerGroupsToIncidentGroups(payload))
+  const personnel = withAuftragCrew(eventScopedPersonnel, onAuftrag.personnel)
+  const materials = withAuftragDeployment(eventScopedMaterials, onAuftrag.material)
 
   const driverByVehicleId = new Map<string, VehicleDriver>()
   for (const person of personnel) {
@@ -313,7 +248,7 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
   const byStatus: Record<string, Operation[]> = {}
   columns.forEach((col) => { byStatus[col.id] = [] })
   operations.forEach((op) => {
-    const col = columns.find((c) => c.status.includes(op.status))
+    const col = columns.find((c) => c.id === op.status)
     if (col) byStatus[col.id].push(op)
   })
   const activeOps = operations.filter((op) => op.status !== "complete")

@@ -65,12 +65,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
 import { cn } from "@/lib/utils"
-import { auftragTakesAssignments, isResourceDrag, takesAssignments } from "@/lib/assignable"
+import { auftragTakesAssignments, takesAssignments } from "@/lib/assignable"
+import { isResourceDrag, type BoardDropTarget } from "@/lib/board-drag"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
 import { useGroups, type IncidentGroup } from "@/lib/contexts/groups-context"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDriverState, type VehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentTypeLabel } from "@/lib/incident-types"
@@ -166,11 +166,10 @@ export function AuftraegeSheet({
   // Releasing a stop or a route resource offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
   const { operations } = useOperations()
-  const { selectedEvent } = useEvent()
   // Who drives which Fahrzeug — one roster call for the whole sheet, only while
   // it is open, kept live by the hook's WebSocket + same-tab listeners.
   // `loaded` gates the «Kein Fahrer» notes: an unloaded map is not «nobody».
-  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, open)
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState()
 
   // The route owns the people, so this is where a route's Einsatzleiter is set.
   // The backend demotes the previous holder in the same transaction — one call,
@@ -607,7 +606,7 @@ function AuftragCard({
     if (!canEdit) return
     return dropTargetForElements({
       element: el,
-      getData: () => ({ type: "group-row", groupId: group.id }),
+      getData: () => ({ type: "group-row", groupId: group.id }) satisfies BoardDropTarget,
       canDrop: ({ source: src }) => src.data.type === "operation" || (routeOpen && isResourceDrag(src.data)),
       onDragEnter: () => setIsDropOver(true),
       onDragLeave: () => setIsDropOver(false),
@@ -1016,7 +1015,7 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
         // board hook). Both read `{ groupId, incidentId }`.
         canDrop: ({ source }) => stopOpen || !isResourceDrag(source.data),
         getData: ({ input }) =>
-          attachClosestEdge({ type: "group-stop", groupId, incidentId, index }, { element: el, input, allowedEdges: ["top", "bottom"] }),
+          attachClosestEdge({ type: "group-stop", groupId, incidentId, index } satisfies BoardDropTarget, { element: el, input, allowedEdges: ["top", "bottom"] }),
         onDragEnter: ({ self, source }) => {
           if (source.data.type === "group-stop-drag") setClosestEdge(extractClosestEdge(self.data))
           else setIsDropOver(true)

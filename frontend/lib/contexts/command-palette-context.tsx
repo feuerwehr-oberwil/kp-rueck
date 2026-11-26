@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import type { DispatchPlan, DispatchResource, DispatchVocabulary } from '@/lib/command-dispatch'
 import { takesAssignments } from '@/lib/assignable'
+import type { Priority } from '@/lib/priority'
 
 /**
  * What the commands can do to the selected Einsatz beyond the shortcut keys – the
@@ -82,7 +83,7 @@ export interface CommandPaletteHandlers {
   onMoveStatusForward?: () => void
   onMoveStatusBackward?: () => void
   onAssignVehicle?: (vehicleNumber: number) => void
-  onSetPriority?: (priority: 'low' | 'medium' | 'high') => void
+  onSetPriority?: (priority: Priority) => void
   onToggleZuFuss?: () => void
   // Navigation between incidents
   onSelectPreviousIncident?: () => void

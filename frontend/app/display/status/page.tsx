@@ -313,7 +313,7 @@ function SituationBoard({
     for (const statusId of STATUS_ORDER) {
       const colDef = columns.find((c) => c.id === statusId)
       if (!colDef) continue
-      const ops = operations.filter((op) => colDef.status.includes(op.status))
+      const ops = operations.filter((op) => colDef.id === op.status)
       if (ops.length > 0) groups.push({ colDef, ops })
     }
     return groups
@@ -824,7 +824,7 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
 
 function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick: () => void }) {
   const tk = useTranslations('kanban')
-  const statusId = columns.find((c) => c.status.includes(op.status))?.id || "incoming"
+  const statusId = columns.find((c) => c.id === op.status)?.id || "incoming"
   const locationLabel = incidentLocationLabel(op)
   const statusLabel = tk(`columns.${statusId}`)
   const priority = (op.priority ?? "low") as Priority

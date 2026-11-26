@@ -58,9 +58,33 @@ const MAP_PATTERNS = [
 ];
 // import() of the same entry points (no-restricted-imports does not see it); the stylesheet stays free
 const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(maplibre-gl(\\u002Fdist\\u002F.*\\.m?js)?|react-map-gl(\\u002F.*)?)$/]", message: MAP };
+// Sweep 25.11.2026 (FE.12): window events between components went by bare strings with an
+// untyped `detail`. Every name and payload is in lib/app-events.ts (`emitAppEvent` / `onAppEvent`).
+const APP_EVENTS = "Send and hear in-tab events through lib/app-events.ts (emitAppEvent / onAppEvent): one typed map of names and payloads.";
+const APP_EVENT_NAME = "/^kp[:-]/";
+const WINDOW_EVENTS = [
+  { selector: `CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name=/^(Custom)?Event$/] > Literal.arguments:first-child[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
+  { selector: "CallExpression[callee.object.name='window'][callee.property.name='dispatchEvent'] > NewExpression[callee.name='CustomEvent']", message: APP_EVENTS },
+  { selector: `CallExpression[callee.property.name=/^(add|remove)EventListener$/] > Literal[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
+];
+// Sweep 25.11.2026 (TS.8): `.json()` and `JSON.parse` return `any`, and 25 of 30 sites let it
+// flow on unchecked. Bind the result to `unknown` (`const body: unknown = await res.json()`),
+// then narrow it – or let lib/api/http.ts's `request<T>` do it.
+const UNKNOWN_BODIES = "Bind it to unknown first: `const body: unknown = await response.json()` (or JSON.parse), then narrow.";
+const AS_UNKNOWN = "VariableDeclarator[id.typeAnnotation.typeAnnotation.type='TSUnknownKeyword']";
+const JSON_BODY = "CallExpression[callee.property.name='json'][arguments.length=0]";
+const JSON_PARSE = "CallExpression[callee.object.name='JSON'][callee.property.name='parse']";
+const UNTYPED_PARSE = [
+  // The result itself is the initialiser: `= await r.json()`, `= await r.json().catch(…)`,
+  // `= JSON.parse(text)` – never a property read off it.
+  { call: JSON_BODY, allowed: [`${AS_UNKNOWN} > AwaitExpression > ${JSON_BODY}`, `${AS_UNKNOWN} > AwaitExpression > CallExpression[callee.property.name='catch'] > MemberExpression > ${JSON_BODY}`] },
+  { call: JSON_PARSE, allowed: [`${AS_UNKNOWN} > ${JSON_PARSE}`] },
+].map(({ call, allowed }) => ({ selector: `${call}:not(${allowed.join(", ")})`, message: UNKNOWN_BODIES }));
 const MAP_COMPONENT_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^react-map-gl(\\u002F.*)?$/]", message: MAP };
 
 export default [
+  // Generated from docs/openapi.json (`pnpm openapi:types`); lib/api/schema.test.ts holds it.
+  { ignores: ["lib/api/schema.d.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -127,16 +151,17 @@ export default [
   },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are
   // free), and base-map.tsx the one that renders react-map-gl's <Map>. Unit tests and the
-  // Playwright tree (tests/) mock them freely.
+  // Playwright tree (tests/) mock them freely. The same block holds the window-event door
+  // (lib/app-events.ts is the one file that touches window events by name).
   {
     files: ["**/*.{ts,tsx}"],
-    ignores: ["components/map/**", "tests/**", ...TESTS],
+    ignores: ["components/map/**", "tests/**", "lib/app-events.ts", ...TESTS],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", {
         paths: [...MAP_COMPONENT, { name: "maplibre-gl", message: MAP, allowTypeImports: true }],
         patterns: [...IMPORTS, ...MAP_PATTERNS],
       }],
-      "no-restricted-syntax": ["error", ...SYNTAX, MAP_IMPORT_EXPRESSION],
+      "no-restricted-syntax": ["error", ...SYNTAX, ...WINDOW_EVENTS, ...UNTYPED_PARSE, MAP_IMPORT_EXPRESSION],
     },
   },
   {
@@ -144,7 +169,7 @@ export default [
     ignores: ["components/map/base-map.tsx", ...TESTS],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", { paths: MAP_COMPONENT, patterns: [...IMPORTS, MAP_PATTERNS[0]] }],
-      "no-restricted-syntax": ["error", ...SYNTAX, MAP_COMPONENT_IMPORT_EXPRESSION],
+      "no-restricted-syntax": ["error", ...SYNTAX, ...WINDOW_EVENTS, ...UNTYPED_PARSE, MAP_COMPONENT_IMPORT_EXPRESSION],
     },
   },
   // Unit tests build an Operation with makeOperation() (test-utils/operation-fixtures.ts): a cast

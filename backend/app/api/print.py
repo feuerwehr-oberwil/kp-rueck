@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, status
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +34,7 @@ from ..database import execute_dml, get_db
 from ..models import Event, Incident, PrintJob
 from ..services import print_signal
 from ..services import settings as settings_service
+from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_print_job_update
 
@@ -52,13 +53,16 @@ async def require_print_agent(x_agent_token: str = Header(default="")) -> None:
     deployment's opt-in to the agent, exactly like ALARM_WEBHOOK_SECRET is for intake.
     """
     if not app_settings.print_agent_token:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Print-Agent deaktiviert (PRINT_AGENT_TOKEN nicht gesetzt)",
+        raise CodedHTTPException(
+            status.HTTP_403_FORBIDDEN,
+            ErrorCode.PRINT_AGENT_DISABLED,
+            "Print-Agent deaktiviert (PRINT_AGENT_TOKEN nicht gesetzt)",
         )
     # As bytes: compare_digest raises on a str with non-ASCII characters (a 500, not the 401).
     if not secrets.compare_digest(x_agent_token.encode(), app_settings.print_agent_token.encode()):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Agent-Token")
+        raise CodedHTTPException(
+            status.HTTP_401_UNAUTHORIZED, ErrorCode.PRINT_AGENT_TOKEN_INVALID, "Ungültiges Agent-Token"
+        )
 
 
 async def require_printer_configured(db: AsyncSession) -> None:
@@ -77,14 +81,11 @@ async def require_printer_configured(db: AsyncSession) -> None:
     routes stay open on ``printer.enabled`` alone, so a queue that filled up before the
     address went missing can still be drained.
     """
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    if enabled.lower() != "true":
-        raise HTTPException(status_code=400, detail="Drucken ist ausgeschaltet")
-    ip = await settings_service.get_setting_value(db, "printer.ip", "")
-    if not ip.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Keine Druckeradresse gesetzt (Einstellungen → Drucker → Adresse)",
+    if not await settings_service.read(db, settings_service.PRINTER_ENABLED):
+        raise CodedHTTPException(400, ErrorCode.PRINTING_OFF, "Drucken ist ausgeschaltet")
+    if not (await settings_service.read(db, settings_service.PRINTER_IP)).strip():
+        raise CodedHTTPException(
+            400, ErrorCode.PRINTER_ADDRESS_MISSING, "Keine Druckeradresse gesetzt (Einstellungen → Drucker → Adresse)"
         )
 
 
@@ -149,14 +150,10 @@ async def get_printer_config(
     PRINT_AGENT_TOKEN is configured; 403 when it is unset (fail-closed).
     """
     _touch_agent_heartbeat()
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    ip = await settings_service.get_setting_value(db, "printer.ip", "")
-    port = await settings_service.get_setting_value(db, "printer.port", "9100")
-
     return schemas.PrinterConfigResponse(
-        enabled=enabled.lower() == "true",
-        ip=ip,
-        port=int(port),
+        enabled=await settings_service.read(db, settings_service.PRINTER_ENABLED),
+        ip=await settings_service.read(db, settings_service.PRINTER_IP),
+        port=await settings_service.read(db, settings_service.PRINTER_PORT),
     )
 
 
@@ -166,10 +163,10 @@ async def get_printer_status(
     db: AsyncSession = Depends(get_db),
 ) -> schemas.PrinterStatusResponse:
     """Get printer status and configuration."""
-    enabled = await settings_service.get_setting_value(db, "printer.enabled", "false")
-    ip = await settings_service.get_setting_value(db, "printer.ip", "")
-    port = await settings_service.get_setting_value(db, "printer.port", "9100")
-    auto_anfahrt = await settings_service.get_setting_value(db, "printer.auto_anfahrt", "true")
+    enabled = await settings_service.read(db, settings_service.PRINTER_ENABLED)
+    ip = await settings_service.read(db, settings_service.PRINTER_IP)
+    port = await settings_service.read(db, settings_service.PRINTER_PORT)
+    auto_anfahrt = await settings_service.read(db, settings_service.PRINTER_AUTO_ANFAHRT)
 
     # Count pending jobs
     pending_result = await db.execute(select(func.count(PrintJob.id)).where(PrintJob.status == "pending"))
@@ -189,10 +186,10 @@ async def get_printer_status(
     )
 
     return schemas.PrinterStatusResponse(
-        enabled=enabled.lower() == "true",
+        enabled=enabled,
         ip=ip,
-        port=int(port),
-        auto_anfahrt=auto_anfahrt.lower() == "true",
+        port=port,
+        auto_anfahrt=auto_anfahrt,
         pending_jobs=pending_count,
         last_job_at=last_job.completed_at if last_job else None,
         last_error=last_job.error_message if last_job and last_job.status == "failed" else None,
@@ -210,7 +207,7 @@ async def queue_assignment_print(
     """Queue an assignment slip for printing."""
     await require_printer_configured(db)
     if await db.get(Incident, incident_id) is None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.INCIDENT_NOT_FOUND, ErrorMessages.INCIDENT_NOT_FOUND)
     return await print_crud.queue_assignment_print(db, incident_id, dedup=False)
 
 
@@ -224,7 +221,7 @@ async def queue_board_print(
     await require_printer_configured(db)
     event = await db.get(Event, request.event_id)
     if event is None:
-        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.EVENT_NOT_FOUND, ErrorMessages.EVENT_NOT_FOUND)
 
     payload = await print_crud.build_board_payload(
         db,
@@ -259,7 +256,7 @@ async def queue_abholliste_print(
     event_result = await db.execute(select(Event).where(Event.id == event_id))
     event = event_result.scalar_one_or_none()
     if not event:
-        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.EVENT_NOT_FOUND, ErrorMessages.EVENT_NOT_FOUND)
 
     restliste = await feld_crud.event_restliste(db, event_id)
     payload: dict[str, Any] = {
@@ -396,7 +393,7 @@ async def get_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.PRINT_JOB_NOT_FOUND, ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     return job
 
@@ -434,11 +431,16 @@ async def claim_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.PRINT_JOB_NOT_FOUND, ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     if claimed.rowcount == 0:
         # Lost the race, or it was never claimable. Either way the agent must not print it.
-        raise HTTPException(status_code=409, detail=f"Druckauftrag wartet nicht (Status: {job.status})")
+        raise CodedHTTPException(
+            409,
+            ErrorCode.PRINT_JOB_NOT_PENDING,
+            f"Druckauftrag wartet nicht (Status: {job.status})",
+            params={"status": job.status},
+        )
 
     await db.flush()
     await db.refresh(job)
@@ -472,7 +474,7 @@ async def complete_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.PRINT_JOB_NOT_FOUND, ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     # A report that arrives after the reaper retired the silent claim (`STALE_CLAIM_ERROR`) is
     # the agent's answer after all – it counts, «failed» with the printer's own error too.
@@ -486,8 +488,11 @@ async def complete_print_job(
         return job
 
     if job.status not in ("pending", "printing") and not retired_silent:
-        raise HTTPException(
-            status_code=409, detail=f"Druckauftrag kann nicht abgeschlossen werden (Status: {job.status})"
+        raise CodedHTTPException(
+            409,
+            ErrorCode.PRINT_JOB_NOT_COMPLETABLE,
+            f"Druckauftrag kann nicht abgeschlossen werden (Status: {job.status})",
+            params={"status": job.status},
         )
 
     job.status = update.status.value
@@ -522,7 +527,7 @@ async def delete_print_job(
     job = result.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(status_code=404, detail=ErrorMessages.PRINT_JOB_NOT_FOUND)
+        raise CodedHTTPException(404, ErrorCode.PRINT_JOB_NOT_FOUND, ErrorMessages.PRINT_JOB_NOT_FOUND)
 
     await db.delete(job)
 

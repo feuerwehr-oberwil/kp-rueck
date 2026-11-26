@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Fake socket.io socket: records handler registrations and lets tests fire events.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const handlers = new Map<string, Function[]>()
+type Handler = (...args: unknown[]) => void
+const handlers = new Map<string, Handler[]>()
 const fakeSocket = {
   connected: false,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  on: vi.fn((event: string, cb: Function) => {
+  on: vi.fn((event: string, cb: Handler) => {
     if (!handlers.has(event)) handlers.set(event, [])
     handlers.get(event)!.push(cb)
   }),
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  off: vi.fn((event: string, cb: Function) => {
+  off: vi.fn((event: string, cb: Handler) => {
     const list = handlers.get(event)
     if (list) handlers.set(event, list.filter(h => h !== cb))
   }),
@@ -84,13 +82,13 @@ describe('wsClient reconnect behaviour', () => {
 
   it('attaches listeners registered before connect() exactly once', () => {
     const callback = vi.fn()
-    const unsubscribe = wsClient.on('driver_update', callback)
+    const unsubscribe = wsClient.on('vehicle_update', callback)
 
     wsClient.connect()
     fakeSocket.connected = true
     fire('connect')
 
-    fire('driver_update', { action: 'update', data: {} })
+    fire('vehicle_update', { action: 'update', data: {} })
     expect(callback).toHaveBeenCalledTimes(1)
 
     unsubscribe()

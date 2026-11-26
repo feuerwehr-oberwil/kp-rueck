@@ -57,6 +57,10 @@ function person(overrides: Partial<ApiPersonnelListItem> & { name: string }): Ap
     checked_in_at: null,
     checked_out_at: null,
     is_assigned: false,
+    kennung: null,
+    tags: null,
+    planned_from: null,
+    planned_until: null,
     ...overrides,
   }
 }

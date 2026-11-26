@@ -1,26 +1,16 @@
 import { useEffect } from 'react'
+import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { extractClosestEdge, type Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
-import type { Operation, Person, Material, OperationStatus } from '@/lib/contexts/operations-context'
+import type { Operation, OperationStatus } from '@/lib/contexts/operations-context'
 import type { IncidentGroup } from '@/lib/types/groups'
 import type { GroupResourceType } from '@/lib/api-client'
-import { columns } from '@/lib/kanban-utils'
 import { takesAssignments } from '@/lib/assignable'
-
-// The pragmatic-drag-and-drop element adapter is require()d below (it touches
-// `document` at import time), so its payload types cannot be imported alongside
-// it. These are the fields this monitor reads; the payload's `data` bags are
-// untyped by design in the library too (`Record<string, unknown>`).
-type DragData = Record<string, unknown>
-interface DragMonitorPayload {
-  source: { data: DragData }
-  location: { current: { dropTargets: { data: DragData }[] } }
-}
+import { readBoardDrag, readBoardDrop, type BoardDragSource, type BoardDropTarget } from '@/lib/board-drag'
 
 interface UseKanbanDragDropProps {
   isMounted: boolean
   canEdit?: boolean
   operations: Operation[]
-  setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
   reorderColumn: (orderedIds: string[]) => void
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
@@ -75,8 +65,8 @@ type ResourceDropDeps = Pick<
  * vehicles have done all along. Nothing is swallowed here.
  */
 export function applyResourceDrop(
-  sourceData: DragData,
-  destData: DragData,
+  sourceData: BoardDragSource,
+  destData: BoardDropTarget,
   {
     operations,
     assignPersonToOperation,
@@ -93,40 +83,26 @@ export function applyResourceDrop(
   // Auftrag itself, not any single stop. Reordering stops (source
   // `group-stop-drag`) is handled by the sheet-local monitor, not here.
   if (destData.type === "group-stop" || destData.type === "group-row") {
-    const groupId = destData.groupId as string
+    const groupId = destData.groupId
 
     // Existing board card dropped on a route header → attach as a stop.
-    if (sourceData.type === "operation" && destData.type === "group-row") {
-      const opId = (sourceData.operation as Operation).id
-      addStopsToGroup?.(groupId, [opId])
-      return true
+    if (sourceData.type === "operation") {
+      if (destData.type === "group-row") addStopsToGroup?.(groupId, [sourceData.operation.id])
+      return destData.type === "group-row"
     }
 
-    if (sourceData.type === "person") {
-      const person = sourceData.person as Person
-      // Reko is a per-stop scouting slot, not a route resource — ignore here.
-      if (person.isReko) return true
-      // No availability and no occupancy gate: busy is the normal state of a
-      // roster during a storm, and `assignGroupResource` is the board's
-      // conflict-aware wrapper, which asks rather than refuses.
-      assignGroupResource?.(groupId, "personnel", person.id)
-    } else if (sourceData.type === "driver-vehicle") {
-      const vehicleId = sourceData.vehicleId as string
-      assignGroupResource?.(groupId, "vehicle", vehicleId)
-    } else if (sourceData.type === "material") {
-      const material = sourceData.material as Material
-      assignGroupResource?.(groupId, "material", material.id)
-    } else if (sourceData.type === "material-group") {
-      for (const material of sourceData.materials as Material[]) {
-        assignGroupResource?.(groupId, "material", material.id)
-      }
-    }
+    // Reko is a per-stop scouting slot, not a route resource — ignore here.
+    if (sourceData.type === "person" && sourceData.person.isReko) return true
+    // No availability and no occupancy gate: busy is the normal state of a
+    // roster during a storm, and `assignGroupResource` is the board's
+    // conflict-aware wrapper, which asks rather than refuses.
+    assignToGroup(sourceData, groupId, assignGroupResource)
     return true
   }
 
   if (destData.type !== "operation-drop") return false
 
-  const operationId = destData.operationId as string
+  const operationId = destData.operationId
 
   // A closed Einsatz takes no new assignment (lib/assignable.ts) – not even through its
   // Auftrag. Its targets refuse the drag already; this catches a card closed mid-drag.
@@ -143,20 +119,10 @@ export function applyResourceDrop(
       const groupId = targetOp.groupId
       // Same rule as the Auftrag row above: nothing is refused here, the
       // wrapper asks.
-      if (sourceData.type === "person") {
-        const person = sourceData.person as Person
-        if (person.isReko) assignRekoPersonToOperation(person.id, person.name, targetOp.id)
-        else assignGroupResource?.(groupId, "personnel", person.id)
-      } else if (sourceData.type === "driver-vehicle") {
-        const vehicleId = sourceData.vehicleId as string
-        assignGroupResource?.(groupId, "vehicle", vehicleId)
-      } else if (sourceData.type === "material") {
-        const material = sourceData.material as Material
-        assignGroupResource?.(groupId, "material", material.id)
-      } else if (sourceData.type === "material-group") {
-        for (const material of sourceData.materials as Material[]) {
-          assignGroupResource?.(groupId, "material", material.id)
-        }
+      if (sourceData.type === "person" && sourceData.person.isReko) {
+        assignRekoPersonToOperation(sourceData.person.id, sourceData.person.name, targetOp.id)
+      } else {
+        assignToGroup(sourceData, groupId, assignGroupResource)
       }
       return true
     }
@@ -164,7 +130,7 @@ export function applyResourceDrop(
 
   // Person dropped on an ungrouped operation
   if (sourceData.type === "person") {
-    const person = sourceData.person as Person
+    const { person } = sourceData
     // Reko personnel are assigned differently (to the reko slot, not crew)
     if (person.isReko) {
       assignRekoPersonToOperation(person.id, person.name, operationId)
@@ -176,26 +142,50 @@ export function applyResourceDrop(
 
   // Driver (as vehicle) dropped on operation
   if (sourceData.type === "driver-vehicle") {
-    assignVehicleToOperation?.(sourceData.vehicleId as string, sourceData.vehicleName as string, operationId)
+    assignVehicleToOperation?.(sourceData.vehicleId, sourceData.vehicleName, operationId)
     return true
   }
 
   // Material dropped on operation
   if (sourceData.type === "material") {
-    const material = sourceData.material as Material
-    assignMaterialToOperation(material.id, operationId)
+    assignMaterialToOperation(sourceData.material.id, operationId)
     return true
   }
 
   // Material group dropped on operation — assign every material the block carries
   if (sourceData.type === "material-group") {
-    for (const material of sourceData.materials as Material[]) {
+    for (const material of sourceData.materials) {
       assignMaterialToOperation(material.id, operationId)
     }
     return true
   }
 
   return false
+}
+
+/** A resource drag onto an Auftrag: the route owns it (`assignGroupResource` asks on a
+ *  Doppelbelegung). A card drag is not a resource and assigns nothing. */
+function assignToGroup(
+  drag: BoardDragSource,
+  groupId: string,
+  assignGroupResource: ResourceDropDeps['assignGroupResource'],
+): void {
+  switch (drag.type) {
+    case "person":
+      assignGroupResource?.(groupId, "personnel", drag.person.id)
+      return
+    case "driver-vehicle":
+      assignGroupResource?.(groupId, "vehicle", drag.vehicleId)
+      return
+    case "material":
+      assignGroupResource?.(groupId, "material", drag.material.id)
+      return
+    case "material-group":
+      for (const material of drag.materials) assignGroupResource?.(groupId, "material", material.id)
+      return
+    case "operation":
+      return
+  }
 }
 
 /**
@@ -236,7 +226,6 @@ function isSameOrder(a: readonly { id: string }[], b: readonly { id: string }[])
 type OperationDropDeps = Pick<
   UseKanbanDragDropProps,
   | 'operations'
-  | 'setOperations'
   | 'updateOperation'
   | 'reorderColumn'
   | 'onOperationDrop'
@@ -253,11 +242,10 @@ type OperationDropDeps = Pick<
  * still persist?") are then answerable without driving a real HTML5 drag.
  */
 export function applyOperationDrop(
-  sourceData: DragData,
-  destData: DragData,
+  sourceData: BoardDragSource,
+  destData: BoardDropTarget,
   {
     operations,
-    setOperations,
     updateOperation,
     reorderColumn,
     onOperationDrop,
@@ -271,15 +259,16 @@ export function applyOperationDrop(
   // snapshot: re-inserting the snapshot would overwrite fields another
   // operator changed mid-drag, or resurrect a card that was deleted
   // remotely while it was in the user's hand.
-  const draggedOpId = (sourceData.operation as Operation).id
+  const draggedOpId = sourceData.operation.id
   const draggedOp = operations.find(op => op.id === draggedOpId)
   if (!draggedOp) return
-  const sourceIndex = sourceData.index as number
+  const sourceIndex = sourceData.index
 
-  // Dropped on another operation
+  // Dropped on another operation (the detail panel's target has no `index` and takes no card)
   if (destData.type === "operation-drop") {
-    const targetOpId = destData.operationId as string
-    const targetIndex = destData.index as number
+    const targetOpId = destData.operationId
+    const targetIndex = destData.index
+    if (targetIndex === undefined) return
     const edge = extractClosestEdge(destData)
 
     // Find the target operation to determine its column
@@ -303,7 +292,6 @@ export function applyOperationDrop(
       }
 
       const sameColumnOps = operations.filter(op => op.status === draggedOp.status)
-      const otherOps = operations.filter(op => op.status !== draggedOp.status)
 
       const reordered = reorderWithinColumn(
         sameColumnOps,
@@ -319,13 +307,11 @@ export function applyOperationDrop(
       // to every other board.
       if (isSameOrder(sameColumnOps, reordered)) return
 
-      setOperations([...otherOps, ...reordered])
-
-      // Persist the new manual order so the next sync reproduces it
+      // Shows the new order and persists it, so the next sync reproduces it
       // instead of snapping the card back to its created_at slot.
       reorderColumn(reordered.map(op => op.id))
     } else {
-      if (holdStatusChange?.(draggedOp.id, targetOp.status as OperationStatus)) return
+      if (holdStatusChange?.(draggedOp.id, targetOp.status)) return
       // Different column - move to new column with position
       const updatedOp = { ...draggedOp, status: targetOp.status }
 
@@ -334,7 +320,6 @@ export function applyOperationDrop(
 
       // Get operations in target column
       const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
-      const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
 
       // Calculate insert index
       let insertIndex = targetIndex
@@ -349,33 +334,29 @@ export function applyOperationDrop(
         ...targetColOps.slice(insertIndex)
       ]
 
-      setOperations([...otherOps, ...reordered])
-
       // Persist status change to backend (keeps status-transition side effects)
-      updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
+      updateOperation(draggedOp.id, { status: targetOp.status })
 
-      // Persist the dropped card's position within the target column so the
-      // next sync keeps it where the user dropped it.
+      // The dropped card's position within the target column – on screen and
+      // persisted, so the next sync keeps it where the user dropped it.
       reorderColumn(reordered.map(op => op.id))
 
       // Auto-select the dropped card
       onOperationDrop?.(draggedOp.id)
-      onStatusChange?.(draggedOp.id, targetOp.status as OperationStatus, draggedOp.status as OperationStatus)
+      onStatusChange?.(draggedOp.id, targetOp.status, draggedOp.status)
     }
   }
   // Dropped on empty column area
   else if (destData.type === "column") {
-    const targetColumnId = destData.columnId as string
-    const targetColumn = columns.find(col => col.id === targetColumnId)
+    const newStatus = destData.columnId
 
-    if (targetColumn && draggedOp.status !== targetColumn.status[0]) {
-      const newStatus = targetColumn.status[0] as OperationStatus
+    if (draggedOp.status !== newStatus) {
       if (holdStatusChange?.(draggedOp.id, newStatus)) return
       updateOperation(draggedOp.id, { status: newStatus })
 
       // Auto-select the dropped card
       onOperationDrop?.(draggedOp.id)
-      onStatusChange?.(draggedOp.id, newStatus, draggedOp.status as OperationStatus)
+      onStatusChange?.(draggedOp.id, newStatus, draggedOp.status)
     }
   }
 }
@@ -389,7 +370,6 @@ export function useKanbanDragDrop({
   isMounted,
   canEdit = true,
   operations,
-  setOperations,
   updateOperation,
   reorderColumn,
   assignPersonToOperation,
@@ -407,16 +387,15 @@ export function useKanbanDragDrop({
   useEffect(() => {
     if (!isMounted || !canEdit) return
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { monitorForElements } = require('@atlaskit/pragmatic-drag-and-drop/element/adapter')
-
     return monitorForElements({
-      onDrop({ source, location }: DragMonitorPayload) {
+      onDrop({ source, location }) {
         const destination = location.current.dropTargets[0]
         if (!destination) return
 
-        const sourceData = source.data
-        const destData = destination.data
+        // Another surface's drag (a route-stop or settings sort) is not the board's.
+        const sourceData = readBoardDrag(source.data)
+        const destData = readBoardDrop(destination.data)
+        if (!sourceData || !destData) return
 
         // Crew / vehicle / material drops live in applyResourceDrop below — it is
         // pure, so the "does a busy resource reach the Doppelbelegung prompt?"
@@ -438,7 +417,6 @@ export function useKanbanDragDrop({
         // tested without a real drag.
         applyOperationDrop(sourceData, destData, {
           operations,
-          setOperations,
           updateOperation,
           reorderColumn,
           onOperationDrop,
@@ -447,5 +425,5 @@ export function useKanbanDragDrop({
         })
       },
     })
-  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange, groups, addStopsToGroup, assignGroupResource])
+  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange, groups, addStopsToGroup, assignGroupResource])
 }

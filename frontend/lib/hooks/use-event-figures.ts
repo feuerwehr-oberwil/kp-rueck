@@ -33,12 +33,7 @@ export function useEventFigures(
   const load = useCallback(async () => {
     if (!eventId) return
     try {
-      const figures = await apiClient.getEventFigures(eventId)
-      if (!figures) {
-        setState((prev) => ({ ...prev, failed: true }))
-        return
-      }
-      setState({ figures, failed: false })
+      setState({ figures: await apiClient.getEventFigures(eventId), failed: false })
     } catch {
       setState((prev) => ({ ...prev, failed: true }))
     }

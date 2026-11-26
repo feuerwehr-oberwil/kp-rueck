@@ -1,6 +1,6 @@
 """Seed for the screenshot regression tests (frontend/tests/visual, docs/VISUAL_TESTS.md).
 
-Run with: uv run python -m app.seed_visual   (on a migrated, EMPTY database)
+Run with: uv run python -m app.seeds.visual   (on a migrated, EMPTY database)
 
 A screenshot test is only as stable as its data, so this seed has one job: the same
 board, to the pixel, on every run. It is the demo scenario (`seed_demo_event_content`:
@@ -28,10 +28,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.environment import is_production_environment
 
-from . import models
-from .database import async_session_maker
-from .seed import SEED_MARKER_KEY, get_admin_password, get_shared_account_password, production_account_set
-from .seed_demo import seed_demo_event_content, seed_demo_shared_resources
+from .. import models
+from ..database import async_session_maker
+from .boot import SEED_MARKER_KEY, get_admin_password, get_shared_account_password, production_account_set
+from .demo import seed_demo_event_content, seed_demo_shared_resources
 
 # THE instant. frontend/tests/visual/visual.setup.ts freezes the browser clock at the
 # same moment (VISUAL_NOW there) and checks it against the event's created_at, so a
@@ -39,7 +39,7 @@ from .seed_demo import seed_demo_event_content, seed_demo_shared_resources
 # A Saturday evening in July, the storm story's own setting: 19:30 in Oberwil (CEST).
 VISUAL_NOW = datetime(2026, 7, 11, 17, 30, tzinfo=UTC)
 
-# The story starts 185 minutes back (`event.created_at = ago(185)` in seed_demo);
+# The story starts 185 minutes back (`event.created_at = ago(185)` in seeds/demo.py);
 # rows the story never dates (fleet, roster, templates) existed the day before.
 _BEFORE_THE_STORY = VISUAL_NOW - timedelta(days=1)
 
@@ -140,9 +140,9 @@ async def _break_assignment_ties(db: AsyncSession) -> None:
 async def seed_visual(db: AsyncSession) -> models.Event:
     """Write the visual fixture into ``db`` (empty, migrated) and commit. Returns the event."""
     if is_production_environment():
-        raise RuntimeError("app.seed_visual is a test fixture; it refuses to run in production")
+        raise RuntimeError("app.seeds.visual is a test fixture; it refuses to run in production")
     if (await db.execute(select(models.User).limit(1))).scalars().first():
-        raise RuntimeError("app.seed_visual wants an EMPTY database (migrated, never seeded)")
+        raise RuntimeError("app.seeds.visual wants an EMPTY database (migrated, never seeded)")
 
     users = production_account_set(
         get_admin_password(),
@@ -164,7 +164,7 @@ async def seed_visual(db: AsyncSession) -> models.Event:
     await db.flush()
     await seed_demo_event_content(db, event, now=VISUAL_NOW)
     # The story never touches the event's own activity stamp; «last activity» is the newest
-    # Meldung (seed_demo: created ago(5)).
+    # Meldung (seeds/demo.py: created ago(5)).
     event.last_activity_at = VISUAL_NOW - timedelta(minutes=5)
 
     db.add(models.Setting(key=SEED_MARKER_KEY, value=VISUAL_NOW.isoformat()))
