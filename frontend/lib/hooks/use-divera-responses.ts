@@ -4,6 +4,7 @@ import { skipToken, useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import type { ApiDiveraResponsesSummary } from "@/lib/api/types"
 import { queryKeys } from "@/lib/query/keys"
+import { useReader } from "@/lib/query/reader"
 import { usePollOptions } from "@/lib/query/poll"
 
 /**
@@ -18,8 +19,9 @@ import { usePollOptions } from "@/lib/query/poll"
  */
 export function useDiveraResponses(eventId: string | null, enabled: boolean): ApiDiveraResponsesSummary | null {
   const poll = usePollOptions(5000, { skipWhileWsConnected: true })
+  const reader = useReader()
   const query = useQuery({
-    queryKey: queryKeys.eventDiveraResponses.of(eventId),
+    queryKey: queryKeys.eventDiveraResponses.of(reader, eventId),
     queryFn: eventId ? () => apiClient.getEventDiveraResponses(eventId) : skipToken,
     enabled: (q) => enabled && q.state.data?.reason !== "not_configured",
     ...poll,

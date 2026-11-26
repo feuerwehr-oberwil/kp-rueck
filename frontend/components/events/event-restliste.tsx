@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import { PickupBadge } from '@/components/kanban/pickup-badge'
 import { apiClient, type ApiRestlisteIncident, type ApiRestlisteUnit } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import { useReader } from '@/lib/query/reader'
 import { usePrintJobToast } from '@/lib/hooks/use-print-job-toast'
 import { getIncidentRefLabel } from '@/lib/incident-types'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -73,8 +74,11 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
   // Silent on failure: the Restliste is an extra on a card that has to render regardless. An
   // event list that fails to load because one roll-up query did is worse than a missing badge.
   const queryClient = useQueryClient()
-  const restlisteKey = queryKeys.eventRestliste.of(eventId)
-  const restliste = useQuery({ queryKey: restlisteKey, queryFn: () => apiClient.getEventRestliste(eventId) })
+  const reader = useReader()
+  const restliste = useQuery({
+    queryKey: queryKeys.eventRestliste.of(reader, eventId),
+    queryFn: () => apiClient.getEventRestliste(eventId),
+  })
   const data = restliste.data ?? null
   const [open, setOpen] = useState<Section | null>(null)
   const [printing, setPrinting] = useState(false)
@@ -221,7 +225,7 @@ export function EventRestliste({ eventId, onOpenIncident, printerEnabled = false
                     requestedAt={row.since ? new Date(row.since) : null}
                     variant="compact"
                     incidentId={row.incident_id}
-                    onCleared={() => queryClient.invalidateQueries({ queryKey: restlisteKey })}
+                    onCleared={() => queryClient.invalidateQueries({ predicate: queryKeys.eventRestliste.byId(eventId) })}
                     canEdit={canEdit}
                     className="shrink-0"
                   />

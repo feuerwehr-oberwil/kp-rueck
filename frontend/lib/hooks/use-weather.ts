@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { queryKeys } from "@/lib/query/keys"
+import { useReader } from "@/lib/query/reader"
 import { serverClockOffset } from "@/lib/weather"
 
 /** The backend polls the feeds every 5/10 minutes; asking it every minute keeps the board at
@@ -26,8 +27,9 @@ const CLOCK_MS = 30_000
  * nothing.
  */
 export function useWeather({ active = true, viewerToken }: { active?: boolean; viewerToken?: string } = {}) {
+  const reader = useReader()
   const query = useQuery({
-    queryKey: queryKeys.weather.of(viewerToken),
+    queryKey: queryKeys.weather.of(reader, viewerToken),
     queryFn: () => apiClient.getWeather(viewerToken),
     enabled: active,
     refetchInterval: (q) => (q.state.data?.enabled === false ? false : POLL_MS),
