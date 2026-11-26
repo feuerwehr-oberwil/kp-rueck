@@ -31,6 +31,7 @@ import { useGroups } from "@/lib/contexts/groups-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { haversineKm, isLocated, type LocatedOperation } from "@/lib/utils/route-geo"
 import { findVehiclePosition } from "@/lib/vehicle-positions"
+import { DEFAULT_CENTER_LATLNG } from "@/lib/map-view"
 import {
   parseReportedAt,
   resolveRouteStart,
@@ -43,12 +44,12 @@ import {
 
 export type { RouteStartMode } from "@/lib/route-start"
 
-// Basel-Landschaft fallback base — mirrors map-view.tsx's default firestation
-// coordinates. Used so the "Magazin" start anchor is normally resolvable even
-// when no gps.station_* / firestation_* settings are configured yet — but it is
-// labelled as a fallback (`MagazinSource` "unset" / "failed") wherever it shows,
-// never passed off as the real Magazin.
-const DEFAULT_STATION: [number, number] = [47.51637699933488, 7.561800450458299]
+// The map's fallback centre (`lib/map-view.ts`) as the fallback base. Used so the
+// "Magazin" start anchor is normally resolvable even when no gps.station_* /
+// firestation_* settings are configured yet — but it is labelled as a fallback
+// (`MagazinSource` "unset" / "failed") wherever it shows, never passed off as
+// the real Magazin.
+const DEFAULT_STATION: [number, number] = [...DEFAULT_CENTER_LATLNG]
 
 export interface OrderedStop {
   id: string
