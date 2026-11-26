@@ -75,6 +75,7 @@ import type {
   ApiRapportUpdate,
 } from '@/lib/api/types'
 import { telHref } from '@/lib/phone'
+import { isRecord, readJson } from '@/lib/utils/safe-storage'
 import { cn, sanitizePhoneInput } from '@/lib/utils'
 import {
   derivePersonnelCount,
@@ -153,6 +154,11 @@ const KP_DEBOUNCE_MS = 2000
 
 function localStorageKey(incidentId: string): string {
   return `feld-rapport-${incidentId}`
+}
+
+/** A draft `saveToLocalStorage` wrote: `{ data, timestamp }`. */
+function isStoredRapportDraft(value: unknown): value is { data: RapportFormData; timestamp?: unknown } {
+  return isRecord(value) && isRecord(value.data)
 }
 
 /** Class the jump puts on a block: the shared «this one» ring (globals.css). */
@@ -342,15 +348,9 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
   )
 
   const loadFromLocalStorage = useCallback((): { data: RapportFormData; timestamp: string | null } | null => {
-    try {
-      const stored = localStorage.getItem(key)
-      if (!stored) return null
-      const parsed = JSON.parse(stored)
-      return { data: parsed.data as RapportFormData, timestamp: (parsed.timestamp as string | undefined) ?? null }
-    } catch (error) {
-      console.error('Failed to read rapport draft:', error)
-      return null
-    }
+    // Crash-safe: a corrupt or foreign value is dropped, never thrown (lib/utils/safe-storage.ts).
+    const stored = readJson(key, isStoredRapportDraft, null)
+    return stored && { data: stored.data, timestamp: typeof stored.timestamp === 'string' ? stored.timestamp : null }
   }, [key])
 
   const clearLocalStorage = useCallback(() => {

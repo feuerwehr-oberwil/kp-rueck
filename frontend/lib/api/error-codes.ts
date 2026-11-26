@@ -33,6 +33,12 @@ export function errorParamsOf(body: unknown): Record<string, string | number> | 
   return values
 }
 
+/** The German `detail` of a FastAPI error body, when it is a sentence. */
+export function detailOf(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null || !('detail' in body)) return undefined
+  return typeof body.detail === 'string' && body.detail ? body.detail : undefined
+}
+
 /** The `code` of an error body, if it has one. */
 export function errorCodeOf(body: unknown): string | undefined {
   if (typeof body !== 'object' || body === null) return undefined

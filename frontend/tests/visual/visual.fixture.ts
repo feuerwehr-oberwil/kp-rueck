@@ -6,7 +6,7 @@ import { test as base, expect, type APIRequestContext, type BrowserContext, type
  * Everything that would make two runs of the same commit paint different pixels is pinned
  * here, once, so a spec only says WHERE to go and WHAT must be on screen before the shot:
  *
- * - the data: `backend/app/seed_visual.py` (the demo storm evening at one fixed instant);
+ * - the data: `backend/app/seeds/visual.py` (the demo storm evening at one fixed instant);
  * - the clock: the browser's `Date` frozen at that same instant (`VISUAL_NOW`);
  * - the network: nothing leaves the box — basemap tiles become one flat colour, any other
  *   foreign request is refused;
@@ -16,7 +16,7 @@ import { test as base, expect, type APIRequestContext, type BrowserContext, type
  */
 
 /**
- * The seed's VISUAL_NOW (backend/app/seed_visual.py), 19:30 in Oberwil. Change both or
+ * The seed's VISUAL_NOW (backend/app/seeds/visual.py), 19:30 in Oberwil. Change both or
  * neither: `openBoard` checks it against the event and fails with this file's name.
  */
 export const VISUAL_NOW = new Date('2026-07-11T17:30:00Z');
@@ -118,7 +118,7 @@ export const test = base.extend<VisualFixtures, VisualWorkerFixtures>({
       const res = await request.post(`${API_BASE}/api/auth/login`, {
         form: { username: USERNAME, password: PASSWORD },
       });
-      expect(res.ok(), `login as ${USERNAME}: HTTP ${res.status()} — was the database seeded with app.seed_visual?`).toBeTruthy();
+      expect(res.ok(), `login as ${USERNAME}: HTTP ${res.status()} — was the database seeded with app.seeds.visual?`).toBeTruthy();
       const state = await request.storageState();
       await request.dispose();
       await use(state);
@@ -133,11 +133,11 @@ export const test = base.extend<VisualFixtures, VisualWorkerFixtures>({
       expect(res.ok()).toBeTruthy();
       const { events }: { events: { id: string; name: string; created_at: string }[] } = await res.json();
       const event = events.find((e) => e.name === VISUAL_EVENT_NAME);
-      expect(event, `no «${VISUAL_EVENT_NAME}» — seed the database with \`python -m app.seed_visual\``).toBeTruthy();
+      expect(event, `no «${VISUAL_EVENT_NAME}» — seed the database with \`python -m app.seeds.visual\``).toBeTruthy();
       // The frozen clock and the seed must agree, or every age on screen is off.
       expect(
         new Date(event!.created_at).getTime(),
-        'VISUAL_NOW in tests/visual/visual.fixture.ts and backend/app/seed_visual.py disagree',
+        'VISUAL_NOW in tests/visual/visual.fixture.ts and backend/app/seeds/visual.py disagree',
       ).toBe(VISUAL_NOW.getTime() - EVENT_AGE_MIN * 60_000);
       await request.dispose();
       await use(event!.id);

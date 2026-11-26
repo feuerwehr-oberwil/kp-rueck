@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { linkRequest, request as httpRequest } from '../http'
+import { linkRequest, request as httpRequest, requestVoid } from '../http'
 import type {
   ApiEvent,
   ApiEventSpecialFunctionResponse,
@@ -169,7 +169,7 @@ export class ViewerApi {
    * server's own sentence (a standby box answers 409 for an Ereignis it does not lead).
    */
   async revokeShareLinks(eventId: string, kind: ShareLinkKind): Promise<void> {
-    await httpRequest<void>(`/api/events/${encodeURIComponent(eventId)}/share-links/${kind}/revoke`, {
+    await requestVoid(`/api/events/${encodeURIComponent(eventId)}/share-links/${kind}/revoke`, {
       method: 'POST',
       skipToast: true,
     })

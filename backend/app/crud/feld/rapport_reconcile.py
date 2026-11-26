@@ -8,8 +8,16 @@ session, no I/O – so they are unit-testable on their own; `rapport.py` is the 
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
+
+from ...json_columns import (
+    RapportExtraMaterialEntry,
+    RapportExtraPersonnelEntry,
+    RapportMaterialEntry,
+    RapportPersonnelEntry,
+    RapportVehicleEntry,
+)
 
 
 def _material_used(row: Mapping[str, Any]) -> bool:
@@ -37,7 +45,7 @@ def _is_answered(row: Mapping[str, Any]) -> bool:
 
 
 def reconcile_materials(
-    stored: list[Any] | None,
+    stored: Sequence[object] | None,
     board_units: list[dict[str, Any]],
     board_by_assignment: dict[uuid.UUID, dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -111,7 +119,7 @@ def reconcile_materials(
     return merged
 
 
-def _jsonable_materials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _jsonable_materials(rows: list[dict[str, Any]]) -> list[RapportMaterialEntry]:
     """The checklist as it goes into JSONB: ids as strings, no derived flags.
 
     ``location`` and ``on_board`` are recomputed on every read from the live
@@ -131,7 +139,7 @@ def _jsonable_materials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def normalize_extra_materials(stored: Any) -> list[dict[str, Any]]:
+def normalize_extra_materials(stored: Sequence[object] | None) -> list[RapportExtraMaterialEntry]:
     """ "Weiteres gebrauchtes Material" as a list of ``{name, left_on_site}`` (§18.35).
 
     Defensive on the way in, because the column is JSONB written by two doors and
@@ -145,8 +153,8 @@ def normalize_extra_materials(stored: Any) -> list[dict[str, Any]]:
     There is no ``used`` here on purpose: naming something on this list already
     means it was used.
     """
-    entries: list[dict[str, Any]] = []
-    seen: dict[str, dict[str, Any]] = {}
+    entries: list[RapportExtraMaterialEntry] = []
+    seen: dict[str, RapportExtraMaterialEntry] = {}
     for raw in stored or []:
         if isinstance(raw, str):
             # Tolerated for a payload replayed from a phone that still speaks the
@@ -162,14 +170,14 @@ def normalize_extra_materials(stored: Any) -> list[dict[str, Any]]:
         if existing is not None:
             existing["left_on_site"] = existing["left_on_site"] or left
             continue
-        entry = {"name": name, "left_on_site": left}
+        entry: RapportExtraMaterialEntry = {"name": name, "left_on_site": left}
         seen[name.lower()] = entry
         entries.append(entry)
     return entries
 
 
 def reconcile_vehicles(
-    stored: list[Any] | None,
+    stored: Sequence[object] | None,
     dispatched: list[dict[str, Any]],
     assigned_ids: set[uuid.UUID],
     fleet_names: dict[uuid.UUID, str] | None = None,
@@ -237,7 +245,7 @@ def reconcile_vehicles(
     return merged
 
 
-def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[RapportVehicleEntry]:
     """The vehicle checklist as it goes into JSONB: ids as strings, no ``on_board``.
 
     ``on_board`` is recomputed on every read from the live assignments, so
@@ -264,7 +272,7 @@ def _jsonable_vehicles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def reconcile_personnel(
-    stored: list[Any] | None,
+    stored: Sequence[object] | None,
     dispatched: list[dict[str, Any]],
     assigned_ids: set[uuid.UUID],
     roster_names: dict[uuid.UUID, str] | None = None,
@@ -316,7 +324,7 @@ def reconcile_personnel(
     return merged
 
 
-def _jsonable_personnel(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _jsonable_personnel(rows: list[dict[str, Any]]) -> list[RapportPersonnelEntry]:
     """The crew checklist as it goes into JSONB — same rules as the vehicles.
 
     ``on_board`` is recomputed from the live assignments on every read, so it is
@@ -334,7 +342,7 @@ def _jsonable_personnel(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def normalize_extra_personnel(stored: Any) -> list[dict[str, Any]]:
+def normalize_extra_personnel(stored: Sequence[object] | None) -> list[RapportExtraPersonnelEntry]:
     """People on no roster of this station, as ``{name, note}``.
 
     Defensive like :func:`normalize_extra_materials`, and for the same reason —
@@ -342,8 +350,8 @@ def normalize_extra_personnel(stored: Any) -> list[dict[str, Any]]:
     collapses into one entry and keeps whichever note is non-empty: the same
     person named twice is one person standing at the address.
     """
-    entries: list[dict[str, Any]] = []
-    seen: dict[str, dict[str, Any]] = {}
+    entries: list[RapportExtraPersonnelEntry] = []
+    seen: dict[str, RapportExtraPersonnelEntry] = {}
     for raw in stored or []:
         if isinstance(raw, str):
             raw = {"name": raw}
@@ -357,13 +365,13 @@ def normalize_extra_personnel(stored: Any) -> list[dict[str, Any]]:
         if existing is not None:
             existing["note"] = existing["note"] or note
             continue
-        entry = {"name": name, "note": note}
+        entry: RapportExtraPersonnelEntry = {"name": name, "note": note}
         seen[name.lower()] = entry
         entries.append(entry)
     return entries
 
 
-def derive_personnel_count(personnel_rows: list[dict[str, Any]], extra_rows: list[dict[str, Any]]) -> int:
+def derive_personnel_count(personnel_rows: Sequence[Mapping[str, object]], extra_rows: Sequence[object]) -> int:
     """The head count, from the list rather than from a keyboard.
 
     Ticked names plus everybody the crew added by hand. It cannot disagree with

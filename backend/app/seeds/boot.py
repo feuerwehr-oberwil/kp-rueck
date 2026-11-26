@@ -1,24 +1,32 @@
-"""Database seed script.
+"""The boot seed: ``python -m app.seeds`` (``__main__.py``), on every start.
 
-Run with: uv run python -m app.seed
+Idempotent through ``SEED_MARKER_KEY``. Production gets settings, the training templates and
+– with ``ADMIN_SEED_PASSWORD`` – the accounts; everywhere else also the dev fixture (the
+station from ``station.py``, a material catalogue and sample operations).
 """
 
-import asyncio
 import os
 import secrets
-import sys
 from datetime import datetime, timedelta
-from uuid import uuid4
+from typing import Literal
+from uuid import UUID, uuid4
 
 import bcrypt
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.environment import is_production_environment
 
-from . import models
-from .database import async_session_maker
-from .seed_training import seed_training_data
-from .services.ranks import RANKS
+from .. import models
+from ..database import async_session_maker
+from .station import IncidentSeed, MaterialSeed, add_station_roster, add_station_vehicles
+from .training import seed_training_data
+
+Role = Literal["admin", "editor", "viewer"]
+
+
+class DevIncidentSeed(IncidentSeed):
+    event_id: UUID  # the dev fixture has an operational and a training Ereignis
 
 
 def get_admin_password() -> str:
@@ -133,7 +141,13 @@ def get_shared_account_password(env_var: str, dev_default: str) -> str:
     return dev_default
 
 
-async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials) -> None:
+async def _seed_sample_operations(
+    db: AsyncSession,
+    admin_user: models.User,
+    vehicles: list[models.Vehicle],
+    personnel: list[models.Personnel],
+    materials: list[models.Material],
+) -> None:
     """Seed sample events, incidents, assignments, special functions, and
     status transitions - development fixtures only.
 
@@ -171,7 +185,7 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
 
     # The addresses below are REAL Oberwil BL streets with their OpenStreetMap
     # coordinates — the same verified set the training locations come from
-    # (`seed_training.FALLBACK_TRAINING_LOCATIONS`).
+    # (`training.FALLBACK_TRAINING_LOCATIONS`).
     #
     # They used to be «Musterstadt» invented streets pinned around 47.56 / 7.59,
     # which is not Oberwil but the far side of the Rhein: every sample incident
@@ -181,7 +195,7 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
     # is what people learn the product on; it has to be somewhere real.
     #
     # Production seeds none of this at all (`is_production_environment`).
-    incidents_data = [
+    incidents_data: list[DevIncidentSeed] = [
         # Water-focused incidents (main focus)
         {
             "title": "Wasser im Keller Einfamilienhaus",
@@ -192,7 +206,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5546250,
             "status": "active",
             "description": "Keller unter Wasser, ca. 30cm. Heizung und Elektroinstallation betroffen. Bewohner vor Ort.",
-            "created_by": admin_user.id,
             "event_id": operational_event.id,
         },
         {
@@ -204,7 +217,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5561373,
             "status": "enroute",
             "description": "Tiefgarage steht unter Wasser nach Starkregen. Ca. 50cm Wasserhöhe. 12 Fahrzeuge betroffen.",
-            "created_by": admin_user.id,
             "event_id": operational_event.id,
         },
         {
@@ -216,7 +228,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5588034,
             "status": "incoming",
             "description": "Wasser dringt durch Kellerfenster. Waschküche und Kellerabteile überflutet. 3 Stockwerke betroffen.",
-            "created_by": admin_user.id,
             "event_id": operational_event.id,
         },
         {
@@ -228,7 +239,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5539767,
             "status": "reko",
             "description": "Grundwasser im Keller eines Lagergebäudes. Ca. 40cm Wasser. Waren und Maschinen gefährdet.",
-            "created_by": admin_user.id,
             "event_id": operational_event.id,
         },
         # Diverse other incidents
@@ -241,7 +251,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5601529,
             "status": "active",
             "description": "Umgestürzter Baum blockiert Fahrbahn. Keine Personen verletzt. Verkehr wird umgeleitet.",
-            "created_by": admin_user.id,
             "event_id": operational_event.id,
         },
         {
@@ -253,7 +262,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5570202,
             "status": "complete",
             "description": "Ölspur ca. 80m auf Fahrbahn. Bindemittel aufgebracht. Strasse gereinigt.",
-            "created_by": admin_user.id,
             "completed_at": now - timedelta(minutes=35),
             "event_id": operational_event.id,
         },
@@ -266,7 +274,6 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5585081,
             "status": "complete",
             "description": "Mehrere Dachziegel durch Sturmböen gelöst. Absturzgefahr auf Gehweg. Bereich abgesperrt.",
-            "created_by": admin_user.id,
             "completed_at": now - timedelta(minutes=55),
             "event_id": operational_event.id,
         },
@@ -280,14 +287,13 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
             "location_lng": 7.5550833,
             "status": "reko",
             "description": "Übung Wasserschadeneinsatz mit Tauchpumpen und Wassersaugern.",
-            "created_by": admin_user.id,
             "event_id": training_event.id,
         },
     ]
 
     incidents = []
     for incident_data in incidents_data:
-        incident = models.Incident(id=uuid4(), **incident_data)
+        incident = models.Incident(id=uuid4(), created_by=admin_user.id, **incident_data)
         db.add(incident)
         incidents.append(incident)
 
@@ -474,7 +480,9 @@ async def _seed_sample_operations(db, admin_user, vehicles, personnel, materials
     )
 
 
-async def _seed_sample_resources(db) -> tuple[list, list, list]:
+async def _seed_sample_resources(
+    db: AsyncSession,
+) -> tuple[list[models.Vehicle], list[models.Personnel], list[models.Material]]:
     """Seed a fictional station's vehicles, personnel and materials -
     development fixtures only.
 
@@ -486,139 +494,15 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
     deployment starts empty and fills up through the Excel import
     (docs/SETUP.md section 3).
     """
-    # ============================================
-    # 3. SEED VEHICLES
-    # ============================================
-    print("Creating vehicles...")
-    vehicles_data = [
-        {
-            "name": "TLF",
-            "type": "TLF",
-            "display_order": 1,
-            "status": "available",
-            "radio_call_sign": "Omega 1",
-        },
-        {
-            "name": "Pio",
-            "type": "RW",
-            "display_order": 2,
-            "status": "available",
-            "radio_call_sign": "Omega 2",
-        },
-        {
-            "name": "Mowa",
-            "type": "MTW",
-            "display_order": 3,
-            "status": "available",
-            "radio_call_sign": "Omega 3",
-        },
-        {
-            "name": "Trawa",
-            "type": "MTW",
-            "display_order": 4,
-            "status": "available",
-            "radio_call_sign": "Omega 4",
-        },
-        {
-            "name": "Mawa",
-            "type": "MTW",
-            "display_order": 5,
-            "status": "available",
-            "radio_call_sign": "Omega 5",
-        },
-    ]
-
-    vehicles = []
-    for vehicle_data in vehicles_data:
-        vehicle = models.Vehicle(id=uuid4(), **vehicle_data)
-        db.add(vehicle)
-        vehicles.append(vehicle)
-
-    # ============================================
-    # 4. SEED PERSONNEL
-    # ============================================
-    print("Creating personnel...")
-
-    # Generic personnel (common Swiss surnames)
-    personnel_data = [
-        # Offiziere
-        {"name": "Müller Hans", "role": "Hauptmann", "status": "available", "tags": ["F"]},
-        {"name": "Schneider Peter", "role": "Oberleutnant", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Weber Martin", "role": "Oberleutnant", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Fischer Thomas", "role": "Leutnant", "status": "available", "tags": []},
-        {"name": "Meyer Stefan", "role": "Leutnant", "status": "available", "tags": ["F"]},
-        {"name": "Wagner Klaus", "role": "Leutnant", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Becker Andreas", "role": "Leutnant", "status": "available", "tags": ["F", "Fw"]},
-        # Höhere Unteroffiziere
-        {"name": "Hoffmann Lisa", "role": "Feldweibel", "status": "available", "tags": ["F"]},
-        {"name": "Schmidt Daniel", "role": "Feldweibel", "status": "available", "tags": ["F"]},
-        {"name": "Koch René", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Baumann Michael", "role": "Wachtmeister", "status": "available", "tags": ["F", "Fw"]},
-        {"name": "Keller Marco", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Brunner Sarah", "role": "Wachtmeister", "status": "available", "tags": ["F", "Hö"]},
-        {"name": "Gerber Sandro", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Frei Dominik", "role": "Wachtmeister", "status": "available", "tags": []},
-        {"name": "Huber Stefan", "role": "Wachtmeister", "status": "available", "tags": ["F"]},
-        {"name": "Schmid Tizian", "role": "Wachtmeister", "status": "available", "tags": []},
-        # Korporale
-        {"name": "Steiner Lukas", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Meier Andrea", "role": "Korporal", "status": "available", "tags": ["F"]},
-        {"name": "Graf Sven", "role": "Korporal", "status": "available", "tags": ["Hö"]},
-        {"name": "Roth Til", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Lang Dimitri", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Kaufmann Alain", "role": "Korporal", "status": "available", "tags": ["F"]},
-        {"name": "Moser Florian", "role": "Korporal", "status": "available", "tags": ["Hö"]},
-        {"name": "Berger Maja", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Widmer Nico", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Vogel Simon", "role": "Korporal", "status": "available", "tags": []},
-        {"name": "Egger Olivier", "role": "Korporal", "status": "available", "tags": ["F"]},
-        # Mannschaftsgrade
-        {"name": "Zimmermann Fabian", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Wyss Fabio", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Künzli Klara", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Studer Samuel", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Schwarz Jan", "role": "Soldat", "status": "available", "tags": ["Fw"]},
-        {"name": "Hartmann Mischa", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Christen Sandro", "role": "Gefreiter", "status": "available", "tags": ["Fw"]},
-        {"name": "Leuenberger Luca", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Suter Raoul", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Kunz Gabor", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Ammann Manuel", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Burri Alessandro", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Wenger Luzia", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Bühler Rico", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Aebischer Yannick", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Arnold Samuel", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Aebi Lionel", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Bachmann Simon", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Bühlmann Carina", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Buri Marysol", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Gasser Julia", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Hofer Max", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Hess Silvan", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Imhof Sebastiaan", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Iten Alexandre", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Jost Melissa", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Kaiser Sandra", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Käser Koray", "role": "Gefreiter", "status": "available", "tags": []},
-        {"name": "Kessler Paolo", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "König Sina", "role": "Soldat", "status": "available", "tags": []},
-        {"name": "Lehmann Bastian", "role": "Gefreiter", "status": "available", "tags": []},
-    ]
-
-    # Most senior first, like the demo roster (``ranks.RANKS`` order).
-    role_order = {rank.label: position for position, rank in enumerate(RANKS, start=1)}
-    personnel = []
-    for person_data in personnel_data:
-        person = models.Personnel(id=uuid4(), role_sort_order=role_order.get(person_data["role"], 99), **person_data)
-        db.add(person)
-        personnel.append(person)
+    print("Creating vehicles and personnel...")
+    vehicles = add_station_vehicles(db)
+    personnel = add_station_roster(db, "dev")
 
     # ============================================
     # 5. SEED MATERIALS
     # ============================================
     print("Creating materials...")
-    materials_data = [
+    materials_data: list[MaterialSeed] = [
         # Tauchpumpen
         {"name": "Tauchpumpe Gr.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
         {"name": "Tauchpumpe Kl.", "type": "Tauchpumpen", "location": "TLF", "status": "available"},
@@ -662,24 +546,15 @@ async def _seed_sample_resources(db) -> tuple[list, list, list]:
     ]
 
     # Anhänger (Trailers) - separate category
-    trailers_data = [
+    trailers_data: list[MaterialSeed] = [
         {"name": "MS-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
         {"name": "MS-Porsche", "type": "Anhänger", "location": "Depot", "status": "available"},
         {"name": "Anhänger-Zivil", "type": "Anhänger", "location": "Depot", "status": "available"},
     ]
 
-    materials = []
-    for material_data in materials_data:
-        material = models.Material(id=uuid4(), **material_data)
-        db.add(material)
-        materials.append(material)
-
-    # Add trailers to materials
-    for trailer_data in trailers_data:
-        trailer = models.Material(id=uuid4(), **trailer_data)
-        db.add(trailer)
-        materials.append(trailer)
-
+    # Trailers last, their own category.
+    materials = [models.Material(id=uuid4(), **row) for row in [*materials_data, *trailers_data]]
+    db.add_all(materials)
     return vehicles, personnel, materials
 
 
@@ -704,7 +579,7 @@ async def seed_dev_logins() -> None:
     def hashed(password: str) -> str:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-    accounts = [
+    accounts: list[tuple[str, str, Role, str, uuid.UUID | None]] = [
         # (username, password_hash, role, display_name, fixed_id) – dev-user keeps the
         # all-zero UUID the auth bypass looks up; empty hash because bypass never checks it.
         ("dev-user", "", "admin", "Development User", uuid.UUID("00000000-0000-0000-0000-000000000000")),
@@ -753,10 +628,10 @@ async def seed_database() -> None:
 
     In demo mode (DEMO_MODE=true), delegates to seed_demo_database() instead.
     """
-    from .config import settings as app_settings
+    from ..config import settings as app_settings
 
     if app_settings.demo_mode:
-        from .seed_demo import seed_demo_database
+        from .demo import seed_demo_database
 
         print("Demo mode detected — using demo seed data")
         await seed_demo_database()
@@ -903,10 +778,11 @@ async def seed_database() -> None:
             # as REAL operations on the board (audit point 15), and the fleet,
             # roster and materials would be another station's - see
             # _seed_sample_resources. A production board starts empty.
-            vehicles: list = []
-            personnel: list = []
-            materials: list = []
-            if is_production_environment():
+            vehicles: list[models.Vehicle] = []
+            personnel: list[models.Personnel] = []
+            materials: list[models.Material] = []
+            # `admin_user` is None only on an unclaimed board, and that is production too.
+            if is_production_environment() or admin_user is None:
                 print("Production environment - skipping sample resources and operations.")
             else:
                 vehicles, personnel, materials = await _seed_sample_resources(db)
@@ -962,10 +838,3 @@ async def seed_database() -> None:
     except Exception as e:
         print(f"⚠️  Warning: Training data seeding failed: {e}")
         print("   Continuing anyway - training mode may not work properly.")
-
-
-if __name__ == "__main__":
-    if "--dev-logins" in sys.argv[1:]:
-        asyncio.run(seed_dev_logins())
-    else:
-        asyncio.run(seed_database())

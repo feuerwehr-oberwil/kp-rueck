@@ -4,7 +4,7 @@
  * These must match `docker-compose.dev.yml`, which passes them to the backend as
  * `ADMIN_SEED_PASSWORD` / `VIEWER_PASSWORD`. They existed as literals in three separate
  * spec files before, and the literal was `changeme123` — **eleven characters**, which
- * `get_admin_password()` in `backend/app/seed.py` rejects (it requires at least 12). So the
+ * `get_admin_password()` in `backend/app/seeds/boot.py` rejects (it requires at least 12). So the
  * default could never have been the seeded password: without `ADMIN_SEED_PASSWORD` set the
  * seed mints a *random* one and prints it once, every login times out, and after a few
  * attempts the per-username throttle locks the account for 300 seconds. A whole suite run

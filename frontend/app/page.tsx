@@ -100,6 +100,7 @@ import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
 import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
 import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
+import { onAppEvent } from "@/lib/app-events"
 
 export default function FireStationDashboard() {
   const {
@@ -1015,28 +1016,25 @@ export default function FireStationDashboard() {
 
   // Board Auftrag chips signal the page via a window event (no prop threading
   // through the column/side-panel trees) to open the Aufträge sheet on that route.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const groupId = (e as CustomEvent<{ groupId: string }>).detail?.groupId ?? null
-      setAuftraegeFocusGroupId(groupId)
-      setActiveFooterSheet('auftraege')
-    }
-    window.addEventListener('kp:open-auftraege', handler)
-    return () => window.removeEventListener('kp:open-auftraege', handler)
-  }, [])
+  useEffect(
+    () =>
+      onAppEvent('kp:open-auftraege', ({ groupId }) => {
+        setAuftraegeFocusGroupId(groupId)
+        setActiveFooterSheet('auftraege')
+      }),
+    [],
+  )
 
   // Same channel for the Auftrags-Editor: a card's context menu opens its route
   // directly, with that stop focused, instead of detouring through the sheet.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ groupId: string; focusIncidentId?: string }>).detail
-      if (!detail?.groupId) return
-      setRoutenEditorGroupId(detail.groupId)
-      setRoutenEditorFocusIncidentId(detail.focusIncidentId ?? null)
-    }
-    window.addEventListener('kp:open-routen-editor', handler)
-    return () => window.removeEventListener('kp:open-routen-editor', handler)
-  }, [])
+  useEffect(
+    () =>
+      onAppEvent('kp:open-routen-editor', ({ groupId, focusIncidentId }) => {
+        setRoutenEditorGroupId(groupId)
+        setRoutenEditorFocusIncidentId(focusIncidentId ?? null)
+      }),
+    [],
+  )
 
   // No scroll lock while a footer sheet is open. There used to be one here
   // (`overflow: hidden` on `#kanban-main` and every column body), from when the
@@ -1550,7 +1548,7 @@ export default function FireStationDashboard() {
             ) : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
-                  const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
+                  const columnOps = filteredOperations.filter((op) => column.id === op.status)
                   return (
                     <DroppableColumn
                       key={column.id}

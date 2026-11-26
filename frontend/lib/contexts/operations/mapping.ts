@@ -80,7 +80,7 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     incidentType: incident.type || "elementarereignis",
     dispatchTime: new Date(incident.created_at),
     crew: [],
-    priority: incident.priority as "high" | "medium" | "low",
+    priority: incident.priority,
     status: incident.status,
     coordinates: apiCoordinatesToTuple(incident.location_lat, incident.location_lng),
     materials: [],

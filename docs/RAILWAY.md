@@ -191,7 +191,7 @@ A **`viewer`** account also exists, using `VIEWER_PASSWORD` – that is the read
 wall displays and kiosk screens.
 
 There is **no shared `editor` account in production.** It is created only outside production
-(`backend/app/seed.py`); editors get individual accounts. `EDITOR_PASSWORD` is ignored here –
+(`backend/app/seeds/boot.py`); editors get individual accounts. `EDITOR_PASSWORD` is ignored here –
 if you find it in an older deployment of yours, it is doing nothing.
 
 ---

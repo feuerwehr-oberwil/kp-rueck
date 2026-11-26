@@ -18,7 +18,7 @@ DEFAULT_PRINT_JOB_TTL_SECONDS  # unused variable (app/crud/print_jobs.py:84)
 
 # Used only by the tests (tests/ is not scanned, so vulture cannot see it).
 reset_for_tests  # unused function (app/auth/setup_token.py:132)
-TRAINING_AREA_BOUNDS  # unused variable (app/seed_training.py:1228)
+TRAINING_AREA_BOUNDS  # unused variable (app/seeds/training.py, read by tests)
 fatigue_message  # unused function (app/services/notification_service.py:379)
 reset_storage_usage_cache  # unused function (app/services/storage_usage.py:136)
 generate_checkin_token  # unused function (app/services/tokens.py:62)
@@ -483,3 +483,16 @@ accuracy  # unused variable (app/traccar.py:46)
 serverTime  # unused variable (app/traccar.py:48)
 fixTime  # unused variable (app/traccar.py:49)
 attributes  # unused variable (app/traccar.py:51)
+
+# Station settings only the frontend reads: declared so DEFAULT_SETTINGS (collected from the
+# module in app/services/settings.py) seeds and admits them.
+FUNKRUFNAME
+PERSONNEL_ROLE_ABBREVIATIONS
+MAP_MODE
+MAP_STYLE
+INCIDENT_TIME_DISPLAY
+WHATSAPP_INCIDENT_TEMPLATE
+WHATSAPP_MESSAGE_1
+WHATSAPP_MESSAGE_2
+CHECKLIST_HIDDEN_TASKS
+CHECKLIST_NOTES

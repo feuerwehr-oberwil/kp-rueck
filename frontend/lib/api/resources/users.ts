@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type { ApiUser, ApiUserCreate, ApiUserUpdate } from '../types'
 
 export class UsersApi {
@@ -29,7 +29,7 @@ export class UsersApi {
   }
 
   async resetUserPassword(userId: string, newPassword: string): Promise<void> {
-    return httpRequest<void>(`/api/users/${userId}/reset-password`, {
+    return requestVoid(`/api/users/${userId}/reset-password`, {
       method: 'POST',
       body: JSON.stringify({ new_password: newPassword }),
     })
@@ -37,7 +37,7 @@ export class UsersApi {
 
   async deleteUser(userId: string, permanent: boolean = false): Promise<void> {
     const url = permanent ? `/api/users/${userId}?permanent=true` : `/api/users/${userId}`
-    return httpRequest<void>(url, {
+    return requestVoid(url, {
       method: 'DELETE',
     })
   }

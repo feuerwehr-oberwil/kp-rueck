@@ -8,7 +8,8 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }),
 }))
 
-import { apiClient, NetworkError } from './api-client'
+import { apiClient, NetworkError, onRestReachableChange } from './api-client'
+import { markRestUnreachable } from './api/http'
 
 describe('apiClient network failures', () => {
   beforeEach(() => {
@@ -45,21 +46,37 @@ describe('apiClient network failures', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
-  it('resolves GETs to undefined when the server is unreachable (soft degrade for polling)', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  it('rejects a read after its retries instead of passing an outage off as an empty list', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+    vi.stubGlobal('fetch', fetchMock)
 
     const promise = apiClient.getIncidents('event-id')
-    await vi.runAllTimersAsync()
-    await expect(promise).resolves.toBeUndefined()
-  })
-
-  it('rejects the board incident list instead of passing an outage off as an empty Ereignis', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-
-    const promise = apiClient.getIncidentsWithTotal('event-id')
     const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
     await vi.runAllTimersAsync()
     await assertion
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('treats a body that breaks off after the headers as no answer, and retries the read', async () => {
+    const truncated = () =>
+      new Response(new ReadableStream({ start: (controller) => controller.error(new TypeError('network error')) }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    const fetchMock = vi.fn().mockImplementation(async () => truncated())
+    vi.stubGlobal('fetch', fetchMock)
+    // Headers whose body then breaks are not «back online»: no flicker of the outage state.
+    markRestUnreachable(true)
+    const seen: boolean[] = []
+    const unsubscribe = onRestReachableChange((reachable) => seen.push(reachable))
+
+    const promise = apiClient.getIncidents('event-id')
+    const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
+    await vi.runAllTimersAsync()
+    await assertion
+    unsubscribe()
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(seen).not.toContain(true)
   })
 
   it('still resolves successful mutations with the response body', async () => {

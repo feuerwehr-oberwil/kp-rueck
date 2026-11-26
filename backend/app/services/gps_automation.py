@@ -64,7 +64,20 @@ from ..models import (
 from ..traccar import VehiclePosition
 from ..utils.failure_latch import FailureLatch
 from ..websocket_manager import broadcast_incident_update, broadcast_message
-from .settings import get_setting_value, get_station_coordinates
+from .settings import (
+    GEOFENCE_RADIUS_METERS,
+    GPS_AUTOMATION_ENABLED,
+    GPS_DEBOUNCE_COUNT,
+    GPS_FRESHNESS_SECONDS,
+    GPS_MIN_DWELL_SECONDS,
+    GPS_RULE_ARRIVAL_ENABLED,
+    GPS_RULE_ARRIVAL_SILENT,
+    GPS_RULE_RETURN_ENABLED,
+    GPS_SPEED_GATE_KMH,
+    GPS_STATION_RADIUS_METERS,
+    get_station_coordinates,
+    read,
+)
 
 logger = logging.getLogger(__name__)
 _tick_failures = FailureLatch(logger, "GPS automation tick")
@@ -171,47 +184,25 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _parse_float(value: str | None) -> float | None:
-    try:
-        if value is None or value == "":
-            return None
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
 async def _load_config(db: AsyncSession) -> _AutomationConfig:
-    """Read and validate the gps.* settings for this tick."""
-    enabled = (await get_setting_value(db, "gps.automation_enabled", "false")).lower() == "true"
-    rule_arrival = (await get_setting_value(db, "gps.rule_arrival_enabled", "false")).lower() == "true"
-    rule_arrival_silent = (await get_setting_value(db, "gps.rule_arrival_silent", "false")).lower() == "true"
-    rule_return = (await get_setting_value(db, "gps.rule_return_enabled", "false")).lower() == "true"
-
-    arrival_radius = _parse_float(await get_setting_value(db, "geofence_radius_meters", "200")) or 200.0
+    """The gps.* settings for this tick (their ranges are the registry's)."""
     # One source for the Magazin position: gps.station_* if a station still
     # carries the legacy pair, else the Allgemein coordinates. See the helper.
     station = await get_station_coordinates(db)
     station_lat, station_lng = station if station else (None, None)
-    station_radius = _parse_float(await get_setting_value(db, "gps.station_radius_meters", "100")) or 100.0
-
-    debounce_count = int(_parse_float(await get_setting_value(db, "gps.debounce_count", "2")) or 2)
-    freshness = _parse_float(await get_setting_value(db, "gps.freshness_seconds", "180")) or 180.0
-    min_dwell = _parse_float(await get_setting_value(db, "gps.min_dwell_seconds", "10")) or 10.0
-    speed_gate = _parse_float(await get_setting_value(db, "gps.speed_gate_kmh", "10")) or 10.0
-
     return _AutomationConfig(
-        enabled=enabled,
-        rule_arrival_enabled=rule_arrival,
-        rule_arrival_silent=rule_arrival_silent,
-        rule_return_enabled=rule_return,
-        arrival_radius_m=arrival_radius,
+        enabled=await read(db, GPS_AUTOMATION_ENABLED),
+        rule_arrival_enabled=await read(db, GPS_RULE_ARRIVAL_ENABLED),
+        rule_arrival_silent=await read(db, GPS_RULE_ARRIVAL_SILENT),
+        rule_return_enabled=await read(db, GPS_RULE_RETURN_ENABLED),
+        arrival_radius_m=await read(db, GEOFENCE_RADIUS_METERS),
         station_lat=station_lat,
         station_lng=station_lng,
-        station_radius_m=station_radius,
-        debounce_count=max(1, debounce_count),
-        freshness_seconds=max(1.0, freshness),
-        min_dwell_seconds=max(0.0, min_dwell),
-        speed_gate_kmh=max(0.0, speed_gate),
+        station_radius_m=await read(db, GPS_STATION_RADIUS_METERS),
+        debounce_count=await read(db, GPS_DEBOUNCE_COUNT),
+        freshness_seconds=await read(db, GPS_FRESHNESS_SECONDS),
+        min_dwell_seconds=await read(db, GPS_MIN_DWELL_SECONDS),
+        speed_gate_kmh=await read(db, GPS_SPEED_GATE_KMH),
     )
 
 
@@ -862,15 +853,6 @@ async def _fire_arrival_prompt(
         key=f"arrival:{incident_id}",
     )
     await db.commit()
-    # The old live prompt stays as a nudge for tabs still on the previous build.
-    await broadcast_message(
-        {
-            "type": "gps_arrival_prompt",
-            "incident_id": str(incident_id),
-            "vehicle_name": vehicle_name,
-            "incident_label": incident_label,
-        }
-    )
 
 
 async def _fire_return_prompt(
@@ -901,14 +883,14 @@ async def _fire_return_prompt(
     )
     await db.commit()
     await broadcast_message(
+        "gps_release_prompt",
         {
-            "type": "gps_release_prompt",
             "assignment_id": str(assignment_id),
             "incident_id": str(incident_id),
             "vehicle_id": str(vehicle_id),
             "vehicle_name": vehicle_name,
             "incident_label": incident_label,
-        }
+        },
     )
 
 
@@ -938,13 +920,3 @@ async def _fire_group_return_prompt(
         key=f"release:{assignment_id}",
     )
     await db.commit()
-    await broadcast_message(
-        {
-            "type": "gps_group_release_prompt",
-            "assignment_id": str(assignment_id),
-            "group_id": str(group_id),
-            "vehicle_id": str(vehicle_id),
-            "vehicle_name": vehicle_name,
-            "incident_label": group_label,
-        }
-    )

@@ -106,12 +106,12 @@ def test_seeded_settings_are_writable():
     A seeded value the API refuses to update is worse than no default: the station sees a
     populated field, edits it, and is told the save failed with no way to tell why.
     """
-    seed_source = (Path(__file__).resolve().parents[2] / "app" / "seed.py").read_text(encoding="utf-8")
+    seed_source = (Path(__file__).resolve().parents[2] / "app" / "seeds" / "boot.py").read_text(encoding="utf-8")
     seeded = set(re.findall(r'\(\s*"([a-z_.]+)"\s*,\s*(?:"[^"]*"|secrets\.)', seed_source))
     # Only consider keys that look like settings rows, not unrelated tuples.
     candidates = {k for k in seeded if k in DEFAULT_SETTINGS or k.replace("_", "").isalpha()}
     missing = sorted(k for k in candidates if k not in DEFAULT_SETTINGS and "." not in k)
-    # Known non-setting tuples in seed.py would show up here; assert on the settings we know
+    # Known non-setting tuples in the boot seed would show up here; assert on the settings we know
     # are seeded rather than on everything the regex finds.
     known_seeded_settings = {
         "alarm_webhook_secret",

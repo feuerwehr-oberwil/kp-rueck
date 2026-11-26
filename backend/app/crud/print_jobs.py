@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from ..config import settings
 from ..database import after_commit, execute_dml
+from ..json_columns import reko_effort_figures
 from ..models import (
     Event,
     EventAttendance,
@@ -452,11 +453,12 @@ async def build_assignment_payload(db: AsyncSession, incident: Incident) -> dict
             for key, label in danger_labels.items():
                 if reko.dangers_json.get(key):
                     dangers.append(label)
+        personnel_count, estimated_duration = reko_effort_figures(reko.effort_json)
         reko_summary = {
             "is_relevant": reko.is_relevant,
             "dangers": dangers,
-            "personnel_count": reko.effort_json.get("personnel_count") if reko.effort_json else None,
-            "estimated_duration": reko.effort_json.get("estimated_duration_hours") if reko.effort_json else None,
+            "personnel_count": personnel_count,
+            "estimated_duration": estimated_duration,
             "summary_text": reko.summary_text,
         }
 

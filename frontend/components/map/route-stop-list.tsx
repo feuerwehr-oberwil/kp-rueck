@@ -60,6 +60,7 @@ import { moveInList, type MoveTo } from "@/lib/move-in-list"
 import { MoveMenuItems, ReorderMenu } from "@/components/ui/reorder-menu"
 import { ACCENT_BAR, stopStatusBorderClass, stopStatusTextClass } from "@/lib/kanban-utils"
 import type { RouteStartMode } from "@/lib/route-start"
+import type { BoardDropTarget } from "@/lib/board-drag"
 
 // ── Optimize-from wand ───────────────────────────────────────────────────────
 // A single wand icon button (shared by the Auftrags-Editor modal, the /map
@@ -434,7 +435,11 @@ function useStopRowDnd(listId: string, kind: StopListKind, incidentId: string, i
         element: el,
         getData: ({ input }) =>
           attachClosestEdge(
-            { type: DND[kind].target, groupId: listId, incidentId, index },
+            // An Auftrag stop is also a board drop target (a resource dropped on it): the
+            // board's monitor reads it as a `BoardDropTarget`.
+            kind === "auftrag"
+              ? ({ type: "group-stop", groupId: listId, incidentId, index } satisfies BoardDropTarget)
+              : { type: DND.reko.target, groupId: listId, incidentId, index },
             { element: el, input, allowedEdges: ["top", "bottom"] },
           ),
         onDragEnter: ({ self, source }) => {

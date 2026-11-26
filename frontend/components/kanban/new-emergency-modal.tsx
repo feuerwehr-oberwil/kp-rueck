@@ -100,6 +100,7 @@ import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog"
 import { Kbd } from "@/components/ui/kbd"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { useIsMac } from "@/lib/hooks/use-is-mac"
+import type { Priority } from "@/lib/priority"
 
 /** LocationInput's own input id — the field a blocked submit focuses. */
 const LOCATION_FIELD_ID = "location_address"
@@ -123,7 +124,7 @@ interface NewEmergencyModalProps {
 const emptyForm = () => ({
     location: "",
     incidentType: "elementarereignis",
-    priority: "low" as "high" | "medium" | "low",
+    priority: "low" as Priority,
     coordinates: null as Operation["coordinates"],
     status: "incoming" as OperationStatus,
     crew: [] as Operation["crew"],

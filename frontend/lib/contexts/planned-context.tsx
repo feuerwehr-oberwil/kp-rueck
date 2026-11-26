@@ -7,7 +7,7 @@ import { translateOutsideReact } from "@/lib/i18n-messages"
 import { isValidUUID } from "@/lib/utils/validation"
 import { wsClient } from "@/lib/websocket-client"
 import { usePolling } from "@/lib/hooks/use-polling"
-import { PLANNED_CHANGED } from "@/lib/planned-actions"
+import { onAppEvent } from "@/lib/app-events"
 import { useAuth } from "./auth-context"
 import { useEvent } from "./event-context"
 
@@ -91,13 +91,12 @@ export function PlannedProvider({ children }: { children: ReactNode }) {
         void load()
       }, 25)
     }
-    const off = ["planned_assignment_update", "assignment_update", "incident_update", "group_update"].map((event) =>
-      wsClient.on(event, schedule),
+    const off = (["planned_assignment_update", "assignment_update", "incident_update", "group_update"] as const).map(
+      (event) => wsClient.on(event, schedule),
     )
-    window.addEventListener(PLANNED_CHANGED, schedule)
+    off.push(onAppEvent("kp:planned-changed", schedule))
     return () => {
       off.forEach((unsubscribe) => unsubscribe())
-      window.removeEventListener(PLANNED_CHANGED, schedule)
       if (timeout) clearTimeout(timeout)
     }
   }, [authReady, scopeEventId, load])

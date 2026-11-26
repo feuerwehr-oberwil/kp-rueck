@@ -38,21 +38,15 @@ export function readJson<T, F = T>(
   }
   if (raw === null) return fallback
 
-  let parsed: unknown
   try {
-    parsed = JSON.parse(raw)
+    const parsed: unknown = JSON.parse(raw)
+    if (isValid(parsed)) return parsed
   } catch {
-    // Corrupt or truncated. Drop it so the next read starts clean instead of
+    // Corrupt or truncated: dropped below, so the next read starts clean instead of
     // paying the parse cost (and failing) on every single render.
-    removeItem(key)
-    return fallback
   }
-
-  if (!isValid(parsed)) {
-    removeItem(key)
-    return fallback
-  }
-  return parsed
+  removeItem(key)
+  return fallback
 }
 
 /** Serialise and store a value. Returns false if it could not be persisted. */
@@ -95,6 +89,11 @@ export function removeItem(key: string): void {
   } catch {
     // nothing sensible to do
   }
+}
+
+/** Type guard: a plain object (not null, not an array) whose keys a caller then reads. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /** Type guard: an array of strings. */

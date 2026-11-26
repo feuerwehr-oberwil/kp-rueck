@@ -197,27 +197,22 @@ async def test_arrival_advances_after_n_fixes(
 
 
 @pytest.mark.asyncio
-@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_arrival_confirm_default_prompts_without_advancing(
-    _bc, bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
-    """Default (silent=false): arrival emits a confirm prompt and does NOT change status."""
+    """Default (silent=false): arrival asks and does NOT change status."""
     _vehicle, _assignment = assigned_vehicle
     await _enable_arrival(db_session, silent=False)
     clock = _Clock(datetime.now(UTC))
 
     await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=30)
     await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
-    bc_msg.assert_not_called()
+    assert await _arrival_todos(db_session) == 0
     await _tick(db_session, clock, _fresh_at_incident(clock.now()))
 
-    # Prompt broadcast once; status untouched (operator must confirm).
-    bc_msg.assert_awaited_once()
-    payload = bc_msg.await_args.args[0]
-    assert payload["type"] == "gps_arrival_prompt"
-    assert payload["incident_id"] == str(enroute_incident.id)
-    assert payload["vehicle_name"] == "TLF-1"
+    # Asked once; status untouched (operator must confirm).
+    assert await _arrival_todo_incidents(db_session) == [enroute_incident.id]
     assert await _status(db_session, enroute_incident.id) == "enroute"
     # Owner rule 24.11.2026: the question is ONE «Zu erledigen» row in the bell, not a popup;
     # a later tick does not stack a copy while it is open.
@@ -227,10 +222,9 @@ async def test_arrival_confirm_default_prompts_without_advancing(
 
 
 @pytest.mark.asyncio
-@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_arrival_silent_opt_in_advances(
-    _bc, bc_msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+    _bc, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
 ):
     """Opt-in (silent=true): arrival advances enroute -> active with no prompt."""
     await _enable_arrival(db_session, silent=True)
@@ -238,7 +232,7 @@ async def test_arrival_silent_opt_in_advances(
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
     assert await _status(db_session, enroute_incident.id) == "active"
-    bc_msg.assert_not_called()
+    assert await _arrival_todos(db_session) == 0
 
 
 @pytest.mark.asyncio
@@ -503,7 +497,7 @@ async def test_sparse_parked_fixes_still_fire(
     # Fix 2 arrives at t0+80 (past dwell=40) and the next tick sees it -> fires.
     await _tick(db_session, clock, _fresh_at_station(clock.now()))
     bc_msg.assert_awaited_once()
-    assert bc_msg.await_args.args[0]["type"] == "gps_release_prompt"
+    assert bc_msg.await_args.args[0] == "gps_release_prompt"
 
 
 @pytest.mark.asyncio
@@ -543,8 +537,8 @@ async def test_return_emits_prompt_not_release(
 
     # Prompt broadcast once, with the assignment to release; assignment still ACTIVE.
     bc_msg.assert_awaited_once()
-    payload = bc_msg.await_args.args[0]
-    assert payload["type"] == "gps_release_prompt"
+    event, payload = bc_msg.await_args.args
+    assert event == "gps_release_prompt"
     assert payload["assignment_id"] == str(assignment.id)
     assert payload["vehicle_name"] == "TLF-1"
 
@@ -591,7 +585,7 @@ async def test_simulated_drive_prompts_without_station_opt_in(
     finally:
         gps_simulation._drives.clear()
 
-    prompts = [call.args[0] for call in bc_msg.await_args_list if call.args[0].get("type") == "gps_release_prompt"]
+    prompts = [call.args[1] for call in bc_msg.await_args_list if call.args[0] == "gps_release_prompt"]
     assert len(prompts) == 1
     assert prompts[0]["assignment_id"] == str(assignment.id)
 
@@ -600,9 +594,8 @@ async def test_simulated_drive_prompts_without_station_opt_in(
 
 
 @pytest.mark.asyncio
-@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
-async def test_route_vehicle_return_emits_group_release_prompt(
-    bc_msg, db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event
+async def test_route_vehicle_return_asks_to_release_from_the_auftrag(
+    db_session: AsyncSession, enroute_incident: Incident, test_user: User, test_event: Event
 ):
     await _enable_return(db_session)
     group = IncidentGroup(id=uuid.uuid4(), event_id=test_event.id, name="Route", created_by=test_user.id)
@@ -625,10 +618,6 @@ async def test_route_vehicle_return_emits_group_release_prompt(
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_station(clock.now()), advance=35)
 
-    payload = bc_msg.await_args.args[0]
-    assert payload["type"] == "gps_group_release_prompt"
-    assert payload["group_id"] == str(group.id)
-    assert payload["assignment_id"] == str(assignment.id)
     assert assignment.unassigned_at is None
     # The question is a «Zu erledigen» row whose button uses the Auftrag's unassign endpoint.
     todo = await db_session.scalar(
@@ -748,11 +737,9 @@ async def test_clustered_stops_only_nearest_advances_silent(
 
 
 @pytest.mark.asyncio
-@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
 @patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
 async def test_clustered_stops_only_nearest_prompts_default(
     _bc,
-    bc_msg,
     db_session: AsyncSession,
     enroute_incident: Incident,
     assigned_vehicle,
@@ -769,17 +756,14 @@ async def test_clustered_stops_only_nearest_prompts_default(
         await _tick(db_session, clock, _fresh_at_incident(clock.now()), advance=35)
 
     # Exactly one prompt, for the nearer stop; neither status changed.
-    bc_msg.assert_awaited_once()
-    assert bc_msg.await_args.args[0]["type"] == "gps_arrival_prompt"
-    assert bc_msg.await_args.args[0]["incident_id"] == str(enroute_incident.id)
+    assert await _arrival_todo_incidents(db_session) == [enroute_incident.id]
     assert await _status(db_session, enroute_incident.id) == "enroute"
     assert await _status(db_session, second.id) == "enroute"
 
     # The farther stop did not latch: it prompts later when the vehicle sits on it.
     for _ in range(3):
         await _tick(db_session, clock, _fresh_at_second(clock.now()), advance=35)
-    assert bc_msg.await_count == 2
-    assert bc_msg.await_args.args[0]["incident_id"] == str(second.id)
+    assert sorted(await _arrival_todo_incidents(db_session)) == sorted([enroute_incident.id, second.id])
 
 
 @pytest.mark.asyncio
@@ -823,8 +807,13 @@ async def test_a_failing_tick_is_logged_once_with_its_traceback_until_it_recover
     ]
 
 
+async def _arrival_todo_incidents(db: AsyncSession) -> list[uuid.UUID | None]:
+    """The incidents the arrival rule asked about: its «Zu erledigen» rows."""
+    return [n.incident_id for n in await db.scalars(select(Notification).where(Notification.type == "gps_arrival"))]
+
+
 async def _arrival_todos(db: AsyncSession) -> int:
-    return len((await db.scalars(select(Notification).where(Notification.type == "gps_arrival"))).all())
+    return len(await _arrival_todo_incidents(db))
 
 
 async def _three_fixes_at_the_incident(db: AsyncSession, clock: _Clock) -> None:

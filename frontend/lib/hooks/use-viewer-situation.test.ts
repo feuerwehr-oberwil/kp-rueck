@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, type ApiViewerData } from '@/lib/api-client'
+import { ApiError, NetworkError, type ApiViewerData } from '@/lib/api-client'
 import { useViewerFeed } from './use-viewer-situation'
 
 const getViewerData = vi.hoisted(() => vi.fn())
@@ -19,7 +19,7 @@ describe('the shared wall feed', () => {
   afterEach(() => vi.useRealTimers())
 
   it('retries an unanswered first read, retains the last good picture through a 503 and recovers', async () => {
-    getViewerData.mockResolvedValueOnce(undefined).mockResolvedValueOnce(payload)
+    getViewerData.mockRejectedValueOnce(new NetworkError()).mockResolvedValueOnce(payload)
       .mockRejectedValueOnce(new ApiError('unavailable', 503)).mockResolvedValue(payload)
     const { result } = renderHook(() => useViewerFeed('wall'))
     await poll(0)

@@ -242,7 +242,7 @@ function VehicleTile({ vehicle, auftrag, onOpen }: { vehicle: VehicleWithStatus;
   const tv = useTranslations("incidents.vehicleStatus")
   const op = vehicle.assignedOperation
   const state = vehicleResourceState({ outOfService: vehicle.outOfService, assigned: !!op || !!auftrag })
-  const statusId = op ? columns.find((column) => column.status.includes(op.status))?.id : undefined
+  const statusId = op ? columns.find((column) => column.id === op.status)?.id : undefined
   // «Nicht einsatzbereit» beats deployment beats free, as on the wall – and always in words.
   const [stateWord, where] =
     state === "unavailable" ? [tk("common.notReady"), null]
@@ -332,7 +332,7 @@ function IncidentRow({
   const tk = useTranslations("kanban")
   const tv = useTranslations("incidents.vehicleStatus")
   const naming = usePersonNaming()
-  const statusId = columns.find((column) => column.status.includes(operation.status))?.id ?? "incoming"
+  const statusId = columns.find((column) => column.id === operation.status)?.id ?? "incoming"
   const statusLabel =
     operation.status === "reko" && operation.assignedReko
       ? t("rekoBy", { name: naming.inline({ name: operation.assignedReko.name, personnelId: operation.assignedReko.id }) })

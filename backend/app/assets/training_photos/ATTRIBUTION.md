@@ -32,7 +32,7 @@ retain the exact prompt used to generate them.
 Relevant simulated Reko reports select the exact summary illustration on its
 own; a type photo is used only when the summary has no illustration. An
 incident with a template's title reports one of that template's own texts
-(`reko_summaries` in `app/seed_training.py`) and shows its illustration. A
+(`reko_summaries` in `app/seeds/training.py`) and shows its illustration. A
 water scene there names no depth: the report adds the crew's final estimate
 and the Massnahme around it, and the picture is the scene. Incidents without
 a template draw from the type pools; for water and oil there, the selection

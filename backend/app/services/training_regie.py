@@ -289,7 +289,7 @@ async def build_state(db: AsyncSession, event_id: UUID, *, now: datetime | None 
 
 async def broadcast_regie_state(state: RegieStateResponse) -> None:
     """Tell every open Regie page what changed (it refetches `GET …/regie`)."""
-    await broadcast_message({"type": "training_regie", **state.model_dump(mode="json")})
+    await broadcast_message("training_regie", state.model_dump(mode="json"))
 
 
 # ── Writes from the page ────────────────────────────────────────────────────

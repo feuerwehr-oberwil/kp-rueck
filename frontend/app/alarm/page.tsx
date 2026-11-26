@@ -247,7 +247,8 @@ async function intakeReceiptRequest(
       response.status,
     )
   }
-  return (await response.json()) as ReceiptState
+  const receipt: unknown = await response.json()
+  return receipt as ReceiptState
 }
 
 /**

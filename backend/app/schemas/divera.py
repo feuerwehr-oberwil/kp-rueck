@@ -132,7 +132,7 @@ class DiveraSyncPreviewItem(BaseModel):
     """A single item in the sync preview."""
 
     member: DiveraMemberPreview
-    status: str  # "new" | "unchanged" | "not_in_divera"
+    status: Literal["new", "unchanged", "not_in_divera"]
     existing_id: UUID | None = None
     # For "unchanged" matches: whether the local person already has the Divera id
     # stored (i.e. is addressable for outbound alarms). Backfilled on sync if False.

@@ -260,7 +260,7 @@ const SETTING_CONFIGS: (SettingConfig & { group: GeneralGroup })[] = [
   // Station identity. All three have been PATCHable through the generic settings
   // endpoint since 0.4.0 (they are in the backend's DEFAULT_SETTINGS allowlist) –
   // what was missing is only this, the surface docs/SETUP.md already told operators
-  // to use. `seed.py` writes "Feuerwehr Musterstadt" at 47.5596 / 7.5886 into a
+  // to use. `app/seeds/boot.py` writes "Feuerwehr Musterstadt" at 47.5596 / 7.5886 into a
   // fresh PRODUCTION install, so the failure mode is not a blank field: it is a
   // placeholder nobody is prompted to replace, quietly centring the map and
   // biasing every address search on a town the brigade has never been to.

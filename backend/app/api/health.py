@@ -270,7 +270,7 @@ async def create_demo_sandbox(
         oldest = oldest_result.scalar_one()
         return {"event_id": str(oldest.id), "name": oldest.name, "reused": True}
 
-    from ..seed_demo import seed_demo_event_content
+    from ..seeds.demo import seed_demo_event_content
 
     # Demo sandboxes are training events so the /training dispatching tools
     # (autogen, simulation, GPS sim) work out of the box for demo visitors.

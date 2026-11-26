@@ -10,10 +10,11 @@
  */
 
 import { getApiUrl } from '../env'
+import { emitAppEvent } from '../app-events'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '../i18n-messages'
 import { ApiError, NetworkError } from './types'
-import { errorCodeOf, errorParamsOf, messageForErrorCode } from './error-codes'
+import { detailOf, errorCodeOf, errorParamsOf, messageForErrorCode } from './error-codes'
 
 /**
  * Hard ceiling on a single request. Generous on purpose: a command post on a saturated
@@ -120,6 +121,10 @@ export type RequestOptions = RequestInit & {
   skipToast?: boolean
   maxRetries?: number
   onHeaders?: (headers: Headers) => void
+  /** `false`: a lost answer stays this caller's news and does not mark REST unreachable
+   *  for the tab (the stale banner). For a side surface with its own «unavailable» state
+   *  (the bell), whose one-shot miss must not raise the board-wide band. */
+  reportsOutage?: boolean
 }
 
 /**
@@ -143,9 +148,17 @@ function getBackoffDelay(retryCount: number): number {
 }
 
 /**
- * Main request method with retry logic and error notifications
+ * One exchange with the backend: timeout, retries with backoff, the error toasts, the
+ * session-expiry signal and the tab-wide reachability. Resolves to what `read` makes of the
+ * answered 2xx response – read inside the retry loop, so a connection that drops while
+ * the body streams is a network failure like one that drops before the headers. Rejects
+ * with `ApiError` for an error status, and with `NetworkError` when no full answer came
+ * after the retries – for a read as for a write, so «no answer» never passes for an
+ * empty list. A caller that keeps its last state while offline catches
+ * `NetworkError` (`NetworkError.isNetworkError`); the outage itself has one voice
+ * (the stale banner or `showOutageToast`).
  */
-export async function request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+async function send<R>(endpoint: string, options: RequestOptions | undefined, read: (response: Response) => Promise<R>): Promise<R> {
   // Always resolved per request, so the browser picks up the runtime URL.
   const baseUrl = getApiUrl()
   const url = `${baseUrl}${endpoint}`
@@ -158,12 +171,10 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
   // catch decides what the operator sees; a retry there is a deliberate act.
   const maxRetries = options?.maxRetries ?? (isGetRequest ? 3 : 0)
 
-
-  let lastError: Error | null = null
-
-  for (let retryCount = 0; retryCount <= maxRetries; retryCount++) {
+  for (let retryCount = 0; ; retryCount++) {
+    let response: Response
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         ...options,
         credentials: 'include', // Send cookies for authentication
         // Without this a request could hang indefinitely – a dead-but-open TCP connection
@@ -178,152 +189,119 @@ export async function request<T>(endpoint: string, options?: RequestOptions): Pr
           ...options?.headers,
         },
       })
-
-      // The server answered (any status): the connection works. Clears the
-      // outage toast/state the moment the first request gets through again.
+      if (response.ok) {
+        // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
+        // the board whether it is showing everything).
+        options?.onHeaders?.(response.headers)
+        const result = await read(response)
+        // A full answer: the connection works. Clears the outage toast/state the moment
+        // the first request gets through again – not on headers whose body then breaks.
+        markRestReachable()
+        return result
+      }
+      // An error status is an answer too.
       markRestReachable()
-
-      if (!response.ok) {
-        let errorText = ''
-        try {
-          errorText = await response.text()
-        } catch {
-          errorText = translateOutsideReact('errors.api.noErrorDetails')
-        }
-
-        // Don't log 401 errors for sync config - expected when not authenticated
-        const shouldLog = !(response.status === 401 && endpoint === '/api/sync/config')
-        if (shouldLog) {
-          // Use console.warn to avoid triggering Next.js error overlay
-          console.warn(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
-        }
-
-        // Don't throw error for 401 on sync config - it's handled gracefully by the component
-        if (response.status === 401 && endpoint === '/api/sync/config') {
-          throw new Error('Unauthorized') // Silent error that will be caught
-        }
-
-        // Try to parse as JSON for better error messages
-        let errorMessage = `${response.status} ${response.statusText}`
-        let errorCode: string | undefined
-        let errorParams: Record<string, string | number> | undefined
-        try {
-          const errorJson = JSON.parse(errorText)
-          // A coded error (the /feld door) is said in the operator's language;
-          // the German `detail` is the fallback for a code this build does not know.
-          errorCode = errorCodeOf(errorJson)
-          errorParams = errorParamsOf(errorJson)
-          const localized = messageForErrorCode(errorJson)
-          if (localized) {
-            errorMessage = localized
-          } else if (errorJson.detail) {
-            errorMessage = errorJson.detail
-          }
-        } catch {
-          // Not JSON, use text error if available
-          if (errorText && errorText.length < 200) {
-            errorMessage = errorText
-          }
-        }
-
-        // Determine if we should retry based on status code
-        const isRetryable = response.status >= 500 || response.status === 429 || response.status === 408
-
-        if (isRetryable && retryCount < maxRetries) {
-          const delay = getBackoffDelay(retryCount)
-          await sleep(delay)
-          continue // Retry
-        }
-
-        // Final error - create ApiError with status code for proper error handling
-        const isConflict = response.status === 409
-        const error = new ApiError(errorMessage, response.status, isConflict, errorCode, errorParams)
-
-        // Cookie-authenticated requests can signal session expiry. Share tokens expire
-        // independently of the operator session (auth endpoints do not go through
-        // this client). Tell the auth layer so it can clear the user and
-        // show "Sitzung abgelaufen" – without this, every mutation after
-        // token expiry fails silently and optimistic UI just reverts.
-        if (response.status === 401 && options?.auth !== 'link' && typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('kp:session-expired'))
-        }
-
-        // Don't show toast for 401 Unauthorized - the session-expired event
-        // above produces a single, specific message instead
-        // Don't show toast for 409 Conflict - let the caller handle it with context-specific message
-        if (!skipToast && response.status !== 401 && !isConflict) {
-          toast.error(translateOutsideReact('errors.api.title'), {
-            description: errorMessage,
-          })
-        }
-        throw error
-      }
-
-      // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
-      // the board whether it is showing everything). Non-breaking on purpose: the return
-      // type stays the parsed body, so the ~85 existing call sites are untouched.
-      options?.onHeaders?.(response.headers)
-
-      // Handle empty responses (e.g., DELETE operations with 204 No Content)
-      const contentType = response.headers.get('content-type')
-      if (response.status === 204 || !contentType || contentType.indexOf('application/json') === -1) {
-        return undefined as T
-      }
-
-      const data = await response.json()
-      return data
-
     } catch (error) {
-      lastError = error as Error
-
-      // Network errors are always retryable.
-      //
-      // The message is deliberately NOT inspected any more. It used to require
-      // `.includes('fetch')`, which only matches Chrome's "Failed to fetch" – Safari
-      // throws `TypeError: Load failed` and Firefox "NetworkError when attempting to
-      // fetch resource". On Safari every offline request therefore fell through to the
-      // generic re-throw below: no "Verbindung verloren" toast, and GETs threw instead of
-      // degrading softly, so ~85 read call sites silently changed contract per browser.
-      // Any TypeError out of `fetch()` is a network-layer failure; that is the check.
-      //
-      // AbortError is the request timeout below – also a network failure, also retryable.
+      // Any TypeError out of `fetch()` or the body stream is a network-layer failure
+      // (Chrome «Failed to fetch», Safari «Load failed», Firefox «NetworkError …» – never
+      // read the message), and a TimeoutError is the request timeout above. Both retry.
       const isTimeout = error instanceof DOMException && error.name === 'TimeoutError'
-      if (error instanceof TypeError || isTimeout) {
-        if (retryCount < maxRetries) {
-          const delay = getBackoffDelay(retryCount)
-          await sleep(delay)
-          continue // Retry
-        }
-
-        // Final network error. ONE persistent toast per outage instead of
-        // one per failed request — 50 polls during an outage used to stack
-        // 50 "Verbindungsfehler" toasts. Also flips the reachability flag
-        // the stale-data banner subscribes to.
-        markRestUnreachable(skipToast)
-        if (isGetRequest) {
-          // Reads degrade softly: polling callers treat undefined as "no
-          // fresh data" and keep showing the last known state.
-          return undefined as T
-        }
-        // Mutations must fail loudly so the caller's catch (rollback,
-        // toast, refresh) runs – otherwise the optimistic UI state keeps
-        // claiming a write succeeded that was never sent.
-        throw new NetworkError()
+      if (!(error instanceof TypeError || isTimeout)) throw error
+      if (retryCount < maxRetries) {
+        await sleep(getBackoffDelay(retryCount))
+        continue
       }
-
-      // Re-throw other errors (like our API errors)
-      throw error
+      // ONE persistent toast per outage instead of one per failed request, and the
+      // reachability flag the stale-data banner subscribes to.
+      if (options?.reportsOutage !== false) markRestUnreachable(skipToast)
+      throw new NetworkError()
     }
-  }
 
-  // Should not reach here, but just in case
-  if (lastError) {
-    throw lastError
+    let errorText = ''
+    try {
+      errorText = await response.text()
+    } catch {
+      errorText = translateOutsideReact('errors.api.noErrorDetails')
+    }
+    // console.warn, not error: the Next.js error overlay must not take over the page.
+    console.warn(`[API Error] ${method} ${endpoint}: ${response.status} ${response.statusText}`, errorText)
+
+    let errorMessage = `${response.status} ${response.statusText}`
+    let errorCode: string | undefined
+    let errorParams: Record<string, string | number> | undefined
+    try {
+      const errorJson: unknown = JSON.parse(errorText)
+      // A coded error is said in the operator's language; the German `detail` is the
+      // fallback for a code this build does not know.
+      errorCode = errorCodeOf(errorJson)
+      errorParams = errorParamsOf(errorJson)
+      errorMessage = messageForErrorCode(errorJson) ?? detailOf(errorJson) ?? errorMessage
+    } catch {
+      // Not JSON: the text itself, when it is short enough to be a message.
+      if (errorText && errorText.length < 200) errorMessage = errorText
+    }
+
+    const isRetryable = response.status >= 500 || response.status === 429 || response.status === 408
+    if (isRetryable && retryCount < maxRetries) {
+      await sleep(getBackoffDelay(retryCount))
+      continue
+    }
+
+    const isConflict = response.status === 409
+    const error = new ApiError(errorMessage, response.status, isConflict, errorCode, errorParams)
+
+    // Cookie-authenticated requests can signal session expiry. Share tokens expire
+    // independently of the operator session (auth endpoints do not go through
+    // this client). Tell the auth layer so it can clear the user and
+    // show "Sitzung abgelaufen" – without this, every mutation after
+    // token expiry fails silently and optimistic UI just reverts.
+    if (response.status === 401 && options?.auth !== 'link' && typeof window !== 'undefined') {
+      emitAppEvent('kp:session-expired')
+    }
+
+    // No toast for 401 (the session-expired event above says it once) nor for 409 (the
+    // caller says it with context).
+    if (!skipToast && response.status !== 401 && !isConflict) {
+      toast.error(translateOutsideReact('errors.api.title'), {
+        description: errorMessage,
+      })
+    }
+    throw error
   }
-  throw new Error(translateOutsideReact('errors.api.unknown'))
+}
+
+/** What a JSON body can be: anything but nothing – `request<void>` is a tsc error. */
+type Body = NonNullable<unknown> | null
+
+/**
+ * A route that answers JSON: resolves to its body, typed `T` (an alias of the generated
+ * schema, `lib/api/wire.ts`). The transport does not validate the body – `T` is the
+ * contract `docs/openapi.json` publishes. An answer without a JSON body is a contract
+ * error here, not an `undefined` typed as `T`: a bodyless route uses `requestVoid`.
+ */
+export function request<T extends Body>(endpoint: string, options?: RequestOptions): Promise<T> {
+  return send(endpoint, options, async (response) => {
+    const contentType = response.headers.get('content-type') ?? ''
+    if (response.status === 204 || !contentType.includes('application/json')) {
+      console.warn(`[API Error] ${options?.method ?? 'GET'} ${endpoint}: ${response.status} without a JSON body`)
+      throw new ApiError(translateOutsideReact('errors.api.unknown'), response.status)
+    }
+    const body: unknown = await response.json()
+    return body as T
+  })
+}
+
+/** A route that answers without a body (204), or whose body the caller does not read. */
+export function requestVoid(endpoint: string, options?: RequestOptions): Promise<void> {
+  return send(endpoint, options, async () => undefined)
 }
 
 /** A rejected share credential expires the link independently of a signed-in operator. */
-export function linkRequest<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+export function linkRequest<T extends Body>(endpoint: string, options?: RequestOptions): Promise<T> {
   return request<T>(endpoint, { ...options, auth: 'link' })
+}
+
+/** `requestVoid` on a share link (see `linkRequest`). */
+export function linkRequestVoid(endpoint: string, options?: RequestOptions): Promise<void> {
+  return requestVoid(endpoint, { ...options, auth: 'link' })
 }

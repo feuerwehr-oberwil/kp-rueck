@@ -17,6 +17,10 @@ const apiPerson = (overrides: Partial<ApiPersonnel> = {}): ApiPersonnel => ({
   checked_out_at: null,
   created_at: "2026-05-01T00:00:00Z",
   updated_at: "2026-05-01T00:00:00Z",
+  kennung: null,
+  divera_linked: false,
+  planned_from: null,
+  planned_until: null,
   ...overrides,
 });
 

@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { SettingCard } from '@/components/settings/setting-row'
-import { apiClient, ApiError, type ApiAlarmWebhookSecret } from '@/lib/api-client'
+import { apiClient, ApiError, NetworkError, type ApiAlarmWebhookSecret } from '@/lib/api-client'
 import { copyToClipboard } from '@/lib/utils'
 import { ShellLoader } from '@/components/ui/shell-loader'
 
@@ -54,22 +54,13 @@ export function AlarmWebhookSecretCard() {
     setRevealing(true)
     setError(null)
     try {
-      // A GET that never reached the backend resolves to `undefined` instead of
-      // throwing: the api-client lets reads degrade softly so a polling caller
-      // keeps its last known state, and `skipToast` keeps it quiet while it does.
-      // Here there is no last known state and no poll — one press, one answer —
-      // so "nothing came back" is the failure and has to read as one. Without
-      // this the button did nothing at all: no value, no message, no clue.
-      const revealed = await apiClient.getAlarmWebhookSecret()
-      if (!revealed) {
-        setError(t('revealUnreachable'))
-        return
-      }
-      setSecret(revealed)
+      setSecret(await apiClient.getAlarmWebhookSecret())
     } catch (err) {
-      // HTTP failures do throw – 403 from a non-admin session, 429 from the rate
-      // limit – and their detail is the backend's own wording. Keep it.
-      setError(err instanceof Error ? err.message : t('revealFailed'))
+      // No answer at all (quiet: `skipToast`) has its own sentence. HTTP failures – 403
+      // from a non-admin session, 429 from the rate limit – carry the backend's own
+      // wording. Keep it.
+      if (NetworkError.isNetworkError(err)) setError(t('revealUnreachable'))
+      else setError(err instanceof Error ? err.message : t('revealFailed'))
     } finally {
       setRevealing(false)
     }
@@ -89,11 +80,7 @@ export function AlarmWebhookSecretCard() {
       // The 409 body names the file to edit and the container to restart. That is
       // the whole answer — replacing it with «Rotation fehlgeschlagen» would send
       // the operator looking for a fault that is a deliberate refusal.
-      //
-      // No `undefined` guard needed here, unlike the reveal above: this is a POST,
-      // and the api-client throws `NetworkError` for mutations rather than
-      // resolving to nothing, so an unreachable backend lands in this branch and
-      // shows the generic wording. A write that was never sent never reads as done.
+      // An unreachable backend (`NetworkError`) shows the generic wording.
       setError(err instanceof ApiError ? err.message : t('rotateFailed'))
     }
   }

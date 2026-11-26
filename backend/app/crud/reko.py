@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .. import schemas
+from ..json_columns import reko_effort_figures
 from ..models import Incident, RekoReport, StatusTransition, User
 from ..services import reko_history
 from ..services.merge_links import live_incident_id
@@ -510,11 +511,7 @@ async def process_reko_submission(
         dangers_found = report.dangers_json or {}
         danger_types = [key for key in DANGER_LABELS_DE if dangers_found.get(key)]
 
-        personnel_count = None
-        estimated_duration = None
-        if report.effort_json:
-            personnel_count = report.effort_json.get("personnel_count")
-            estimated_duration = report.effort_json.get("estimated_duration_hours")
+        personnel_count, estimated_duration = reko_effort_figures(report.effort_json)
 
         await create_reko_notification(
             db=db,

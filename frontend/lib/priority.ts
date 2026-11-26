@@ -1,3 +1,4 @@
+import type { IncidentPriority } from "@/lib/api/types"
 /**
  * Single source of truth for priority visuals.
  *
@@ -35,7 +36,8 @@
  * (sweep COL-03).
  */
 
-export type Priority = "high" | "medium" | "low"
+/** The spec's `IncidentPriority`: the one spelling of the three. */
+export type Priority = IncidentPriority
 
 /** The priorities, highest first – the order a picker offers them. Their words
  *  are `incidents.priority.*` in the catalogue, never a map here. */

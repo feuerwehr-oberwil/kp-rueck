@@ -12,6 +12,7 @@ import type { PersonEngagement } from "@/lib/hooks/use-person-engagements"
 import { AlertTriangle } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { PersonName } from "@/components/person-name"
+import type { BoardDragSource } from "@/lib/board-drag"
 
 interface DraggablePersonProps {
   person: Person
@@ -72,12 +73,11 @@ function DraggablePersonBase({ person, onClick, disabled, assignmentCount, engag
         if (person.isDriver && person.driverVehicleId && person.driverVehicleName) {
           return {
             type: "driver-vehicle",
-            person,
             vehicleId: person.driverVehicleId,
             vehicleName: person.driverVehicleName,
-          }
+          } satisfies BoardDragSource
         }
-        return { type: "person", person }
+        return { type: "person", person } satisfies BoardDragSource
       },
       onDragStart: () => setIsDragging(true),
       onDrop: () => setIsDragging(false),

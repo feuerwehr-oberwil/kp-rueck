@@ -24,9 +24,11 @@ vi.mock('@/lib/api-client', () => ({
 }))
 
 import { TodoSection } from './todo-section'
+import { UNSET_NOTIFICATION_FIELDS } from '@/test-utils/notification-fixtures'
 
 function release(groupId: string | null): Todo {
   const notification: Notification = {
+    ...UNSET_NOTIFICATION_FIELDS,
     id: 'n-1',
     type: 'gps_release',
     severity: 'info',

@@ -8,6 +8,7 @@ import { type Material, useOperations } from "@/lib/contexts/operations-context"
 import { cn } from "@/lib/utils"
 import { materialResourceState, RESOURCE_STATE_DOT_CLASSES } from "@/lib/resource-status"
 import { Infinity as InfinityIcon, MapPin } from 'lucide-react'
+import type { BoardDragSource } from "@/lib/board-drag"
 
 interface DraggableMaterialProps {
   material: Material
@@ -39,7 +40,7 @@ export function DraggableMaterial({ material, onClick, disabled }: DraggableMate
 
     return draggable({
       element,
-      getInitialData: () => ({ type: "material", material }),
+      getInitialData: () => ({ type: "material", material }) satisfies BoardDragSource,
       onDragStart: () => setIsDragging(true),
       onDrop: () => setIsDragging(false),
     })

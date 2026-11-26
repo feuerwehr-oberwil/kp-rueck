@@ -137,6 +137,50 @@ class ErrorCode(StrEnum):
     INCIDENT_NOT_ON_BOARD = "incident_not_on_board"
     # Delete before archive (409).
     EVENT_NOT_ARCHIVED = "event_not_archived"
+    # The board's own routes (api/incidents.py, api/divera.py, api/print.py).
+    EVENT_NOT_FOUND = "event_not_found"
+    # Demo mode: an Ereignis holds at most `max` Einsätze (403).
+    DEMO_INCIDENT_LIMIT = "demo_incident_limit"
+    # An Einsatz put into an Auftrag that is gone or belongs to another Ereignis (400).
+    AUFTRAG_NOT_FOUND = "auftrag_not_found"
+    AUFTRAG_OTHER_EVENT = "auftrag_other_event"
+    COORDINATES_INCOMPLETE = "coordinates_incomplete"
+    # Meldungen and Anforderungen from the board's Feld tab.
+    FIELD_MESSAGE_EMPTY = "field_message_empty"
+    FIELD_REQUEST_NOT_FOUND = "field_request_not_found"
+    FIELD_REQUEST_CHANGED = "field_request_changed"
+    PICKUP_DONE = "pickup_done"
+    UNMERGE_CONFLICT = "unmerge_conflict"
+    # The alarm pool and the Divera webhook.
+    ALARM_EXISTS = "alarm_exists"
+    ALARM_WEBHOOK_FAILED = "alarm_webhook_failed"
+    ALARM_NOT_FOUND = "alarm_not_found"
+    ALARM_ALREADY_ATTACHED = "alarm_already_attached"
+    ALARM_TRAINING_ONLY = "alarm_training_only"
+    # The undo of an attach after somebody worked on the card (409).
+    ALARM_DETACH_CHANGED = "alarm_detach_changed"
+    # Personalabgleich and the Divera lists (502 when Divera does not answer).
+    DIVERA_NOT_CONFIGURED = "divera_not_configured"
+    PERSONNEL_SYNC_DEMO = "personnel_sync_demo"
+    PERSONNEL_SYNC_DELETE_ADMIN = "personnel_sync_delete_admin"
+    DIVERA_MEMBERS_UNAVAILABLE = "divera_members_unavailable"
+    DIVERA_GROUPS_UNAVAILABLE = "divera_groups_unavailable"
+    DIVERA_GROUP_UNKNOWN = "divera_group_unknown"
+    # Ausalarmierung (alarm, message, test alarm).
+    ALERTING_NO_PROVIDER = "alerting_no_provider"
+    ALERTING_DISABLED = "alerting_disabled"
+    ALERTING_DEMO = "alerting_demo"
+    # The provider refused or failed (502); params: reason, the provider's own text.
+    ALERTING_SEND_FAILED = "alerting_send_failed"
+    # Printing (the print agent's token, the printer settings, the job queue).
+    PRINT_AGENT_DISABLED = "print_agent_disabled"
+    PRINT_AGENT_TOKEN_INVALID = "print_agent_token_invalid"  # noqa: S105 — an error code, not a secret
+    PRINTING_OFF = "printing_off"
+    PRINTER_ADDRESS_MISSING = "printer_address_missing"
+    PRINT_JOB_NOT_FOUND = "print_job_not_found"
+    # A claim or completion of a job in the wrong state (409; params: status).
+    PRINT_JOB_NOT_PENDING = "print_job_not_pending"
+    PRINT_JOB_NOT_COMPLETABLE = "print_job_not_completable"
 
 
 class CodedHTTPException(HTTPException):

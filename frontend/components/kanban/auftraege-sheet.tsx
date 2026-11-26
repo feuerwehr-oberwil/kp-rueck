@@ -65,7 +65,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { FormMessage, formMessageId, useRequiredField } from "@/components/ui/form-message"
 import { cn } from "@/lib/utils"
-import { auftragTakesAssignments, isResourceDrag, takesAssignments } from "@/lib/assignable"
+import { auftragTakesAssignments, takesAssignments } from "@/lib/assignable"
+import { isResourceDrag, type BoardDropTarget } from "@/lib/board-drag"
 import { useDialogDragGuard } from "@/lib/hooks/use-dialog-drag-guard"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useFooterOffset } from "@/components/ui/footer-sheet"
@@ -605,7 +606,7 @@ function AuftragCard({
     if (!canEdit) return
     return dropTargetForElements({
       element: el,
-      getData: () => ({ type: "group-row", groupId: group.id }),
+      getData: () => ({ type: "group-row", groupId: group.id }) satisfies BoardDropTarget,
       canDrop: ({ source: src }) => src.data.type === "operation" || (routeOpen && isResourceDrag(src.data)),
       onDragEnter: () => setIsDropOver(true),
       onDragLeave: () => setIsDropOver(false),
@@ -1014,7 +1015,7 @@ function StopRow({ groupId, incidentId, index, count, onMove, op, onRemove, onSe
         // board hook). Both read `{ groupId, incidentId }`.
         canDrop: ({ source }) => stopOpen || !isResourceDrag(source.data),
         getData: ({ input }) =>
-          attachClosestEdge({ type: "group-stop", groupId, incidentId, index }, { element: el, input, allowedEdges: ["top", "bottom"] }),
+          attachClosestEdge({ type: "group-stop", groupId, incidentId, index } satisfies BoardDropTarget, { element: el, input, allowedEdges: ["top", "bottom"] }),
         onDragEnter: ({ self, source }) => {
           if (source.data.type === "group-stop-drag") setClosestEdge(extractClosestEdge(self.data))
           else setIsDropOver(true)

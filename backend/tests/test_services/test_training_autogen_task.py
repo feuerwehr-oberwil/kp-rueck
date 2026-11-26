@@ -528,27 +528,6 @@ class TestEdgeCases:
             # Should not generate for non-training event
             MockGen.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_settings_passed_to_generator(
-        self, db_session: AsyncSession, training_event: Event, autogen_settings_enabled: list[Setting]
-    ):
-        """Test settings are passed to the generator."""
-        task = TrainingAutoGenTask()
-
-        with patch("app.services.training_autogen_task.TrainingGenerator") as MockGen:
-            mock_instance = MagicMock()
-            mock_incident = MagicMock(title="Test")
-            mock_instance.generate_emergency = AsyncMock(return_value=mock_incident)
-            MockGen.return_value = mock_instance
-
-            await task._check_and_run(db_session)
-
-            # Check settings were passed
-            call_args = mock_instance.generate_emergency.call_args
-            assert "settings" in call_args.kwargs
-            settings_dict = call_args.kwargs["settings"]
-            assert "training_autogen_enabled" in settings_dict
-
 
 # ============================================
 # Intake Mode Tests (board vs divera)

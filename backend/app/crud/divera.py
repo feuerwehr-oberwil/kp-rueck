@@ -7,6 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
+from ..utils.error_codes import DomainError, ErrorCode
 
 
 async def create_divera_emergency(
@@ -234,7 +235,7 @@ async def attach_emergency_to_event(
     """
     emergency = await get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
-        raise ValueError(f"Divera emergency {emergency_id} not found")
+        raise DomainError(ErrorCode.ALARM_NOT_FOUND, "Divera-Alarm nicht gefunden", status_code=404)
 
     # Allow re-attachment - update to new event and incident
     await db.execute(
@@ -268,7 +269,7 @@ async def archive_divera_emergency(
     """Archive a Divera emergency (soft delete)."""
     emergency = await get_divera_emergency_by_id(db, emergency_id)
     if not emergency:
-        raise ValueError(f"Divera emergency {emergency_id} not found")
+        raise DomainError(ErrorCode.ALARM_NOT_FOUND, "Divera-Alarm nicht gefunden", status_code=404)
 
     await db.execute(
         update(models.DiveraEmergency)

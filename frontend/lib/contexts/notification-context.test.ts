@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Notification } from '@/lib/types/notification'
 import { reconcileNotifications } from './notification-context'
+import { UNSET_NOTIFICATION_FIELDS } from '@/test-utils/notification-fixtures'
 
 const row = (id: string, overrides: Partial<Notification> = {}): Notification => ({
+  ...UNSET_NOTIFICATION_FIELDS,
   id,
   type: 'field_message',
   severity: 'info',

@@ -8,7 +8,7 @@ import { SAVED_LINE_MS } from '@/components/kanban/field-save-status';
 import { formatClockTime } from '@/lib/incident-time';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, NetworkError } from '@/lib/api-client';
 import { useOperations } from '@/lib/contexts/operations-context';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -111,7 +111,8 @@ export function useStationSettings({
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       setError(err instanceof Error ? err.message : t('common.loadError'));
-      toast.error(t('common.loadSettingsError'));
+      // No answer at all is the outage's to say (one voice: lib/api/http.ts); the form shows it.
+      if (!NetworkError.isNetworkError(err)) toast.error(t('common.loadSettingsError'));
     } finally {
       setLoading(false);
     }

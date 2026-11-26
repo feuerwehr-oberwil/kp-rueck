@@ -45,7 +45,7 @@ baked-in API URL is `http://localhost:8000`. `visual-baselines.yml` still builds
 The suite is only worth something if the same commit paints the same pixels every time. Each
 source of change is pinned once, in one place:
 
-- **Data** — `backend/app/seed_visual.py` (`python -m app.seed_visual`, empty database only).
+- **Data** — `backend/app/seeds/visual.py` (`python -m app.seeds.visual`, empty database only).
   It is the demo scenario (`seed_demo_event_content`: a storm evening in Oberwil, every column
   filled, an Auftrag, Rekos, a filed Rapport) written at one fixed instant, `VISUAL_NOW`
   (11.07.2026, 19:30 in Oberwil), instead of the wall clock. Everything the database stamps on

@@ -625,7 +625,7 @@ db cmd="start" *args:
             docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec postgres psql -U kprueck -d kprueck
             ;;
         seed)
-            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seed
+            docker compose -p kp-rueck-dev -f docker-compose.dev.yml exec backend uv run python -m app.seeds
             ;;
         migrate)
             echo -e "\033[1;34m→ Running database migrations...\033[0m"
@@ -729,9 +729,10 @@ restore dump:
 
 # `just --list` shows only the LAST comment line, so the summary goes last.
 # Run this in the same change that adds or renames a route.
-# Regenerate the committed OpenAPI spec (a pytest fails when docs/openapi.json drifts)
+# Regenerate the committed OpenAPI spec and its TS types (a pytest and a Vitest fail when they drift)
 openapi:
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
+    cd frontend && pnpm openapi:types
 
 # ============================================
 # Offline Maps
@@ -968,7 +969,7 @@ visual-accept run_id:
 # shared files. Run it before a push; the test suites are `just test`.
 check:
     cd backend && uv run ruff format --check . && uv run ruff check .
-    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/websocket_manager.py app/models.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
+    cd backend && uv run mypy app/auth app/middleware app/schemas app/services app/crud app/background app/api app/seeds app/websocket_manager.py app/models.py app/json_columns.py app/traccar.py app/standby.py app/standby_sync.py --ignore-missing-imports
     cd frontend && pnpm lint && pnpm typecheck
     python3 scripts/check_shared.py
 

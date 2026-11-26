@@ -23,12 +23,11 @@ import { useEvent } from "@/lib/contexts/event-context"
 import { requestIncidentHighlight } from "@/lib/notification-highlight"
 import { boardDetailHref } from "@/lib/incident-detail"
 import { OVERVIEW_TARGET } from "@/lib/detail-target"
-
-const TOGGLE_FIGURES_EVENT = "kp:toggle-figures"
+import { emitAppEvent, onAppEvent } from "@/lib/app-events"
 
 /** Open the Kennzahlen dialog, or close it when it is open. */
 export function toggleFigures() {
-  window.dispatchEvent(new CustomEvent(TOGGLE_FIGURES_EVENT))
+  emitAppEvent("kp:toggle-figures")
 }
 
 export function FiguresDialog() {
@@ -39,11 +38,7 @@ export function FiguresDialog() {
   const router = useRouter()
   const isPhone = useIsMobile()
 
-  useEffect(() => {
-    const toggle = () => setOpen((prev) => !prev)
-    window.addEventListener(TOGGLE_FIGURES_EVENT, toggle)
-    return () => window.removeEventListener(TOGGLE_FIGURES_EVENT, toggle)
-  }, [])
+  useEffect(() => onAppEvent("kp:toggle-figures", () => setOpen((prev) => !prev)), [])
 
   // The oldest waiting «hoch» Meldung opens on the board, on Übersicht (it is a
   // dispatch question): in place when the board is the page, through its deep link

@@ -46,6 +46,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models
 from ..config import settings
 from ..crud import external_identities as identities_crud
+from .settings import DIVERA_RESPONSE_CLASSIFICATION, read
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ YES_NO: tuple[Kind, ...] = ("coming", "not_coming")
 
 # Station override, a JSON object in the settings table: {"<status id>" | "<status name>": kind}.
 # Empty = the built-in heuristic. Documented in docs/ALARM-INTEGRATIONS.md.
-RESPONSE_CLASSIFICATION_KEY = "divera.response_classification"
+RESPONSE_CLASSIFICATION_KEY = DIVERA_RESPONSE_CLASSIFICATION.key
 
 SNAPSHOT_VERSION = 3
 
@@ -418,9 +419,7 @@ async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str
     ]
     if not rows:
         return set(), set()
-    from .settings import get_setting  # local: services.settings imports nothing from here
-
-    overrides = parse_overrides(await get_setting(db, RESPONSE_CLASSIFICATION_KEY))
+    overrides = parse_overrides(await read(db, DIVERA_RESPONSE_CLASSIFICATION))
     personnel_by_ucr = await _personnel_by_ucr(db)
     events: set[UUID] = set()
     incidents: set[UUID] = set()

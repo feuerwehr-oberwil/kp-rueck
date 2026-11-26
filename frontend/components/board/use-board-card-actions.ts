@@ -132,7 +132,7 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
           return byAge(a, b)
       }
     }
-    const columnOperations = operations.filter((op) => column.status.includes(op.status)).sort(cmp)
+    const columnOperations = operations.filter((op) => column.id === op.status).sort(cmp)
     // No toast: the column reorders under the operator's eyes, so confirming it
     // in words is noise on a surface whose job is staying calm.
     reorderColumn(columnOperations.map((op) => op.id))
@@ -142,9 +142,9 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
   // card inside its column. At the column's edge nothing moves and nothing is sent.
   const moveInColumn = useCallback((operationId: string, to: MoveTo) => {
     const operation = operations.find((op) => op.id === operationId)
-    const column = operation && columns.find((candidate) => candidate.status.includes(operation.status))
+    const column = operation && columns.find((candidate) => candidate.id === operation.status)
     if (!column) return
-    const columnOperations = operations.filter((op) => column.status.includes(op.status))
+    const columnOperations = operations.filter((op) => column.id === op.status)
     const moved = moveInList(columnOperations, columnOperations.findIndex((op) => op.id === operationId), to)
     if (!moved) return
     reorderColumn(moved.map((op) => op.id))
@@ -163,10 +163,10 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    const currentColumnIndex = columns.findIndex((col) => col.status.includes(operation.status))
+    const currentColumnIndex = columns.findIndex((col) => col.id === operation.status)
     if (currentColumnIndex < columns.length - 1) {
       const nextColumn = columns[currentColumnIndex + 1]
-      const newStatus = nextColumn.status[0] as OperationStatus
+      const newStatus = nextColumn.id
       const previousStatus = operation.status
       if (holdStatusMove(operationId, newStatus)) return
       updateOperation(operationId, { status: newStatus })
@@ -182,10 +182,10 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     const operation = operations.find(op => op.id === operationId)
     if (!operation) return
 
-    const currentColumnIndex = columns.findIndex((col) => col.status.includes(operation.status))
+    const currentColumnIndex = columns.findIndex((col) => col.id === operation.status)
     if (currentColumnIndex > 0) {
       const prevColumn = columns[currentColumnIndex - 1]
-      const newStatus = prevColumn.status[0] as OperationStatus
+      const newStatus = prevColumn.id
       const previousStatus = operation.status
       updateOperation(operationId, { status: newStatus })
       notifyStatusMove(operation, newStatus)

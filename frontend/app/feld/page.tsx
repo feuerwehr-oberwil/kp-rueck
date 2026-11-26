@@ -523,8 +523,6 @@ function FeldSurface() {
     try {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
       if (superseded()) return
-      // An offline GET resolves to nothing (`lib/api/http.ts`): a failure, not an answer.
-      if (!data) throw new NetworkError()
       setFeld(data)
       setSyncedAt(new Date())
       setSyncFailed(false)
@@ -556,7 +554,9 @@ function FeldSurface() {
       setSelectedPerson(prev => prev ?? {
         personnel_id: data.personnel_id,
         name: data.personnel_name,
+        kennung: null,
         role: data.personnel_role,
+        checked_in: data.checked_in,
         incident_count: data.assignments.length,
         open_count: data.assignments.filter(a => a.is_active_assignment).length,
         missing_rapport_count: data.assignments.filter(owesRapport).length,
@@ -584,7 +584,7 @@ function FeldSurface() {
       }
       // Any other failure keeps the rows, silent or not, and says so: the band shows the last
       // good time, and with nothing loaded yet the list says it could not load (never «kein
-      // Auftrag»). An offline GET lands here too (see the NetworkError above).
+      // Auftrag»). An offline GET lands here too (`NetworkError`).
       setSyncFailed(true)
     } finally {
       // Only the newest load ends the loading state: an older one settling first would show

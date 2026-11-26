@@ -149,7 +149,7 @@ export function TokenBoard({ token }: { token: string }) {
     situation.operations
       .filter((op) => !matchingIds || matchingIds.has(op.id))
       .forEach((op) => {
-        const column = columns.find((col) => col.status.includes(op.status))
+        const column = columns.find((col) => col.id === op.status)
         if (column) grouped[column.id].push(op)
       })
     return grouped

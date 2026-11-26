@@ -136,15 +136,11 @@ export const STATUS_TO_GROUP: Record<IncidentStatus, StatusGroup> = {
  *
  * Backed by `STATUS_TO_GROUP` because `Record<IncidentStatus, …>` makes it
  * exhaustive by construction: add a status to the union and this stops
- * compiling until the table lists it. It replaces a `STATUS_LABELS` map whose
- * German values nothing ever rendered — every call site used it as `x in
- * STATUS_LABELS` and then asked next-intl for the real label. A table of
- * display strings that is never displayed is a second vocabulary waiting to
- * drift, and it had: it still said «Einsatz beendet» and «Abschluss» long
- * after the board had moved on. Status names live in messages/de.json only.
+ * compiling until the table lists it. `Object.hasOwn`, not `in`: «constructor»
+ * is not a status. Status names live in messages/de.json only.
  */
 export function isIncidentStatus(value: string): value is IncidentStatus {
-  return value in STATUS_TO_GROUP
+  return Object.hasOwn(STATUS_TO_GROUP, value)
 }
 
 /**

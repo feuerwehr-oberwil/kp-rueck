@@ -31,9 +31,10 @@ from .. import schemas
 from ..auth import setup_token
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, client_ip, limiter
-from ..models import Setting, User
-from ..seed import production_account_set
+from ..models import User
+from ..seeds.boot import production_account_set
 from ..services.audit import log_action
+from ..services.settings import FIRESTATION_NAME, update_setting
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
@@ -136,13 +137,7 @@ async def claim_board(
 
         # Station identity: the unclaimed seed wrote the «Musterstadt»
         # placeholder into this row; the claim replaces it with the real name.
-        result = await db.execute(select(Setting).where(Setting.key == "firestation_name"))
-        name_setting = result.scalar_one_or_none()
-        if name_setting:
-            name_setting.value = body.station_name
-            name_setting.updated_by = admin_user.id
-        else:
-            db.add(Setting(key="firestation_name", value=body.station_name, updated_by=admin_user.id))
+        await update_setting(db, FIRESTATION_NAME.key, body.station_name, admin_user.id)
 
         # Audit the claim like other admin actions — the password is stripped
         # by log_action's sanitizer, but simply never passing it is better.

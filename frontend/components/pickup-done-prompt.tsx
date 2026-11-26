@@ -131,13 +131,12 @@ export function PickupDonePrompt() {
   // --- Trigger 2: Rule B says a vehicle is back at the Magazin -------------
   useEffect(() => {
     if (!active) return
-    const unsubscribe = wsClient.on("gps_release_prompt", (payload: Record<string, string>) => {
-      if (!payload?.incident_id) return
+    const unsubscribe = wsClient.on("gps_release_prompt", (payload) => {
       const operation = operations.find(op => op.id === payload.incident_id)
       if (!operation?.pickupNeeded) return
       raise(
         operation,
-        { id: payload.vehicle_id || payload.vehicle_name || "", name: payload.vehicle_name || t("fallbackVehicle") },
+        { id: payload.vehicle_id, name: payload.vehicle_name || t("fallbackVehicle") },
         "returned",
       )
     })

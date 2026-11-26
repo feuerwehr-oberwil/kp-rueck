@@ -4,12 +4,61 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Setting, User
+from app.services.gps_automation import _load_config
 from app.services.settings import (
+    GPS_MIN_DWELL_SECONDS,
+    GPS_SPEED_GATE_KMH,
+    PRINTER_PORT,
+    TRAINING_AUTOGEN_INTERVAL_MIN,
+    TRAINING_BOOST_MULTIPLICATOR,
+    BoolSetting,
+    FloatSetting,
     get_all_settings,
     get_setting,
     initialize_default_settings,
+    read,
     update_setting,
 )
+
+
+class TestRegistry:
+    """Every reader goes through `read` with a declared setting (see the module docstring)."""
+
+    @pytest.mark.asyncio
+    async def test_an_undeclared_key_fails_instead_of_reading_its_default(self, db_session: AsyncSession):
+        with pytest.raises(KeyError, match="undeclared station setting"):
+            await read(db_session, BoolSetting("printer.enabeld", False))
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stored", ["", "abc", "0", "70000", "nan", "9100.5"])
+    async def test_a_number_that_cannot_be_used_reads_as_the_default(self, db_session: AsyncSession, stored: str):
+        db_session.add(Setting(key=PRINTER_PORT.key, value=stored))
+        await db_session.commit()
+        assert await read(db_session, PRINTER_PORT) == 9100
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("setting", "stored"), [(TRAINING_AUTOGEN_INTERVAL_MIN, "1e12"), (TRAINING_BOOST_MULTIPLICATOR, "1e-309")]
+    )
+    async def test_automatik_pacing_that_would_overflow_reads_as_the_default(
+        self, db_session: AsyncSession, setting: FloatSetting, stored: str
+    ):
+        db_session.add(Setting(key=setting.key, value=stored))
+        await db_session.commit()
+        assert await read(db_session, setting) == setting.default
+
+    @pytest.mark.asyncio
+    async def test_gps_tuning_keeps_a_fraction_and_reads_zero_as_the_default(self, db_session: AsyncSession):
+        db_session.add(Setting(key=GPS_SPEED_GATE_KMH.key, value="0.5"))
+        db_session.add(Setting(key=GPS_MIN_DWELL_SECONDS.key, value="0"))
+        await db_session.commit()
+        assert await read(db_session, GPS_SPEED_GATE_KMH) == 0.5
+        assert await read(db_session, GPS_MIN_DWELL_SECONDS) == 10.0
+
+    @pytest.mark.asyncio
+    async def test_the_return_rule_is_on_without_a_row(self, db_session: AsyncSession):
+        """One default per key: the reader used to fall back to «off», the registry says «on»."""
+        assert (await _load_config(db_session)).rule_return_enabled is True
 
 
 class TestGetSetting:
