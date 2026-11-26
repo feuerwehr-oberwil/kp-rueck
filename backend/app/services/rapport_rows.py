@@ -273,7 +273,7 @@ POWER_LABELS: dict[str, str] = {
     "unknown": "Unbekannt",
     "available": "Vorhanden",
     "unavailable": "Nicht vorhanden",
-    "emergency_needed": "Notstrom benötigt",
+    "emergency_needed": "Notstrom nötig",
 }
 
 # Workflow order for anything that counts or lists statuses. Sorting the dict itself

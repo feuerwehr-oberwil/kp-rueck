@@ -3076,7 +3076,7 @@
       "powerSupply": "Stromversorgung",
       "powerAvailable": "Vorhanden",
       "powerUnavailable": "Nicht vorhanden",
-      "powerEmergencyNeeded": "Notstrom benötigt",
+      "powerEmergencyNeeded": "Notstrom nötig",
       "photosCount": "Fotos ({count})",
       "photoAlt": "Reko-Foto {number}",
       "photoAltBy": "Reko-Foto {number} von {name}",

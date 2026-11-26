@@ -30,3 +30,5 @@ def test_label_tables_are_the_board_words():
         "unavailable": report["powerUnavailable"],
         "emergency_needed": report["powerEmergencyNeeded"],
     } == POWER_LABELS
+    # The form says the same words as the board and the paper.
+    assert catalogue["reko"]["form"]["powerLabels"] == POWER_LABELS
