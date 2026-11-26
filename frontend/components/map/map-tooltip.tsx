@@ -8,7 +8,7 @@
  * Leaflet's geometry (6px arrow, 0.9 opacity, pointer-events off) in the app's own surface:
  * card / card-foreground / border tokens (dark board, dark bubble), Sora 12 – `font-sans`
  * beats the Helvetica MapLibre sets on its container – the small-control radius and a
- * restrained shadow, the same chrome as the Lagekarte's permanent labels (map-view.tsx).
+ * restrained shadow, the same chrome as the Lagekarte's permanent labels (incident-label.tsx).
  *
  * It positions from the marker's ANCHOR (its lng/lat), not from the pin's box:
  * `gap` is the distance between that point and the bubble's near edge, which is what

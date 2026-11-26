@@ -4,7 +4,7 @@
  * the desktop too. At the fit zoom a storm evening piles eighteen 32px pins into one heap where no
  * single pin can be pointed at, and their labels cover each other; a bubble says how many are
  * there and carries the most urgent one's mark – its priority glyph and its status frame – so a
- * Hoch is still visible from afar. A click or tap zooms to the group (`components/map-view.tsx`).
+ * Hoch is still visible from afar. A click or tap zooms to the group (`components/map/cluster-marker.tsx`).
  *
  * Only below `CLUSTER_MAX_ZOOM`: from street level the pins stand apart and the labels take over
  * (`lib/map-labels.ts`). Incidents at the SAME address are one pin before this pass even starts
