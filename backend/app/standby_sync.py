@@ -560,9 +560,10 @@ def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
 
     Each system keeps one open row per Ereignis, type and `params.key` (`create_gps_todo`), but
     sees only its own, so both may ask. One stays: the row both already hold, else the leader's,
-    else the lower id; every other copy is deleted where it is. Only open rows: a dismissed one
-    was answered and stays as it is. A delete carries the row it expects, so a copy answered in
-    the meantime is `changed`, and the next round finds it dismissed.
+    else the lower id. A copy is removed only while one side alone holds it: its delete carries
+    the row it expects, so a copy answered (dismissed) meanwhile is `changed`, and the next round
+    finds it dismissed and keeps it. A copy both hold already is never deleted – one side's delete
+    and the other's dismissal would make the next round take the deletion. Only open rows count.
     """
     asked: set[tuple[Any, ...]] = set()
     rows = sorted(
@@ -579,7 +580,7 @@ def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
     )
     for key, row in rows:
         question = (row.get("event_id"), row["type"], row["params"]["key"])
-        if question in asked:
+        if question in asked and key not in base and (key in lead) != (key in other):
             _replace(plan, lead, other, key, None)
         asked.add(question)
 

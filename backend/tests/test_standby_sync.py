@@ -228,7 +228,7 @@ def test_two_einsatzleiter_named_in_the_gap_keep_the_leaders_and_the_other_stays
 def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_once():
     """In the seconds before the lead rows agree, both systems ask «Ist TLF angekommen?» for the
     same Einsatz (the same `params.key`). The leader's question stays, the copy goes where it came
-    from. A question somebody already answered (dismissed) is never touched."""
+    from. A question somebody already answered (dismissed) is never touched, nor a copy both hold."""
     asked = lambda name, **over: {
         "id": str(uuid.uuid5(uuid.NAMESPACE_URL, name)),
         "event_id": EVENT,
@@ -258,6 +258,11 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
         Op("notifications", phone["id"], None, phone),
     ]
     assert plan.conflicts == 0
+
+    # Copies both already hold stay: a delete on one side could meet a dismissal on the other.
+    both = {key(box): box, key(phone): phone}
+    again = merge(both, both, both, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+    assert again.to_leader == again.to_follower == []
 
 
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
