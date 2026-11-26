@@ -3762,7 +3762,6 @@
       "saveError": "Non enregistré",
       "loadSettingsError": "Échec du chargement des réglages",
       "checkInputRetry": "Vérifie la saisie et réessaie.",
-      "reloadPage": "Recharge la page.",
       "entriesCount": "{count, plural, one {# entrée} other {# entrées}}",
       "sortCategoriesTab": "Trier les grades",
       "sortLocationsTab": "Trier les emplacements",
@@ -4239,7 +4238,6 @@
       }
     },
     "materials": {
-      "loadError": "Le matériel n’a pas pu être chargé",
       "saveError": "Matériel non enregistré",
       "deleteError": "Matériel non supprimé",
       "deleteErrorDescription": "Le matériel est toujours là.",
@@ -4284,7 +4282,6 @@
       "purgeHint": "Possible parce que ce matériel n'a jamais été engagé sur une intervention réelle. S'il l'a été ne serait-ce qu'une fois, l'archive reste la seule voie – sinon il manquerait dans l'évaluation de cette intervention."
     },
     "personnel": {
-      "loadError": "Le personnel n’a pas pu être chargé",
       "deleteError": "Personne non supprimée",
       "deleteErrorDescription": "La personne est toujours là.",
       "syncPreviewError": "Échec du chargement de l’aperçu",
@@ -4450,7 +4447,6 @@
       "permanentDeleteAria": "Supprimer définitivement : {name}"
     },
     "vehicles": {
-      "loadError": "Les véhicules n’ont pas pu être chargés",
       "saveError": "Véhicule non enregistré",
       "deleteError": "Véhicule non supprimé",
       "deleteErrorDescription": "Le véhicule est toujours là.",

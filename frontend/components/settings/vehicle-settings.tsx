@@ -82,7 +82,6 @@ export function VehicleSettings() {
     },
     compare: compareVehicles,
     initialSort: 'display_order',
-    loadError: t('vehicles.loadError'),
     failureDescription: t('vehicles.deleteErrorDescription'),
     logNoun: 'vehicle',
   });

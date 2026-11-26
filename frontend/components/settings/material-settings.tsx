@@ -112,7 +112,6 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
     },
     compare: compareMaterials,
     initialSort: 'name',
-    loadError: t('materials.loadError'),
     failureDescription: t('materials.deleteErrorDescription'),
     logNoun: 'material',
   });

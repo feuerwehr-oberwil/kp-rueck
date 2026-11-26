@@ -12,7 +12,7 @@ import { useUnsavedChangesWarning } from '@/lib/hooks/use-unsaved-changes-warnin
  * The state behind the three inventory tables in Einstellungen (Fahrzeuge,
  * Material, Personal). Three layers, each screen takes the ones it has:
  *
- * - `useInventoryList` – rows loaded once on mount, kept on a degraded GET,
+ * - `useInventoryList` – rows loaded once on mount, kept when a load fails,
  *   sorted by one clickable column. All three screens.
  * - `useArchivableInventory` – the list plus the lifecycle a fleet/inventory row
  *   goes through: «Nicht einsatzbereit», archive, restore, purge, and the
@@ -50,42 +50,29 @@ export interface InventoryList<T, C extends string> {
 
 /**
  * Rows of one settings table. `compare` must be stable (a module-level
- * function): it is a memo dependency. `logLabel` names the rows in the console
+ * function): it is a memo dependency. A failed load keeps the rows on screen and
+ * says nothing itself: the transport toasts an error answer, and no answer is the
+ * outage's to say (lib/api/http.ts). `logLabel` names the rows in the console
  * line of a failed load («Failed to load vehicles:»).
  */
 export function useInventoryList<T extends { id: string; archived_at?: string | null }, C extends string>({
   list,
   compare,
   initialSort,
-  loadError,
   logLabel,
 }: {
-  list: (includeArchived: boolean) => Promise<T[] | undefined>;
+  list: (includeArchived: boolean) => Promise<T[]>;
   compare: InventoryCompare<T, C>;
   initialSort: C;
-  /** Toast title when the very first load comes back empty-handed. */
-  loadError: string;
   logLabel: string;
 }): InventoryList<T, C> {
-  const t = useTranslations('settings');
   const [rows, setRows] = useState<T[]>([]);
   const [column, setColumn] = useState<C>(initialSort);
   const [direction, setDirection] = useState<SortDirection>('asc');
 
   const reload = async (includeArchived = false) => {
     try {
-      const data = await list(includeArchived);
-      if (!data) {
-        // GET degraded to undefined after retries — keep previous state instead
-        // of crashing the sort memos with a non-iterable value.
-        if (rows.length === 0) {
-          toast.error(loadError, {
-            description: t('common.reloadPage'),
-          });
-        }
-        return;
-      }
-      setRows(data);
+      setRows(await list(includeArchived));
     } catch (error) {
       console.error(`Failed to load ${logLabel}:`, error);
     }
@@ -187,12 +174,11 @@ export function useArchivableInventory<T extends ArchivableRow, C extends string
   api,
   compare,
   initialSort,
-  loadError,
   failureDescription,
   logNoun,
 }: {
   api: {
-    list: (includeArchived: boolean) => Promise<T[] | undefined>;
+    list: (includeArchived: boolean) => Promise<T[]>;
     archive: (id: string) => Promise<unknown>;
     restore: (id: string) => Promise<unknown>;
     purge: (id: string) => Promise<unknown>;
@@ -200,7 +186,6 @@ export function useArchivableInventory<T extends ArchivableRow, C extends string
   };
   compare: InventoryCompare<T, C>;
   initialSort: C;
-  loadError: string;
   failureDescription: string;
   logNoun: string;
 }): ArchivableInventory<T, C> {
@@ -209,7 +194,6 @@ export function useArchivableInventory<T extends ArchivableRow, C extends string
     list: api.list,
     compare,
     initialSort,
-    loadError,
     logLabel: `${logNoun}s`,
   });
   const { rows, setRows } = inventory;

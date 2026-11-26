@@ -34,7 +34,6 @@ describe('useInventoryList', () => {
           list: async () => rows,
           compare: byName,
           initialSort: 'name',
-          loadError: 'x',
           logLabel: 'rows',
         }),
       { wrapper },

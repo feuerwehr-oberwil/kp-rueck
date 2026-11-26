@@ -1910,7 +1910,6 @@
       "saveError": "Nicht gespeichert",
       "loadSettingsError": "Einstellungen konnten nicht geladen werden",
       "checkInputRetry": "Überprüfe die Eingabe und versuche es erneut.",
-      "reloadPage": "Bitte Seite neu laden.",
       "entriesCount": "{count, plural, one {# Eintrag} other {# Einträge}}",
       "sortCategoriesTab": "Grade sortieren",
       "sortLocationsTab": "Standorte sortieren",
@@ -2387,7 +2386,6 @@
       }
     },
     "materials": {
-      "loadError": "Material konnte nicht geladen werden",
       "saveError": "Material nicht gespeichert",
       "deleteError": "Material nicht gelöscht",
       "deleteErrorDescription": "Das Material ist noch da.",
@@ -2432,7 +2430,6 @@
       "purgeHint": "Möglich, weil dieses Gerät nie auf einem echten Einsatz stand. Stand es auch nur einmal auf einem, bleibt das Archiv der einzige Weg – sonst fehlt es in der Auswertung genau dieses Einsatzes."
     },
     "personnel": {
-      "loadError": "Personal konnte nicht geladen werden",
       "deleteError": "Person nicht gelöscht",
       "deleteErrorDescription": "Die Person ist noch da.",
       "syncPreviewError": "Vorschau konnte nicht geladen werden",
@@ -2598,7 +2595,6 @@
       "permanentDeleteAria": "Endgültig löschen: {name}"
     },
     "vehicles": {
-      "loadError": "Fahrzeuge konnten nicht geladen werden",
       "saveError": "Fahrzeug nicht gespeichert",
       "deleteError": "Fahrzeug nicht gelöscht",
       "deleteErrorDescription": "Das Fahrzeug ist noch da.",
