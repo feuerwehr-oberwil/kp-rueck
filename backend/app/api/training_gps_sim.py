@@ -14,6 +14,7 @@ from ..database import get_db
 from ..models import (
     Vehicle,
 )
+from ..services.gps_simulation import DriveKind
 from ..utils.errors import ErrorMessages
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ class GpsSimDriveResponse(BaseModel):
     vehicle_id: UUID
     vehicle_name: str
     target_label: str
-    kind: str
+    kind: DriveKind
     progress: float
     eta_seconds: float
     speed_kmh: float

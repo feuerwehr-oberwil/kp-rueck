@@ -28,7 +28,7 @@ import math
 import uuid
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from ..traccar import VehiclePosition
@@ -67,6 +67,10 @@ def _bearing_deg(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
 
 
+#: Where a simulated drive goes: to an incident, or home to the Magazin.
+DriveKind = Literal["incident", "magazin"]
+
+
 @dataclass
 class SimulatedDrive:
     vehicle_id: uuid.UUID
@@ -76,7 +80,7 @@ class SimulatedDrive:
     target_lat: float
     target_lng: float
     target_label: str  # e.g. "Hafenrainstrasse 4" or "Magazin"
-    kind: str  # 'incident' | 'magazin'
+    kind: DriveKind
     cruise_kmh: float
     started_at: datetime
     incident_id: uuid.UUID | None = None  # the incident this drive goes to or comes home from

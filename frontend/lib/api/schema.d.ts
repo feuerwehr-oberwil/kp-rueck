@@ -7268,8 +7268,11 @@ export interface components {
          */
         DiveraSyncPreviewItem: {
             member: components["schemas"]["DiveraMemberPreview"];
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "unchanged" | "not_in_divera";
             /** Existing Id */
             existing_id?: string | null;
             /**
@@ -8747,8 +8750,11 @@ export interface components {
             vehicle_name: string;
             /** Target Label */
             target_label: string;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "incident" | "magazin";
             /** Progress */
             progress: number;
             /** Eta Seconds */
