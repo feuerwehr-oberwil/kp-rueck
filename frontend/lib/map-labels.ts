@@ -269,7 +269,7 @@ export function measureTextWidth(text: string, { weight, size, mono = false }: {
  */
 export function estimateLabelWidth(text: string, crewCounters: number): number {
   const textWidth = measurer() ? measureTextWidth(text, { weight: 600, size: 12 }) : text.length * 7
-  // Each counter: 6px gap + 12px icon + 3px + ~7px digit (the label in components/map-view.tsx).
+  // Each counter: 6px gap + 12px icon + 3px + ~7px digit (the label in components/map/incident-spot-marker.tsx).
   return Math.ceil(textWidth + 12 + 2 + crewCounters * 28)
 }
 

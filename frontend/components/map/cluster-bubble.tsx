@@ -2,7 +2,7 @@
 
 /**
  * The Lagekarte's count bubble: several overlapping incident pins as one mark
- * (`lib/map-clusters.ts`), phone and desktop. Drawn by the map (`ClusterMarker` in components/map-view.tsx) and by
+ * (`lib/map-clusters.ts`), phone and desktop. Drawn by the map (`ClusterMarker` in components/map/cluster-marker.tsx) and by
  * the legend's key, which passes `legend` so the frame takes the card's ink instead of the
  * basemap's gray-700 (as `LegendMarker` does).
  *

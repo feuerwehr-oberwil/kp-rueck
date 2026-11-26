@@ -41,7 +41,7 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  *
  * MapLibre appends every marker to the canvas container, so a plain `zIndex` on the marker
  * element settles stacking. An incident's permanent label is its OWN marker (IncidentLabel in
- * `components/map-view.tsx`), so pins and labels can sit in separate bands:
+ * `components/map/incident-label.tsx`), so pins and labels can sit in separate bands:
  *
  * - at rest every pin paints above every label (hill climb r14) – a label may run under a
  *   neighbouring dot, but it never hides that dot's priority colour and chevron; inside each
@@ -51,7 +51,7 @@ export const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs'
  *   decides the leftovers – a pill that found no free place (`vehicleCrowded`) lies over the
  *   resting pins it covers least, so it stays readable and tappable; an open vehicle list
  *   (`vehicleOpen`) clears every marker. The map's chrome stays above all of it, so pills and the
- *   list keep out from under that chrome (`mapChromeBoxes` in components/map-view.tsx);
+ *   list keep out from under that chrome (`mapChromeBoxes` in components/map/use-vehicle-placement.ts);
  * - an Auftrag's numbered stop pin covers a plain incident dot;
  * - the selected/highlighted incident (label, then its pin) clears every resting pin and stop;
  * - the pointed-at one (label/hover card, then its pin) clears everything – the hovered route
