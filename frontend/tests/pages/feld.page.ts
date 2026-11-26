@@ -31,14 +31,11 @@ export class FeldPage extends BasePage {
   readonly pickupButton: Locator;
 
   // --- the confirmation both irreversible reports ask for (§18.18) ---
-  readonly confirmArrivedButton: Locator;
   readonly confirmCompleteButton: Locator;
 
   // --- the Abholung follow-up that "Einsatz beendet" opens (decision 24) ---
   readonly pickupFollowupQuestion: Locator;
   readonly needPickupButton: Locator;
-  readonly selfReturnButton: Locator;
-  readonly pickupBadge: Locator;
 
   // --- the Rapport form (components/feld/feld-rapport-form.tsx) ---
   readonly kurzberichtField: Locator;
@@ -70,13 +67,10 @@ export class FeldPage extends BasePage {
     // real use (§18.9) — the crew asks, the KP clears.
     this.pickupButton = page.getByRole('button', { name: /^Abholung anfordern$/ });
 
-    this.confirmArrivedButton = page.getByRole('button', { name: 'Angekommen melden' });
     this.confirmCompleteButton = page.getByRole('button', { name: 'Beendet melden' });
 
     this.pickupFollowupQuestion = page.getByText('Kommt ihr selbst zurück?');
     this.needPickupButton = page.getByRole('button', { name: 'Wir müssen abgeholt werden' });
-    this.selfReturnButton = page.getByRole('button', { name: 'Wir fahren selbst' });
-    this.pickupBadge = page.getByText('Abholung', { exact: false });
 
     this.kurzberichtField = page.getByPlaceholder('Lage, Tätigkeit, Material');
     // The `/feld` mount is the ONLY one with this button since §18.17 — the KP
@@ -179,12 +173,6 @@ export class FeldPage extends BasePage {
   async notMe() {
     await this.nameMenu.click();
     await this.page.getByRole('menuitem', { name: 'Nicht ich' }).click();
-  }
-
-  /** "Angekommen", through the confirmation it asks for first (§18.18). */
-  async reportArrived() {
-    await this.arrivedButton.click();
-    await this.confirmArrivedButton.click();
   }
 
   /** "Einsatz beendet", its confirmation, and the follow-up it opens by itself. */
