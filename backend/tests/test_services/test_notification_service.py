@@ -1750,6 +1750,65 @@ class TestFatigueNotificationConcurrency:
                 await cleanup.execute(delete(Personnel).where(Personnel.id == person_id))
                 await cleanup.commit()
 
+    @pytest.mark.asyncio
+    async def test_a_dismissal_committed_while_a_poll_runs_keeps_the_names_it_dismissed(self, test_engine):
+        # A poll read the open warning (Muster), a dismissal of it commits (an operator, or the standby
+        # sync applying one), then the poll rewrote it by id with Beispiel: acknowledged unseen.
+        from app.services.notification_service import fatigue_subject_key
+
+        maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+        event_id, user_id = uuid4(), uuid4()
+        since = datetime.now(UTC) - timedelta(hours=5)
+        people = {uuid4(): "Muster Max", uuid4(): "Beispiel Bea"}
+        muster, beispiel = (fatigue_subject_key(person_id, since) for person_id in people)
+        async with maker() as setup:
+            setup.add_all(
+                [
+                    Event(id=event_id, name="Dismissal race", training_flag=False),
+                    User(id=user_id, username=f"fatigue-{user_id}", password_hash=None, role="editor"),
+                    *(Personnel(id=i, name=name, role="Sdt", status="available") for i, name in people.items()),
+                ]
+            )
+            await setup.flush()
+            setup.add_all(
+                EventAttendance(event_id=event_id, personnel_id=i, checked_in=True, checked_in_at=since) for i in people
+            )
+            warning = Notification(
+                type="personnel_fatigue",
+                severity="warning",
+                message="Lang im Einsatz: Muster Max",
+                subject_keys=[muster],
+                event_id=event_id,
+            )
+            setup.add(warning)
+            await setup.commit()
+
+        try:
+            async with maker() as dismissing, maker() as polling:
+                await dismissing.execute(
+                    update(Notification)
+                    .where(Notification.id == warning.id)
+                    .values(dismissed=True, dismissed_by=user_id, dismissed_at=datetime.now(UTC))
+                )
+                poll = asyncio.create_task(
+                    _sync_fatigue_notification(polling, event_id, NotificationSettings(fatigue_hours=4))
+                )
+                await wait_until_blocked(maker)
+                await dismissing.commit()
+                raised = await asyncio.wait_for(poll, timeout=10)
+
+            async with maker() as check:
+                dismissed = await check.get(Notification, warning.id)
+                assert dismissed is not None and dismissed.dismissed and dismissed.subject_keys == [muster]
+            assert raised is not None and raised.id != warning.id
+            assert sorted(raised.subject_keys or []) == sorted([muster, beispiel])
+        finally:
+            async with maker() as cleanup:
+                await cleanup.execute(delete(Event).where(Event.id == event_id))
+                await cleanup.execute(delete(Personnel).where(Personnel.id.in_(list(people))))
+                await cleanup.execute(delete(User).where(User.id == user_id))
+                await cleanup.commit()
+
 
 async def test_alerts_follow_route_and_inventory_availability(db_session, notif_event, notif_personnel, notif_material):
     from app.models import IncidentGroup, IncidentGroupAssignment

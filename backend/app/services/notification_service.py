@@ -478,12 +478,16 @@ async def _sync_fatigue_locked(
         over = [(name, minutes) for name, minutes, _ in people]
         keys = [key for _, _, key in people]
 
+    # Locked: a dismissal committed between this read and the rewrite below (an operator, or the
+    # standby sync applying one) would acknowledge whoever the rewrite adds. Postgres re-checks
+    # `dismissed` once the lock is ours, so a row dismissed meanwhile drops out here.
     active_result = await db.execute(
         select(Notification)
         .where(Notification.event_id == event_id)
         .where(Notification.type == "personnel_fatigue")
         .where(Notification.dismissed == False)  # noqa: E712
         .order_by(Notification.created_at.desc())
+        .with_for_update()
     )
     active = list(active_result.scalars().all())
 

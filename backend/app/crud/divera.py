@@ -135,12 +135,15 @@ async def lock_divera_emergencies(db: AsyncSession, emergency_ids: Iterable[UUID
     Taken before the first card: a card's INSERT takes the Ereignis' numbering lock, and a
     single attach holds its alarm while it waits for that lock. A bulk attach that took its
     alarms one by one held the numbering lock while it waited for such an alarm – a deadlock.
-    Outside a savepoint, so a failed alarm's rollback keeps the others locked.
+    Outside a savepoint, so a failed alarm's rollback keeps the others locked. One query: Postgres
+    locks the rows as the sort hands them out.
     """
-    for emergency_id in sorted(set(emergency_ids)):
-        await db.execute(
-            select(models.DiveraEmergency.id).where(models.DiveraEmergency.id == emergency_id).with_for_update()
-        )
+    await db.execute(
+        select(models.DiveraEmergency.id)
+        .where(models.DiveraEmergency.id.in_(list(emergency_ids)))
+        .order_by(models.DiveraEmergency.id)
+        .with_for_update()
+    )
 
 
 async def get_divera_emergency_by_divera_id(
