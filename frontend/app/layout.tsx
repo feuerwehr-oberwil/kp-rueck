@@ -9,6 +9,7 @@ import { manifestLocale } from '@/lib/web-manifest'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/lib/contexts/auth-context'
+import { QueryProvider } from '@/lib/query/provider'
 import { EventProvider } from '@/lib/contexts/event-context'
 import { StandbyProvider } from '@/lib/contexts/standby-context'
 import { OperationsProvider } from '@/lib/contexts/operations-context'
@@ -145,6 +146,7 @@ export default async function RootLayout({
           {/* A launch opens behind the snail: over everything until the workspace is usable. */}
           <BootCover />
           <AuthProvider>
+            <QueryProvider>
             <EventProvider>
               <StandbyProvider>
               <OperationsProvider>
@@ -172,6 +174,7 @@ export default async function RootLayout({
               </OperationsProvider>
               </StandbyProvider>
             </EventProvider>
+            </QueryProvider>
           </AuthProvider>
         </ThemeProvider>
         </NextIntlClientProvider>
