@@ -393,8 +393,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // rendered for ANY reason. The actions close over this render's
   // state and are rebuilt each render, so consumers get stable wrappers that
   // always call the LATEST render's version (never a stale closure either).
-  const latestActionsRef = useRef<BoardActions | null>(null)
-  latestActionsRef.current = {
+  const latestActions: BoardActions = {
     removeCrew,
     removeMaterial,
     removeVehicle,
@@ -416,10 +415,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     resolveResourceConflict,
     deleteOperation,
   }
+  const latestActionsRef = useRef(latestActions)
+  latestActionsRef.current = latestActions
   const stableActions = useMemo<BoardActions>(() => {
     const stable = <K extends keyof BoardActions>(key: K): BoardActions[K] =>
       ((...args: unknown[]) =>
-        (latestActionsRef.current![key] as (...a: unknown[]) => unknown)(...args)) as BoardActions[K]
+        (latestActionsRef.current[key] as (...a: unknown[]) => unknown)(...args)) as BoardActions[K]
     return {
       removeCrew: stable("removeCrew"),
       removeMaterial: stable("removeMaterial"),

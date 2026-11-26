@@ -249,11 +249,12 @@ export function CommandPalette() {
     [vocabulary, search],
   )
   const cycle = useRef<{ options: DispatchCompletion[]; index: number; applied: string } | null>(null)
-  const cycling = cycle.current !== null && cycle.current.applied === search
+  const cycleNow = cycle.current
+  const cycling = cycleNow !== null && cycleNow.applied === search
   const lastToken = parsed?.tokens[parsed.tokens.length - 1]
   const nextCompletion: DispatchCompletion | null = cycling
-    ? cycle.current!.options.length > 1
-      ? cycle.current!.options[(cycle.current!.index + 1) % cycle.current!.options.length]
+    ? cycleNow.options.length > 1
+      ? cycleNow.options[(cycleNow.index + 1) % cycleNow.options.length]
       : null
     : // No hint where the preview already says it — the word shown as that very chip, or
       // its candidates listed as rows right below. ⇥ completes either way.

@@ -681,7 +681,7 @@ export default function EventsPage() {
                               {t('page.incidentCountShort', { count: event.incident_count })}
                             </span>
                             <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
-                              {formatAgoSince(new Date(event.archived_at!), tDuration, now.getTime())}
+                              {event.archived_at && formatAgoSince(new Date(event.archived_at), tDuration, now.getTime())}
                             </span>
                             {manages && (
                               <button

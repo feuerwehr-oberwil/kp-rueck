@@ -194,13 +194,14 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
       // the location it used to sit in.
       if (material.archived_at) return;
       const location = material.location || '';
-      if (!locationMap.has(location)) {
-        locationMap.set(location, {
-          sort_order: material.location_sort_order,
-          count: 0,
-        });
+      let current = locationMap.get(location);
+      if (!current) {
+        current = {
+        sort_order: material.location_sort_order,
+        count: 0,
+      };
+        locationMap.set(location, current);
       }
-      const current = locationMap.get(location)!;
       current.count++;
     });
 

@@ -91,11 +91,9 @@ function createApiClient(): ApiClient {
       if (Object.prototype.hasOwnProperty.call(Client.prototype, name)) {
         throw new Error(`apiClient: «${name}» is declared by two resources`)
       }
-      Object.defineProperty(
-        Client.prototype,
-        name,
-        Object.getOwnPropertyDescriptor(resource.prototype, name)!,
-      )
+      // `name` comes from the prototype's own names, so the descriptor is there.
+      const descriptor = Object.getOwnPropertyDescriptor(resource.prototype, name)
+      if (descriptor) Object.defineProperty(Client.prototype, name, descriptor)
     }
   }
   return new Client() as ApiClient

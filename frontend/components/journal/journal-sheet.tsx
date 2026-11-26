@@ -258,26 +258,29 @@ export function JournalSheet({ open, onOpenChange, eventId, operations, isEditor
           />
         ) : (
           <ol className="divide-y divide-border/60">
-            {shown.map((line) => (
-              <JournalRow
-                key={line.entry.id}
-                line={line}
-                incidentLabel={line.entry.incident_id ? labels.get(line.entry.incident_id) : undefined}
-                mergedInto={line.entry.incident_id ? merged.get(line.entry.incident_id) : undefined}
-                stacked={isMobile}
-                onOpenIncident={
-                  // The phone views; a tap target there is 44px, and a 44px chip in every row
-                  // is a list of chips. The desktop chip opens the Einsatz.
-                  !isMobile && onOpenIncident && line.entry.incident_id && labels.has(line.entry.incident_id)
-                    ? () => onOpenIncident(line.entry.incident_id!, detailTargetForJournalEntry(line.entry))
-                    : undefined
-                }
-                onRestore={isEditor && refreshBoard && recoverable.has(line.entry.id) && !labels.has(line.entry.incident_id!)
-                  ? async () => { if (await restoreDeletedIncident(line.entry.incident_id!, refreshBoard)) reload() }
-                  : undefined}
-                onCorrect={isEditor && line.entry.kind === "manual" ? () => setCorrecting(line) : undefined}
-              />
-            ))}
+            {shown.map((line) => {
+              const incidentId = line.entry.incident_id
+              return (
+                <JournalRow
+                  key={line.entry.id}
+                  line={line}
+                  incidentLabel={line.entry.incident_id ? labels.get(line.entry.incident_id) : undefined}
+                  mergedInto={line.entry.incident_id ? merged.get(line.entry.incident_id) : undefined}
+                  stacked={isMobile}
+                  onOpenIncident={
+                    // The phone views; a tap target there is 44px, and a 44px chip in every row
+                    // is a list of chips. The desktop chip opens the Einsatz.
+                    !isMobile && onOpenIncident && incidentId && labels.has(incidentId)
+                      ? () => onOpenIncident(incidentId, detailTargetForJournalEntry(line.entry))
+                      : undefined
+                  }
+                  onRestore={isEditor && refreshBoard && incidentId && recoverable.has(line.entry.id) && !labels.has(incidentId)
+                    ? async () => { if (await restoreDeletedIncident(incidentId, refreshBoard)) reload() }
+                    : undefined}
+                  onCorrect={isEditor && line.entry.kind === "manual" ? () => setCorrecting(line) : undefined}
+                />
+              )
+            })}
           </ol>
         )}
       </div>

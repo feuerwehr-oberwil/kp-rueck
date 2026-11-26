@@ -212,7 +212,10 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
   const rows = sortCrewDuty(filterCrewDuty(entries, filter, query), sortKey, direction)
   const byId = new Map(personnel.map((person) => [person.id, person]))
   const filterLabel = filter === "free" ? t("filterFree") : filter === "busy" ? t("filterBusy") : null
-  const sortLabel = (key: CrewDutySortKey) => t(COLUMNS.find((c) => c.key === key)!.label)
+  const sortLabel = (key: CrewDutySortKey) => {
+    const column = COLUMNS.find((c) => c.key === key)
+    return column ? t(column.label) : key
+  }
 
   return (
     <FooterSheet
@@ -375,16 +378,20 @@ export function CrewDutySheet({ open, onOpenChange, eventId, personnel, personEn
               })}
             </div>
             <ul className="space-y-1" aria-label={t("title")}>
-              {rows.map((entry) => (
-                <CrewDutyRow
-                  key={entry.id}
-                  person={byId.get(entry.id)!}
-                  entry={entry}
-                  failed={counts === "failed"}
-                  fatigueHours={fatigueHours}
-                  onOpenNow={openNowFor?.(byId.get(entry.id)!)}
-                />
-              ))}
+              {rows.map((entry) => {
+                // Every row is built from `personnel`, so the person is there.
+                const person = byId.get(entry.id)
+                return person ? (
+                  <CrewDutyRow
+                    key={entry.id}
+                    person={person}
+                    entry={entry}
+                    failed={counts === "failed"}
+                    fatigueHours={fatigueHours}
+                    onOpenNow={openNowFor?.(person)}
+                  />
+                ) : null
+              })}
             </ul>
             {isMobile && <p className="mt-2 text-xs text-muted-foreground">{t("sortedBy", { column: sortLabel(sortKey) })}</p>}
           </>

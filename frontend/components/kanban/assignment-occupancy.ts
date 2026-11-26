@@ -113,7 +113,8 @@ export function useAssignmentOccupancy({
   }
   const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
     if (assignedVehicleIds.includes(vehicle.id)) return null
-    if (vehicleOccupancy.has(vehicle.id)) return vehicleOccupancy.get(vehicle.id)![0]
+    const placed = vehicleOccupancy.get(vehicle.id)?.[0]
+    if (placed) return placed
     if (occupiedVehicleIds.has(vehicle.id)) return genericElsewhereLabel()
     return null
   }
@@ -123,7 +124,8 @@ export function useAssignmentOccupancy({
   }
   const personElsewhereLabel = (person: Person): OccupancyLabel | null => {
     if (assignedPersonnelIds.includes(person.id)) return null
-    if (personOccupancy.has(person.id)) return personOccupancy.get(person.id)![0]
+    const placed = personOccupancy.get(person.id)?.[0]
+    if (placed) return placed
     // Deliberately NOT falling back on `status === 'assigned'`: the context sets
     // that flag for special-function people too (Fahrer, Telefondienst, …), and
     // the generic «Im Einsatz» next to their function badge claimed an incident

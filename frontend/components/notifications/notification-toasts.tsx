@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -119,12 +119,11 @@ export function NotificationToasts() {
   const tAll = useTranslations()
 
   // Initialize with previously shown notification IDs from localStorage,
-  // dropping IDs older than 24 hours. Lazily assigned because a `useRef(expr)`
+  // dropping IDs older than 24 hours. A lazy initialiser, because a `useRef(expr)`
   // argument is evaluated on EVERY render — passing the call directly re-read,
   // re-parsed and sometimes re-WROTE localStorage synchronously on each render
-  // of this root-layout component.
-  const shownToastIds = useRef<Set<string>>(null!)
-  shownToastIds.current ??= cleanupOldToastIds()
+  // of this root-layout component. Mutated in place: a shown id needs no render.
+  const [shownToastIds] = useState(cleanupOldToastIds)
 
   // Silence "new emergency" notifications the board has overtaken: once the
   // incident has a Reko assigned or moved past the column it was announced in,
@@ -175,7 +174,7 @@ export function NotificationToasts() {
 
     // Show new undismissed notifications as toasts
     const newNotifications = notifications.filter(
-      (n) => !n.dismissed && !shownToastIds.current.has(n.id)
+      (n) => !n.dismissed && !shownToastIds.has(n.id)
     )
 
     // Guarded rather than early-returned: the dismissal sweep at the bottom has
@@ -196,7 +195,7 @@ export function NotificationToasts() {
       const now = Date.now()
       const storedData = getStoredToastData()
       for (const notification of newNotifications) {
-        shownToastIds.current.add(notification.id)
+        shownToastIds.add(notification.id)
         storedData.push({ id: notification.id, timestamp: now })
       }
       // One write for the whole batch. The old code re-read AND re-wrote the
@@ -300,7 +299,7 @@ export function NotificationToasts() {
 
     // Dismiss toasts for notifications that have been dismissed elsewhere (e.g., in sidebar)
     const dismissedNotifications = notifications.filter(
-      (n) => n.dismissed && shownToastIds.current.has(n.id)
+      (n) => n.dismissed && shownToastIds.has(n.id)
     )
 
     dismissedNotifications.forEach((notification) => {
@@ -310,6 +309,7 @@ export function NotificationToasts() {
     })
   }, [
     notifications,
+    shownToastIds,
     dismissNotification,
     isSidebarOpen,
     isQuietSurface,
