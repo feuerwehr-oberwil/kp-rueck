@@ -121,7 +121,8 @@ export function ResponsiveDialog({
             <SheetTitle>{title}</SheetTitle>
             {subject && <SubjectLine subject={subject} />}
             {description !== undefined && (
-              <SheetDescription className={cn(hideDescription && 'sr-only')}>{description}</SheetDescription>
+              // Wraps, and breaks a word wider than the line (a long name), like SheetTitle.
+              <SheetDescription className={cn('break-words', hideDescription && 'sr-only')}>{description}</SheetDescription>
             )}
             {status}
           </SheetHeader>
