@@ -38,12 +38,12 @@ import {
   type SupportedLocale,
 } from '@/lib/i18n-messages'
 import {
-  LAGEBLATT_AUTODOWNLOAD_EVENT,
   LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY,
   LAGEBLATT_AUTODOWNLOAD_KEY,
   readLageblattInterval,
 } from '@/lib/lageblatt'
 import { toast } from 'sonner'
+import { emitAppEvent } from '@/lib/app-events'
 
 export function DeviceSettings() {
   const t = useTranslations('settings')
@@ -65,7 +65,7 @@ export function DeviceSettings() {
   const handleAutoDownloadToggle = (on: boolean) => {
     setAutoDownload(on)
     localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_KEY, on ? 'true' : 'false')
-    window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT))
+    emitAppEvent('kp-lageblatt-autodownload-changed')
     if (on) {
       // No immediate download — the first one runs at the next interval tick so
       // enabling this never triggers a surprise download.
@@ -79,7 +79,7 @@ export function DeviceSettings() {
     const clamped = String(Math.max(5, Math.min(120, parseInt(raw) || 15)))
     setDownloadInterval(clamped)
     localStorage.setItem(LAGEBLATT_AUTODOWNLOAD_INTERVAL_KEY, clamped)
-    window.dispatchEvent(new Event(LAGEBLATT_AUTODOWNLOAD_EVENT))
+    emitAppEvent('kp-lageblatt-autodownload-changed')
   }
 
   return (

@@ -40,11 +40,11 @@ import {
   DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
-  LAGEBLATT_AUTODOWNLOAD_EVENT,
   LAGEBLATT_AUTODOWNLOAD_KEY,
   readLageblattInterval,
 } from '@/lib/lageblatt';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { onAppEvent } from '@/lib/app-events';
 
 interface UserMenuProps {
   // Quick action callbacks (optional, for pages that support them)
@@ -119,10 +119,10 @@ export function UserMenu({
       setLageblattIntervalMin(readLageblattInterval());
     };
     read();
-    window.addEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
+    const offChanged = onAppEvent('kp-lageblatt-autodownload-changed', read);
     window.addEventListener('storage', read);
     return () => {
-      window.removeEventListener(LAGEBLATT_AUTODOWNLOAD_EVENT, read);
+      offChanged();
       window.removeEventListener('storage', read);
     };
   }, []);

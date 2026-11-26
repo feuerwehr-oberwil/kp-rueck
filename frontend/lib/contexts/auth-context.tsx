@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { translateOutsideReact } from '../i18n-messages';
 import { getCurrentUser, localLogin, login as apiLogin, microsoftLogin as apiMicrosoftLogin, logout as apiLogout, refreshToken, User } from '../auth-client';
+import { onAppEvent } from '@/lib/app-events';
 
 export interface AuthContextType {
   user: User | null;
@@ -69,8 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: translateOutsideReact('notifications.auth.sessionExpiredDescription'),
       });
     };
-    window.addEventListener('kp:session-expired', handleSessionExpired);
-    return () => window.removeEventListener('kp:session-expired', handleSessionExpired);
+    return onAppEvent('kp:session-expired', handleSessionExpired);
   }, []);
 
   useEffect(() => {

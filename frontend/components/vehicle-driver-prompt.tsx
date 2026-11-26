@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 import { driversFromSpecialFunctions } from "@/lib/hooks/use-vehicle-drivers"
 import type { VehicleNeedingDriver } from "@/lib/contexts/operations/types"
+import { emitAppEvent } from "@/lib/app-events"
 
 /**
  * Listens for vehicles that need a driver (see operations-context
@@ -185,7 +186,7 @@ export function VehicleDriverPrompt() {
       driversPending={driversPending}
       onDriverAssigned={() => {
         // Notify the sidebar / vehicle status sheet of the change (same-tab).
-        window.dispatchEvent(new Event("driver-assignment-changed"))
+        emitAppEvent("driver-assignment-changed")
         assignedRef.current = true
       }}
       removeCrew={removeCrew}

@@ -83,12 +83,11 @@ import { PriorityGlyph } from "@/components/ui/priority-glyph"
 // Hints come from the one chord table — they said «G K» for weeks after the
 // chord had moved to G B.
 import { gPrefixHint } from "@/lib/hooks/use-g-prefix-navigation"
+import { emitAppEvent, onAppEvent } from "@/lib/app-events"
 
-/** Window event that opens the palette (for mouse entry points like the welcome card). */
-export const OPEN_COMMAND_PALETTE_EVENT = "kp:open-command-palette"
-
+/** Open the palette from a mouse entry point (the welcome card, the user menu). */
 export function openCommandPalette() {
-  window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE_EVENT))
+  emitAppEvent("kp:open-command-palette")
 }
 
 /**
@@ -320,13 +319,11 @@ export function CommandPalette() {
         setOpen((open) => !open)
       }
     }
-    const openFromEvent = () => setOpen(true)
-
     document.addEventListener("keydown", down)
-    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, openFromEvent)
+    const offOpen = onAppEvent("kp:open-command-palette", () => setOpen(true))
     return () => {
       document.removeEventListener("keydown", down)
-      window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, openFromEvent)
+      offOpen()
     }
   }, [])
 

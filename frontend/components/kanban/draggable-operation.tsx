@@ -47,6 +47,7 @@ import { formatDurationHours } from "@/lib/duration"
 import { metaFacts } from "@/lib/meta-line"
 import { SIDE_PANEL_BREAKPOINT, SIDE_PANEL_MEDIA_QUERY } from "@/lib/layout-breakpoints"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
+import { emitAppEvent } from '@/lib/app-events'
 
 const widthHasSidePanel = () => window.innerWidth >= SIDE_PANEL_BREAKPOINT
 
@@ -962,7 +963,7 @@ function DraggableOperationBase({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  window.dispatchEvent(new CustomEvent('kp:open-auftraege', { detail: { groupId: auftrag.id } }))
+                  emitAppEvent('kp:open-auftraege', { groupId: auftrag.id })
                 }}
                 className="group/auftrag flex w-full min-w-0 items-start gap-1.5 text-left transition-colors"
                 // The whole row, not just the name: this attribute used to carry

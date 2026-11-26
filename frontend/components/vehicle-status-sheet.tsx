@@ -31,6 +31,7 @@ import { boardDetailHref } from "@/lib/incident-detail"
 import { OVERVIEW_TARGET, RESOURCES_TARGET } from "@/lib/detail-target"
 import { DriverAssignmentDialog } from "./driver-assignment-dialog"
 import { shortDate } from "@/lib/board-sidebar"
+import { emitAppEvent } from '@/lib/app-events'
 
 /** What the sheet shows for one Ereignis: the fleet and the event's special functions
  *  (the driver dialog needs those). */
@@ -337,7 +338,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
     // Reload vehicle statuses after driver assignment
     loadVehicleStatuses(true)
     // Notify sidebar (same-tab instant feedback)
-    window.dispatchEvent(new Event('driver-assignment-changed'))
+    emitAppEvent('driver-assignment-changed')
   }
 
   const displayedVehicles = vehicles
