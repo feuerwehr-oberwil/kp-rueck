@@ -685,6 +685,21 @@ const filedReko = (summaryText: string) => ({
   total: 1,
 })
 
+describe("OperationsProvider — demo reset", () => {
+  it("reloads the page: the reset gave every Einsatz and the Ereignis new ids", async () => {
+    const reload = vi.fn()
+    const location = window.location
+    Object.defineProperty(window, "location", { configurable: true, value: { ...location, reload } })
+    try {
+      await renderLoaded()
+      act(() => ws.emit("demo_reset"))
+      expect(reload).toHaveBeenCalledOnce()
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: location })
+    }
+  })
+})
+
 describe("OperationsProvider — Reko summaries", () => {
   it("a reko_update reloads the board, so every page shows the new summary", async () => {
     api.getEventRekoSummaries.mockResolvedValue(filedReko("Keller 10 cm"))

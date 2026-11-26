@@ -523,6 +523,9 @@ export function useBoardSync(input: BoardSyncInput) {
     const unsubscribeRekoUpdate = wsClient.on('reko_update', handleRemoteUpdate)
     // An Auftrag changed (stops, route crew, name, Funkdurchsage): the routes are part of the snapshot.
     const unsubscribeGroupUpdate = wsClient.on('group_update', handleRemoteUpdate)
+    // The demo was wiped and seeded again (nightly, or «Demo zurücksetzen»): every id on screen,
+    // the selected Ereignis's too, is gone. Only a fresh page picks the new ones up.
+    const unsubscribeDemoReset = wsClient.on('demo_reset', () => window.location.reload())
 
     // Fallback polling
     let pollTimeout: NodeJS.Timeout | undefined
@@ -645,6 +648,7 @@ export function useBoardSync(input: BoardSyncInput) {
       unsubscribeAssignmentsTransferred()
       unsubscribeRekoUpdate()
       unsubscribeGroupUpdate()
+      unsubscribeDemoReset()
       statusUnsubscribe()
       stopPolling()
       reloadScheduler.dispose()
