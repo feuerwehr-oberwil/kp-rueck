@@ -909,8 +909,12 @@ async def dismiss_notification(
     ``expected_version``: the ``Notification.version`` the operator saw. Locked before it is
     compared: a poll rewriting the row (``_sync_fatigue_locked``) holds it, so the dismissal waits
     and compares the rewritten row. A mismatch raises ``DomainError`` (409 ``notification_changed``)
-    and changes nothing – the operator must not acknowledge somebody they were not shown.
+    and changes nothing – the operator must not acknowledge somebody they were not shown. The
+    field requests the row announces are locked first, as «Erledigt» locks them.
     """
+    from ..crud.feld.requests import lock_requests_of_notification, mark_seen_by_notification
+
+    await lock_requests_of_notification(db, notification_id)
     result = await db.execute(
         select(Notification)
         .where(Notification.id == notification_id)
@@ -929,8 +933,6 @@ async def dismiss_notification(
         notification.dismissed_by = user_id
         # A field request announced by this entry is now «Vom KP gesehen» — and
         # still open (R13): dismissing the bell is never handling the request.
-        from ..crud.feld.requests import mark_seen_by_notification
-
         seen = await mark_seen_by_notification(db, notification.id, now)
         await db.flush()
         await db.refresh(notification)

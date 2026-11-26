@@ -670,6 +670,13 @@ def _journal_line(event_id: str, incident_id: str | None, text: str, now: str) -
 # --- writing (both systems) ------------------------------------------------------------------
 
 
+# The lock order of `crud/locking.py` for the rows a batch writes: alarms, Aufträge, Einsätze,
+# then every leaf, the Ereignis row last. In list order the Ereignis row came before its cards,
+# and a status update (card, then Ereignis) or an Ereignis delete deadlocked with the batch.
+_LOCK_RANK = {"divera_emergencies": 0, "incident_groups": 1, "incidents": 2, "events": 9}
+_LEAF_RANK = 5
+
+
 class OpRefusedError(Exception):
     """An op that would write outside its Ereignis – never applied, on either system."""
 
@@ -688,10 +695,11 @@ async def apply_ops(
     - `refused`: unknown table, or a row of another Ereignis.
 
     Ops that fail on a missing key are retried until a pass gets nowhere, so parents may come
-    after their children in the list.
+    after their children in the list. They are applied in the lock order (`_LOCK_RANK`), each
+    table by id; the results stay in the list's order.
     """
     results: list[str] = ["refused"] * len(ops)
-    todo = list(range(len(ops)))
+    todo = sorted(range(len(ops)), key=lambda i: (_LOCK_RANK.get(ops[i].table, _LEAF_RANK), ops[i].table, ops[i].id))
     while todo:
         again: list[int] = []
         for i in todo:

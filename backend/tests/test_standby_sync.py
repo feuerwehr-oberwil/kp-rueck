@@ -5,6 +5,7 @@ real databases – the test database as the box, a scratch one as the hosted boa
 push going straight into the hosted database through the same `apply_ops` its endpoint runs.
 """
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator
@@ -623,6 +624,52 @@ async def test_a_row_this_schema_refuses_is_held_and_the_rest_of_the_batch_lands
     assert results == ["held", "ok"]
     assert await hosted.fetchval("SELECT priority FROM incidents WHERE id = $1", incident_id) == "medium"
     assert await hosted.fetchval("SELECT count(*) FROM journal_entries") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_batch_waits_for_a_held_card_before_it_writes_the_ereignis_row(hosted, hosted_database):
+    # A status update holds its card, then stamps the Ereignis row. A batch with both rows wrote
+    # the Ereignis row first (in list order) and then waited for the card: each waited for the other.
+    event_id, incident_id = uuid.uuid4(), uuid.uuid4()
+    await hosted.execute(EVENT_SQL, event_id)
+    await hosted.execute(INCIDENT_SQL, incident_id, event_id)
+    tables = await event_tables(hosted)
+    event = (await fetch_rows(hosted, tables["events"], event_id))[0][("events", str(event_id))]
+    card = (await fetch_rows(hosted, tables["incidents"], event_id))[0][("incidents", str(incident_id))]
+    ops = [
+        Op("events", str(event_id), {**event, "name": "Unwetter Nord"}, event),
+        Op("incidents", str(incident_id), {**card, "description": "Keller leer gepumpt."}, card),
+    ]
+    updating = await asyncpg.connect(hosted_database)
+    try:
+        update = updating.transaction()
+        await update.start()
+        await updating.execute("SELECT 1 FROM incidents WHERE id = $1 FOR UPDATE", incident_id)
+
+        async def push() -> list[str]:
+            async with hosted.transaction():
+                return await apply_ops(hosted, tables, event_id, ops)
+
+        batch = asyncio.create_task(push())
+        for _ in range(100):
+            if await updating.fetchval(
+                "SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND datname = current_database()"
+            ):
+                break
+            await asyncio.sleep(0.05)
+        else:
+            raise AssertionError("the batch never waited for the card")
+
+        # The batch must be queued for the card, not sitting on the Ereignis row.
+        await asyncio.wait_for(
+            updating.execute("UPDATE events SET last_activity_at = now() WHERE id = $1", event_id), timeout=5
+        )
+        await update.commit()
+        # The stamp changed the Ereignis row: that op is `changed`, and the next round takes it.
+        assert await asyncio.wait_for(batch, timeout=10) == ["changed", "ok"]
+    finally:
+        await updating.close()
+    assert await _description(hosted, incident_id) == "Keller leer gepumpt."
 
 
 @pytest.mark.asyncio

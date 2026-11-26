@@ -262,6 +262,20 @@ async def set_request_status(
     return True
 
 
+async def lock_requests_of_notification(db: AsyncSession, notification_id: uuid.UUID) -> None:
+    """Row-lock the field requests a bell entry announces – before the entry itself.
+
+    «Erledigt» (``set_request_status``) locks the request and then dismisses its entry; a
+    dismissal of the entry (``notification_service.dismiss_notification``) takes the same order.
+    """
+    await db.execute(
+        select(FieldRequest.id)
+        .where(FieldRequest.notification_id == notification_id)
+        .order_by(FieldRequest.id)
+        .with_for_update()
+    )
+
+
 async def mark_seen_by_notification(db: AsyncSession, notification_id: uuid.UUID, now: datetime) -> int:
     """Dismissing a bell entry is the KP saying «gesehen» — never «erledigt».
 

@@ -54,7 +54,8 @@ only step 3, the person's row – the lock every writer of their Reko rows alrea
 and writes the leaf rows under it. Assigning a special function
 (``special_functions.create_special_function``) takes only step 3 too, so two assigns of
 the same function cannot both insert. A merge locks only incidents, in id order
-(``lock_incident`` / ``lock_pair`` below).
+(``lock_incident`` / ``lock_pair`` below). The standby sync applies a batch of rows in this
+order too (``standby_sync._LOCK_RANK``: the Ereignis row last).
 """
 
 import uuid
@@ -294,36 +295,46 @@ async def lock_personnel_for_delete(db: AsyncSession, personnel_id: uuid.UUID) -
 
 async def lock_event_for_delete(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
     """Lock what deleting an Ereignis writes, in order: the alarms linked to it or its cards
-    (step 0), its Aufträge and cards (steps 1, 2), then the Ereignis row (step 4).
+    (step 0), its numbering lock (0b), its Aufträge and cards (1, 2), then the Ereignis row (4).
 
     The delete cascades to every card and unlinks the alarms (``ON DELETE SET NULL``) – after the
     Ereignis row, the reverse of the order. A status update that held a card and stamped the
-    Ereignis, or an attach that held its alarm and locked a card, deadlocked with it. What the
-    cascade reaches is read unlocked, so after the Ereignis row is locked it is read again; a new
-    card or alarm link (an attach committed in between) rolls the savepoint back and starts over.
-    Once the Ereignis row is held, a new card or link waits for its FK check.
+    Ereignis, or an attach that held its alarm and locked a card, deadlocked with it. The
+    numbering lock waits out an attach that is creating cards: it holds the Ereignis row's key
+    share from its first card and may flag one of ours next. What the cascade reaches is read
+    unlocked, so after the Ereignis row is locked it is read again; anything new (an attach or
+    an Auftrag committed in between) rolls the savepoint back and starts over. Once the Ereignis
+    row is held, a new row that points at it waits for its FK check.
     """
     cards = select(Incident.id).where(Incident.event_id == event_id)
     groups = select(IncidentGroup.id).where(IncidentGroup.event_id == event_id)
     alarms = select(DiveraEmergency.id).where(
         or_(DiveraEmergency.attached_to_event_id == event_id, DiveraEmergency.created_incident_id.in_(cards))
     )
+
+    async def reached() -> tuple[set[uuid.UUID], set[uuid.UUID], set[uuid.UUID]]:
+        return (
+            set((await db.scalars(alarms)).all()),
+            set((await db.scalars(groups)).all()),
+            set((await db.scalars(cards)).all()),
+        )
+
     for _ in range(_MAX_MEMBERSHIP_ATTEMPTS):
-        seen = (set((await db.scalars(alarms)).all()), set((await db.scalars(cards)).all()))
+        seen_alarms, seen_groups, seen_cards = seen = await reached()
         savepoint = await db.begin_nested()
         await db.execute(
             select(DiveraEmergency.id)
-            .where(DiveraEmergency.id.in_(seen[0]))
+            .where(DiveraEmergency.id.in_(seen_alarms))
             .order_by(DiveraEmergency.id)
             .with_for_update()
         )
-        await lock_incidents_with_groups(db, seen[1], (await db.scalars(groups)).all())
+        await lock_incident_numbering(db, event_id)
+        await lock_incidents_with_groups(db, seen_cards, seen_groups)
         event: Event | None = await db.scalar(
             select(Event).where(Event.id == event_id).with_for_update().execution_options(populate_existing=True)
         )
-        now = (set((await db.scalars(alarms)).all()), set((await db.scalars(cards)).all()))
-        if event is None or (now[0] <= seen[0] and now[1] <= seen[1]):
+        if event is None or all(now <= then for now, then in zip(await reached(), seen, strict=True)):
             await savepoint.commit()
             return event
         await savepoint.rollback()
-    raise RuntimeError("cards or alarms of the Ereignis kept changing while locking; giving up")
+    raise RuntimeError("what the Ereignis delete reaches kept changing while locking; giving up")

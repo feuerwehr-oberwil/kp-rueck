@@ -416,7 +416,7 @@ export function NotificationProvider({
       )
     } catch (error) {
       if (isChangedMeanwhile(error)) {
-        toast.warning(translateOutsideReact('errors.codes.notification_changed'))
+        toast.error(translateOutsideReact('errors.codes.notification_changed'))
         void refetchNotifications()
         return
       }
@@ -475,7 +475,7 @@ export function NotificationProvider({
       }
 
       if (changedCount > 0) {
-        toast.warning(translateOutsideReact('errors.codes.notification_changed'))
+        toast.error(translateOutsideReact('errors.codes.notification_changed'))
         void refetchNotifications()
       }
     } catch (error) {

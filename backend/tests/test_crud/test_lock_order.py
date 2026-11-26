@@ -54,14 +54,17 @@ from app.models import (
     DiveraEmergency,
     Event,
     EventSpecialFunction,
+    FieldRequest,
     Incident,
     IncidentAssignment,
     IncidentGroup,
     IncidentGroupAssignment,
     Material,
+    Notification,
     Personnel,
     User,
 )
+from app.services.notification_service import dismiss_notification
 from tests.conftest import wait_until_blocked
 
 
@@ -711,6 +714,69 @@ async def test_an_ereignis_delete_locks_the_alarms_it_unlinks_before_their_cards
             await db.commit()
 
 
+async def test_an_ereignis_delete_waits_for_a_bulk_attach_that_is_creating_cards(board: Board):
+    # The bulk's first card key-shares the Ereignis row; its second alarm flags a card the delete
+    # already held while it waited for the Ereignis row: each waited for the other.
+    first_alarm, second_alarm = uuid4(), uuid4()
+    address = "Hauptstrasse 1, 4104 Oberwil"
+    async with board.sessions() as db:
+        loose = await db.get(Incident, board.loose_id)
+        assert loose is not None
+        loose.location_address = address
+        db.add_all(
+            [
+                DiveraEmergency(
+                    id=alarm_id,
+                    divera_id=divera_id,
+                    title=title,
+                    address=alarm_address,
+                    received_at=datetime.now(UTC),
+                    is_archived=False,
+                )
+                for alarm_id, divera_id, title, alarm_address in (
+                    (first_alarm, 910_041, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+                    (second_alarm, 910_042, "Keller überflutet", address),
+                )
+            ]
+        )
+        await db.commit()
+    await _archive(board)
+    try:
+        async with (
+            board.sessions() as holder,
+            board.sessions() as deleting,
+            board.sessions() as attaching,
+        ):
+            # A writer holds the card the second alarm will flag: the delete queues for it first.
+            await lock_incident(holder, board.loose_id)
+            user = await deleting.get(User, board.user_id)
+            operator = await attaching.get(User, board.user_id)
+            assert user is not None and operator is not None
+            deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+            await wait_until_blocked(board.sessions)
+            body = schemas.BulkAttachEmergenciesRequest(
+                event_id=board.event_id, emergency_ids=[first_alarm, second_alarm]
+            )
+            bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), attaching, operator))
+            await wait_until_blocked(board.sessions, count=2)
+            await holder.rollback()
+
+            deleted = await asyncio.wait_for(deletion, timeout=10)
+            await deleting.commit()
+            # The Ereignis is gone by the time the bulk goes on: whatever it answers, it is no deadlock.
+            try:
+                await asyncio.wait_for(bulk, timeout=10)
+            except Exception as error:
+                assert "deadlock" not in str(error).lower()
+            await attaching.rollback()
+
+        assert deleted is True
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
+            await db.commit()
+
+
 async def test_a_merge_report_and_a_bulk_attach_that_flags_its_target_do_not_deadlock(board: Board):
     # A merge-report locked its target and then took the numbering lock with its report's INSERT.
     # A bulk attach held that lock from its first card and flagged (key-shared) the same target
@@ -781,4 +847,48 @@ async def test_a_merge_report_and_a_bulk_attach_that_flags_its_target_do_not_dea
     finally:
         async with board.sessions() as db:
             await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
+            await db.commit()
+
+
+async def test_dismissing_a_field_requests_bell_entry_queues_behind_its_erledigt(board: Board):
+    # «Erledigt» locks the request, then dismisses its bell entry. A dismissal of the entry
+    # locked the entry and then marked the request seen: each waited for the other.
+    notification_id, request_id = uuid4(), uuid4()
+    async with board.sessions() as db:
+        db.add(
+            Notification(
+                id=notification_id, type="field_message", severity="info", message="Wasser", event_id=board.event_id
+            )
+        )
+        await db.flush()
+        db.add(
+            FieldRequest(
+                id=request_id,
+                incident_id=board.loose_id,
+                kind="message",
+                text="Wasser",
+                notification_id=notification_id,
+            )
+        )
+        await db.commit()
+    try:
+        async with board.sessions() as handling, board.sessions() as dismissing:
+            await handling.execute(select(FieldRequest.id).where(FieldRequest.id == request_id).with_for_update())
+            dismissal = asyncio.create_task(dismiss_notification(dismissing, notification_id, board.user_id))
+            await wait_until_blocked(board.sessions)
+
+            # The dismissal must be queued for the request, not sitting on the bell entry.
+            await asyncio.wait_for(
+                handling.execute(
+                    text("UPDATE notifications SET dismissed = true WHERE id = :id"), {"id": notification_id}
+                ),
+                timeout=5,
+            )
+            await handling.commit()
+            assert await asyncio.wait_for(dismissal, timeout=10) is not None
+            await dismissing.commit()
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(FieldRequest).where(FieldRequest.id == request_id))
+            await db.execute(delete(Notification).where(Notification.id == notification_id))
             await db.commit()
