@@ -16,6 +16,7 @@ from ..crud.active_resources import active_resource_ids
 from ..database import after_commit
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
+from ..utils.failure_latch import FailureLatch
 
 # Same German status labels the printed Lageblatt and the PDF report use, so a warning in the
 # Warnungen panel names a status the way the rest of the app names it. Importing rather than
@@ -31,6 +32,8 @@ from .rapport_rows import STATUS_LABELS
 from .vehicle_facts import record_vehicle_fact
 
 logger = logging.getLogger(__name__)
+#: One latch per Ereignis: a healthy one must not clear a failing one's (and re-log it every tick).
+_geofence_failures: dict[UUID, FailureLatch] = {}
 
 NOTIFICATION_SETTINGS_KEY = "notification_settings"
 
@@ -713,7 +716,10 @@ async def _check_geofence_alerts(
 
     except Exception as e:
         # Don't let Traccar failures break the entire notification evaluation
-        logger.debug("Geofence check failed: %s", e)
+        _geofence_failures.setdefault(event_id, FailureLatch(logger, f"Geofence check (Ereignis {event_id})")).failed(e)
+    else:
+        if (latch := _geofence_failures.pop(event_id, None)) is not None:
+            latch.ok()
 
     return notifications
 

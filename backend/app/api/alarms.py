@@ -27,7 +27,8 @@ from ..crud import divera as divera_crud
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..schemas.alarms import RESERVED_ALARM_SOURCES
-from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret, try_auto_attach
+from ..services.alarm_attach import try_auto_attach
+from ..services.divera_intake import broadcast_emergency_received, check_webhook_secret
 from ..utils.errors import ErrorMessages
 
 logger = logging.getLogger(__name__)
@@ -92,8 +93,8 @@ async def receive_alarm(
         background_tasks.add_task(
             broadcast_emergency_received,
             schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
-            schemas.IncidentResponse.model_validate(incident).model_dump(mode="json") if incident else None,
-            emergency.source,
+            auto_attached=incident is not None,
+            source=emergency.source,
         )
 
         return schemas.AlarmAck(

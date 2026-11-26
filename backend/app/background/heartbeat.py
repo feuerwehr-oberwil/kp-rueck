@@ -26,8 +26,6 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-scheduler: AsyncIOScheduler | None = None
-
 #: Matches kp-front. With a monitor period of 1 min and a few minutes of grace, a stopped
 #: container surfaces in roughly the time it takes to walk to the tablet and find it dead.
 PING_INTERVAL_SECONDS = 60
@@ -46,14 +44,11 @@ async def ping() -> bool:
         return False
 
 
-def start_heartbeat_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        return
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add the ping to the app's scheduler (background/jobs.py). Nothing without a URL."""
     if not settings.healthcheck_ping_url:
         logger.info("Heartbeat disabled (HEALTHCHECK_PING_URL unset)")
         return
-    scheduler = AsyncIOScheduler()
     scheduler.add_job(
         ping,
         IntervalTrigger(seconds=PING_INTERVAL_SECONDS),
@@ -61,12 +56,4 @@ def start_heartbeat_scheduler() -> None:
         max_instances=1,
         coalesce=True,
     )
-    scheduler.start()
-    logger.info("Heartbeat scheduler started (%ds)", PING_INTERVAL_SECONDS)
-
-
-def stop_heartbeat_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        scheduler.shutdown(wait=False)
-        scheduler = None
+    logger.info("Heartbeat scheduled (%ds)", PING_INTERVAL_SECONDS)

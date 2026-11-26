@@ -19,8 +19,6 @@ from app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-scheduler: AsyncIOScheduler | None = None
-
 #: The first read waits this long after boot, so it never competes with migrations and seeding.
 FIRST_RUN_DELAY_SECONDS = 60
 
@@ -37,15 +35,12 @@ async def tick() -> None:
         logger.exception("Roster snapshot poll failed (non-fatal)")
 
 
-def start_roster_snapshot_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        return
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add the poll to the app's scheduler (background/jobs.py). Nothing without a source."""
     if not (settings.station_index_source.strip() or settings.roster_snapshot_source.strip()):
         logger.info("Roster snapshot disabled (STATION_INDEX_SOURCE and ROSTER_SNAPSHOT_SOURCE unset)")
         return
     minutes = settings.roster_snapshot_interval_minutes
-    scheduler = AsyncIOScheduler()
     scheduler.add_job(
         tick,
         IntervalTrigger(minutes=minutes),
@@ -54,12 +49,4 @@ def start_roster_snapshot_scheduler() -> None:
         coalesce=True,
         next_run_time=datetime.now(UTC) + timedelta(seconds=FIRST_RUN_DELAY_SECONDS),
     )
-    scheduler.start()
-    logger.info("Roster snapshot scheduler started (every %d min)", minutes)
-
-
-def stop_roster_snapshot_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        scheduler.shutdown(wait=False)
-        scheduler = None
+    logger.info("Roster snapshot scheduled (every %d min)", minutes)

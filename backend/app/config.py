@@ -61,6 +61,27 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",")]
         return v
 
+    # Origins Railway and a split deployment add to CORS_ORIGINS (`allowed_origins`).
+    railway_public_domain: str = ""  # the frontend's domain, without a scheme
+    railway_static_url: str = ""  # the backend's domain, without a scheme
+    frontend_url: str = ""  # a full origin
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """The browser origins both REST CORS (main.py) and Socket.IO (websocket_manager.py) accept.
+
+        An explicit list, never a wildcard: a wildcard would let any other Railway deployment
+        call the API, or hijack the board's socket (Cross-Site WebSocket Hijacking). Blanks and
+        duplicates dropped, order kept.
+        """
+        origins = [
+            *self.cors_origins,
+            f"https://{self.railway_public_domain}" if self.railway_public_domain else "",
+            f"https://{self.railway_static_url}" if self.railway_static_url else "",
+            self.frontend_url,
+        ]
+        return list(dict.fromkeys(origin for origin in origins if origin))
+
     # Caddy's site address on the compose stack. Non-empty = this deployment is served over
     # public HTTPS; empty = plain HTTP on a trusted LAN. The backend does not route anything
     # with it – it is read solely so the cookie policy has a TLS signal that does not depend
