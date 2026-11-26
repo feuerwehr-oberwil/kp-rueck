@@ -225,6 +225,41 @@ def test_two_einsatzleiter_named_in_the_gap_keep_the_leaders_and_the_other_stays
     assert conflict["row_id"] == phone["id"] and conflict["columns"]["is_leader"]["lost"] is True
 
 
+def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_once():
+    """In the seconds before the lead rows agree, both systems ask «Ist TLF angekommen?» for the
+    same Einsatz (the same `params.key`). The leader's question stays, the copy goes where it came
+    from. A question somebody already answered (dismissed) is never touched."""
+    asked = lambda name, **over: {
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, name)),
+        "event_id": EVENT,
+        "type": "gps_arrival",
+        "dismissed": False,
+        "params": {"vehicle": "TLF", "key": "arrival:incident-7"},
+        **over,
+    }
+    box, phone, answered = asked("box"), asked("phone"), asked("earlier", dismissed=True)
+    key = lambda r: ("notifications", r["id"])
+
+    plan = merge(
+        {key(answered): answered},
+        {key(box): box, key(answered): answered},
+        {key(phone): phone, key(answered): answered},
+        event_id=EVENT,
+        leader=STANDBY,
+        takeover=TAKEOVER,
+        now=NOW,
+    )
+
+    assert plan.merged[key(box)] == box and plan.merged[key(answered)] == answered
+    assert plan.merged[key(phone)] is None
+    assert [op for op in plan.to_leader if op.table == "notifications"] == []
+    assert [op for op in plan.to_follower if op.table == "notifications"] == [
+        Op("notifications", box["id"], box, None),
+        Op("notifications", phone["id"], None, phone),
+    ]
+    assert plan.conflicts == 0
+
+
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
     base = _incident()
     plan = _merge(
