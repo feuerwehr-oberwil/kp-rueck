@@ -202,6 +202,8 @@ async def test_non_200_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> 
         if (resp := _session_ok(request)) is not None:
             return resp
         if request.url.path.endswith("/api/devices"):
+            return httpx.Response(200, json=[])
+        if request.url.path.endswith("/api/positions"):
             return httpx.Response(503, text="Service Unavailable")
         raise AssertionError(f"unexpected request to {request.url}")
 
@@ -218,6 +220,8 @@ async def test_timeout_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> 
         if (resp := _session_ok(request)) is not None:
             return resp
         if request.url.path.endswith("/api/devices"):
+            return httpx.Response(200, json=[])
+        if request.url.path.endswith("/api/positions"):
             raise httpx.ReadTimeout("Traccar did not answer in time", request=request)
         raise AssertionError(f"unexpected request to {request.url}")
 
