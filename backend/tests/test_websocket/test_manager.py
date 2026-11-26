@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.auth.security import create_login_tokens
+from app.config import settings
 from app.websocket_manager import (
     CLEANUP_INTERVAL_SECONDS,
     STALE_SESSION_TIMEOUT_SECONDS,
@@ -23,7 +24,6 @@ from app.websocket_manager import (
     broadcast_material_update,
     broadcast_personnel_update,
     broadcast_vehicle_update,
-    get_websocket_cors_origins,
     ws_manager,
 )
 
@@ -317,29 +317,21 @@ class TestBroadcastFunctions:
 
 
 class TestCORSConfiguration:
-    """Test suite for WebSocket CORS configuration."""
+    """The one origin list REST CORS and Socket.IO share (`Settings.allowed_origins`)."""
 
     def test_cors_origins_includes_configured_domains(self):
-        """Test that configured CORS origins are included."""
-        origins = get_websocket_cors_origins()
+        assert any("localhost" in o for o in settings.allowed_origins)
 
-        # Should include default localhost origins from settings
-        assert any("localhost" in o for o in origins)
+    def test_blanks_and_duplicates_are_dropped(self):
+        configured = settings.model_copy(
+            update={"cors_origins": ["https://a.example", "", "https://a.example"], "frontend_url": "https://a.example"}
+        )
+        assert configured.allowed_origins == ["https://a.example"]
 
-    def test_cors_origins_no_duplicates(self):
-        """Test that CORS origins list has no duplicates."""
-        origins = get_websocket_cors_origins()
-
-        # Check for duplicates
-        assert len(origins) == len(set(origins))
-
-    @patch.dict("os.environ", {"RAILWAY_PUBLIC_DOMAIN": "test.railway.app"})
     def test_cors_includes_railway_domain(self):
-        """Test that Railway domain is added when available."""
-        origins = get_websocket_cors_origins()
-
+        configured = settings.model_copy(update={"railway_public_domain": "test.railway.app"})
         # An element comparison, not a substring test (`in` on a list reads like one to CodeQL).
-        assert origins.count("https://test.railway.app") == 1
+        assert configured.allowed_origins.count("https://test.railway.app") == 1
 
 
 # ============================================

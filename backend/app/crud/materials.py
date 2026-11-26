@@ -234,7 +234,7 @@ def resolve_out_of_service(payload: BaseModel, current: bool) -> bool:
 class ReadinessRow(Protocol):
     """What `apply_out_of_service` needs — Material and Vehicle both satisfy it."""
 
-    status: str
+    status: Literal["available", "unavailable"]
     out_of_service_since: datetime | None
 
 

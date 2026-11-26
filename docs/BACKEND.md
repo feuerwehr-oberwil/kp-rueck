@@ -5,8 +5,11 @@ change; the architecture behind them is [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one you touch:
 
-- Backend output is German-only, except notifications and the `/feld` errors (stable `code`,
-  `CodedHTTPException`): «i18n».
+- Backend output is German-only, except notifications and coded errors (stable `code` beside the
+  German `detail`): «i18n». CRUD and services refuse with `DomainError(ErrorCode.…, "<German>")`
+  (409 unless said otherwise), a route with `CodedHTTPException`; one handler answers both. Do
+  not raise `ValueError` for a refusal and do not catch `ValueError` in a route: a stray one is a
+  bug and must answer 500.
 - Every notification row comes from `services/notification_params.py` (`type` + `params` + the
   German `message`): «Notification text».
 - An undo is a new write that must still be valid now (409 on a change, `expected_ids` under the
@@ -20,7 +23,8 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
 
 - `async`/`await` everywhere. Sessions are an injected `AsyncSession`. Settings are Pydantic and
   injected too.
-- Put lifecycle code in the `lifespan` context (`tests/test_lifespan_only.py` fails on `on_event`).
+- Put lifecycle code in the `lifespan` context (`tests/test_lifespan_only.py` fails on `on_event`). A
+  background job is one row in `backend/app/background/jobs.py`, with where it runs (standby, demo).
 - SQLAlchemy 2.0 mapped-column syntax; full type hints.
 - **CRUD and services flush, the request commits** (once, before the response – `commit_request`).
   Send anything that a board or another session reacts to after the commit: `after_commit(db, …)`
@@ -50,7 +54,7 @@ Full docs: [`openapi.json`](openapi.json) – the committed contract. To regener
 http://localhost:8000/docs
 
 **Integration seams** (provider-neutral, see [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)):
-- Inbound alarms funnel through `services/divera_intake.py` (shared inference/auto-attach). The pool table carries `source`/`source_id` provenance; incidents carry `source`/`source_ref`.
+- Inbound alarms funnel through `services/divera_intake.py` (shared inference) and `services/alarm_attach.py` (every attach: single, bulk, auto). The pool table carries `source`/`source_id` provenance; incidents carry `source`/`source_ref`.
 - Outbound alerting (Ausalarmierung) goes through the `AlarmProvider` protocol in `services/alerting/` (Divera = first adapter).
 - `services/roster_snapshot_sync.py` reads a published roster file (`STATION_INDEX_SOURCE` → `index.json`, fallback `ROSTER_SNAPSHOT_SOURCE`; [`ROSTER-SNAPSHOT.md`](ROSTER-SNAPSHOT.md)). The contracts and the reading rules (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`, `app/station_index.py`, `scripts/roster_snapshot_from_csv.py`, `scripts/station_index_build.py`) are byte-identical with kp-front. Edit them THERE first. They are listed in `shared/MANIFEST.json` (see [`../AGENTS.md`](../AGENTS.md#shared-with-kp-front) «Shared with KP Front»).
 - Personnel provider identity lives in `personnel_external_identities` – the only place where a person's provider-side id exists. Migration `b7c2e5a1d4f8` dropped the deprecated `personnel.divera_user_id` dual-write. The personnel API exposes only a `divera_linked` boolean.

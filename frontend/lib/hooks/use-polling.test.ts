@@ -61,6 +61,15 @@ describe("usePolling", () => {
     expect(cb).toHaveBeenCalledTimes(2)
   })
 
+  it("waits one interval before the first run when not immediate", async () => {
+    const cb = vi.fn().mockResolvedValue(undefined)
+    renderHook(() => usePolling(cb, { intervalMs: 5000, immediate: false }))
+    expect(cb).not.toHaveBeenCalled()
+
+    await act(() => vi.advanceTimersByTimeAsync(5000))
+    expect(cb).toHaveBeenCalledTimes(1)
+  })
+
   it("never overlaps a slow run", async () => {
     let finish!: () => void
     const cb = vi.fn(() => new Promise<void>((r) => (finish = r)))

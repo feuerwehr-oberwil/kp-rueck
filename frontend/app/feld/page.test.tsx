@@ -14,7 +14,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { ApiFeldAssignment, ApiFeldPersonnel } from '@/lib/api/types'
+import type { ApiFeldAssignment, ApiFeldMaterialItem, ApiFeldPersonnel } from '@/lib/api/types'
 import { ApiError } from '@/lib/api/types/common'
 
 const searchParams = vi.hoisted(() => new URLSearchParams())
@@ -28,6 +28,7 @@ const mintFeldRekoLink = vi.hoisted(() => vi.fn())
 const getFeldMaterial = vi.hoisted(() => vi.fn())
 const logoutFeld = vi.hoisted(() => vi.fn())
 const setFeldAttendancePlan = vi.hoisted(() => vi.fn())
+const setFeldAttendance = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
 
 vi.mock('sonner', () => ({ toast: { error: toastError } }))
@@ -59,6 +60,7 @@ vi.mock('@/lib/api-client', () => ({
     getFeldMaterial,
     logoutFeld,
     setFeldAttendancePlan,
+    setFeldAttendance,
     // The door's proof-of-place fetch; null = render without the proof.
     getFeldContext: vi.fn().mockResolvedValue(null),
   },
@@ -778,7 +780,7 @@ describe('/feld without a connection', () => {
 
   it('no poll starts while a load is still out – on a slow link each would supersede the last', async () => {
     getFeldAssignments.mockResolvedValueOnce(answer).mockReturnValueOnce(new Promise(() => {}))
-    vi.useFakeTimers({ toFake: ['setInterval'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
     try {
       renderWithIntl(<FeldPage />)
       await screen.findByText('Hauptstrasse 1')
@@ -1159,6 +1161,30 @@ describe('/feld for a Magazin person who also has own work', () => {
     // Nothing of their own to do: the inventory IS the page, so it stands open.
     expect(await screen.findByText('Tauchpumpe')).toBeInTheDocument()
   })
+
+  it('reads the inventory one at a time, and a slow answer still lands after newer list loads', async () => {
+    withOwnWork([])
+    let answerSlow: (value: { materials: Partial<ApiFeldMaterialItem>[] }) => void = () => {}
+    getFeldMaterial.mockReturnValueOnce(new Promise((resolve) => { answerSlow = resolve }))
+    renderWithIntl(<FeldPage />)
+    await waitFor(() => expect(getFeldMaterial).toHaveBeenCalledTimes(1))
+
+    // The list reloads twice while the inventory is still out: no second inventory read.
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledTimes(2))
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledTimes(3))
+    expect(getFeldMaterial).toHaveBeenCalledTimes(1)
+
+    await act(async () =>
+      answerSlow({ materials: [{ material_id: 'm-3', name: 'Stromerzeuger', state: 'in', at: null, home_location: 'Magazin' }] }),
+    )
+    expect(await screen.findByText('Stromerzeuger')).toBeInTheDocument()
+  })
 })
 
 describe('/feld on a phone that is logged in to Rück', () => {
@@ -1219,6 +1245,19 @@ describe('/feld · the own plan', () => {
     const [id, token, plan] = setFeldAttendancePlan.mock.calls[0]
     expect([id, token, Object.keys(plan)]).toEqual(['p-1', 'bound-token', ['planned_from']])
     expect(await screen.findByRole('button', { name: /^Komme um 20:00$/ })).toBeInTheDocument()
+  })
+
+  it('a refused check-in says why and keeps «Einchecken»', async () => {
+    answer({ checked_in: false })
+    setFeldAttendance.mockRejectedValue(
+      new ApiError('Diese Person ist als nicht verfügbar gemeldet.', 409, true, 'person_unavailable'),
+    )
+    const user = userEvent.setup()
+    renderWithIntl(<FeldPage />)
+
+    await user.click(await screen.findByRole('button', { name: 'Einchecken' }))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Diese Person ist als nicht verfügbar gemeldet.'))
+    expect(screen.getByRole('button', { name: 'Einchecken' })).toBeInTheDocument()
   })
 
   it('in: offers no «Ich bin da bis …» – people on /feld stay to the end', async () => {

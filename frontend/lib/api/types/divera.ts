@@ -142,7 +142,7 @@ export interface SendDiveraAlarmOptions {
   send_mail?: boolean
 }
 
-// Rückmeldungen — GET /api/divera/{events,incidents}/{id}/responses
+// Rückmeldungen — GET /api/divera/events/{id}/responses
 // (backend/app/services/divera_responses.py; the same rules as KP Front's half). Yes/no only.
 
 /** kommt / kommt nicht. Other Divera statuses («Rückruf erbeten») are not kept at all. */

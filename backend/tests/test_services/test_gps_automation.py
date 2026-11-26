@@ -12,12 +12,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     AuditLog,
     Event,
+    EventLead,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -802,3 +803,84 @@ async def test_clustered_guard_noop_for_single_in_radius(
 
     assert await _status(db_session, enroute_incident.id) == "active"
     assert await _status(db_session, far.id) == "enroute"
+
+
+@pytest.mark.asyncio
+async def test_a_failing_tick_is_logged_once_with_its_traceback_until_it_recovers(caplog):
+    """Production logs at INFO: a tick that fails every 10 s must say so – once, not 360 times an hour."""
+    fail = AsyncMock(side_effect=RuntimeError("schema mismatch"))
+    with caplog.at_level("INFO", logger="app.services.gps_automation"):
+        with patch.object(gps_automation, "_run_tick", fail):
+            await gps_automation.run_automation_tick(AsyncMock(), [])
+            await gps_automation.run_automation_tick(AsyncMock(), [])
+        with patch.object(gps_automation, "_run_tick", AsyncMock()):
+            await gps_automation.run_automation_tick(AsyncMock(), [])
+
+    records = [(r.levelname, r.getMessage(), r.exc_info is not None) for r in caplog.records]
+    assert records == [
+        ("ERROR", "GPS automation tick failed (logged once until it recovers)", True),
+        ("INFO", "GPS automation tick recovered", False),
+    ]
+
+
+async def _arrival_todos(db: AsyncSession) -> int:
+    return len((await db.scalars(select(Notification).where(Notification.type == "gps_arrival"))).all())
+
+
+async def _three_fixes_at_the_incident(db: AsyncSession, clock: _Clock) -> None:
+    for _ in range(3):
+        await _tick(db, clock, _fresh_at_incident(clock.now()), advance=35)
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_a_standby_box_acts_only_where_it_leads_and_only_asks(
+    _bc, _msg, monkeypatch, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """Mirrored Ereignisse belong to the hosted board. In one the box took over it asks, even
+    with silent advance on: the silent path needs the ``gps-automation`` user, which only the
+    hosted board may create (the same id arriving by replication would stop the mirror)."""
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
+    # Only the table the automation reads – app/standby.py's install_guards also moves sequences.
+    await db_session.execute(text("CREATE SCHEMA IF NOT EXISTS standby"))
+    await db_session.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
+    await _enable_arrival(db_session, silent=True)
+    clock = _Clock(datetime.now(UTC))
+    event_id = enroute_incident.event_id
+
+    async def after_three_fixes() -> tuple[str, int]:
+        await _three_fixes_at_the_incident(db_session, clock)
+        return await _status(db_session, enroute_incident.id), await _arrival_todos(db_session)
+
+    # The lead row arrived by replication, but the box has not taken the Ereignis out of the stream.
+    lead = EventLead(event_id=event_id, holder="standby", since=datetime.now(UTC))
+    db_session.add(lead)
+    await db_session.flush()
+    assert await after_three_fixes() == ("enroute", 0)
+
+    # Taken out of the stream, but the hosted board took it back («Hier übernehmen»).
+    await db_session.execute(text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": event_id})
+    lead.holder = "hosted"
+    await db_session.flush()
+    assert await after_three_fixes() == ("enroute", 0)
+
+    lead.holder = "standby"
+    await db_session.flush()
+    assert await after_three_fixes() == ("enroute", 1)
+
+
+@pytest.mark.asyncio
+@patch("app.services.gps_automation.broadcast_message", new_callable=AsyncMock)
+@patch("app.services.gps_automation.broadcast_incident_update", new_callable=AsyncMock)
+async def test_the_hosted_board_leaves_an_ereignis_a_standby_box_leads_alone(
+    _bc, _msg, db_session: AsyncSession, enroute_incident: Incident, assigned_vehicle
+):
+    """Both systems sync that Ereignis; only the leading one may raise the prompt."""
+    db_session.add(EventLead(event_id=enroute_incident.event_id, holder="standby", since=datetime.now(UTC)))
+    await db_session.flush()
+    await _enable_arrival(db_session, silent=False)
+
+    await _three_fixes_at_the_incident(db_session, _Clock(datetime.now(UTC)))
+
+    assert await _arrival_todos(db_session) == 0

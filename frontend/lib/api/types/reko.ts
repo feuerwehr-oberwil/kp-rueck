@@ -23,7 +23,7 @@ export interface ApiRekoReportBase {
   is_relevant: boolean | null
   dangers_json: ApiDangersAssessment | null
   effort_json: ApiEffortEstimation | null
-  /** 'available' | 'unavailable' | 'emergency_needed' */
+  /** 'unknown' | 'available' | 'unavailable' | 'emergency_needed' (backend `PowerSupply`) */
   power_supply: string | null
   summary_text: string | null
   additional_notes: string | null

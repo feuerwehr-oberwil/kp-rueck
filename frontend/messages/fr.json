@@ -713,7 +713,33 @@
       "incident_not_merged": "Ce signalement n’est pas fusionné.",
       "checkin_guest_ask_kp": "La liste ne peut pas attribuer ce nom. Annonce-toi au PC.",
       "resource_busy": "Déjà engagé : {holders}. Libérer d'abord ou planifier « Ensuite ».",
-      "plan_refused": "Impossible de planifier ici : déjà sur place, intervention terminée ou matériel consommable."
+      "plan_refused": "Impossible de planifier ici : déjà sur place, intervention terminée ou matériel consommable.",
+      "standby_read_only": "Ce système est un miroir de KP Rück en ligne – consultation seulement. Seul un événement repris hors ligne peut être modifié ici.",
+      "resource_archived": "« {name} » est archivé et ne peut pas être attribué.",
+      "resource_out_of_service": "« {name} » est hors service et ne peut pas être attribué.",
+      "event_archived": "L’événement est archivé – plus rien ne peut être attribué.",
+      "person_guest_elsewhere": "« {name} » est invité dans un autre événement.",
+      "incident_closed": "L’intervention est clôturée – plus rien ne peut être attribué.",
+      "auftrag_closed": "Toutes les étapes de la mission sont clôturées – plus rien ne peut être attribué.",
+      "assignment_released": "Cette attribution a déjà été libérée.",
+      "leader_not_personnel": "Seul le personnel peut être désigné chef d’intervention",
+      "driver_stay_not_vehicle": "Seul un véhicule a un conducteur qui reste sur place",
+      "resource_not_found": "Ressource introuvable",
+      "resource_type_mismatch": "La ressource ne correspond pas au type de ressource",
+      "transfer_changed": "Annulation impossible – modifié entre-temps.",
+      "transfer_source_closed": "L’intervention est clôturée – ses ressources ne sont pas transférées.",
+      "transfer_already_stop": "L’intervention est déjà une étape d’une mission.",
+      "transfer_auftrag_closed": "Toutes les étapes de la mission sont clôturées – transfert impossible.",
+      "transfer_nothing": "L’intervention n’a aucune ressource active à transférer.",
+      "transfer_conflict": "Transfert impossible – déjà attribué à l’intervention cible : {names}",
+      "incident_other_event": "L’intervention appartient à un autre événement",
+      "driver_needs_vehicle": "Un conducteur a besoin d’un véhicule.",
+      "function_unknown": "Fonction inconnue : {function}",
+      "vehicle_has_driver": "Ce véhicule a déjà un conducteur.",
+      "person_unavailable": "Cette personne est annoncée non disponible.",
+      "person_still_assigned": "La personne est encore attribuée.",
+      "incident_not_on_board": "Cette intervention n’est plus sur le tableau (supprimée ou fusionnée).",
+      "event_not_archived": "L’événement doit être archivé avant d’être supprimé."
     }
   },
   "events": {
@@ -1564,6 +1590,7 @@
       "crew": "Effectif",
       "vehicles": "Véhicules",
       "reko": "Reconnaissance",
+      "auftrag": "Mission",
       "openDetail": "Afficher les détails : {incident}"
     },
     "mobileDetail": {

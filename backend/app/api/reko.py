@@ -212,33 +212,29 @@ async def get_reko_form(
         personnel_id: Optional personnel who is doing the reko
     """
     personnel_id = await _require_form_token(db, token, incident_id, personnel_id)
-    try:
-        report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
+    report = await crud.get_or_create_reko_report(db, incident_id, token, personnel_id)
 
-        # Fetch incident title — of the card the report is on (a merged link's
-        # report lives on the card it went into)
-        incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
-        incident = incident_result.scalar_one_or_none()
+    # Fetch incident title — of the card the report is on (a merged link's
+    # report lives on the card it went into)
+    incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
+    incident = incident_result.scalar_one_or_none()
 
-        # Convert to response schema with incident details
-        response_data = schemas.RekoReportResponse.model_validate(report)
-        if incident:
-            response_data.incident_title = incident.title
-            response_data.incident_location = incident.location_address
-            response_data.incident_type = incident.type
-            response_data.incident_description = incident.description
-            response_data.incident_contact = incident.contact
-        # Include personnel name if available
-        if report.submitted_by_personnel_id:
-            # Reload with relationship to get name
-            await db.refresh(report, ["submitted_by_personnel"])
-            if report.submitted_by_personnel:
-                response_data.submitted_by_personnel_name = report.submitted_by_personnel.name
+    # Convert to response schema with incident details
+    response_data = schemas.RekoReportResponse.model_validate(report)
+    if incident:
+        response_data.incident_title = incident.title
+        response_data.incident_location = incident.location_address
+        response_data.incident_type = incident.type
+        response_data.incident_description = incident.description
+        response_data.incident_contact = incident.contact
+    # Include personnel name if available
+    if report.submitted_by_personnel_id:
+        # Reload with relationship to get name
+        await db.refresh(report, ["submitted_by_personnel"])
+        if report.submitted_by_personnel:
+            response_data.submitted_by_personnel_name = report.submitted_by_personnel.name
 
-        return response_data
-    except ValueError as e:
-        logger.warning("Reko form validation failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    return response_data
 
 
 # Older field tabs send this complete initial snapshot after a failed load. The legacy
@@ -294,21 +290,17 @@ async def submit_reko_report(
     # THE report of the incident. The token resolves the reporting *person*; the board has
     # no such person to resolve, so a report it creates carries the operator in
     # `created_by_user_id` instead (decision 6).
-    try:
-        if user is not None:
-            report = await crud.get_or_create_kp_reko_report(db, report_data.incident_id, user)
-            author = RekoAuthor.kp(user)
-        elif field_token is not None:
-            personnel_id = await _require_form_token(db, field_token, report_data.incident_id)
-            report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token, personnel_id)
-            author = RekoAuthor.feld(personnel_id)
-        else:
-            # Unreachable — the helper returns None only when a token opened the
-            # door — but it is what narrows the token for the type checker.
-            raise HTTPException(status_code=401, detail=ErrorMessages.INVALID_REQUEST)
-    except ValueError as e:
-        logger.warning("Reko report creation failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    if user is not None:
+        report = await crud.get_or_create_kp_reko_report(db, report_data.incident_id, user)
+        author = RekoAuthor.kp(user)
+    elif field_token is not None:
+        personnel_id = await _require_form_token(db, field_token, report_data.incident_id)
+        report = await crud.get_or_create_reko_report(db, report_data.incident_id, field_token, personnel_id)
+        author = RekoAuthor.feld(personnel_id)
+    else:
+        # Unreachable — the helper returns None only when a token opened the
+        # door — but it is what narrows the token for the type checker.
+        raise HTTPException(status_code=401, detail=ErrorMessages.INVALID_REQUEST)
 
     # Update with new data
     update_data = schemas.RekoReportUpdate(
@@ -400,11 +392,7 @@ async def update_report(
         binding = claims.field_binding if claims else None
         author = RekoAuthor.feld(binding.personnel_id if binding else None)
 
-    try:
-        updated, filed_now = await crud.update_reko_report(db, report_id, update_data, author=author, submit=submit)
-    except ValueError as e:
-        logger.warning("Reko report update failed: %s", e)
-        raise CodedHTTPException(404, ErrorCode.REKO_REPORT_NOT_FOUND, ErrorMessages.REPORT_NOT_FOUND) from e
+    updated, filed_now = await crud.update_reko_report(db, report_id, update_data, author=author, submit=submit)
 
     incident = await db.get(Incident, updated.incident_id)
     response_data = _response(updated, incident)
@@ -503,49 +491,45 @@ async def mark_reko_arrived(
     Returns the updated reko report with arrived_at timestamp.
     """
     personnel_id = await _require_form_token(db, token, incident_id)
-    try:
-        report = await crud.mark_reko_arrived(db, incident_id, token, personnel_id)
+    report = await crud.mark_reko_arrived(db, incident_id, token, personnel_id)
 
-        # The «Reko vor Ort» notification is raised inside `crud.mark_reko_arrived`
-        # (first arrival only), so the Übungssteuerung's simulate path — which
-        # calls the CRUD function directly — rings the same bell as this route.
+    # The «Reko vor Ort» notification is raised inside `crud.mark_reko_arrived`
+    # (first arrival only), so the Übungssteuerung's simulate path — which
+    # calls the CRUD function directly — rings the same bell as this route.
 
-        # Fetch incident for the response details
-        incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
-        incident = incident_result.scalar_one_or_none()
+    # Fetch incident for the response details
+    incident_result = await db.execute(select(Incident).where(Incident.id == report.incident_id))
+    incident = incident_result.scalar_one_or_none()
 
-        # Convert to response schema with incident details
-        response_data = schemas.RekoReportResponse.model_validate(report)
-        if incident:
-            response_data.incident_title = incident.title
-            response_data.incident_location = incident.location_address
-            response_data.incident_type = incident.type
-            response_data.incident_description = incident.description
-            response_data.incident_contact = incident.contact
+    # Convert to response schema with incident details
+    response_data = schemas.RekoReportResponse.model_validate(report)
+    if incident:
+        response_data.incident_title = incident.title
+        response_data.incident_location = incident.location_address
+        response_data.incident_type = incident.type
+        response_data.incident_description = incident.description
+        response_data.incident_contact = incident.contact
 
-        # Broadcast incident update so other clients see "vor Ort" status
-        background_tasks.add_task(
-            broadcast_incident_update,
-            {
-                "id": str(report.incident_id),
-                "reko_arrived_at": report.arrived_at.isoformat() if report.arrived_at else None,
-            },
-            "update",
-        )
-        # Broadcast reko update for reko-specific listeners
-        background_tasks.add_task(
-            broadcast_reko_update,
-            {"incident_id": str(report.incident_id)},
-            "arrived",
-        )
+    # Broadcast incident update so other clients see "vor Ort" status
+    background_tasks.add_task(
+        broadcast_incident_update,
+        {
+            "id": str(report.incident_id),
+            "reko_arrived_at": report.arrived_at.isoformat() if report.arrived_at else None,
+        },
+        "update",
+    )
+    # Broadcast reko update for reko-specific listeners
+    background_tasks.add_task(
+        broadcast_reko_update,
+        {"incident_id": str(report.incident_id)},
+        "arrived",
+    )
 
-        return response_data
-    except ValueError as e:
-        logger.warning("Mark reko arrived failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    return response_data
 
 
-@router.post("/generate-link", response_model=None)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_reko_link(
     request: Request,
     incident_id: uuid.UUID = Query(...),
@@ -553,7 +537,7 @@ async def generate_reko_link(
     personnel_id: uuid.UUID | None = Query(None),
     access_token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.ShareLinkResponse:
     """
     Generate the direct Reko link for an incident (editor/admin only).
 
@@ -597,25 +581,10 @@ async def generate_reko_link(
             claim_id=claim.id,
             expires_hours=72,
         )
-        link = f"/feld?token={token}&incident_id={incident_id}"
-        return {
-            "incident_id": incident_id,
-            "token": token,
-            "link": link,
-            "personnel_id": personnel_id,
-            "qr_code_url": f"/api/qr?data={link}",
-        }
+        return schemas.ShareLinkResponse.for_link(token, f"/feld?token={token}&incident_id={incident_id}")
 
     token = generate_form_token(str(incident_id), form_type)
-    link = f"/reko?incident_id={incident_id}&token={token}"
-
-    return {
-        "incident_id": incident_id,
-        "token": token,
-        "link": link,
-        "personnel_id": personnel_id,
-        "qr_code_url": f"/api/qr?data={link}",  # Future: QR code generation
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/reko?incident_id={incident_id}&token={token}")
 
 
 @router.get("/event/{event_id}/summaries", response_model=schemas.EventRekoSummariesResponse)
@@ -725,11 +694,7 @@ async def upload_photo(
 
     await enforce_demo_photo_limits(db, file, RekoReport.photos_json)
 
-    try:
-        report, author = await _photo_report(db, incident_id, user, x_reko_token)
-    except ValueError as e:
-        logger.warning("Reko photo upload failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    report, author = await _photo_report(db, incident_id, user, x_reko_token)
     before = reko_history.snapshot(report)
 
     # Save photo
@@ -780,11 +745,7 @@ async def delete_photo(
 
     user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, db, write=True)
 
-    try:
-        report, author = await _photo_report(db, incident_id, user, x_reko_token)
-    except ValueError as e:
-        logger.warning("Reko photo delete failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    report, author = await _photo_report(db, incident_id, user, x_reko_token)
     before = reko_history.snapshot(report)
 
     # Check if photo exists in report
@@ -1045,12 +1006,6 @@ async def assign_reko_personnel(
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
-    except assignments_crud.IncidentNotOnBoardError as e:
-        raise HTTPException(
-            status_code=409, detail="Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt)."
-        ) from e
-    except assignments_crud.ResourceNotAssignableError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
 
     # Get available Reko personnel to check for existing assignment
     _, currently_assigned_id = await reko_assign_crud.get_available_reko_personnel_for_incident(db, incident_id)
@@ -1212,10 +1167,7 @@ async def transfer_reko_assignments(
     for assignment in assignments:
         incident = locked.get(assignment["incident_id"])
         if incident and incident.status in ("incoming", "reko"):
-            try:
-                assignments_crud.ensure_assignable(to_person, event=event, incident=incident)
-            except assignments_crud.ResourceNotAssignableError as e:
-                raise HTTPException(status_code=409, detail=str(e)) from e
+            assignments_crud.ensure_assignable(to_person, event=event, incident=incident)
             # Unassign old person
             await reko_assign_crud.unassign_reko_personnel_from_incident(
                 db, assignment["incident_id"], from_personnel_id, current_user=current_user, request=request

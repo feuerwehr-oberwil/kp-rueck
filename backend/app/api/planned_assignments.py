@@ -17,8 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
-from ..crud import assignments as assignments_crud
-from ..crud import group_assignments as ga_crud
 from ..crud import planned_assignments as crud
 from ..database import get_db
 from ..models import IncidentAssignment, PlannedAssignment
@@ -74,8 +72,6 @@ async def plan_resource(
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
     except crud.PlanRefusedError as e:
         raise CodedHTTPException(409, ErrorCode.PLAN_REFUSED, str(e)) from e
-    except assignments_crud.ResourceNotAssignableError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
     view = next((v for v in await crud.list_for_event(db, row.event_id) if v.row.id == row.id), None)
     background_tasks.add_task(broadcast_planned_assignment_update, str(row.event_id))
     return _response(view) if view else schemas.PlannedAssignmentResponse.model_validate(row)
@@ -136,12 +132,6 @@ async def promote_planned(
         raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
     except crud.ResourceBusyError as e:
         raise CodedHTTPException(409, ErrorCode.RESOURCE_BUSY, str(e), params={"holders": ", ".join(e.holders)}) from e
-    except (assignments_crud.ResourceNotAssignableError, assignments_crud.IncidentNotOnBoardError) as e:
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except (ga_crud.ResourceNotFoundError, ga_crud.ResourceTypeMismatchError) as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except ValueError as e:
-        raise CodedHTTPException(409, ErrorCode.ASSIGNMENT_RACE, ErrorMessages.RESOURCE_ALREADY_ASSIGNED) from e
 
     background_tasks.add_task(broadcast_planned_assignment_update, event_id)
     if isinstance(result, IncidentAssignment):

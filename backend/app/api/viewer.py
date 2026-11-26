@@ -2,9 +2,8 @@
 
 import logging
 import uuid
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -42,7 +41,7 @@ def _stale_minutes(raw: str) -> float:
     return value if value > 0 else 10.0
 
 
-async def _viewer_vehicle_positions() -> list[dict[str, Any]]:
+async def _viewer_vehicle_positions() -> list[schemas.ViewerVehiclePosition]:
     """Current GPS positions for the read-only display, best-effort.
 
     Returns [] instead of raising when Traccar is unconfigured or unreachable,
@@ -52,33 +51,18 @@ async def _viewer_vehicle_positions() -> list[dict[str, Any]]:
         return []
     try:
         positions = await traccar_client.get_vehicle_positions()
-        return [
-            {
-                "device_id": p.device_id,
-                "device_name": p.device_name,
-                "unique_id": p.unique_id,
-                "status": p.status,
-                "latitude": p.latitude,
-                "longitude": p.longitude,
-                "speed": p.speed,
-                "course": p.course,
-                "last_update": p.last_update.isoformat() if p.last_update else None,
-                "address": p.address,
-            }
-            for p in positions
-        ]
+        return [schemas.ViewerVehiclePosition.model_validate(p, from_attributes=True) for p in positions]
     except Exception as e:  # GPS is optional for the display
         logger.warning("Viewer GPS positions unavailable: %s", e)
         return []
 
 
-@router.post("/generate-link", response_model=dict)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_viewer_link(
-    request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for viewer access"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.ShareLinkResponse:
     """
     Generate viewer link (editor only).
 
@@ -91,24 +75,14 @@ async def generate_viewer_link(
     token = await share_links.issue(db, "viewer", event_id)
     if token is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
-    link = f"/display?token={token}"
-
-    # Get base URL from request
-    base_url = str(request.base_url).rstrip("/")
-
-    return {
-        "token": token,
-        "link": link,
-        "full_url": f"{base_url}{link}",
-        "qr_code_data": link,  # Frontend will generate QR code from this
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/display?token={token}")
 
 
-@router.get("/data", response_model=dict)
+@router.get("/data", response_model=schemas.ViewerData)
 async def get_viewer_data(
     token: str = Query(..., description="Access token from generated link"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.ViewerData:
     """
     Get read-only event data for viewer.
 
@@ -153,47 +127,37 @@ async def get_viewer_data(
     # Reko are dropped here instead of shipping empty objects.
     reko_summaries = await reko_crud.get_reko_summaries_by_event(db, event_id)
     viewer_reko_summaries = {
-        str(incident_id): schemas.ViewerRekoSummary(
+        incident_id: schemas.ViewerRekoSummary(
             is_relevant=summary["is_relevant"],
             dangers_json=summary["dangers_json"],
             summary_text=summary["summary_text"],
             personnel_count=(summary["effort_json"] or {}).get("personnel_count"),
             estimated_duration_hours=(summary["effort_json"] or {}).get("estimated_duration_hours"),
             photos_json=summary["photos_json"] or [],
-        ).model_dump(mode="json")
+        )
         for incident_id, summary in reko_summaries.items()
         if summary["has_completed_reko"]
     }
 
-    return {
-        "event": schemas.EventResponse.model_validate(event).model_dump(mode="json"),
-        "incidents": [
-            schemas.ViewerIncident.model_validate(i).model_dump(mode="json")
+    # Each row goes through its `Viewer*` model here (from the ORM row), and the
+    # envelope through `ViewerData` at the boundary – the allowlist twice over.
+    return schemas.ViewerData(
+        event=schemas.EventResponse.model_validate(event),
+        incidents=[
+            schemas.ViewerIncident.model_validate(i)
             for i in await incident_display.incidents_with_display(db, incidents)
         ],
-        "groups": [schemas.ViewerGroup.model_validate(group).model_dump(mode="json") for group in groups],
-        "personnel": [schemas.ViewerPersonnel.model_validate(p).model_dump(mode="json") for p in personnel],
-        "materials": [schemas.ViewerMaterial.model_validate(m).model_dump(mode="json") for m in materials],
-        # Full rows on purpose: a vehicle carries no personal data, and its
-        # radio call sign is drawn next to it on a card (see schemas/viewer.py).
-        "vehicles": [schemas.Vehicle.model_validate(v).model_dump(mode="json") for v in vehicles],
-        "vehicle_positions": vehicle_positions,
-        "assignments": {
-            str(incident_id): [
-                schemas.ViewerAssignment.model_validate(a).model_dump(mode="json") for a in assignment_list
-            ]
+        groups=[schemas.ViewerGroup.model_validate(group) for group in groups],
+        personnel=[schemas.ViewerPersonnel.model_validate(p) for p in personnel],
+        materials=[schemas.ViewerMaterial.model_validate(m) for m in materials],
+        vehicles=[schemas.Vehicle.model_validate(v) for v in vehicles],
+        vehicle_positions=vehicle_positions,
+        assignments={
+            incident_id: [schemas.ViewerAssignment.model_validate(a) for a in assignment_list]
             for incident_id, assignment_list in assignments.items()
         },
-        "special_functions": [
-            schemas.ViewerSpecialFunction.model_validate(sf).model_dump(mode="json") for sf in special_functions
-        ],
-        # Kennzahlen for the status wall: counts and reaction times only — no names,
-        # nothing a shared link does not already show row by row.
-        "figures": schemas.EventFigures.model_validate(await load_event_figures(db, incidents)).model_dump(mode="json"),
-        # incident_id → Reko result. Photo FILENAMES ride along; the same token
-        # opens /api/photos for this event only (ViewerRekoSummary, serve_photo).
-        "reko_summaries": viewer_reko_summaries,
-        # The Lagekarte's staleness threshold (minutes, `gps.stale_after_minutes`): the wall's
-        # vehicle pills show a last-report time by the same rule as the board's.
-        "gps_stale_minutes": _stale_minutes(await get_setting_value(db, "gps.stale_after_minutes")),
-    }
+        special_functions=[schemas.ViewerSpecialFunction.model_validate(sf) for sf in special_functions],
+        figures=schemas.EventFigures.model_validate(await load_event_figures(db, incidents)),
+        reko_summaries=viewer_reko_summaries,
+        gps_stale_minutes=_stale_minutes(await get_setting_value(db, "gps.stale_after_minutes")),
+    )

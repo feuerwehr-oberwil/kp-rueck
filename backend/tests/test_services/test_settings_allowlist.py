@@ -41,6 +41,38 @@ def test_every_setting_the_page_offers_can_actually_be_saved():
     )
 
 
+# `settings["alerting.enabled"]`, `stationSettings['gps.station_lat']`, `settings?.["…"]`
+_INDEXED_READ = re.compile(r"""\b\w*[sS]ettings\??\.?\[\s*['"]([a-z_.0-9]+)['"]\s*\]""")
+# `const ENABLED_KEY = "alerting.enabled"`, `export const GPS_STALE_SETTING = '…'`
+_KEY_CONSTANT = re.compile(r"""const [A-Z_]*(?:KEY|SETTING)\s*(?::\s*\w+\s*)?=\s*['"]([a-z_.0-9]+)['"]""")
+
+
+def _keys_read_by_frontend_source() -> dict[str, str]:
+    """Every literal station-settings key in the frontend sources, mapped to one file that names it."""
+    found: dict[str, str] = {}
+    for root in ("app", "components", "lib"):
+        for path in (FRONTEND / root).rglob("*.ts*"):
+            if ".test." in path.name:
+                continue
+            source = path.read_text(encoding="utf-8")
+            for key in _INDEXED_READ.findall(source) + _KEY_CONSTANT.findall(source):
+                found.setdefault(key, str(path.relative_to(FRONTEND)))
+    return found
+
+
+@pytest.mark.skipif(not SETTINGS_PAGE.exists(), reason="frontend sources not present")
+def test_every_settings_key_the_frontend_names_exists():
+    """A renamed key must not leave a reader behind.
+
+    Migration e5b2c9d4a8f1 renamed `divera.alarm_*` to `alerting.*`; the capability hook kept
+    reading `divera.alarm_enabled`, which never exists, so «Aufgebot senden» never rendered.
+    """
+    read = _keys_read_by_frontend_source()
+    assert "alerting.enabled" in read, "parsed no known key – the patterns no longer match the sources"
+    unknown = sorted(f"{key} ({where})" for key, where in read.items() if key not in DEFAULT_SETTINGS)
+    assert not unknown, f"The frontend reads settings keys the backend does not know: {unknown}"
+
+
 @pytest.mark.parametrize(
     "key",
     [

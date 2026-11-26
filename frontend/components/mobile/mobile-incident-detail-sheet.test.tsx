@@ -11,6 +11,14 @@ import type { Material } from '@/lib/contexts/operations-context'
 
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
+// One Auftrag at most, with the resources it owns; empty unless a test sets it.
+const route = vi.hoisted(() => ({
+  groups: [] as { id: string; name: string; color: string | null }[],
+  resources: { vehicles: [], personnel: [], materials: [] } as import('@/lib/types/groups').GroupResources,
+}))
+vi.mock('@/lib/contexts/groups-context', () => ({
+  useGroups: () => ({ groups: route.groups, getGroupResources: () => route.resources }),
+}))
 const sheet = vi.hoisted(() => ({ pending: new Set<string>(), scrolls: [] as { ready?: boolean }[] }))
 vi.mock('@/components/reko/reko-report-section', async () => {
   const { useEffect, useState } = await import('react')
@@ -163,5 +171,34 @@ describe('closing the sheet', () => {
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
     rerender(<Harness open={false} />)
     await waitFor(() => expect(opener).toHaveFocus())
+  })
+})
+
+describe('the phone Einsatz sheet on a stop of an Auftrag', () => {
+  it('names the crew and vehicles the Auftrag owns, under its name', () => {
+    route.groups = [{ id: 'g-1', name: 'Sturmholz Oberwil', color: '#0e6680' }]
+    route.resources = {
+      vehicles: [{ assignmentId: 'ga-1', resourceId: 'v-1', name: 'TLF', callsign: null, driverStay: false }],
+      personnel: [{ assignmentId: 'ga-2', resourceId: 'p-1', name: 'Moser Lea', isLeader: true }],
+      materials: [],
+    }
+    try {
+      renderWithIntl(
+        <MobileIncidentDetailSheet
+          operation={{ ...OPERATION, groupId: 'g-1' }}
+          open
+          onOpenChange={vi.fn()}
+          materials={[] as Material[]}
+          formatLocation={(a) => a}
+        />,
+      )
+      expect(screen.getByText('Auftrag «Sturmholz Oberwil»')).toBeInTheDocument()
+      expect(screen.getByText('TLF')).toBeInTheDocument()
+      expect(screen.getByText('Moser Lea')).toBeInTheDocument()
+      // The stop holds nothing itself: no second, empty block under the Auftrag's.
+      expect(screen.queryByText('Nur dieser Einsatz')).toBeNull()
+    } finally {
+      route.groups = []
+    }
   })
 })

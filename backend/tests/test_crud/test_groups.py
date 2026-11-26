@@ -34,6 +34,7 @@ from app.models import (
     User,
     Vehicle,
 )
+from app.utils.error_codes import DomainError
 
 # ============================================
 # Fixtures
@@ -313,7 +314,7 @@ class TestAddRemoveStops:
         group = await _make_group(db_session, test_event, test_user, mock_request)
         foreign = await _make_incident(db_session, second_event, test_user, title="Foreign")
 
-        with pytest.raises(ValueError, match="anderen Ereignis"):
+        with pytest.raises(DomainError, match="anderen Ereignis"):
             await groups_crud.add_stops_to_group(db_session, group.id, [foreign.id], test_user, mock_request)
 
     async def test_add_stops_unknown_group_returns_none(self, db_session, test_event, test_user, mock_request):
@@ -406,7 +407,7 @@ class TestGroupAssignments:
         await group_assignments_crud.assign_group_resource(
             db_session, group.id, "vehicle", test_vehicle.id, test_user, mock_request
         )
-        with pytest.raises(ValueError, match="bereits zugewiesen"):
+        with pytest.raises(DomainError, match="bereits zugewiesen"):
             await group_assignments_crud.assign_group_resource(
                 db_session, group.id, "vehicle", test_vehicle.id, test_user, mock_request
             )

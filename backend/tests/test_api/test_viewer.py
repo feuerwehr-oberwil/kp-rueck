@@ -771,9 +771,7 @@ async def test_generate_link_points_at_the_display_page(editor_client: AsyncClie
     body = response.json()
 
     assert body["link"] == f"/display?token={body['token']}"
-    assert body["full_url"].endswith(body["link"])
     assert body["qr_code_data"] == body["link"]
-    assert "/viewer" not in body["full_url"]
 
     data = await editor_client.get(f"/api/viewer/data?token={body['token']}")
     assert data.status_code == 200

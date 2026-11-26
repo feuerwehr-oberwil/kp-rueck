@@ -130,7 +130,8 @@ No write was ever refused (0 × 409/4xx), at any size.
    `/api/reko/incident/:id/reports` was about 9 % of all requests. The board already loads
    `/api/reko/event/:id/summaries` for the whole Ereignis in one request.
    **Fixed 06.10.2026:** the hook now reads that one bulk endpoint and runs only on mount, on
-   `reko_update` and on the fallback poll. Re-measured at `long`:
+   `reko_update` and on the fallback poll (since 25.11.2026 the hook is gone: `reko_update` is
+   a debounced board reload in `use-board-sync.ts`, which loads the same summaries). Re-measured at `long`:
    - an idle board makes 40 requests per minute instead of 794
    - the board settles in 9.1 s instead of 12.6 s (worst freeze 3.8 s instead of 5.8 s)
    - another device's new Einsatz shows after 6.7 s instead of 9.8 s

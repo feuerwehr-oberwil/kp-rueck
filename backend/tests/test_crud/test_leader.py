@@ -30,6 +30,7 @@ from app.crud import assignments as assignment_crud
 from app.crud import incidents as incident_crud
 from app.crud import print_jobs as print_job_crud
 from app.models import Event, EventSpecialFunction, Incident, IncidentAssignment, Personnel, User, Vehicle
+from app.utils.error_codes import DomainError
 
 
 def _mock_request() -> MagicMock:
@@ -230,7 +231,7 @@ class TestManualLeader:
             request=mock_request,
         )
 
-        with pytest.raises(ValueError, match="Einsatzleiter"):
+        with pytest.raises(DomainError, match="Einsatzleiter"):
             await assignment_crud.update_assignment(db_session, va.id, schemas.AssignmentUpdate(is_leader=True))
 
     async def test_update_rejects_an_assignment_from_another_incident(

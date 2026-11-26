@@ -4,27 +4,21 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
+from .common import AvailabilityStatus, legacy_status
 from .fields import RequiredText50, RequiredText100, SortOrder, reject_null
 
-
-def _material_status(v: str) -> str:
-    """Map the legacy material statuses onto the two the column holds, refuse anything else."""
-    valid_statuses = {"available", "unavailable"}
-    status_mapping = {
-        "assigned": "available",
-        "planned": "unavailable",
-        "maintenance": "unavailable",
-    }
-    if v in status_mapping:
-        return status_mapping[v]
-    if v not in valid_statuses:
-        raise ValueError(f"Status must be one of: {', '.join(sorted(valid_statuses))}")
-    return v
-
-
-MaterialStatus = Annotated[str, AfterValidator(_material_status)]
+MaterialStatus = Annotated[
+    AvailabilityStatus,
+    legacy_status(
+        {
+            "assigned": "available",
+            "planned": "unavailable",
+            "maintenance": "unavailable",
+        }
+    ),
+]
 MaterialDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 
 

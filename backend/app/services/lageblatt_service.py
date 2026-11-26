@@ -50,7 +50,7 @@ from . import paper_palette as paper
 from .address_display import format_location_for_display
 from .audit_export_service import EventReportData
 from .incident_leader import effective_leader_ids
-from .notification_params import duration_hours_de
+from .notification_params import DANGER_LABELS_DE, duration_hours_de
 from .pdf_report_service import logo_flowable, photo_grid
 from .photo_storage import ExportPhoto
 from .ranks import rank_abbr, rank_tier
@@ -304,24 +304,13 @@ def _incident_row(data: EventReportData, inc: Incident, index: int, home_city: s
     ]
 
 
-# German labels for the reko form's dangers JSON (frontend reko.dangerLabels —
-# same words the crew ticked). An unmapped key prints as-is rather than vanishing.
-_DANGER_LABELS = {
-    "fire": "Feuer",
-    "fire_danger": "Brandgefahr",
-    "explosion": "Explosionsgefahr",
-    "collapse": "Einsturzgefahr",
-    "chemical": "Gefahrstoffe",
-    "electrical": "Elektrische Gefahr",
-}
-
-
 def _dangers_text(payload: Any) -> str:
-    """Gefahren line in the crew's words — the raw keys («collapse») printed on a
-    sheet that non-technical readers work from (field test 07.09.)."""
+    """Gefahren line in the board's words (``DANGER_LABELS_DE``), not the raw keys («collapse»)
+    – a sheet non-technical readers work from (field test 07.09.). An unmapped key prints
+    as-is rather than vanishing."""
     if not isinstance(payload, dict):
         return ""
-    parts = [_DANGER_LABELS.get(key, str(key)) for key, value in payload.items() if value is True]
+    parts = [DANGER_LABELS_DE.get(key, str(key)) for key, value in payload.items() if value is True]
     if payload.get("other_notes"):
         parts.append(str(payload["other_notes"]))
     return ", ".join(parts)

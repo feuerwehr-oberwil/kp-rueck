@@ -1,6 +1,7 @@
 """User + Microsoft auth schemas."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -42,11 +43,15 @@ class WsTokenResponse(BaseModel):
     expires_in: int
 
 
+# CHECK `valid_user_role`. `viewer` is the read-only login.
+UserRole = Literal["admin", "editor", "viewer"]
+
+
 class UserBase(BaseModel):
     """Base user schema."""
 
     username: str
-    role: str  # 'admin', 'editor', or 'viewer' (read-only login)
+    role: UserRole
     display_name: str = ""
 
 
@@ -60,7 +65,7 @@ class UserUpdate(BaseModel):
     """Schema for updating user (admin only)."""
 
     username: str | None = None
-    role: str | None = None
+    role: UserRole | None = None
     display_name: str | None = None
     is_active: bool | None = None
 

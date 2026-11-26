@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 # The three things a resource assignment can point at. Not just a convention: both
 # assignment tables carry a `valid_resource_type` CHECK constraint over exactly these
@@ -14,6 +14,39 @@ from pydantic import BaseModel, ConfigDict
 # – the only API reference a self-hoster has, Swagger being off in production – said
 # "string" and a scripter learned the legal values from a 422.
 ResourceType = Literal["personnel", "vehicle", "material"]
+
+# The two statuses a person, vehicle or material row holds (CHECK `valid_personnel_status`,
+# `valid_vehicle_status`, `valid_material_status`).
+AvailabilityStatus = Literal["available", "unavailable"]
+
+
+def legacy_status(mapping: dict[str, AvailabilityStatus]) -> BeforeValidator:
+    """Map an older client's status word (``"maintenance"`` …) onto the two the column holds.
+
+    Use as ``Annotated[AvailabilityStatus, legacy_status({...})]``: a word outside the
+    mapping falls through to the Literal, which refuses it with a 422.
+    """
+    return BeforeValidator(lambda value: mapping.get(value, value) if isinstance(value, str) else value)
+
+
+class ShareLinkResponse(BaseModel):
+    """A link the board hands out (check-in, viewer, alarm intake, `/feld`, Reko).
+
+    ``link`` is relative: the client prefixes its own origin – the backend's
+    ``request.base_url`` is the wrong host behind Railway's proxy. ``qr_code_data`` is
+    what the QR code encodes (the link). ``valid_until`` is set where the slip prints its
+    own expiry (the `/feld` poster).
+    """
+
+    token: str
+    link: str
+    qr_code_data: str
+    valid_until: datetime | None = None
+
+    @classmethod
+    def for_link(cls, token: str, link: str, valid_until: datetime | None = None) -> "ShareLinkResponse":
+        """The response for ``link``, encoded in its QR code as it is."""
+        return cls(token=token, link=link, qr_code_data=link, valid_until=valid_until)
 
 
 class CategorySortOrder(BaseModel):
@@ -27,6 +60,13 @@ class BulkCategorySortOrderUpdate(BaseModel):
     """Schema for bulk updating category sort orders."""
 
     categories: list[CategorySortOrder]
+
+
+class CategorySortOrderResult(BaseModel):
+    """The answer to a category sort-order update: how many categories were written."""
+
+    status: Literal["success"] = "success"
+    updated_categories: int
 
 
 class SettingBase(BaseModel):

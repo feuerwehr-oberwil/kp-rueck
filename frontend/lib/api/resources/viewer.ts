@@ -21,6 +21,7 @@ import type {
   ApiIncidentGroup,
   ApiGroupAssignment,
   ApiViewerRekoSummary,
+  ApiShareLink,
 } from '../types'
 
 /**
@@ -153,8 +154,8 @@ export type ShareLinkKind = 'checkin' | 'viewer' | 'alarm'
 
 export class ViewerApi {
   // Viewer (read-only access)
-  async generateViewerLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
-    return httpRequest<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+  async generateViewerLink(eventId: string): Promise<ApiShareLink> {
+    return httpRequest<ApiShareLink>(
       `/api/viewer/generate-link?event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
@@ -182,8 +183,8 @@ export class ViewerApi {
   }
 
   // Alarm intake (public token-gated alarm creation)
-  async generateAlarmLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string }> {
-    return httpRequest<{ token: string; link: string; full_url: string; qr_code_data: string }>(
+  async generateAlarmLink(eventId: string): Promise<ApiShareLink> {
+    return httpRequest<ApiShareLink>(
       `/api/intake/generate-link?event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',

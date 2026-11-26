@@ -16,6 +16,7 @@ from ..models import (
     User,
 )
 from ..services.audit import log_action
+from ..utils.error_codes import DomainError, ErrorCode
 from .active_resources import active_resource_ids
 from .personnel import name_key
 
@@ -32,8 +33,14 @@ class CheckOutChangedError(Exception):
     """A resume found another departure than the one it takes back (→ 409)."""
 
 
-class PersonStillBoundError(Exception):
-    """A check-out that asked for a free person found them bound (→ 409)."""
+def still_assigned_error() -> DomainError:
+    """A check-out of a person who is still assigned or holds a function (409)."""
+    return DomainError(ErrorCode.PERSON_STILL_ASSIGNED, "Die Person ist noch zugewiesen.")
+
+
+def unavailable_error() -> DomainError:
+    """Check-in or a plan for a person marked «nicht verfügbar» (409)."""
+    return DomainError(ErrorCode.PERSON_UNAVAILABLE, "Diese Person ist als nicht verfügbar gemeldet.")
 
 
 def _response(
@@ -156,7 +163,7 @@ async def check_in_personnel(
         guest of another Ereignis counts as not found)
 
     Raises:
-        ValueError: If personnel is unavailable
+        DomainError: ``person_unavailable`` – the person is marked unavailable
         CheckOutChangedError: ``resume`` given, but the row is no longer that departure
             (somebody checked the person in, out again, or cleared them meanwhile).
     """
@@ -171,7 +178,7 @@ async def check_in_personnel(
 
     # Can't check in if unavailable
     if person.status == "unavailable":
-        raise ValueError("Cannot check in unavailable personnel")
+        raise unavailable_error()
 
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
@@ -365,7 +372,8 @@ async def check_out_personnel(
         guest of another Ereignis counts as not found)
 
     Raises:
-        ValueError: assigned, and neither ``allow_assigned`` nor ``refuse_bound``.
+        DomainError: ``person_still_assigned`` – assigned without ``allow_assigned``, or
+            bound (assigned or holding a function) with ``refuse_bound``.
         PersonStillBoundError: ``refuse_bound`` and the person is bound.
     """
     # The person's row lock (crud/locking.py step 3): a new assignment and a new function
@@ -380,11 +388,11 @@ async def check_out_personnel(
     is_assigned = await _is_personnel_assigned(db, event_id, personnel_id)
 
     if refuse_bound and (is_assigned or await _holds_function(db, event_id, personnel_id)):
-        raise PersonStillBoundError(personnel_id)
+        raise still_assigned_error()
 
     # Prevent checkout if assigned to an incident
     if is_assigned and not allow_assigned:
-        raise ValueError("Cannot check out personnel who are assigned to an incident")
+        raise still_assigned_error()
 
     # Get event attendance record
     attendance_result = await db.execute(
@@ -514,14 +522,14 @@ async def set_attendance_plan(
     the plan says what should happen, the attendance what did).
 
     Returns None when the person is not listed at this Ereignis (unknown, or a guest of
-    another one). Raises ValueError for an unavailable person, like check-in, and when
-    the result would end before it starts.
+    another one). Raises ``DomainError`` for an unavailable person, like check-in, and when
+    the result would end before it starts (``feld_plan_invalid``, 400).
     """
     person = await db.scalar(select(Personnel).where(Personnel.id == personnel_id))
     if not person or person.guest_event_id not in (None, event_id):
         return None
     if person.status == "unavailable":
-        raise ValueError("Cannot plan unavailable personnel")
+        raise unavailable_error()
 
     attendance = await db.scalar(
         select(EventAttendance).where(
@@ -536,7 +544,7 @@ async def set_attendance_plan(
     planned_from = plan.planned_from if "planned_from" in sent else attendance.planned_from
     planned_until = plan.planned_until if "planned_until" in sent else attendance.planned_until
     if planned_from and planned_until and planned_until <= planned_from:
-        raise ValueError("planned_until must be after planned_from")
+        raise DomainError(ErrorCode.FELD_PLAN_INVALID, "Diese Zeit geht nicht. Bitte neu wählen.", status_code=400)
     attendance.planned_from = planned_from
     attendance.planned_until = planned_until
 

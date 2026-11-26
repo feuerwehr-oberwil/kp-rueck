@@ -23,10 +23,6 @@ BATCH_SIZE = 10_000
 # Demo instances reset frequently; keep their audit trail short regardless
 DEMO_MAX_RETENTION_DAYS = 7
 
-# Global state
-scheduler: AsyncIOScheduler | None = None
-_shutting_down: bool = False
-
 
 def get_effective_retention_days() -> int:
     """Retention in days. 0 or less means keep everything and never sweep.
@@ -51,10 +47,6 @@ async def cleanup_old_audit_logs(session_maker: Any = None) -> int:
     session_maker: optional injectable session factory (for tests); defaults
     to the main application session maker.
     """
-    if _shutting_down:
-        logger.debug("Audit cleanup skipped: shutdown in progress")
-        return 0
-
     retention_days = get_effective_retention_days()
     if retention_days <= 0:
         logger.debug("Audit cleanup skipped: retention disabled (AUDIT_RETENTION_DAYS=0)")
@@ -83,19 +75,18 @@ async def cleanup_old_audit_logs(session_maker: Any = None) -> int:
     return total_deleted
 
 
-def start_audit_cleanup_scheduler() -> None:
-    """Start the audit cleanup scheduler."""
-    global scheduler
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add the sweep and a catch-up run 5 min after boot to the app's scheduler (background/jobs.py).
 
+    Nothing with retention off (AUDIT_RETENTION_DAYS=0).
+    """
     retention_days = get_effective_retention_days()
     if retention_days <= 0:
         logger.info("Audit retention disabled (AUDIT_RETENTION_DAYS=0) - keeping the full audit trail")
         return
 
     interval_hours = settings.audit_cleanup_interval_hours
-    logger.info(f"Starting audit cleanup scheduler (interval: {interval_hours}h, retention: {retention_days}d)")
-
-    scheduler = AsyncIOScheduler()
+    logger.info(f"Scheduling audit cleanup (interval: {interval_hours}h, retention: {retention_days}d)")
     scheduler.add_job(
         cleanup_old_audit_logs,
         trigger=IntervalTrigger(hours=interval_hours),
@@ -112,18 +103,3 @@ def start_audit_cleanup_scheduler() -> None:
         name="Audit log cleanup (startup catch-up)",
         replace_existing=True,
     )
-    scheduler.start()
-
-
-def stop_audit_cleanup_scheduler() -> None:
-    """Stop the audit cleanup scheduler."""
-    global scheduler, _shutting_down
-
-    _shutting_down = True
-    if scheduler and scheduler.running:
-        logger.info("Stopping audit cleanup scheduler...")
-        try:
-            scheduler.shutdown(wait=False)
-            logger.info("Audit cleanup scheduler stopped")
-        except Exception as e:
-            logger.warning(f"Audit cleanup scheduler shutdown error: {e}")

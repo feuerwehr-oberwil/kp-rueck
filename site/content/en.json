@@ -62,13 +62,14 @@
     "note": "Grown out of the real operational work of <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a> – proven there, and developed further ever since."
   },
   "tenet": {
+    "h2": "Three layers of redundancy.",
     "eyebrow": "The benchmark",
     "quote": "«When the network is gone, <em>paper</em> is in charge»",
     "expl": "A board that goes black in a power cut is not a command tool. So redundancy is built in at several levels – <strong>every level works without the one above it</strong>.",
     "stages": [
       {
         "n": "Level 1",
-        "h3": "Several devices on the same state",
+        "h3": "Several devices, always in sync",
         "p": "Tablets, projector displays and phones all hang live off the same board. If one device fails or freezes, another carries on – there is nothing to rescue and nothing to catch up on."
       },
       {
@@ -98,7 +99,7 @@
       },
       {
         "was": "Telephone notes on slips of paper",
-        "h2": "Reports that hang on the incident.",
+        "h2": "Reports attached to the incident.",
         "p": "Through the reporting form, by telephone, or over the open interface from the dispatch system (Divera or FireHub, for example). The duty officer takes one over with a click – the report becomes an incident on the board.",
         "li": [
           "Reporting form by link or QR for telephone callers and walk-ins, without an account",
@@ -168,7 +169,7 @@
   },
   "features": {
     "eyebrow": "Scope",
-    "h2": "What is in it.",
+    "h2": "What’s included.",
     "lede": "Grown out of real events and exercises, not out of a feature list. Everything that comes from outside – alerting, GPS, printers – is <strong>optional</strong>: KP Rück also runs entirely without those connections.",
     "groups": [
       {

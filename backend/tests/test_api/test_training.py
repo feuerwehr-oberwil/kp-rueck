@@ -17,7 +17,8 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import EmergencyTemplate, Event, Incident, TrainingLocation
+from app.models import EmergencyTemplate, Event, Incident, TrainingLocation, User
+from app.services.training_steps import file_reko_report, report_field_complete
 
 # ============================================
 # Fixtures
@@ -502,65 +503,6 @@ async def test_location_response_format(editor_client: AsyncClient, test_locatio
 
 
 # ============================================
-# Simulated Divera Intake Tests
-# ============================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_simulate_divera_creates_training_pool_entry(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    training_event: Event,
-    test_templates,
-    test_locations,
-):
-    """The inject lands in the Divera pool as a training-marked entry."""
-    with patch("app.api.training_simulate.broadcast_emergency_received", new_callable=AsyncMock) as mock_bc:
-        response = await editor_client.post(
-            f"/api/training/events/{training_event.id}/simulate/divera",
-            json={"category": "normal"},
-        )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["is_training"] is True
-    assert data["divera_id"] < 0
-    assert data["attached_to_event_id"] is None
-    assert data["title"]
-    mock_bc.assert_called_once()
-
-    # Nothing on the board — the trainee has to attach it via the pool.
-    from sqlalchemy import func, select
-
-    incident_count = (
-        await db_session.execute(
-            select(func.count()).select_from(Incident).where(Incident.event_id == training_event.id)
-        )
-    ).scalar_one()
-    assert incident_count == 0
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_simulate_divera_live_event_forbidden(
-    editor_client: AsyncClient, live_event: Event, test_templates, test_locations
-):
-    """Simulated Divera alarms only exist for training events."""
-    response = await editor_client.post(f"/api/training/events/{live_event.id}/simulate/divera", json={})
-    assert response.status_code == 400
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_simulate_divera_invalid_category(editor_client: AsyncClient, training_event: Event):
-    response = await editor_client.post(
-        f"/api/training/events/{training_event.id}/simulate/divera",
-        json={"category": "apocalyptic"},
-    )
-    assert response.status_code == 400
-
-
-# ============================================
 # Escalation Inject Tests
 # ============================================
 
@@ -850,8 +792,7 @@ def stub_photo_pool(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.api
 @pytest.mark.parametrize("is_relevant", [True, False])
-async def test_simulate_reko_attaches_the_wording_image_alone(
-    editor_client: AsyncClient,
+async def test_reko_report_step_attaches_the_wording_image_alone(
     db_session: AsyncSession,
     training_event: Event,
     reko_incident: Incident,
@@ -883,14 +824,12 @@ async def test_simulate_reko_attaches_the_wording_image_alone(
     monkeypatch.setattr(training_simulation_data, "generate_summary", lambda *_: summary)
     monkeypatch.setattr(training_simulation_data.random, "random", lambda: 0.99 if is_relevant else 0.01)
 
-    response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")
-    assert response.status_code == 200
-    data = response.json()
+    report = await file_reko_report(db_session, reko_incident)
 
-    photos = data["photos_json"]
-    assert data["is_relevant"] is is_relevant
+    photos = report.photos_json or []
+    assert report.is_relevant is is_relevant
     if is_relevant:
-        assert data["summary_text"] == summary
+        assert report.summary_text == summary
         [filename] = photos
         assert re.match(r"^[0-9a-f-]{36}\.jpg$", filename)
         with Image.open(stub_photo_pool / str(reko_incident.id) / filename) as image:
@@ -898,25 +837,11 @@ async def test_simulate_reko_attaches_the_wording_image_alone(
     else:
         assert photos == []
 
-    # The stored report matches the response
-    from sqlalchemy import select
-
-    from app.models import RekoReport
-
-    report = (
-        (await db_session.execute(select(RekoReport).where(RekoReport.incident_id == reko_incident.id)))
-        .scalars()
-        .first()
-    )
-    assert report is not None
-    assert (report.photos_json or []) == photos
-
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_simulate_reko_without_pool_still_succeeds(
-    editor_client: AsyncClient,
-    training_event: Event,
+async def test_reko_report_step_without_pool_still_succeeds(
+    db_session: AsyncSession,
     reko_incident: Incident,
     tmp_path,
     monkeypatch,
@@ -930,9 +855,8 @@ async def test_simulate_reko_without_pool_still_succeeds(
     monkeypatch.setattr(training_simulation_data.random, "random", lambda: 0.99)
     monkeypatch.setattr(photo_storage, "photos_dir", tmp_path / "photos")
 
-    response = await editor_client.post(f"/api/training/events/{training_event.id}/simulate/reko/{reko_incident.id}")
-    assert response.status_code == 200
-    assert response.json()["photos_json"] == []
+    report = await file_reko_report(db_session, reko_incident)
+    assert report.photos_json in (None, [])
 
 
 # ============================================
@@ -1031,11 +955,6 @@ async def test_rapport_injects_only_touch_training_events(
 
     bulk = await editor_client.post(f"/api/training/events/{live_event.id}/simulate/rapport")
     assert bulk.status_code == 400
-
-    field_complete = await editor_client.post(
-        f"/api/training/events/{live_event.id}/simulate/field-complete/{incident.id}"
-    )
-    assert field_complete.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -1168,98 +1087,51 @@ async def test_simulate_bulk_rapport_skips_incidents_that_already_have_one(
 
 
 @pytest.mark.asyncio
-@pytest.mark.api
-async def test_simulate_field_complete_stamps_provenance_and_rings_the_bell(
-    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+async def test_field_complete_step_stamps_provenance_and_rings_the_bell(
+    db_session: AsyncSession, test_editor: User, active_incident: Incident
 ):
-    """The direct attribute write is gone: it now goes through the parity endpoint.
-
-    Which means an exercise finally rehearses the bell — and the audit entry
-    that carries the operator, since a KP write leaves the personnel FK NULL
-    (decision 28).
-    """
+    """The Regie's «Einsatz beendet» goes through the KP-parity CRUD: the bell rings and the
+    audit entry carries the operator, since a KP write leaves the personnel FK NULL (decision 28)."""
     from sqlalchemy import select
 
     from app.models import AuditLog, Notification
 
-    response = await editor_client.post(
-        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}",
-        json={"pickup_needed": False},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["field_complete_reported_at"] is not None
+    await report_field_complete(db_session, active_incident, user=test_editor, pickup_needed=False, request=None)
+    assert active_incident.field_complete_reported_at is not None
     # Informational only — closing stays the operator's board action.
-    assert data["status"] == "active"
+    assert active_incident.status == "active"
+    assert active_incident.field_complete_reported_by is None
 
-    notification = (
-        (
-            await db_session.execute(
-                select(Notification).where(
-                    Notification.incident_id == active_incident.id,
-                    Notification.type == "field_complete",
-                )
-            )
+    notification = await db_session.scalar(
+        select(Notification).where(
+            Notification.incident_id == active_incident.id, Notification.type == "field_complete"
         )
-        .scalars()
-        .first()
     )
     assert notification is not None
-
-    entry = (
-        (
-            await db_session.execute(
-                select(AuditLog).where(
-                    AuditLog.resource_id == active_incident.id,
-                    AuditLog.action_type == "field_complete",
-                )
-            )
-        )
-        .scalars()
-        .first()
+    entry = await db_session.scalar(
+        select(AuditLog).where(AuditLog.resource_id == active_incident.id, AuditLog.action_type == "field_complete")
     )
     assert entry is not None
-    assert entry.user_id is not None
-    await db_session.refresh(active_incident)
-    assert active_incident.field_complete_reported_by is None
+    assert entry.user_id == test_editor.id
 
 
 @pytest.mark.asyncio
-@pytest.mark.api
-async def test_simulate_field_complete_asks_the_abholung_follow_up(
-    editor_client: AsyncClient, db_session: AsyncSession, training_event: Event, active_incident: Incident
+async def test_field_complete_step_raises_and_clears_the_abholung(
+    db_session: AsyncSession, test_editor: User, active_incident: Incident
 ):
-    """ "Kommt ihr selbst zurück?" — preselected by the situation, overridable."""
-    response = await editor_client.post(
-        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}",
-        json={"pickup_needed": True, "pickup_note": "Trupp wartet an der Hauptstrasse"},
-    )
-    assert response.status_code == 200
-    assert response.json()["pickup_needed"] is True
-
-    await db_session.refresh(active_incident)
-    assert active_incident.pickup_note == "Trupp wartet an der Hauptstrasse"
+    """ "Kommt ihr selbst zurück?" — «nein» raises the Abholung, a later «ja» clears it."""
+    await report_field_complete(db_session, active_incident, user=test_editor, pickup_needed=True, request=None)
+    assert active_incident.pickup_needed is True
     assert active_incident.pickup_requested_at is not None
 
-    # And the crew tapping "abgeholt" clears it again.
-    cleared = await editor_client.post(
-        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}",
-        json={"pickup_needed": False},
-    )
-    assert cleared.status_code == 200
-    await db_session.refresh(active_incident)
+    await report_field_complete(db_session, active_incident, user=test_editor, pickup_needed=False, request=None)
     assert active_incident.pickup_needed is False
 
 
 @pytest.mark.asyncio
-@pytest.mark.api
 @pytest.mark.parametrize("open_pickup", [False, True])
-async def test_simulate_field_complete_fahrt_selbst_is_the_crews_answer(
-    editor_client: AsyncClient,
-    db_session: AsyncSession,
-    training_event: Event,
-    active_incident: Incident,
-    open_pickup: bool,
+async def test_field_complete_step_fahrt_selbst_is_the_crews_answer(
+    db_session: AsyncSession, test_editor: User, active_incident: Incident, open_pickup: bool
 ):
     """«Fährt selbst» reaches the Chronik as that answer – with or without an open Abholung,
     never as the KP's «Abholung disponiert» (Sol review A2, S5)."""
@@ -1267,36 +1139,28 @@ async def test_simulate_field_complete_fahrt_selbst_is_the_crews_answer(
 
     from app.models import AuditLog
 
-    url = f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}"
     if open_pickup:
-        assert (await editor_client.post(url, json={"pickup_needed": True})).status_code == 200
-    response = await editor_client.post(url, json={"pickup_needed": False})
-    assert response.status_code == 200
-    assert response.json()["pickup_needed"] is False
+        await report_field_complete(db_session, active_incident, user=test_editor, pickup_needed=True, request=None)
+    await report_field_complete(db_session, active_incident, user=test_editor, pickup_needed=False, request=None)
+    assert active_incident.pickup_needed is False
 
     answers = (
-        (
-            await db_session.execute(
-                select(AuditLog).where(
-                    AuditLog.resource_id == active_incident.id, AuditLog.action_type == "field_pickup_cleared"
-                )
+        await db_session.scalars(
+            select(AuditLog).where(
+                AuditLog.resource_id == active_incident.id, AuditLog.action_type == "field_pickup_cleared"
             )
         )
-        .scalars()
-        .all()
-    )
+    ).all()
     assert [a.changes_json["self_drive"] for a in answers] == [True]
-    # the operator who ran the inject, as for every other KP-parity write
-    assert answers[0].user_id is not None
+    # the operator who ran the step, as for every other KP-parity write
+    assert answers[0].user_id == test_editor.id
 
 
 @pytest.mark.asyncio
-@pytest.mark.api
 @pytest.mark.parametrize(("stays", "expected"), [(True, False), (False, True)])
-async def test_simulate_field_complete_auto_answer_follows_the_pill(
-    editor_client: AsyncClient,
+async def test_field_complete_step_auto_answer_follows_the_pill(
     db_session: AsyncSession,
-    training_event: Event,
+    test_editor: User,
     active_incident: Incident,
     stays: bool,
     expected: bool,
@@ -1314,11 +1178,8 @@ async def test_simulate_field_complete_auto_answer_follows_the_pill(
     )
     await db_session.commit()
 
-    response = await editor_client.post(
-        f"/api/training/events/{training_event.id}/simulate/field-complete/{active_incident.id}"
-    )
-    assert response.status_code == 200
-    assert response.json()["pickup_needed"] is expected
+    await report_field_complete(db_session, active_incident, user=test_editor, pickup_needed=None, request=None)
+    assert active_incident.pickup_needed is expected
 
 
 @pytest.mark.asyncio
@@ -1674,7 +1535,8 @@ async def test_autogen_switch_records_the_run(editor_client: AsyncClient, traini
     assert state["run"]["event_id"] == str(training_event.id)
     assert state["run"]["stopped"] is None
 
-    assert (await editor_client.get("/api/training/autogen")).json() == state
+    regie = (await editor_client.get(f"/api/training/events/{training_event.id}/regie")).json()
+    assert regie["automatik"] == state
 
     response = await editor_client.patch("/api/settings/training_autogen_enabled", json={"value": "false"})
     assert response.status_code == 403

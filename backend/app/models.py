@@ -3,7 +3,7 @@
 import secrets
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -55,7 +55,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    role: Mapped[Literal["admin", "editor", "viewer"]] = mapped_column(String(20), nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
@@ -169,7 +169,7 @@ class Vehicle(Base):
     # Legacy mirror of `out_of_service_since`, kept in lockstep by crud/vehicles.py.
     # Readers that only need "einsatzbereit ja/nein" (print slips, exports, seed)
     # keep working; `out_of_service_since` is the source of truth.
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[Literal["available", "unavailable"]] = mapped_column(String(20), nullable=False)
     radio_call_sign: Mapped[str] = mapped_column(String(100), nullable=False, default="")
 
     # «Nicht einsatzbereit» — defect, service, missing. NULL = einsatzbereit.
@@ -221,7 +221,7 @@ class Personnel(Base):
     kennung: Mapped[str | None] = mapped_column(String(20), nullable=True)
     role: Mapped[str | None] = mapped_column(String(50), nullable=True)
     role_sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[Literal["available", "unavailable"]] = mapped_column(String(20), nullable=False)
     tags: Mapped[list[Any] | None] = mapped_column(JSONB, nullable=True, default=list)
     # Set = a GUEST of that Ereignis («Person hinzufügen» in the Appell, on the check-in link,
     # in the Fahrer picker), not a roster member: listed for that Ereignis only, never in the
@@ -330,7 +330,7 @@ class Material(Base):
     # Legacy mirror of `out_of_service_since`, kept in lockstep by crud/materials.py.
     # Readers that only need "einsatzbereit ja/nein" (print slips, exports, seed)
     # keep working; `out_of_service_since` is the source of truth.
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="available")
+    status: Mapped[Literal["available", "unavailable"]] = mapped_column(String(20), nullable=False, default="available")
     consumable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
 
     # «Nicht einsatzbereit» — defect, service, missing. NULL = einsatzbereit.
@@ -1773,7 +1773,9 @@ class JournalEntry(Base):
     incident_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
-    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    kind: Mapped[Literal["manual", "status", "incident", "assignment", "message", "field", "reko", "alarm"]] = (
+        mapped_column(String(20), nullable=False)
+    )
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
     data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     # When it HAPPENED (the transition's timestamp, the release time …). `created_at` is

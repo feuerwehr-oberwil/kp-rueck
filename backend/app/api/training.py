@@ -194,12 +194,6 @@ async def list_locations(
     return [TrainingLocationResponse.model_validate(loc) for loc in locations]
 
 
-@router.get("/autogen", response_model=AutogenStateResponse)
-async def get_autogen(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> AutogenStateResponse:
-    """The Automatik: on or off, and the run – which Übung it feeds, since when, why it stopped."""
-    return await read_autogen_state(db)
-
-
 @router.put("/events/{event_id}/autogen", response_model=AutogenStateResponse)
 async def put_autogen(
     event_id: UUID,

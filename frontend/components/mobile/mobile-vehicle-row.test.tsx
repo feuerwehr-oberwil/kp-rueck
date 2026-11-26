@@ -34,6 +34,7 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
 }))
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
+vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [], getGroupResources: () => null }) }))
 vi.mock('@/components/reko/reko-report-section', () => ({ default: () => null }))
 
 import { MobileIncidentDetailSheet } from '@/components/mobile/mobile-incident-detail-sheet'

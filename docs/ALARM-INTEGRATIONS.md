@@ -289,8 +289,8 @@ den Check-in-Link.
   `PRIVACY.md`.
 - **Endpunkte** (nur Bearbeiter und Administratoren – wie in KP Front; die Rolle «Betrachter»
   bekommt 403, und die Oberfläche fragt für sie gar nicht erst):
-  `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt)
-  und `GET /api/divera/incidents/{id}/responses`: `counts` (`coming`, `not_coming`, Unverknüpfte
+  `GET /api/divera/events/{id}/responses` (alle DIVERA-Alarme des Ereignisses, zusammengeführt):
+  `counts` (`coming`, `not_coming`, Unverknüpfte
   eingerechnet), `people` (`personnel_id`, `name`, `role`, `tags`, `kind`, `attended`) und
   `unmapped`. Ist DIVERA nicht eingerichtet, kam nichts davon aus DIVERA oder trägt kein Alarm
   der letzten 6 h gespeicherte Antworten (auch: der Einheits-Schlüssel liefert kein

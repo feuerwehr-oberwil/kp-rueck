@@ -2,8 +2,8 @@
 
 The answers are personal data (a note may say «krank»), kept only as long as «Anrückend» can
 use them (services/divera_responses.py: display window 6 h, retention 48 h). The poller also
-purges on every poll, but it only runs while somebody is connected – this hourly job is what
-makes the 48 h hold when nobody opens the board for a week. Never raises.
+purges on every poll, but only where Divera polling is configured – this hourly job is what
+makes the 48 h hold everywhere. Never raises.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -16,8 +16,6 @@ from app.database import async_session_maker
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
-
-scheduler: AsyncIOScheduler | None = None
 
 
 async def purge_divera_responses() -> int:
@@ -35,11 +33,8 @@ async def purge_divera_responses() -> int:
         return 0
 
 
-def start_divera_retention_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        return
-    scheduler = AsyncIOScheduler()
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add the hourly sweep and one run 2 min after boot to the app's scheduler (background/jobs.py)."""
     scheduler.add_job(purge_divera_responses, IntervalTrigger(hours=1), id="divera_retention", replace_existing=True)
     scheduler.add_job(
         purge_divera_responses,
@@ -47,14 +42,3 @@ def start_divera_retention_scheduler() -> None:
         id="divera_retention_startup",
         replace_existing=True,
     )
-    scheduler.start()
-
-
-def stop_divera_retention_scheduler() -> None:
-    global scheduler
-    if scheduler is not None and scheduler.running:
-        try:
-            scheduler.shutdown(wait=False)
-        except Exception as e:
-            logger.warning("Divera retention scheduler shutdown error: %s", e)
-    scheduler = None

@@ -495,21 +495,6 @@ async def emergencies_for_event(db: AsyncSession, event_id: UUID) -> list[models
     return list(result.scalars().all())
 
 
-async def emergencies_for_incident(db: AsyncSession, incident: models.Incident) -> list[models.DiveraEmergency]:
-    """The Divera alarms behind one incident: the one that created it, or matched by `source_ref`."""
-    links = [models.DiveraEmergency.created_incident_id == incident.id]
-    if incident.source == "divera" and incident.source_ref:
-        links.append(models.DiveraEmergency.source_id == incident.source_ref)
-    result = await db.execute(
-        select(models.DiveraEmergency).where(
-            or_(*links),
-            models.DiveraEmergency.divera_id.is_not(None),
-            models.DiveraEmergency.is_training.is_(False),
-        )
-    )
-    return list(result.scalars().all())
-
-
 # ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------

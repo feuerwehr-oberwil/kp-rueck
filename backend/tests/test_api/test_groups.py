@@ -377,7 +377,7 @@ async def test_add_stops_cross_event_rejected(
     response = await editor_client.post(
         f"/api/incident-groups/{group['id']}/stops", json={"incident_ids": [str(foreign.id)]}
     )
-    assert response.status_code == 400
+    assert (response.status_code, response.json()["code"]) == (409, "incident_other_event")
 
 
 @pytest.mark.asyncio

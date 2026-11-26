@@ -20,21 +20,20 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..config import settings as app_settings
 from ..crud import feld as feld_crud
-from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, STALE_CLAIM_ERROR, build_assignment_payload, requeue_lost_jobs
-from ..database import after_commit, execute_dml, get_db
-from ..models import Event, EventAttendance, EventSpecialFunction, Incident, Material, Personnel, PrintJob, Vehicle
+from ..crud import print_jobs as print_crud
+from ..crud.print_jobs import MAX_PRINT_ATTEMPTS, STALE_CLAIM_ERROR, requeue_lost_jobs
+from ..database import execute_dml, get_db
+from ..models import Event, Incident, PrintJob
 from ..services import print_signal
 from ..services import settings as settings_service
-from ..services.person_label import person_text, roster_namesakes
 from ..utils.errors import ErrorMessages
 from ..websocket_manager import broadcast_print_job_update
 
@@ -139,254 +138,6 @@ def job_event_payload(job: PrintJob) -> dict[str, Any]:
     }
 
 
-async def _load_incident_for_print(db: AsyncSession, incident_id: uuid.UUID) -> Incident:
-    """Load an incident with its assignments, raising 404 if missing."""
-    result = await db.execute(
-        select(Incident).options(selectinload(Incident.assignments)).where(Incident.id == incident_id)
-    )
-    incident = result.scalar_one_or_none()
-    if not incident:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
-    return incident
-
-
-async def _build_board_payload(
-    db: AsyncSession,
-    event_id: uuid.UUID,
-    include_incidents: bool = True,
-    include_completed: bool = False,
-    include_vehicles: bool = True,
-    include_personnel: bool = True,
-) -> dict[str, Any]:
-    """Build the payload for a board snapshot print job."""
-    # Get event
-    event_result = await db.execute(select(Event).where(Event.id == event_id))
-    event = event_result.scalar_one_or_none()
-
-    if not event:
-        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
-
-    # Get all non-deleted incidents for this event
-    incident_result = await db.execute(
-        select(Incident)
-        .options(selectinload(Incident.assignments))
-        .where(
-            and_(
-                Incident.event_id == event_id,
-                Incident.deleted_at.is_(None),
-            )
-        )
-        .order_by(Incident.created_at)
-    )
-    incidents = incident_result.scalars().all()
-
-    # Find reko personnel for this event to exclude from crew
-    reko_personnel_ids: set[uuid.UUID] = set()
-    reko_result = await db.execute(
-        select(EventSpecialFunction.personnel_id).where(
-            and_(
-                EventSpecialFunction.event_id == event_id,
-                EventSpecialFunction.function_type == "reko",
-            )
-        )
-    )
-    reko_personnel_ids = {row[0] for row in reko_result.all()}
-
-    # A namesake is printed with their Kennung, as the board shows them (services.person_label).
-    shared = await roster_namesakes(db)
-
-    # Find all drivers for this event
-    driver_map: dict[uuid.UUID, str] = {}  # vehicle_id -> driver name
-    driver_result = await db.execute(
-        select(EventSpecialFunction, Personnel)
-        .join(Personnel, EventSpecialFunction.personnel_id == Personnel.id)
-        .where(
-            and_(
-                EventSpecialFunction.event_id == event_id,
-                EventSpecialFunction.function_type == "driver",
-            )
-        )
-    )
-    for sf, person in driver_result.all():
-        if sf.vehicle_id:
-            driver_map[sf.vehicle_id] = person_text(person.name, person.kennung, shared)
-
-    # Build incidents list with full details
-    incidents_data: list[dict[str, Any]] = []
-    for inc in incidents:
-        active_assignments = [a for a in inc.assignments if a.unassigned_at is None]
-        personnel_ids = [a.resource_id for a in active_assignments if a.resource_type == "personnel"]
-        vehicle_ids = [a.resource_id for a in active_assignments if a.resource_type == "vehicle"]
-        material_ids = [a.resource_id for a in active_assignments if a.resource_type == "material"]
-
-        # Build vehicle assignment map for driver_stay
-        vehicle_assignment_map = {a.resource_id: a for a in active_assignments if a.resource_type == "vehicle"}
-
-        # Get vehicle details with driver info
-        inc_vehicles: list[dict[str, Any]] = []
-        if vehicle_ids:
-            veh_result = await db.execute(select(Vehicle).where(Vehicle.id.in_(vehicle_ids)))
-            for v in veh_result.scalars().all():
-                assignment = vehicle_assignment_map.get(v.id)
-                inc_vehicles.append(
-                    {
-                        "name": v.name,
-                        "type": v.type,
-                        "radio_call_sign": v.radio_call_sign,
-                        "driver": driver_map.get(v.id),
-                        "driver_stay": assignment.driver_stay if assignment else False,
-                    }
-                )
-
-        # Get crew details (exclude reko personnel). `is_leader` rides along so
-        # the board snapshot marks the Einsatzleiter the same way the
-        # per-incident slip does — the formatter already reads it.
-        leader_ids = {a.resource_id for a in active_assignments if a.resource_type == "personnel" and a.is_leader}
-        crew: list[dict[str, Any]] = []
-        if personnel_ids:
-            pers_result = await db.execute(select(Personnel).where(Personnel.id.in_(personnel_ids)))
-            for p in pers_result.scalars().all():
-                if p.id not in reko_personnel_ids:
-                    crew.append(
-                        {
-                            "name": person_text(p.name, p.kennung, shared),
-                            "role": p.role,
-                            "is_leader": p.id in leader_ids,
-                        }
-                    )
-
-        # Get material details
-        materials_list: list[dict[str, Any]] = []
-        if material_ids:
-            mat_result = await db.execute(select(Material).where(Material.id.in_(material_ids)))
-            for m in mat_result.scalars().all():
-                materials_list.append({"name": m.name, "type": m.type})
-
-        incidents_data.append(
-            {
-                "title": inc.title,
-                "status": inc.status,
-                "location": inc.location_address or "",
-                "type": inc.type,
-                "priority": inc.priority,
-                "nachbarhilfe": inc.nachbarhilfe,
-                "description": inc.description or "",
-                "contact": inc.contact or "",
-                "vehicles": inc_vehicles,
-                "crew": crew,
-                "materials": materials_list,
-            }
-        )
-
-    # Get vehicle status summary. Archived vehicles are retired inventory — they
-    # are off the board and out of the pickers, so a slip that still lists them
-    # would be the one surface telling the KP the station owns a truck it sold.
-    all_vehicles_result = await db.execute(
-        select(Vehicle).where(Vehicle.archived_at.is_(None)).order_by(Vehicle.display_order)
-    )
-    all_vehicles = all_vehicles_result.scalars().all()
-
-    # Check which vehicles are assigned to active incidents
-    assigned_vehicle_ids: set[uuid.UUID] = set()
-    for inc in incidents:
-        if inc.status not in ("complete",):
-            for a in inc.assignments:
-                if a.resource_type == "vehicle" and a.unassigned_at is None:
-                    assigned_vehicle_ids.add(a.resource_id)
-
-    vehicle_status: list[dict[str, Any]] = []
-    for v in all_vehicles:
-        vehicle_status.append(
-            {
-                "name": v.name,
-                "type": v.type,
-                # Readiness reads `out_of_service`, not the legacy `status` mirror
-                # — same precedence the board draws: not ready ▸ assigned ▸ free.
-                "available": v.id not in assigned_vehicle_ids and not v.out_of_service,
-            }
-        )
-
-    # Get personnel summary (checked in for this event)
-    checked_in_result = await db.execute(
-        select(func.count(EventAttendance.id)).where(
-            and_(
-                EventAttendance.event_id == event_id,
-                EventAttendance.checked_in.is_(True),
-            )
-        )
-    )
-    checked_in_count = checked_in_result.scalar() or 0
-
-    total_personnel_result = await db.execute(select(func.count(Personnel.id)).where(Personnel.in_scope(event_id)))
-    total_personnel = total_personnel_result.scalar() or 0
-
-    # Get individual checked-in personnel for detailed listing
-    personnel_list: list[dict[str, Any]] = []
-    if include_personnel:
-        # `checked_in_by_user_id` rides along so the slip can mark the channel
-        # (plan 26 §7). NULL is the normal case — somebody tapped their own name
-        # on the check-in link — and prints nothing; a user id means an operator
-        # ticked the name at the board off a radio roll-call, which is a weaker
-        # claim about who is actually standing in the Magazin and says so.
-        checked_in_personnel_result = await db.execute(
-            select(Personnel, EventAttendance.checked_in_by_user_id)
-            .join(EventAttendance, Personnel.id == EventAttendance.personnel_id)
-            .where(
-                and_(
-                    EventAttendance.event_id == event_id,
-                    EventAttendance.checked_in.is_(True),
-                )
-            )
-            .order_by(Personnel.role_sort_order, Personnel.role, Personnel.name)
-        )
-        for p, checked_in_by_user_id in checked_in_personnel_result.all():
-            # Determine if this person is assigned to any active incident
-            is_assigned = False
-            for inc in incidents:
-                if inc.status in ("complete",):
-                    continue
-                for a in inc.assignments:
-                    if a.resource_type == "personnel" and a.resource_id == p.id and a.unassigned_at is None:
-                        is_assigned = True
-                        break
-                if is_assigned:
-                    break
-
-            personnel_list.append(
-                {
-                    "name": person_text(p.name, p.kennung, shared),
-                    "role": p.role,
-                    "assigned": is_assigned,
-                    # "kp" when an operator checked this person in, otherwise absent.
-                    # A field self-check-in is the normal case and carries no marker.
-                    **({"channel": "kp"} if checked_in_by_user_id else {}),
-                }
-            )
-
-    payload: dict[str, Any] = {
-        "event_id": str(event.id),
-        "event_name": event.name,
-        "training_flag": event.training_flag,
-        # When the incident list is excluded, emit an empty list so the agent
-        # prints just the personnel/vehicle overview. We still compute incidents
-        # above so personnel "assigned" status and vehicle availability are right.
-        "incidents": incidents_data if include_incidents else [],
-        "vehicle_status": vehicle_status,
-        "personnel_summary": {
-            "total": total_personnel,
-            "present": checked_in_count,
-        },
-        "personnel_list": personnel_list,
-        "include_incidents": include_incidents,
-        "include_completed": include_completed,
-        "include_vehicles": include_vehicles,
-        "include_personnel": include_personnel,
-        "printed_at": datetime.now(UTC).isoformat(),
-    }
-
-    return payload
-
-
 @router.get("/config/", response_model=schemas.PrinterConfigResponse, dependencies=[Depends(require_print_agent)])
 async def get_printer_config(
     db: AsyncSession = Depends(get_db),
@@ -458,30 +209,9 @@ async def queue_assignment_print(
 ) -> PrintJob:
     """Queue an assignment slip for printing."""
     await require_printer_configured(db)
-
-    # Build payload via the shared builder (includes Reko summary, internal notes,
-    # Nachbarhilfe, zu_fuss, and per-vehicle driver info)
-    incident = await _load_incident_for_print(db, incident_id)
-    payload = await build_assignment_payload(db, incident)
-
-    # Create print job
-    job = PrintJob(
-        job_type="assignment",
-        status="pending",
-        payload=payload,
-        incident_id=incident_id,
-        event_id=incident.event_id,
-    )
-    db.add(job)
-    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
-    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
-    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
-    await db.flush()
-    await db.refresh(job)
-    after_commit(db, print_signal.notify_job_queued)
-
-    logger.info(f"Queued assignment print job {job.id} for incident {incident_id}")
-    return job
+    if await db.get(Incident, incident_id) is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
+    return await print_crud.queue_assignment_print(db, incident_id, dedup=False)
 
 
 @router.post("/board/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
@@ -492,34 +222,19 @@ async def queue_board_print(
 ) -> PrintJob:
     """Queue a board snapshot for printing."""
     await require_printer_configured(db)
+    event = await db.get(Event, request.event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
-    # Build payload
-    payload = await _build_board_payload(
+    payload = await print_crud.build_board_payload(
         db,
-        request.event_id,
+        event,
         include_incidents=request.include_incidents,
         include_completed=request.include_completed,
         include_vehicles=request.include_vehicles,
         include_personnel=request.include_personnel,
     )
-
-    # Create print job
-    job = PrintJob(
-        job_type="board",
-        status="pending",
-        payload=payload,
-        event_id=request.event_id,
-    )
-    db.add(job)
-    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
-    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
-    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
-    await db.flush()
-    await db.refresh(job)
-    after_commit(db, print_signal.notify_job_queued)
-
-    logger.info(f"Queued board print job {job.id} for event {request.event_id}")
-    return job
+    return await print_crud.enqueue(db, "board", payload, event_id=event.id)
 
 
 @router.post("/abholliste/{event_id}/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
@@ -568,22 +283,7 @@ async def queue_abholliste_print(
         ],
     }
 
-    job = PrintJob(
-        job_type="abholliste",
-        status="pending",
-        payload=payload,
-        event_id=event_id,
-    )
-    db.add(job)
-    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
-    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
-    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
-    await db.flush()
-    await db.refresh(job)
-    after_commit(db, print_signal.notify_job_queued)
-
-    logger.info(f"Queued Abholliste print job {job.id} for event {event_id}")
-    return job
+    return await print_crud.enqueue(db, "abholliste", payload, event_id=event_id)
 
 
 @router.post("/test/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
@@ -599,21 +299,7 @@ async def queue_test_print(
         "printed_at": datetime.now(UTC).isoformat(),
     }
 
-    job = PrintJob(
-        job_type="test",
-        status="pending",
-        payload=payload,
-    )
-    db.add(job)
-    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
-    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
-    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
-    await db.flush()
-    await db.refresh(job)
-    after_commit(db, print_signal.notify_job_queued)
-
-    logger.info(f"Queued test print job {job.id} by user {current_user.username}")
-    return job
+    return await print_crud.enqueue(db, "test", payload)
 
 
 @router.post("/qr-code/", response_model=schemas.PrintJobResponse, status_code=status.HTTP_201_CREATED)
@@ -641,22 +327,7 @@ async def queue_qr_code_print(
         "printed_at": datetime.now(UTC).isoformat(),
     }
 
-    job = PrintJob(
-        job_type="qr_code",
-        status="pending",
-        payload=payload,
-        event_id=request.event_id,
-    )
-    db.add(job)
-    # Flushed, not committed: the request's commit (`commit_request`) is the one commit, so a
-    # failure before it rolls the job back with its 500 – a retry then queues one slip, not
-    # two (hunt 2026-11-24). The agent is woken after it, when the row is there to see.
-    await db.flush()
-    await db.refresh(job)
-    after_commit(db, print_signal.notify_job_queued)
-
-    logger.info(f"Queued QR-code print job {job.id} by user {current_user.username}")
-    return job
+    return await print_crud.enqueue(db, "qr_code", payload, event_id=request.event_id)
 
 
 @router.get(

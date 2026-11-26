@@ -3,7 +3,7 @@
 /**
  * The phone Lagekarte's Einsatz peek (owner pick 3A, 24.11.2026): a short sheet on the map's
  * foot for the Einsatz whose marker was tapped – priority, number and address, status, type and
- * age, the Einsatzleiter and the vehicles, the Abholung. «Alle Details» (or a tap on the peek)
+ * age, the Einsatzleiter and the vehicles (a route stop's: its Auftrag's), the Abholung. «Alle Details» (or a tap on the peek)
  * opens the full phone detail sheet.
  *
  * Not a modal: the map above stays live, so the next marker tap swaps the Einsatz in place. The
@@ -29,6 +29,7 @@ import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { LeaderGlyph } from "@/components/kanban/leader-badge"
 import { PersonName } from "@/components/person-name"
 import { AddressText } from "@/components/kanban/address-text"
+import { useGroups } from "@/lib/contexts/groups-context"
 
 interface MapIncidentPeekProps {
   operation: Operation
@@ -42,7 +43,12 @@ export function MapIncidentPeek({ operation, formatLocation, onClose, onOpenDeta
   const t = useTranslations("map.page")
   const priority = (operation.priority || "low") as Priority
   const address = formatLocation(operation.location)
-  const vehicles = operation.vehicles.map(({ name, callsign }) => vehicleLabel({ name, callsign }))
+  // A route stop's vehicles are the Auftrag's (they ride on to the next stop), not its own.
+  const { groups, getGroupResources } = useGroups()
+  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const vehicles = [...operation.vehicles, ...(auftrag ? getGroupResources(auftrag.id).vehicles : [])].map(
+    ({ name, callsign }) => vehicleLabel({ name, callsign }),
+  )
 
   return (
     <section

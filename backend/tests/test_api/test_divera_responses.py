@@ -1,8 +1,8 @@
-"""GET /api/divera/{events,incidents}/{id}/responses – the «Anrückend» block's data.
+"""GET /api/divera/events/{id}/responses – the «Anrückend» block's data.
 
 Stored snapshots in, merged summary out; the person mapping goes through the `divera`
 external identity. Absent (not an empty block) when Divera is not configured or nothing on
-the Ereignis/incident came from Divera. The access key is never echoed.
+the Ereignis came from Divera. The access key is never echoed.
 """
 
 import json
@@ -106,7 +106,7 @@ async def test_event_summary_merges_maps_and_counts(
     assert "accesskey" not in response.text
 
 
-async def test_incident_summary_and_station_override(
+async def test_the_station_override_classifies_at_poll_time(
     editor_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
 ):
     await _roster(db_session)
@@ -115,7 +115,7 @@ async def test_incident_summary_and_station_override(
     await db_session.commit()
     await _alarm(db_session, test_event, test_incident, 4711, ALARMS["data"]["items"]["4711"])
 
-    body = (await editor_client.get(f"/api/divera/incidents/{test_incident.id}/responses")).json()
+    body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
     assert body["available"] is True
     assert body["counts"] == {"coming": 5, "not_coming": 2}
 
@@ -140,12 +140,8 @@ async def test_not_configured_is_absent(editor_client: AsyncClient, test_event: 
     assert body["people"] == []
 
 
-async def test_not_divera_linked_is_absent(
-    editor_client: AsyncClient, test_event: Event, test_incident: Incident, divera_configured
-):
+async def test_not_divera_linked_is_absent(editor_client: AsyncClient, test_event: Event, divera_configured):
     body = (await editor_client.get(f"/api/divera/events/{test_event.id}/responses")).json()
-    assert (body["available"], body["reason"]) == (False, "not_linked")
-    body = (await editor_client.get(f"/api/divera/incidents/{test_incident.id}/responses")).json()
     assert (body["available"], body["reason"]) == (False, "not_linked")
 
 
@@ -264,7 +260,7 @@ async def test_attaching_an_alarm_tells_the_board(
     await db_session.commit()
     with (
         patch("app.api.divera.broadcast_incident_update", new_callable=AsyncMock),
-        patch("app.websocket_manager.broadcast_divera_responses_update", new_callable=AsyncMock) as pushed,
+        patch("app.services.alarm_attach.broadcast_divera_responses_update", new_callable=AsyncMock) as pushed,
     ):
         response = await editor_client.post(
             f"/api/divera/emergencies/{emergency.id}/attach", json={"event_id": str(test_event.id)}
@@ -276,25 +272,20 @@ async def test_attaching_an_alarm_tells_the_board(
     assert incidents == {UUID(response.json()["id"])}
 
 
-async def test_unknown_event_and_incident_are_404(editor_client: AsyncClient, divera_configured):
+async def test_unknown_event_is_404(editor_client: AsyncClient, divera_configured):
     assert (await editor_client.get(f"/api/divera/events/{uuid4()}/responses")).status_code == 404
-    assert (await editor_client.get(f"/api/divera/incidents/{uuid4()}/responses")).status_code == 404
 
 
 async def test_anonymous_is_refused(client: AsyncClient, test_event: Event, divera_configured):
     assert (await client.get(f"/api/divera/events/{test_event.id}/responses")).status_code == 401
 
 
-async def test_a_viewer_gets_403_on_both_endpoints(
+async def test_a_viewer_gets_403(
     viewer_client: AsyncClient, db_session: AsyncSession, test_event: Event, test_incident: Incident, divera_configured
 ):
     """Editors and admins only, as in KP Front: who is coming is for whoever checks people in."""
     await _roster(db_session)
     await _alarm(db_session, test_event, test_incident, 4711, ALARMS["data"]["items"]["4711"])
-    for path in (
-        f"/api/divera/events/{test_event.id}/responses",
-        f"/api/divera/incidents/{test_incident.id}/responses",
-    ):
-        response = await viewer_client.get(path)
-        assert response.status_code == 403, path
-        assert "Muster" not in response.text
+    response = await viewer_client.get(f"/api/divera/events/{test_event.id}/responses")
+    assert response.status_code == 403
+    assert "Muster" not in response.text

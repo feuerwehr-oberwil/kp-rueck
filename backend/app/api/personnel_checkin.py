@@ -70,13 +70,12 @@ async def _resolve_event_and_actor(
     return event_id, user
 
 
-@router.post("/generate-link", response_model=dict)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_checkin_link(
-    request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for check-in"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.ShareLinkResponse:
     """
     Generate check-in link with QR code (editor only).
 
@@ -86,17 +85,7 @@ async def generate_checkin_link(
     token = await share_links.issue(db, "checkin", event_id)
     if token is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
-    link = f"/check-in?token={token}"
-
-    # Get base URL from request
-    base_url = str(request.base_url).rstrip("/")
-
-    return {
-        "token": token,
-        "link": link,
-        "full_url": f"{base_url}{link}",
-        "qr_code_data": link,  # Frontend will generate QR code from this
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/check-in?token={token}")
 
 
 @router.get("/list", response_model=schemas.CheckInListResponse)
@@ -256,9 +245,6 @@ async def check_in(
         raise HTTPException(
             status_code=409, detail="Die Anwesenheit hat sich inzwischen geändert – nicht mehr rückgängig zu machen."
         ) from e
-    except ValueError as e:
-        logger.warning("Personnel check-in failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
@@ -314,22 +300,15 @@ async def check_out(
         db=db,
     )
 
-    try:
-        person = await crud.check_out_personnel(
-            db=db,
-            event_id=event_id,
-            personnel_id=personnel_id,
-            current_user=current_user,
-            request=request,
-            allow_assigned=current_user is not None,
-            refuse_bound=only_if_free,
-        )
-    except crud.PersonStillBoundError as e:
-        raise HTTPException(status_code=409, detail="Die Person ist noch zugewiesen.") from e
-    except ValueError as e:
-        # Only reachable through the field door now. It used to escape as a 500.
-        logger.warning("Personnel check-out failed: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    person = await crud.check_out_personnel(
+        db=db,
+        event_id=event_id,
+        personnel_id=personnel_id,
+        current_user=current_user,
+        request=request,
+        allow_assigned=current_user is not None,
+        refuse_bound=only_if_free,
+    )
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)
@@ -378,18 +357,14 @@ async def set_plan(
         db=db,
     )
 
-    try:
-        person = await crud.set_attendance_plan(
-            db=db,
-            event_id=event_id,
-            personnel_id=personnel_id,
-            plan=plan,
-            current_user=current_user,
-            request=request,
-        )
-    except ValueError as e:
-        logger.warning("Attendance plan refused: %s", e)
-        raise HTTPException(status_code=400, detail=ErrorMessages.INVALID_REQUEST) from e
+    person = await crud.set_attendance_plan(
+        db=db,
+        event_id=event_id,
+        personnel_id=personnel_id,
+        plan=plan,
+        current_user=current_user,
+        request=request,
+    )
 
     if not person:
         raise HTTPException(status_code=404, detail=ErrorMessages.PERSONNEL_NOT_FOUND)

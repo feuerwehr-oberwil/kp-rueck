@@ -75,7 +75,6 @@ async def test_generate_link_success(editor_client: AsyncClient, test_event: Eve
     data = response.json()
     assert "token" in data
     assert "link" in data
-    assert "full_url" in data
     assert "qr_code_data" in data
 
 

@@ -373,12 +373,6 @@ class RegieStepRequest(BaseModel):
     pickup_needed: bool | None = None
 
 
-class SimulateDiveraRequest(BaseModel):
-    """Schema for injecting a simulated Divera alarm into the pool."""
-
-    category: str | None = None  # 'normal', 'critical', or None for weighted random
-
-
 class SimulateInjectResponse(BaseModel):
     """Generic result of a trainer inject (reinforcement request etc.)."""
 
@@ -390,20 +384,6 @@ class SimulateVehicleBreakdownResponse(BaseModel):
 
     vehicle_name: str
     message: str
-
-
-class SimulateFieldCompleteRequest(BaseModel):
-    """The follow-up "Einsatz beendet" asks in the field (decision 24).
-
-    ``pickup_needed=None`` is the default and means *die Lage entscheidet*: the
-    simulator rolls it from the situation — a crew that walked there or whose
-    vehicle drove on is usually stranded. The Übungsleiter can always override
-    by sending the answer explicitly, which is the same choice the crew has on
-    `/feld`.
-    """
-
-    pickup_needed: bool | None = None
-    pickup_note: str | None = None
 
 
 class SimulatePickupRequest(BaseModel):

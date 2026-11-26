@@ -10,6 +10,7 @@ endpoint is unreachable would be a strictly worse bug than the one being fixed.
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.background import heartbeat
 
@@ -44,26 +45,16 @@ async def test_a_dead_monitor_never_raises():
         assert await heartbeat.ping() is False  # swallowed, not raised
 
 
-def test_scheduler_not_started_without_a_url():
+def test_no_job_without_a_url():
     """No URL → no job, rather than a job that pings nothing every 60 s forever."""
-    heartbeat.stop_heartbeat_scheduler()
+    scheduler = AsyncIOScheduler()
     with patch.object(heartbeat.settings, "healthcheck_ping_url", ""):
-        heartbeat.start_heartbeat_scheduler()
-    assert heartbeat.scheduler is None
+        heartbeat.schedule(scheduler)
+    assert scheduler.get_jobs() == []
 
 
-@pytest.mark.asyncio
-async def test_scheduler_starts_and_stops_when_configured():
-    # async: AsyncIOScheduler.start() binds to the running loop and raises without one —
-    # which is also why lifespan starts it inside the app's loop rather than at import.
-    heartbeat.stop_heartbeat_scheduler()
+def test_a_url_schedules_the_ping():
+    scheduler = AsyncIOScheduler()
     with patch.object(heartbeat.settings, "healthcheck_ping_url", "https://hc-ping.com/x"):
-        heartbeat.start_heartbeat_scheduler()
-        assert heartbeat.scheduler is not None
-        assert heartbeat.scheduler.get_job("heartbeat") is not None
-        # idempotent: a second start must not stack a second job or a second scheduler
-        first = heartbeat.scheduler
-        heartbeat.start_heartbeat_scheduler()
-        assert heartbeat.scheduler is first
-    heartbeat.stop_heartbeat_scheduler()
-    assert heartbeat.scheduler is None
+        heartbeat.schedule(scheduler)
+    assert [job.id for job in scheduler.get_jobs()] == ["heartbeat"]

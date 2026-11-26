@@ -31,7 +31,7 @@ export function useStationCapabilities(): StationCapabilities {
   const { settings } = useOperations()
   const [printerEnabled, setPrinterEnabled] = useState(false)
   const [diveraConfigured, setDiveraConfigured] = useState(false)
-  const diveraSwitchedOn = settings["divera.alarm_enabled"] === "true"
+  const diveraSwitchedOn = settings["alerting.enabled"] === "true"
 
   useEffect(() => {
     if (!isAuthenticated) return

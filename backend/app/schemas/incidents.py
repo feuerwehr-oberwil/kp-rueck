@@ -616,3 +616,49 @@ class IncidentParticipantsResponse(BaseModel):
     """Everyone and everything that was on an incident, longest-serving first."""
 
     participants: list[IncidentParticipant]
+
+
+class SyncVersion(BaseModel):
+    """`GET /api/incidents/sync-version`: a fingerprint of the board; a change means «reload»."""
+
+    version: str
+
+
+class IntakeEventContext(BaseModel):
+    """The Ereignis the public intake form names in its header."""
+
+    id: UUID
+    name: str
+    training_flag: bool
+
+
+class IntakeContext(BaseModel):
+    """`GET /api/intake/context`: just enough to say «Alarm erfassen – {name}»."""
+
+    event: IntakeEventContext
+
+
+class IntakeAlarmCreated(BaseModel):
+    """`POST /api/intake/alarm`: the new card and the receipt that lets THIS caller read it back.
+
+    ``receipt_token`` is handed out once, at the only moment the server can be sure who
+    reported it – there is no login to ask later.
+    """
+
+    id: UUID
+    receipt_token: str
+
+
+class IntakeReceiptState(BaseModel):
+    """What the receipt may know: the status, whether it may still be fixed, the vehicles on it.
+
+    Deliberately no content: the reporter's words are on their own screen already, and
+    echoing the columns back would echo whatever an operator has since typed into them.
+    """
+
+    id: UUID
+    status: IncidentStatus
+    # The server's own answer (`report_is_editable` and the window), so the page never
+    # has to know the status vocabulary.
+    editable: bool
+    vehicles: list[str]

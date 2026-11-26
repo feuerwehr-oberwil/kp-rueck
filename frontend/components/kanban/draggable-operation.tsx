@@ -474,6 +474,8 @@ function DraggableOperationBase({
             style={{ opacity: isDragging ? 0.5 : 1 }}
             data-testid="incident-card"
             data-incident-id={operation.id}
+            // what the Aufträge sheet lets through its backdrop, to be dragged onto an Auftrag
+            data-board-card=""
             className={cn(
               // Hover is deliberately faint (/20): selection is expressed by the
               // frame below, so the background is left to say one thing only —

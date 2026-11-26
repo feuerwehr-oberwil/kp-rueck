@@ -129,7 +129,6 @@ export function LocationInput({
   const [coordinateWarning, setCoordinateWarning] = useState<RegionWarning | null>(null)
   const [parseSuccess, setParseSuccess] = useState<string | null>(null)
   const [stationCenter, setStationCenter] = useState<[number, number] | null>(null)
-  const [countryCodes, setCountryCodes] = useState<string | null>(null)
   const phoneOrTouch = useMediaQuery(PHONE_OR_TOUCH_QUERY, false)
   // The media query answers false on the server and while hydrating, so this never mismatches.
   const canLocate = locateHere && phoneOrTouch && typeof navigator !== "undefined" && !!navigator.geolocation
@@ -165,9 +164,6 @@ export function LocationInput({
         const lon = parseFloat(settings['firestation_longitude'] ?? '')
         if (Number.isFinite(lat) && Number.isFinite(lon)) {
           setStationCenter([lon, lat])
-        }
-        if (settings['geocoder_country_codes']) {
-          setCountryCodes(settings['geocoder_country_codes'])
         }
       } catch (error) {
         console.error('Failed to fetch station location settings:', error)
@@ -256,7 +252,6 @@ export function LocationInput({
       // Pass the station's coordinates to prioritize results near it
       const results = await searchAddress(addressSearchQuery, {
         stationCenter: stationCenter || undefined,
-        countryCodes: countryCodes || undefined,
         signal: controller.signal,
       })
       if (controller.signal.aborted) return
@@ -271,7 +266,7 @@ export function LocationInput({
         clearTimeout(searchTimeoutRef.current)
       }
     }
-  }, [addressSearchQuery, stationCenter, countryCodes, editing, disabled])
+  }, [addressSearchQuery, stationCenter, editing, disabled])
 
   // Geocode address when it changes (if no coordinates set yet)
   useEffect(() => {
@@ -284,7 +279,6 @@ export function LocationInput({
       const controller = new AbortController()
       geocodeAddress(current.address, {
         stationCenter: stationCenter || undefined,
-        countryCodes: countryCodes || undefined,
         signal: controller.signal,
       }).then((coords) => {
         const latest = geocodeInputsRef.current
@@ -295,7 +289,7 @@ export function LocationInput({
       })
       return () => controller.abort()
     }
-  }, [address, latitude, longitude, disabled, geocodeInitialAddress, stationCenter, countryCodes])
+  }, [address, latitude, longitude, disabled, geocodeInitialAddress, stationCenter])
 
   const handleAddressSelect = (result: SearchResult) => {
     onAddressChange(result.formattedAddress)

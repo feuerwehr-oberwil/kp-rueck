@@ -1561,6 +1561,7 @@
       "crew": "Mannschaft",
       "vehicles": "Fahrzeuge",
       "reko": "Reko",
+      "auftrag": "Auftrag",
       "openDetail": "Details anzeigen: {incident}"
     },
     "mobileDetail": {
@@ -3748,7 +3749,33 @@
       "incident_not_merged": "Diese Meldung ist nicht zusammengeführt.",
       "checkin_guest_ask_kp": "Diesen Namen kann die Liste nicht zuordnen. Bitte beim KP melden.",
       "resource_busy": "Schon im Einsatz: {holders}. Dort freigeben oder «Danach» vormerken.",
-      "plan_refused": "Hier nicht vormerkbar: schon dort, Einsatz abgeschlossen oder Verbrauchsmaterial."
+      "plan_refused": "Hier nicht vormerkbar: schon dort, Einsatz abgeschlossen oder Verbrauchsmaterial.",
+      "standby_read_only": "Dieses System ist ein Spiegel von KP Rück Online – hier wird nur angesehen. Erst ein offline übernommenes Ereignis kann hier bearbeitet werden.",
+      "resource_archived": "«{name}» ist archiviert und kann nicht zugewiesen werden.",
+      "resource_out_of_service": "«{name}» ist nicht einsatzbereit und kann nicht zugewiesen werden.",
+      "event_archived": "Das Ereignis ist archiviert – es kann nichts mehr zugewiesen werden.",
+      "person_guest_elsewhere": "«{name}» ist Gast eines anderen Ereignisses.",
+      "incident_closed": "Der Einsatz ist abgeschlossen – es kann nichts mehr zugewiesen werden.",
+      "auftrag_closed": "Alle Stopps des Auftrags sind abgeschlossen – es kann nichts mehr zugewiesen werden.",
+      "assignment_released": "Diese Zuweisung wurde bereits freigegeben.",
+      "leader_not_personnel": "Nur Personal kann als Einsatzleiter markiert werden",
+      "driver_stay_not_vehicle": "Nur ein Fahrzeug hat einen Fahrer, der vor Ort bleibt",
+      "resource_not_found": "Ressource nicht gefunden",
+      "resource_type_mismatch": "Ressource passt nicht zum Ressourcentyp",
+      "transfer_changed": "Nicht mehr rückgängig machbar – inzwischen geändert.",
+      "transfer_source_closed": "Der Einsatz ist abgeschlossen – seine Ressourcen werden nicht übertragen.",
+      "transfer_already_stop": "Der Einsatz ist bereits Stopp eines Auftrags.",
+      "transfer_auftrag_closed": "Alle Stopps des Auftrags sind abgeschlossen – Übertragen nicht möglich.",
+      "transfer_nothing": "Der Einsatz hat keine aktiven Ressourcen zum Übertragen.",
+      "transfer_conflict": "Übertragen nicht möglich – im Ziel-Einsatz bereits zugewiesen: {names}",
+      "incident_other_event": "Einsatz gehört zu einem anderen Ereignis",
+      "driver_needs_vehicle": "Ein Fahrer braucht ein Fahrzeug.",
+      "function_unknown": "Unbekannte Funktion: {function}",
+      "vehicle_has_driver": "Dieses Fahrzeug hat bereits einen Fahrer.",
+      "person_unavailable": "Diese Person ist als nicht verfügbar gemeldet.",
+      "person_still_assigned": "Die Person ist noch zugewiesen.",
+      "incident_not_on_board": "Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt).",
+      "event_not_archived": "Das Ereignis muss vor dem Löschen archiviert werden."
     }
   },
   "training": {

@@ -145,9 +145,10 @@ change. Read the section you touch. The visual rules and their reasons are
   - The in-app help is a separate per-language Markdown file
     (`frontend/public/content/help/index.md`, `index.fr.md`), not part of the catalogues.
   - Backend output (API error details, PDFs, exports, thermal print) is German-only for now. The
-    exceptions are notifications (`type` + `params`, see «Notification text») and the `/feld`
-    errors. The `/feld` errors carry a stable `code` that the client says per locale (`errors.codes.*`,
-    `backend/app/utils/error_codes.py`). Raise `CodedHTTPException` and keep the German `detail`.
+    exceptions are notifications (`type` + `params`, see «Notification text») and coded errors:
+    the `/feld` errors and the refusals an operator sees on the board. They carry a stable `code`
+    that the client says per locale (`errors.codes.*`, `backend/app/utils/error_codes.py`). Raise
+    `DomainError` (CRUD) or `CodedHTTPException` (a route) and keep the German `detail`.
   - Message text that the frontend builds for the CREW – WhatsApp (`lib/whatsapp-formatter.ts`),
     Divera (`lib/divera-formatter.ts`, the Divera send/message dialogs) – is German by design,
     whatever the device's language: it lands in the crew's group.

@@ -1,5 +1,5 @@
 {
-  "notice": "Questa versione italiana non è ancora stata riletta da una persona italofona dei pompieri, e la demo è in tedesco. Un termine che suona male? <a href=\"#kontakt\">Scrivetecelo</a> e lo correggiamo.",
+  "notice": "Questa versione italiana non è ancora stata riletta da un pompiere italofono, e la demo è in tedesco. Un termine che suona male? <a href=\"#kontakt\">Scrivetecelo</a> e lo correggiamo.",
   "meta": {
     "title": "KP Rück – il tavolo operativo per il posto di comando",
     "description": "KP Rück è la lavagna magnetica digitale del posto di comando arretrato: interventi, personale, veicoli e materiale – in tempo reale, open source.",
@@ -63,23 +63,24 @@
     "note": "Nato dall’attività operativa reale dei <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pompieri di Oberwil BL</a> – lì collaudato e sviluppato di continuo."
   },
   "tenet": {
+    "h2": "Tre livelli di ridondanza.",
     "eyebrow": "Il metro",
     "quote": "«Quando la rete non c’è più, comanda la <em>carta</em>»",
     "expl": "Un tavolo che si spegne durante un blackout non è uno strumento di condotta. Per questo la ridondanza è integrata su più livelli – <strong>ogni livello funziona senza quello sopra</strong>.",
     "stages": [
       {
         "n": "Livello 1",
-        "h3": "Più dispositivi allo stesso stato",
+        "h3": "Più dispositivi sempre sincronizzati",
         "p": "Tablet, proiezioni a muro e telefoni sono collegati in tempo reale allo stesso tavolo. Se un dispositivo si guasta o si blocca, un altro prosegue – non c’è nulla da recuperare e nulla da riportare."
       },
       {
         "n": "Livello 2",
-        "h3": "Un box di riserva in rimessa",
+        "h3": "Un mini PC di riserva in caserma",
         "p": "Un mini PC in rimessa rispecchia il board di continuo. Se cade Internet, subentra lui: il board continua nella rete locale, con la mappa dal vostro server di mappe e la stampante nella rete locale. Quando la rete torna, quanto gestito lì viene di nuovo sincronizzato."
       },
       {
         "n": "Livello 3",
-        "h3": "Comanda la carta",
+        "h3": "Il cartaceo prende il comando",
         "p": "Lo stato del tavolo viene stampato ogni pochi minuti sulla stampante termica e il foglio della situazione con la semplice pressione di un pulsante. Se tutto si ferma, l’ultimo foglio diventa il tavolo. Alla ripartenza <strong>una</strong> sola persona riporta nell’app quanto è stato fatto a mano."
       }
     ]
@@ -103,7 +104,7 @@
         "p": "Dal modulo di segnalazione, per telefono o tramite l’interfaccia aperta del sistema di allertamento (per esempio Divera o FireHub). L’ufficiale di picchetto la prende in carico con un clic – la segnalazione diventa un intervento sul tavolo.",
         "li": [
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona, senza account",
-          "Se qualcuno segnala una seconda volta lo stesso luogo d’intervento, il tavolo lo chiede",
+          "Se qualcuno segnala una seconda volta la stessa piazza sinistrata, il tavolo chiede conferma",
           "Interfaccia aperta – qualsiasi sistema di disposizione può aprire interventi"
         ],
         "alt": "Modulo di segnalazione sul telefono: luogo, segnalazione e dati di chi chiama"
@@ -114,7 +115,7 @@
         "p": "Tutti gli interventi su una mappa, con i veicoli e, se volete, la loro posizione GPS. Quando un veicolo arriva sul posto, il tavolo propone da sé il cambio di stato.",
         "li": [
           "Tutti gli interventi per priorità e stato su una mappa",
-          "Assegnazioni come linea – quale veicolo appartiene a quale intervento",
+          "Assegnazioni come linea – quale veicolo è assegnato a quale intervento",
           "Radar delle precipitazioni e allerte ufficiali (MeteoSvizzera, Alertswiss)"
         ],
         "alt": "Carta della situazione: interventi per priorità, con i veicoli e le loro assegnazioni"
@@ -122,7 +123,7 @@
       {
         "was": "Gruppo WhatsApp e messaggio radio",
         "h2": "La squadra riferisce dal telefono.",
-        "p": "Ogni squadra vede i propri luoghi d’intervento: arrivo, recupero, fine dell’intervento – senza radio. La ricognizione compila il suo modulo con foto dal proprio telefono; la segnalazione resta agganciata all’intervento giusto invece di perdersi nella chat di gruppo.",
+        "p": "Ogni squadra vede le proprie piazze sinistrate: arrivo, recupero, fine dell’intervento – senza radio. La squadra di ricognizione compila il proprio modulo con foto dal proprio telefono; la segnalazione resta agganciata all’intervento giusto invece di perdersi nella chat di gruppo.",
         "li": [
           "Vista sul campo senza account, con link e codice",
           "Le richieste – materiale, rinforzi, recupero – restano aperte finché il posto di comando non le ha evase",
@@ -133,7 +134,7 @@
       {
         "was": "Rapporto il fine settimana dopo",
         "h2": "Il rapporto si scrive da sé.",
-        "p": "Il diario d’intervento e i tempi di reazione nascono strada facendo e diventano un PDF. Si corregge con nuove voci, non con la gomma – così la notte resta documentata.",
+        "p": "Il diario d’intervento e i tempi di reazione vengono generati durante l’intervento e diventano un PDF. Si corregge con nuove voci, non con la gomma – così la notte resta documentata.",
         "li": [
           "Il diario registra da sé cambi di stato, assegnazioni e segnalazioni",
           "Rapporto d’intervento in PDF con i tempi di reazione",
@@ -161,8 +162,8 @@
       },
       {
         "h3": "In hosting",
-        "tag": "Nessuno deve badare a una macchina",
-        "p": "Presso un fornitore di hosting a vostra scelta. Un box di riserva in rimessa può coprire la caduta della rete."
+        "tag": "Nessuna macchina da gestire",
+        "p": "Presso un fornitore di hosting a vostra scelta. Un mini PC di riserva in caserma può coprire la caduta della rete."
       }
     ],
     "note": "Un supporto per installazione e gestione è possibile su accordo – <a href=\"#kontakt\">contatto</a>."
@@ -197,11 +198,11 @@
           "Può riprendere gli allarmi da Divera o FireHub <span class=\"opt\">facoltativo</span>",
           "Modulo di segnalazione via link o QR per il telefono e per chi si presenta di persona",
           "Le segnalazioni in entrata confluiscono in un elenco e vengono prese in carico con un clic",
-          "Le segnalazioni doppie per lo stesso luogo d’intervento vengono riconosciute; due interventi si possono unire – con personale, ricognizione e rapporto – e separare di nuovo",
+          "Le segnalazioni doppie per la stessa piazza sinistrata vengono riconosciute; due interventi si possono unire – con personale, ricognizione e rapporto – e separare di nuovo",
           "Allertamento del personale direttamente dal tavolo <span class=\"opt\">facoltativo</span>",
-          "In arrivo: chi ha risposto sì all’allarme Divera compare nell’appello – check-in con un clic <span class=\"opt\">facoltativo</span>",
+          "In arrivo: chi ha accettato l’allarme Divera compare nell’appello – check-in con un clic <span class=\"opt\">facoltativo</span>",
           "Segnalazioni di ricognizione con foto, direttamente dal telefono della ricognizione",
-          "Vista sul campo per le squadre: visualizzare i propri luoghi d’intervento, segnalare l’arrivo e la fine dell’intervento, richiedere il recupero e trasmettere al posto di comando segnalazioni e rapporti con foto",
+          "Vista sul campo per le squadre: visualizzare le proprie piazze sinistrate, segnalare l’arrivo e la fine dell’intervento, richiedere il recupero e trasmettere al posto di comando segnalazioni e rapporti con foto",
           "Le richieste dal campo – materiale, rinforzi, recupero – restano aperte sull’intervento finché il posto di comando non le ha evase; la squadra ne vede lo stato sul telefono"
         ]
       },
@@ -212,7 +213,7 @@
           "Tutti gli interventi per priorità e stato su una mappa",
           "Posizione dei veicoli via GPS <span class=\"opt\">facoltativo</span>",
           "Proposta di stato non appena un veicolo arriva sul posto",
-          "Assegnazioni come linea – quale veicolo appartiene a quale intervento",
+          "Assegnazioni come linea – quale veicolo è assegnato a quale intervento",
           "Radar delle precipitazioni dell’ultima ora e allerte ufficiali (MeteoSvizzera, Alertswiss) sulla mappa <span class=\"opt\">facoltativo</span>",
           "Riquadri di mappa anche dal vostro server in rimessa"
         ]
@@ -224,7 +225,7 @@
           "<strong>Rapporto d’intervento in PDF</strong> con diario d’intervento e tempi di reazione – si forma durante l’intervento ed è già in gran parte preparato al rientro in caserma",
           "Diario d’intervento sul tavolo: registra da sé cambi di stato, assegnazioni e segnalazioni, le proprie voci con ⇧J – integrato, mai sovrascritto",
           "Indicatori già durante l’evento: segnalazioni aperte per priorità e tempi di reazione – nelle esercitazioni come valutazione dell’esercitazione",
-          "Elenco delle attività aperte: rapporti ancora aperti, recuperi in sospeso e materiale ancora presente sul luogo d’intervento restano visibili fino alla chiusura",
+          "Elenco delle attività aperte: rapporti ancora aperti, recuperi in sospeso e materiale ancora presente sulla piazza sinistrata restano visibili fino alla chiusura",
           "<strong>Area amministrativa propria</strong> per ogni corpo: personale, parco veicoli, elenchi del materiale, tipi d’intervento e priorità",
           "Importazione ed esportazione in Excel",
           "Stampa termica in rimessa tramite un agente di stampa proprio <span class=\"opt\">facoltativo</span>",
@@ -261,7 +262,7 @@
       },
       {
         "q": "Che cosa serve per farlo girare?",
-        "a": "Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti e i backup serve qualcuno con esperienza nell’uso di Docker e della riga di comando, che si trovi nel corpo, in Comune o presso un supporto informatico esterno. La guida e l’area amministrativa accompagnano la configurazione. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
+        "a": "Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti e i backup serve qualcuno con esperienza nell’uso di Docker e della riga di comando, che si trovi nel corpo, in Comune o presso un fornitore IT esterno. La guida e l’area amministrativa accompagnano la configurazione. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
       },
       {
         "q": "È disponibile assistenza per l’installazione e la gestione?",
@@ -273,11 +274,11 @@
       },
       {
         "q": "KP Rück ha per forza bisogno di KP Front?",
-        "a": "No. KP Rück funziona in modo del tutto autonomo – con banca dati, login e aggiornamenti propri. Dà il meglio di sé insieme a <a href=\"https://kp-front.ch/it/\">KP Front</a>, l’applicazione per il fronte sul luogo d’intervento: entrambe ricevono gli stessi allarmi dal sistema di disposizione, leggono lo stesso elenco del personale e classificano gli allarmi secondo la stessa lista di parole chiave, a scelta con lo stesso accesso Divera. Così fronte e retrovie lavorano con gli stessi dati di partenza, senza dover gestire due volte il collegamento d’allarme e il personale."
+        "a": "No. KP Rück funziona in modo del tutto autonomo – con banca dati, login e aggiornamenti propri. Dà il meglio di sé insieme a <a href=\"https://kp-front.ch/it/\">KP Front</a>, l’applicazione per il fronte sul luogo d’intervento: entrambe ricevono gli stessi allarmi dal sistema di disposizione, leggono lo stesso elenco del personale e classificano gli allarmi secondo la stessa lista di parole chiave, a scelta con lo stesso accesso Divera. In questo modo KP Front e KP Rück lavorano con gli stessi dati di partenza, senza dover gestire due volte il collegamento d’allarme e il personale."
       },
       {
         "q": "A che cosa serve la stampante locale della caserma in KP Rück?",
-        "a": "La stampante della caserma mette su carta l’essenziale, direttamente in rimessa o al posto di comando. KP Rück stampa le schede d’intervento per squadre e conducenti a scelta automaticamente, non appena un intervento parte per la prima volta, oppure in qualsiasi momento a mano; la panoramica della situazione con interventi, stato dei veicoli e personale e la lista di ritiro del materiale ancora sui luoghi d’intervento, con un clic. Come soluzione di riserva, lo stato del tavolo può inoltre essere stampato regolarmente. Si collega una comune stampante termica da 80 mm (ESC/POS) nella rete locale – funziona per qualsiasi corpo pompieri, non solo in Svizzera."
+        "a": "La stampante della caserma mette su carta l’essenziale, direttamente in rimessa o al posto di comando. KP Rück stampa le schede d’intervento per squadre e conducenti a scelta automaticamente, non appena un intervento parte per la prima volta, oppure in qualsiasi momento a mano; la panoramica della situazione con interventi, stato dei veicoli e personale e la lista di ritiro del materiale ancora sulle piazze sinistrate, con un clic. Come soluzione di riserva, lo stato del tavolo può inoltre essere stampato regolarmente. Si collega una comune stampante termica da 80 mm (ESC/POS) nella rete locale – funziona per qualsiasi corpo pompieri, non solo in Svizzera."
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",

@@ -26,7 +26,7 @@ import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
 import { PageNavigation } from "@/components/page-navigation"
 import { toast } from "sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Material, type OperationStatus, type RekoSummary } from "@/lib/contexts/operations-context"
+import { useOperations, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
@@ -36,7 +36,6 @@ import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
 import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { useRekoNotifications, withRekoSummary } from "@/lib/hooks/use-reko-notifications"
 import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useNotifications } from "@/lib/contexts/notification-context"
@@ -362,11 +361,6 @@ export default function FireStationDashboard() {
     }, 100)
   }, [])
 
-  // A new or amended Reko summary – the summary only (`withRekoSummary`).
-  const handleUpdateOperationReko = useCallback((incidentId: string, rekoSummary: RekoSummary) => {
-    setOperations(prev => withRekoSummary(prev, incidentId, rekoSummary))
-  }, [setOperations])
-
   // The header clock ticks inside <EventClock/> now; this is only the mount flag
   // the rest of the board hangs SSR-sensitive rendering off.
   const { isMounted } = useCurrentTime()
@@ -486,7 +480,6 @@ export default function FireStationDashboard() {
     ),
   )
 
-  useRekoNotifications(handleOpenIncidentFromNotification, handleUpdateOperationReko)
   const vehicleTypes = useVehicleShortcuts()
   // Single state for footer sheets - only one can be open at a time
   // `'print'` is the one print/export sheet: thermal slip, A4 status print and

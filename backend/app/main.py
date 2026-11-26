@@ -3,9 +3,9 @@
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any
 
 import socketio
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -67,24 +67,7 @@ from .api.viewer import router as viewer_router
 from .api.weather import router as weather_router
 from .auth.config import auth_settings
 from .auth.local_autologin import verify_account_on_boot as verify_local_autologin_account
-from .auth.login_throttle import login_throttle
-from .auth.token_blocklist import token_blocklist
-from .background import (
-    start_audit_cleanup_scheduler,
-    start_demo_reset_scheduler,
-    start_divera_retention_scheduler,
-    start_heartbeat_scheduler,
-    start_roster_snapshot_scheduler,
-    start_telemetry_scheduler,
-    start_weather_scheduler,
-    stop_audit_cleanup_scheduler,
-    stop_demo_reset_scheduler,
-    stop_divera_retention_scheduler,
-    stop_heartbeat_scheduler,
-    stop_roster_snapshot_scheduler,
-    stop_telemetry_scheduler,
-    stop_weather_scheduler,
-)
+from .background.jobs import lifespan_jobs, start_jobs, stop_jobs
 from .config import settings
 from .database import async_session_maker, commit_request, engine
 from .ensure_accounts import ensure_dev_bypass_user
@@ -95,12 +78,10 @@ from .middleware.rate_limit import limiter, rate_limit_exceeded_handler
 from .middleware.request_id import RequestIDMiddleware, get_request_id, request_id_var
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .middleware.standby_readonly import StandbyReadOnlyMiddleware
-from .seed import seed_database
 from .services.alerting import AlarmBlockedError
 from .services.journal_backfill import backfill_on_boot
 from .services.settings import initialize_default_settings
-from .utils.error_codes import CodedHTTPException, coded_http_exception_handler
-from .websocket_manager import set_divera_poll_callback, ws_manager
+from .utils.error_codes import CodedHTTPException, DomainError, coded_error_handler
 from .websocket_manager import sio as socket_server
 
 # Read the deployment role once, here, at import – the same place and the same moment a missing
@@ -108,81 +89,6 @@ from .websocket_manager import sio as socket_server
 # and the process never starts, so no request can ever be served by an instance whose idea of
 # what it may do to the outside world is a guess. Unset is fine and silent: that is production.
 deployment_role()
-
-
-async def _setup_divera_polling():
-    """
-    Set up the Divera polling callback.
-
-    This callback is called for each alarm fetched via polling.
-    It checks for duplicates and saves new alarms to the database.
-    """
-    from . import schemas
-    from .crud import divera as divera_crud
-    from .services import divera_responses
-    from .services.divera_intake import broadcast_emergency_received, try_auto_attach
-    from .services.divera_poller import divera_poller
-    from .websocket_manager import broadcast_divera_responses_update
-
-    async def on_polled_alarm(payload: schemas.DiveraWebhookPayload) -> bool:
-        """
-        Process a polled alarm from Divera.
-
-        Returns True if the alarm was new, False if duplicate.
-        """
-        async with async_session_maker() as db:
-            try:
-                # Check for duplicate
-                existing = await divera_crud.get_divera_emergency_by_divera_id(db, payload.id)
-                if existing:
-                    return False  # Duplicate, skip
-
-                # Create new emergency
-                emergency = await divera_crud.create_divera_emergency(db, payload)
-
-                logger.info(
-                    f"Divera poll: new emergency ID {emergency.id}, "
-                    f"Divera ID {emergency.divera_id}, Title: {emergency.title}"
-                )
-
-                # Auto-attach to the newest active event with the flag on, then
-                # broadcast (pool toast + board update) – same as the webhook path.
-                incident = await try_auto_attach(db, emergency)
-                await db.commit()  # the boards refetch on the broadcast below
-                await broadcast_emergency_received(
-                    schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
-                    schemas.IncidentResponse.model_validate(incident).model_dump(mode="json") if incident else None,
-                    source="poll",  # Indicate this came from polling, not webhook
-                )
-
-                return True  # New alarm processed
-
-            except Exception:
-                # With the traceback: an alarm that failed here is one the board never showed.
-                logger.exception("Error processing polled alarm %s", payload.id)
-                return False
-
-    async def on_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
-        """Store the Rückmeldungen of the polled alarms; tell the boards when they changed."""
-        async with async_session_maker() as db:
-            event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
-            await divera_responses.purge_expired(db)
-            await db.commit()
-        if event_ids or incident_ids:
-            await broadcast_divera_responses_update(event_ids, incident_ids)
-
-    # Set the callback
-    set_divera_poll_callback(on_polled_alarm)
-    divera_poller.responses_sink = on_polled_responses
-
-    # Log configuration status
-    if settings.divera_access_key:
-        logger.info(
-            f"Divera polling configured (interval: {settings.divera_poll_interval_seconds}s, "
-            f"will start when users connect)"
-        )
-    else:
-        logger.info("Divera polling disabled (no DIVERA_ACCESS_KEY configured)")
 
 
 @asynccontextmanager
@@ -197,9 +103,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("Deployment role %r blocks: %s", deployment_role(), ", ".join(blocked))
     else:
         logger.info("Deployment role: %s", deployment_role())
-    # A standby box mirrors the hosted board (app/standby.py): every job that would WRITE into
-    # the mirrored tables stays off – the hosted board runs them, and their results arrive here.
-    # A local write there would be overwritten, or stop the replication with a duplicate key.
+    # A standby box mirrors the hosted board (app/standby.py): nothing here may WRITE into the
+    # mirrored tables – the boot steps below check it, the jobs carry it per row (background/jobs.py).
     standby = deployment_role() == ROLE_STANDBY
 
     # Schema is managed by Alembic ONLY (start.sh / start-dev.sh run
@@ -238,144 +143,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception as e:
                 logger.warning(f"Could not ensure dev bypass user: {e}")
 
-    # Seed database if requested
-    if os.getenv("SEED_DATABASE", "").lower() == "true":
-        logger.info("Seeding database...")
-        try:
-            await seed_database()
-        except Exception as e:
-            logger.warning(f"Database seeding failed: {e}")
-
     # Passwordless local login: a misconfigured LOCAL_AUTOLOGIN_USER stops the boot. No
     # try/except on purpose – the three ways to get it wrong (no such account, a deactivated
     # one, or an admin) are all things the operator has to see now, in the terminal they just
     # started the stack from, rather than discover as a login form the station shortcut never
-    # gets past. After the seed, which is what decides whether the account exists at all.
+    # gets past. After start.sh's seed, which is what decides whether the account exists at all.
     async with async_session_maker() as db:
         await verify_local_autologin_account(db)
 
     # An unclaimed, internet-facing board prints its Einrichtungscode now – the operator reads
-    # the boot log right after starting the stack (auth/setup_token.py). After the seed, which
-    # is what decides whether any account exists. A failure here must not stop the boot: the
+    # the boot log right after starting the stack (auth/setup_token.py). After start.sh's seed,
+    # which is what decides whether any account exists. A failure here must not stop the boot: the
     # code is then created and printed on the first claim attempt instead.
     async with async_session_maker() as db:
         try:
             await announce_setup_token_if_unclaimed(db)
         except Exception as e:
             logger.warning(f"Could not check for an unclaimed board: {e}")
-
-    # Start the telemetry flush loop. Always registered, and a genuine no-op unless an
-    # admin has opted in – see app/telemetry/. Registering it unconditionally means turning
-    # consent on does not require a restart.
-    logger.info("Starting telemetry flush scheduler...")
-    try:
-        start_telemetry_scheduler()
-    except Exception as e:
-        logger.warning(f"Telemetry scheduler failed to start: {e}")
-
-    # Dead-man's switch. A no-op unless HEALTHCHECK_PING_URL is set, and its failure must
-    # never keep the app from starting – a station whose board refuses to boot because a
-    # monitoring endpoint is unreachable is a worse outcome than an unmonitored board.
-    try:
-        start_heartbeat_scheduler()
-    except Exception as e:
-        logger.warning(f"Heartbeat scheduler failed to start: {e}")
-
-    # Divera Rückmeldungen are personal data: deleted 48 h after the alarm (hourly sweep).
-    try:
-        if not standby:
-            start_divera_retention_scheduler()
-    except Exception as e:
-        logger.warning(f"Divera retention scheduler failed to start: {e}")
-
-    # Weather layer (radar + official warnings for the map). A no-op with WEATHER_ENABLED=false;
-    # like the heartbeat, a failure here must never keep the board from starting.
-    try:
-        start_weather_scheduler()
-    except Exception as e:
-        logger.warning(f"Weather scheduler failed to start: {e}")
-
-    # Roster snapshot poll. A no-op unless ROSTER_SNAPSHOT_SOURCE is set; a feed that is down
-    # is recorded in its status row and never keeps the board from starting.
-    try:
-        if not standby:
-            start_roster_snapshot_scheduler()
-    except Exception as e:
-        logger.warning(f"Roster snapshot scheduler failed to start: {e}")
-
-    # Start WebSocket stale session cleanup
-    logger.info("Starting WebSocket stale session cleanup...")
-    try:
-        await ws_manager.start_cleanup_task()
-    except Exception as e:
-        logger.warning(f"WebSocket cleanup task failed to start: {e}")
-
-    # Configure Divera polling callback
-    logger.info("Configuring Divera polling...")
-    try:
-        if not standby:
-            await _setup_divera_polling()
-    except Exception as e:
-        logger.warning(f"Divera polling setup failed: {e}")
-
-    # Start token blocklist cleanup task
-    logger.info("Starting token blocklist cleanup...")
-    try:
-        await token_blocklist.start_cleanup_task()
-    except Exception as e:
-        logger.warning(f"Token blocklist cleanup task failed to start: {e}")
-
-    # Start login throttle cleanup task
-    logger.info("Starting login throttle cleanup...")
-    try:
-        await login_throttle.start_cleanup_task()
-    except Exception as e:
-        logger.warning(f"Login throttle cleanup task failed to start: {e}")
-
-    # Start demo reset scheduler if in demo mode
-    if settings.demo_mode:
-        logger.info("Starting demo reset scheduler...")
-        try:
-            start_demo_reset_scheduler()
-        except Exception as e:
-            logger.warning(f"Demo reset scheduler failed to start: {e}")
-
-    # Start audit log cleanup scheduler (demo and production)
-    logger.info("Starting audit cleanup scheduler...")
-    try:
-        if not standby:
-            start_audit_cleanup_scheduler()
-    except Exception as e:
-        logger.warning(f"Audit cleanup scheduler failed to start: {e}")
-
-    # Start training auto-generation monitor (idle unless the setting is on;
-    # skip unattended generation in the public demo, and on a mirror)
-    if not settings.demo_mode and not standby:
-        logger.info("Starting training auto-generation task...")
-        try:
-            from .services.training_autogen_task import training_autogen_task
-
-            await training_autogen_task.start()
-        except Exception as e:
-            logger.warning(f"Training auto-generation task failed to start: {e}")
-        # The Regie's Autopilot: idle unless switched on in the Übungs-Steuerung.
-        try:
-            from .services.training_regie import regie_autopilot_task
-
-            await regie_autopilot_task.start()
-        except Exception as e:
-            logger.warning(f"Regie Autopilot task failed to start: {e}")
-
-    # Start fallback auto-print monitor (idle unless fallback.auto_print_enabled;
-    # pointless in demo mode – there is no printer)
-    if not settings.demo_mode:
-        logger.info("Starting fallback auto-print task...")
-        try:
-            from .background.fallback_print import fallback_print_task
-
-            await fallback_print_task.start()
-        except Exception as e:
-            logger.warning(f"Fallback auto-print task failed to start: {e}")
 
     if settings.is_production and not settings.print_agent_token:
         logger.warning(
@@ -396,124 +180,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "AUTH_COOKIE_SECURE" if auth_settings.COOKIE_SECURE is not None else "CORS_ORIGINS",
     )
 
-    if standby:
-        from .background.standby_watch import start_standby_watch
-
-        start_standby_watch()
-    else:
-        # A mirror's notification rows come from the hosted board; everywhere else the rules
-        # are evaluated on a clock (app/background/notification_watch.py).
-        from .background.notification_watch import start_notification_watch
-
-        start_notification_watch()
+    # Every background job, gated per row on standby / demo (background/jobs.py).
+    jobs = await start_jobs(lifespan_jobs(AsyncIOScheduler()), standby=standby, demo=settings.demo_mode)
 
     logger.info("Application startup complete")
     yield
 
-    if standby:
-        from .background.standby_watch import stop_standby_watch
-
-        await stop_standby_watch()
-    else:
-        from .background.notification_watch import stop_notification_watch
-
-        await stop_notification_watch()
-
-    # Shutdown: Stop fallback auto-print task
-    if not settings.demo_mode:
-        logger.info("Stopping fallback auto-print task...")
-        try:
-            from .background.fallback_print import fallback_print_task
-
-            await fallback_print_task.stop()
-        except Exception as e:
-            logger.warning(f"Fallback auto-print task shutdown failed: {e}")
-
-    # Shutdown: Stop training auto-generation task
-    if not settings.demo_mode:
-        logger.info("Stopping training auto-generation task...")
-        try:
-            from .services.training_autogen_task import training_autogen_task
-
-            await training_autogen_task.stop()
-        except Exception as e:
-            logger.warning(f"Training auto-generation task shutdown failed: {e}")
-        try:
-            from .services.training_regie import regie_autopilot_task
-
-            await regie_autopilot_task.stop()
-        except Exception as e:
-            logger.warning(f"Regie Autopilot task shutdown failed: {e}")
-
-    # Shutdown: Stop audit cleanup scheduler
-    logger.info("Stopping audit cleanup scheduler...")
-    try:
-        stop_audit_cleanup_scheduler()
-    except Exception as e:
-        logger.warning(f"Audit cleanup scheduler shutdown failed: {e}")
-
-    # Shutdown: Stop demo reset scheduler
-    if settings.demo_mode:
-        logger.info("Stopping demo reset scheduler...")
-        try:
-            stop_demo_reset_scheduler()
-        except Exception as e:
-            logger.warning(f"Demo reset scheduler shutdown failed: {e}")
-
-    # Shutdown: Stop login throttle cleanup
-    logger.info("Stopping login throttle cleanup...")
-    try:
-        await login_throttle.stop_cleanup_task()
-    except Exception as e:
-        logger.warning(f"Login throttle cleanup shutdown failed: {e}")
-
-    # Shutdown: Stop token blocklist cleanup
-    logger.info("Stopping token blocklist cleanup...")
-    try:
-        await token_blocklist.stop_cleanup_task()
-    except Exception as e:
-        logger.warning(f"Token blocklist cleanup shutdown failed: {e}")
-
-    # Shutdown: Stop Divera polling
-    logger.info("Stopping Divera polling...")
-    try:
-        from .services.divera_poller import divera_poller
-
-        await divera_poller.stop_polling()
-    except Exception as e:
-        logger.debug(f"Divera polling shutdown: {e}")
-
-    # Shutdown: Stop WebSocket cleanup
-    logger.info("Stopping WebSocket cleanup task...")
-    try:
-        await ws_manager.stop_cleanup_task()
-    except Exception as e:
-        logger.warning(f"WebSocket cleanup shutdown failed: {e}")
-
-    try:
-        stop_telemetry_scheduler()
-    except Exception as e:
-        logger.warning(f"Telemetry scheduler shutdown failed: {e}")
-
-    try:
-        stop_heartbeat_scheduler()
-    except Exception as e:
-        logger.warning(f"Heartbeat scheduler shutdown failed: {e}")
-
-    try:
-        stop_divera_retention_scheduler()
-    except Exception as e:
-        logger.warning(f"Divera retention scheduler shutdown failed: {e}")
-
-    try:
-        stop_weather_scheduler()
-    except Exception as e:
-        logger.warning(f"Weather scheduler shutdown failed: {e}")
-
-    try:
-        stop_roster_snapshot_scheduler()
-    except Exception as e:
-        logger.warning(f"Roster snapshot scheduler shutdown failed: {e}")
+    await stop_jobs(jobs)
 
     # Shutdown: Dispose engine
     logger.info("Shutting down...")
@@ -548,9 +221,11 @@ async def alarm_blocked_handler(request: Request, exc: Exception) -> JSONRespons
 
 
 app.add_exception_handler(AlarmBlockedError, alarm_blocked_handler)
-# `/feld` errors carry a stable code beside the German detail (`utils/error_codes.py`).
+# Coded errors (a route's CodedHTTPException, a CRUD DomainError) carry a stable code beside
+# the German detail (`utils/error_codes.py`).
 # Looked up by class, so it wins over FastAPI's HTTPException handler for this subclass.
-app.add_exception_handler(CodedHTTPException, coded_http_exception_handler)
+app.add_exception_handler(CodedHTTPException, coded_error_handler)
+app.add_exception_handler(DomainError, coded_error_handler)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -577,46 +252,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
-# CORS middleware with explicit domain whitelist
-def get_cors_origins() -> list[str]:
-    """
-    Get CORS origins using explicit whitelist instead of wildcards.
-
-    Security: Using explicit domains instead of wildcards to prevent
-    malicious Railway deployments from accessing the API.
-    """
-    origins = list(settings.cors_origins)
-
-    # Add Railway-specific domains from environment variables
-    # This allows automatic configuration without wildcards
-    railway_frontend = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
-    railway_backend = os.getenv("RAILWAY_STATIC_URL", "")
-    frontend_url = os.getenv("FRONTEND_URL", "")
-
-    if railway_frontend:
-        origins.append(f"https://{railway_frontend}")
-    if railway_backend:
-        origins.append(f"https://{railway_backend}")
-    if frontend_url:
-        origins.append(frontend_url)
-
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_origins = []
-    for origin in origins:
-        if origin and origin not in seen:
-            seen.add(origin)
-            unique_origins.append(origin)
-
-    return unique_origins
-
-
 # NOTE: CORS middleware must be added BEFORE wrapping with Socket.IO
 # This ensures it applies to both WebSocket and regular HTTP requests
-# Security: Removed wildcard regex - using explicit origins only
+# Security: explicit origins only, the same list Socket.IO accepts (`Settings.allowed_origins`)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins(),
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

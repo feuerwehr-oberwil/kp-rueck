@@ -10,7 +10,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..database import after_commit
 from ..models import (
     AuditLog,
     EventAttendance,
@@ -29,10 +28,11 @@ from ..models import (
 from ..services.audit import calculate_changes, log_action
 from ..services.incident_dispatch import dispatched_incident_ids, is_dispatched
 from ..services.incident_leader import effective_leader_id
+from ..utils.error_codes import DomainError, ErrorCode
 from . import events as events_crud
 from . import feld as feld_crud
 from .active_resources import active_deployments
-from .locking import lock_incident_with_group, lock_resources
+from .locking import lock_groups, lock_incident_with_group, lock_resources
 
 
 class InvalidIncidentGroupError(ValueError):
@@ -546,13 +546,19 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 async def create_incident(
     db: AsyncSession,
     incident: schemas.IncidentCreate,
-    current_user: User,
-    request: Request,
+    current_user: User | None,
+    request: Request | None,
     *,
     source: str | None = None,
     source_ref: str | None = None,
+    possible_duplicate_of_id: uuid.UUID | None = None,
+    audit_extra: dict[str, Any] | None = None,
 ) -> Incident:
     """Create new incident with audit logging. Flushes; the caller (the request) commits.
+
+    ``current_user=None`` is the system (the alarm auto-attach); ``audit_extra`` joins the
+    audit row's changes (``{"auto_attach_divera": True}``). ``possible_duplicate_of_id`` is the
+    «mögliches Duplikat» flag an alarm attach found before the card existed.
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
@@ -581,10 +587,11 @@ async def create_incident(
 
     db_incident = Incident(
         **incident_data,
-        created_by=current_user.id,
+        created_by=current_user.id if current_user else None,
         group_position=group_position,
         source=source or editor_source,
         source_ref=source_ref,
+        possible_duplicate_of_id=possible_duplicate_of_id,
     )
 
     db.add(db_incident)
@@ -597,7 +604,7 @@ async def create_incident(
         resource_type="incident",
         resource_id=db_incident.id,
         user=current_user,
-        changes={"created": incident.model_dump(mode="json")},
+        changes={"created": incident.model_dump(mode="json"), **(audit_extra or {})},
         request=request,
     )
 
@@ -813,13 +820,9 @@ async def update_incident(
     leaving_group_id = incident.group_id if "group_id" in update_data else None
     if leaving_group_id is not None and leaving_group_id != update_data.get("group_id"):
         joining_group_id = update_data.get("group_id")
-        if joining_group_id is not None and joining_group_id < leaving_group_id:
-            await _validate_and_lock_group(db, joining_group_id, incident.event_id)
-            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
-        else:
-            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
-            if joining_group_id is not None:
-                await _validate_and_lock_group(db, joining_group_id, incident.event_id)
+        await lock_groups(db, [leaving_group_id, joining_group_id])
+        if joining_group_id is not None:
+            await _validate_and_lock_group(db, joining_group_id, incident.event_id)  # held already: a check
     elif update_data.get("group_id") is not None:
         await _validate_and_lock_group(db, update_data["group_id"], incident.event_id)
 
@@ -929,7 +932,6 @@ async def update_incident(
     # Auto-print the assignment slip on the incident's FIRST dispatch — into `enroute`
     # OR straight into `active` (Anfahrt is skippable), never twice. The rule and its
     # history live in `_dispatch_print_due`.
-    queued_print = None
     if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -939,20 +941,14 @@ async def update_incident(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                queued_print = await print_crud.queue_assignment_print(db, incident_id)
+                # Wakes the agent after the commit itself (`print_crud.enqueue`).
+                await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.flush()
     await db.refresh(incident)
-
-    # The agent reads the slip from its own session, so the wake-up waits for the commit —
-    # this is the auto-print on dispatch, the one print whose latency anybody actually feels.
-    if queued_print is not None:
-        from ..services import print_signal
-
-        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 
@@ -1067,7 +1063,6 @@ async def update_incident_status(
     # Auto-print the assignment slip on the first dispatch — same rule as
     # update_incident above (`_dispatch_print_due`): into `enroute` or straight
     # into `active`, once per incident, ever.
-    queued_print = None
     if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -1077,18 +1072,14 @@ async def update_incident_status(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                queued_print = await print_crud.queue_assignment_print(db, incident_id)
+                # Wakes the agent after the commit itself (`print_crud.enqueue`).
+                await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.flush()
     await db.refresh(incident)
-
-    if queued_print is not None:
-        from ..services import print_signal
-
-        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 
@@ -1206,12 +1197,12 @@ async def delete_incident(
     return True
 
 
-class IncidentAlreadyRestoredError(ValueError):
-    """Another board already restored this card."""
-
-
-class RestoreResourceConflictError(ValueError):
-    """Restoring the old assignments would conflict with current deployment or inventory."""
+def _restore_conflict(name: str) -> DomainError:
+    return DomainError(
+        ErrorCode.INCIDENT_RESTORE_RESOURCE_CONFLICT,
+        f"«{name}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
+        params={"name": name},
+    )
 
 
 async def restore_incident(
@@ -1229,22 +1220,25 @@ async def restore_incident(
         The restored incident on success.
         ``None`` if the incident does not exist (endpoint maps to 404).
 
-    Raises:
-        ValueError: If the incident is not deleted (endpoint maps to 409). This
-            makes a double-click on the undo toast harmless — the second call
-            409s instead of mutating anything.
+    Raises ``DomainError`` (409): the incident is not deleted (``incident_already_restored`` –
+    a double-click on the undo toast is harmless), it was merged (``incident_restore_merged``),
+    or an old assignment would conflict with the current deployment or inventory
+    (``incident_restore_resource_conflict``).
     """
     incident = await lock_incident_with_group(db, incident_id)
     if incident is None:
         return None
 
     if incident.deleted_at is None:
-        raise IncidentAlreadyRestoredError("Incident is not deleted")
+        raise DomainError(ErrorCode.INCIDENT_ALREADY_RESTORED, "Der Einsatz ist bereits wiederhergestellt.")
     # A merged report comes back through «Trennen» (POST /unmerge), which also
     # takes its Nachtrag back out of the card it went into. A plain restore
     # would leave the same report on the board twice.
     if incident.merged_into_id is not None:
-        raise ValueError("Incident was merged; unmerge it instead")
+        raise DomainError(
+            ErrorCode.INCIDENT_RESTORE_MERGED,
+            "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
+        )
 
     # The undo preserves the old assignment rows. Verify inventory under the same
     # locks as assignment and archival before making those rows visible again.
@@ -1296,9 +1290,9 @@ async def restore_incident(
                     isinstance(resource, Personnel) and (resource.id in checked_out or resource.status == "unavailable")
                 )
             ):
-                raise RestoreResourceConflictError(resource.name if resource else str(ref[1]))
+                raise _restore_conflict(resource.name if resource else str(ref[1]))
             if ref in busy and not (isinstance(resource, Material) and resource.consumable):
-                raise RestoreResourceConflictError(resource.name)
+                raise _restore_conflict(resource.name)
 
     # If the delete stamped `completed_at` as a side effect (both timestamps set
     # to the same `now`), clear it so the restored incident isn't wrongly

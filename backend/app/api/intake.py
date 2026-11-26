@@ -19,7 +19,6 @@ browse or rewrite everybody else's reports.
 import logging
 import uuid
 from decimal import Decimal
-from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from pydantic import field_validator
@@ -63,13 +62,12 @@ INTAKE_RECEIPT_FORM_TYPE = "intake_receipt"
 INTAKE_RECEIPT_VALID_HOURS = 12
 
 
-@router.post("/generate-link", response_model=dict)
+@router.post("/generate-link", response_model=schemas.ShareLinkResponse)
 async def generate_alarm_link(
-    request: Request,
     current_user: CurrentEditor,  # Editor only
     event_id: uuid.UUID = Query(..., description="Event ID for alarm intake"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.ShareLinkResponse:
     """
     Generate a public alarm-intake link with QR code (editor only).
 
@@ -79,23 +77,14 @@ async def generate_alarm_link(
     token = await share_links.issue(db, "alarm", event_id)
     if token is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
-    link = f"/alarm?token={token}"
-
-    base_url = str(request.base_url).rstrip("/")
-
-    return {
-        "token": token,
-        "link": link,
-        "full_url": f"{base_url}{link}",
-        "qr_code_data": link,  # Frontend generates the QR code from this
-    }
+    return schemas.ShareLinkResponse.for_link(token, f"/alarm?token={token}")
 
 
-@router.get("/context", response_model=dict)
+@router.get("/context", response_model=schemas.IntakeContext)
 async def get_intake_context(
     token: str = Query(..., description="Access token from generated link"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.IntakeContext:
     """
     Get minimal event context for the public intake form.
 
@@ -110,16 +99,12 @@ async def get_intake_context(
     if not event or event.archived_at is not None:
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
 
-    return {
-        "event": {
-            "id": str(event.id),
-            "name": event.name,
-            "training_flag": event.training_flag,
-        }
-    }
+    return schemas.IntakeContext(
+        event=schemas.IntakeEventContext(id=event.id, name=event.name, training_flag=event.training_flag)
+    )
 
 
-@router.post("/alarm", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("/alarm", response_model=schemas.IntakeAlarmCreated, status_code=status.HTTP_201_CREATED)
 @limiter.limit(RateLimits.INTAKE)
 async def create_intake_alarm(
     incident: schemas.PublicIncidentCreate,
@@ -127,7 +112,7 @@ async def create_intake_alarm(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     token: str = Query(..., description="Access token from generated link"),
-) -> dict[str, str]:
+) -> schemas.IntakeAlarmCreated:
     """
     Create an alarm from the public intake form (no authentication, token only).
 
@@ -175,17 +160,15 @@ async def create_intake_alarm(
     incident_response = await incident_display.incident_with_display(db, new_incident)
     background_tasks.add_task(broadcast_incident_update, incident_response.model_dump(mode="json"), "create")
 
-    return {
-        "id": str(new_incident.id),
-        # The receipt: what lets THIS caller read back and correct THIS alarm,
-        # and nothing else. Handed out once, at the only moment the server can
-        # be sure who reported it — there is no login here to ask later.
-        "receipt_token": generate_form_token(
+    # The receipt: what lets THIS caller read back and correct THIS alarm, and nothing else.
+    return schemas.IntakeAlarmCreated(
+        id=new_incident.id,
+        receipt_token=generate_form_token(
             str(new_incident.id),
             INTAKE_RECEIPT_FORM_TYPE,
             expires_hours=INTAKE_RECEIPT_VALID_HOURS,
         ),
-    }
+    )
 
 
 # ============================================
@@ -361,7 +344,7 @@ async def _never_left_the_window(db: AsyncSession, incident: models.Incident) ->
     return left.scalar_one_or_none() is None
 
 
-async def _receipt_state(db: AsyncSession, incident: models.Incident) -> dict[str, Any]:
+async def _receipt_state(db: AsyncSession, incident: models.Incident) -> schemas.IntakeReceiptState:
     """What the receipt is allowed to know: has anybody been sent, and may I still fix it?
 
     **Deliberately carries no content.** The reporter's own words are already on
@@ -382,16 +365,16 @@ async def _receipt_state(db: AsyncSession, incident: models.Incident) -> dict[st
         )
         .order_by(models.Vehicle.display_order, models.Vehicle.name)
     )
-    return {
-        "id": str(incident.id),
-        "status": incident.status,
+    return schemas.IntakeReceiptState(
+        id=incident.id,
+        status=schemas.IncidentStatus(incident.status),
         # Both halves, so the button on the page and the 409 below never disagree.
-        "editable": feld_crud.report_is_editable(incident) and await _never_left_the_window(db, incident),
-        "vehicles": [name for (name,) in vehicle_rows.all()],
-    }
+        editable=feld_crud.report_is_editable(incident) and await _never_left_the_window(db, incident),
+        vehicles=[name for (name,) in vehicle_rows.all()],
+    )
 
 
-@router.get("/alarm/{incident_id}", response_model=dict)
+@router.get("/alarm/{incident_id}", response_model=schemas.IntakeReceiptState)
 # FELD, not INTAKE: this one is *polled*, and INTAKE's 10/minute is sized for a
 # human filling in a form. A station NATs every phone behind one address, so two
 # open receipts (3/minute each) plus a live call would spend the budget on
@@ -405,7 +388,7 @@ async def get_intake_alarm_state(
     token: str = Query(..., description="Access token from generated link"),
     receipt: str = Query(..., description="Receipt token from the create response"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.IntakeReceiptState:
     """Has the KP picked this up yet? — the receipt's live half.
 
     The page polls this while the receipt is on screen, which is the whole
@@ -416,7 +399,7 @@ async def get_intake_alarm_state(
     return await _receipt_state(db, incident)
 
 
-@router.put("/alarm/{incident_id}", response_model=dict)
+@router.put("/alarm/{incident_id}", response_model=schemas.IntakeReceiptState)
 @limiter.limit(RateLimits.INTAKE)
 async def correct_intake_alarm(
     request: Request,
@@ -426,7 +409,7 @@ async def correct_intake_alarm(
     token: str = Query(..., description="Access token from generated link"),
     receipt: str = Query(..., description="Receipt token from the create response"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.IntakeReceiptState:
     """Fix an alarm you just phoned in, before the KP disponiert it.
 
     The window `/feld` gives a crew (`crud.feld.report_is_editable`): while the

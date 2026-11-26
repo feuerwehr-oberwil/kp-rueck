@@ -92,8 +92,13 @@ export function MobileIncidentListView({
   // (image #21) name each vehicle's driver.
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
   // groupId → Auftrag name, so a stop is found by its route's name too.
-  const { groups } = useGroups()
+  const { groups, getGroupResources } = useGroups()
   const groupNames = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups])
+  // Each Auftrag with its resources, once per change – a route stop's card names them.
+  const auftraege = useMemo(
+    () => new Map(groups.map((group) => [group.id, { group, resources: getGroupResources(group.id) }])),
+    [groups, getGroupResources],
+  )
   // The board's one incident search (lib/incident-search.ts) — the phone used to
   // keep its own copy that knew no Meldung. Also asked on its own, so an empty
   // list can tell «the search found nothing» from «the status filter hides what it found».
@@ -355,6 +360,7 @@ export function MobileIncidentListView({
                 onClick={() => handleCardClick(operation)}
                 formatLocation={formatLocation}
                 vehicleDrivers={vehicleDrivers}
+                auftrag={operation.groupId ? auftraege.get(operation.groupId) : undefined}
               />
             ))}
           </div>

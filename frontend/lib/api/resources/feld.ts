@@ -33,6 +33,7 @@ import {
   type ApiFeldMaterialResponse,
   type ApiFieldReportState,
   type ApiFieldReportUpdate,
+  type ApiShareLink,
 } from '../types'
 import { duplicateQuery } from './incidents'
 
@@ -83,9 +84,9 @@ export class FeldApi {
   // somebody names themselves (`claimFeldPerson`). The phone stores the bound
   // token and stops using the link.
   /** `valid_until` is the link's own expiry (ISO), so a printed poster can say
-   *  when it becomes waste paper. Absent on a backend older than that. */
-  async generateFeldLink(eventId: string): Promise<{ token: string; link: string; full_url: string; qr_code_data: string; valid_until?: string }> {
-    return httpRequest<{ token: string; link: string; full_url: string; qr_code_data: string; valid_until?: string }>(
+   *  when it becomes waste paper. */
+  async generateFeldLink(eventId: string): Promise<ApiShareLink> {
+    return httpRequest<ApiShareLink>(
       `/api/feld/generate-link?event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',
@@ -321,8 +322,8 @@ export class FeldApi {
     incidentId: string,
     personnelId: string,
     token: string
-  ): Promise<{ incident_id: string; token: string; link: string }> {
-    return linkRequest<{ incident_id: string; token: string; link: string }>(
+  ): Promise<ApiShareLink> {
+    return linkRequest<ApiShareLink>(
       feldQuery(incidentId, 'reko-link', personnelId, token),
       { method: 'POST' }
     )

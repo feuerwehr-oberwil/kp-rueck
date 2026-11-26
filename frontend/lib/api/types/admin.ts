@@ -102,7 +102,7 @@ export interface ApiTrainingLocation {
   is_active: boolean
 }
 
-/** The training Automatik (`GET /api/training/autogen`): the switch, and its run – the Übung it
+/** The training Automatik (`PUT /api/training/events/{id}/autogen`, the Regie state): the switch, and its run – the Übung it
  *  feeds, since when (the «heisse Phase» counts from there), and `stopped: 'max'` once it switched
  *  itself off at the maximum. `run` is null before the first start. */
 export interface ApiAutogenState {

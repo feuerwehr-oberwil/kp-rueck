@@ -17,7 +17,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-import { apiClient, type ApiDiveraEmergency } from '@/lib/api-client'
+import { apiClient, NetworkError, type ApiDiveraEmergency } from '@/lib/api-client'
 import { wsClient, type WebSocketStatus } from '@/lib/websocket-client'
 
 /** Marks the header's entry button: the desktop sheet hangs from the header holding it. */
@@ -100,6 +100,8 @@ async function fetchPool(): Promise<Pick<AlarmPool, 'emergencies' | 'total'>> {
     apiClient.getDiveraEmergencies({ include_archived: true, limit: PAGE }),
     apiClient.getDiveraEmergencies({ attached: false, include_archived: false, limit: WAITING_MAX }),
   ])
+  // An offline read resolves to nothing (lib/api/http.ts) – that is a failure, not an empty pool.
+  if (!page || !waiting) throw new NetworkError()
   const onPage = new Set(page.emergencies.map((e) => e.id))
   const beyond = waiting.emergencies.filter((e) => !onPage.has(e.id))
   const emergencies =
@@ -142,7 +144,7 @@ export function reloadAlarmPool(): Promise<void> {
     } catch (error) {
       setPool({ failed: true })
       // The transport already said «no connection»; anything else is worth a log line.
-      if (!(error instanceof Error) || !error.message.includes('Verbindung zum Server')) {
+      if (!NetworkError.isNetworkError(error)) {
         console.error('Failed to load the alarm pool:', error)
       }
     } finally {

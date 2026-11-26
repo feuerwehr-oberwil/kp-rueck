@@ -14,6 +14,7 @@ import type {
   ApiRekoFormResponse,
   ApiEventRekoSummariesResponse,
   ApiAvailableRekoPersonnelResponse,
+  ApiShareLink,
 } from '../types'
 import { uploadPhotoFile, type PhotoUploadProgress } from './upload'
 
@@ -23,12 +24,12 @@ export class RekoApi {
   // Editor-only since plan 26: the field phone mints its own form token through
   // `mintFeldRekoLink`, which runs the /feld two-step first, so neither door had
   // to learn about the other.
-  async generateRekoLink(incidentId: string, personnelId?: string): Promise<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }> {
+  async generateRekoLink(incidentId: string, personnelId?: string): Promise<ApiShareLink> {
     let url = `/api/reko/generate-link?incident_id=${encodeURIComponent(incidentId)}`
     if (personnelId) {
       url += `&personnel_id=${encodeURIComponent(personnelId)}`
     }
-    return httpRequest<{ incident_id: string; token: string; link: string; personnel_id?: string; qr_code_url: string }>(
+    return httpRequest<ApiShareLink>(
       url, {
         method: 'POST',
       }

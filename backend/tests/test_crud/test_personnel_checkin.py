@@ -26,6 +26,7 @@ from app.models import (
     Personnel,
     User,
 )
+from app.utils.error_codes import DomainError
 
 # ============================================
 # Fixtures
@@ -258,7 +259,7 @@ class TestCheckInPersonnel:
         unavailable_personnel: Personnel,
     ):
         """Test that checking in unavailable personnel fails."""
-        with pytest.raises(ValueError, match="unavailable"):
+        with pytest.raises(DomainError, match="nicht verfügbar"):
             await checkin_crud.check_in_personnel(
                 db=db_session,
                 event_id=test_event.id,
@@ -473,7 +474,7 @@ class TestCheckOutPersonnel:
         await db_session.commit()
 
         # Check out should fail
-        with pytest.raises(ValueError, match="assigned to an incident"):
+        with pytest.raises(DomainError, match="noch zugewiesen"):
             await checkin_crud.check_out_personnel(
                 db=db_session,
                 event_id=test_event.id,
@@ -501,7 +502,7 @@ class TestCheckOutPersonnel:
         )
         await db_session.commit()
 
-        with pytest.raises(checkin_crud.PersonStillBoundError):
+        with pytest.raises(DomainError, match="noch zugewiesen"):
             await checkin_crud.check_out_personnel(**ids, allow_assigned=True, refuse_bound=True)
 
     async def test_refuse_bound_counts_a_function(
@@ -518,7 +519,7 @@ class TestCheckOutPersonnel:
         )
         await db_session.commit()
 
-        with pytest.raises(checkin_crud.PersonStillBoundError):
+        with pytest.raises(DomainError, match="noch zugewiesen"):
             await checkin_crud.check_out_personnel(**ids, allow_assigned=True, refuse_bound=True)
 
         free = await checkin_crud.check_out_personnel(**ids, allow_assigned=True)
@@ -626,7 +627,7 @@ class TestStatusGatesCheckIn:
         unavailable_personnel: Personnel,
     ):
         """Belt and braces: the roster hides them, and the call itself still says no."""
-        with pytest.raises(ValueError, match="unavailable"):
+        with pytest.raises(DomainError, match="nicht verfügbar"):
             await checkin_crud.check_in_personnel(
                 db=db_session,
                 event_id=test_event.id,

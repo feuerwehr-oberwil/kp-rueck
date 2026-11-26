@@ -35,11 +35,12 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
-from ..crud.locking import lock_incident_with_group
+from ..crud.locking import lock_incident, lock_incident_with_group, lock_pair
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display, incident_history
 from ..services.audit import log_action
+from ..services.board_cards import board_response, broadcast_repointed
 from ..services.rapport_rows import STATUS_LABELS
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
@@ -123,15 +124,12 @@ def _fingerprint(
     )
 
 
-# response_model=None keeps the untyped `{}` response schema this route has always published:
-# without it FastAPI would derive a response model from the new return annotation and drift
-# docs/openapi.json.
-@router.get("/sync-version", response_model=None)
+@router.get("/sync-version", response_model=schemas.SyncVersion)
 async def get_sync_version(
     current_user: CurrentUser,
     event_id: str = Query(...),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.SyncVersion:
     """Return a quick hash of the current state for change detection.
 
     Lightweight endpoint that returns a version string based on incident count
@@ -268,7 +266,7 @@ async def get_sync_version(
         f"{count}-{latest_str}-{a_count}-{a_latest_str}-{a_unassigned_str}-{g_count}-{g_latest_str}-"
         f"{ga_count}-{ga_assigned_str}-{ga_unassigned_str}-{reko_str}-{report_str}-{inputs_str}"
     )
-    return {"version": version}
+    return schemas.SyncVersion(version=version)
 
 
 def _candidate_response(candidate: duplicates.DuplicateCandidate, home_city: str) -> schemas.DuplicateCandidate:
@@ -331,37 +329,6 @@ async def get_duplicate_candidates(
     return await duplicate_candidates_response(db, event_id, lat=lat, lng=lng, address=address, exclude_id=exclude_id)
 
 
-async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> models.Incident | None:
-    """Row-lock an incident (deleted ones included) for a merge or its undo.
-
-    Two merges into the same card both append to its «Notizen»; without the
-    lock the second write would carry the first one's old text and drop its
-    Nachtrag.
-    """
-    return (
-        await db.execute(
-            select(models.Incident)
-            .where(models.Incident.id == incident_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-    ).scalar_one_or_none()
-
-
-async def lock_pair(
-    db: AsyncSession, first_id: uuid.UUID, second_id: uuid.UUID
-) -> tuple[models.Incident | None, models.Incident | None]:
-    """Both rows, locked in id order so two opposite merges cannot deadlock."""
-    locked = {i: await lock_incident(db, i) for i in sorted({first_id, second_id})}
-    return locked.get(first_id), locked.get(second_id)
-
-
-async def board_response(db: AsyncSession, incident: models.Incident) -> schemas.IncidentResponse:
-    """The card as GET /{id} returns it — vehicles, reko flags and all — for the broadcast."""
-    populated = await crud.get_incident(db, incident.id)
-    return await incident_display.incident_with_display(db, populated or incident)
-
-
 async def merge_and_broadcast(
     db: AsyncSession,
     background_tasks: BackgroundTasks,
@@ -383,19 +350,8 @@ async def merge_and_broadcast(
     )
     background_tasks.add_task(broadcast_reko_update, {"incident_id": str(result.target.id)}, "update")
     background_tasks.add_task(broadcast_kp_message_update, {"incident_id": str(result.target.id)}, "merged")
-    await broadcast_repointed(db, background_tasks, result.repointed_ids)
+    await broadcast_repointed(db, result.repointed_ids)
     return schemas.MergeResponse(target=target_response, merged_incident_id=report_id)
-
-
-async def broadcast_repointed(
-    db: AsyncSession, background_tasks: BackgroundTasks, incident_ids: list[uuid.UUID]
-) -> None:
-    """Cards whose «mögliches Duplikat» now names a different card: every board redraws them."""
-    for incident_id in incident_ids:
-        row = await crud.get_incident(db, incident_id)
-        if row is not None and row.deleted_at is None:
-            response = await incident_display.incident_with_display(db, row)
-            background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
 
 
 async def enforce_demo_cap(db: AsyncSession, event_id: uuid.UUID) -> None:
@@ -955,12 +911,9 @@ async def set_reko_arrived(
         raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND)
 
     clear = "arrived_at" in payload.model_fields_set and payload.arrived_at is None
-    try:
-        report = await reko_crud.set_reko_arrived_by_user(
-            db, incident_id, user=current_user, at=payload.arrived_at, clear=clear
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=ErrorMessages.INCIDENT_NOT_FOUND) from e
+    report = await reko_crud.set_reko_arrived_by_user(
+        db, incident_id, user=current_user, at=payload.arrived_at, clear=clear
+    )
 
     await log_action(
         db=db,
@@ -1252,23 +1205,6 @@ async def restore_incident(
             current_user=current_user,
             request=request,
         )
-    except crud.IncidentAlreadyRestoredError as e:
-        raise CodedHTTPException(
-            409, ErrorCode.INCIDENT_ALREADY_RESTORED, "Der Einsatz ist bereits wiederhergestellt."
-        ) from e
-    except crud.RestoreResourceConflictError as e:
-        raise CodedHTTPException(
-            409,
-            ErrorCode.INCIDENT_RESTORE_RESOURCE_CONFLICT,
-            f"«{e}» ist nicht verfügbar. Die aktuelle Zuweisung bleibt bestehen.",
-            params={"name": str(e)},
-        ) from e
-    except ValueError as e:
-        raise CodedHTTPException(
-            409,
-            ErrorCode.INCIDENT_RESTORE_MERGED,
-            "Diese Meldung wurde zusammengeführt. Im Ziel-Einsatz kann sie getrennt werden.",
-        ) from e
     except IntegrityError as e:
         await db.rollback()
         raise CodedHTTPException(
@@ -1411,39 +1347,19 @@ async def transfer_assignments(
     2. Block if any resource is already assigned to target
     3. Log the transfer action
     4. Broadcast WebSocket updates
+
+    Every refusal is a ``DomainError`` (404 for a missing Einsatz, 409 otherwise) the handler answers.
     """
     from ..crud import assignments as assignment_crud
 
-    try:
-        result = await assignment_crud.transfer_assignments(
-            db=db,
-            source_incident_id=incident_id,
-            target_incident_id=transfer_request.target_incident_id,
-            current_user=current_user,
-            request=request,
-            only_assignment_ids=transfer_request.assignment_ids,
-        )
-    except assignment_crud.TransferChangedError as e:
-        # The undo's rows are no longer all there: nothing moves, the operator is told.
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except assignment_crud.TransferRefusedError as e:
-        # A closed source: nothing moves, the sentence says why.
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except assignment_crud.ResourceNotAssignableError as e:
-        # The target may not take a resource (closed Einsatz, archived Ereignis, …): 409 like assign.
-        raise HTTPException(status_code=409, detail=str(e)) from e
-    except ValueError as e:
-        # Surface the specific reason (which resource conflicts / nothing to transfer)
-        # so the operator sees why it failed instead of a generic message.
-        logger.warning("Assignment transfer failed for incident %s: %s", incident_id, e)
-        msg = str(e)
-        low = msg.lower()
-        if "not found" in low or "nicht gefunden" in low:
-            raise HTTPException(status_code=404, detail=ErrorMessages.NOT_FOUND) from e
-        elif "bereits zugewiesen" in low or "already assigned" in low or "conflict" in low:
-            raise HTTPException(status_code=409, detail=msg) from e
-        else:
-            raise HTTPException(status_code=400, detail=msg) from e
+    result = await assignment_crud.transfer_assignments(
+        db=db,
+        source_incident_id=incident_id,
+        target_incident_id=transfer_request.target_incident_id,
+        current_user=current_user,
+        request=request,
+        only_assignment_ids=transfer_request.assignment_ids,
+    )
 
     # Get event_id for WebSocket broadcast
     incident_result = await db.execute(select(models.Incident).where(models.Incident.id == incident_id))

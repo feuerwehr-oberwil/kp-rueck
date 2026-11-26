@@ -553,3 +553,11 @@ async def test_alarm_resolves_recipient_via_identity_table(
     assert [r["name"] for r in body["sent"]] == ["Neutral Linked"]
     assert body["sent"][0]["divera_user_id"] == 777001
     assert mock_send.call_args.kwargs["user_cluster_relation"] == [777001]
+
+
+def test_the_server_fallback_names_the_incident_type_by_its_label():
+    """`{type}` reads as the client renders it («Technische Hilfeleistung»), never the enum key."""
+    from app.api.divera import _render_alarm_template
+
+    incident = Incident(title="Baum auf Strasse", type="technische_hilfeleistung")
+    assert _render_alarm_template("KP: {type}", incident) == "KP: Technische Hilfeleistung"

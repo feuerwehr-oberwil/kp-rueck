@@ -60,17 +60,22 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
+from .events import EventFigures, EventResponse
 from .groups import GroupProgress
 from .incidents import AssignedVehicle, IncidentPriority, IncidentStatus, IncidentType
+from .reko import ViewerRekoSummary
+from .vehicles import Vehicle
 
 __all__ = [
     "ViewerAssignment",
+    "ViewerData",
     "ViewerGroup",
     "ViewerGroupAssignment",
     "ViewerIncident",
     "ViewerMaterial",
     "ViewerPersonnel",
     "ViewerSpecialFunction",
+    "ViewerVehiclePosition",
 ]
 
 
@@ -240,3 +245,47 @@ class ViewerSpecialFunction(BaseModel):
     function_type: str
     vehicle_id: UUID | None = None
     vehicle_name: str | None = None
+
+
+class ViewerVehiclePosition(BaseModel):
+    """A vehicle's last GPS fix on a shared display."""
+
+    device_id: int
+    device_name: str
+    unique_id: str
+    status: str
+    latitude: float
+    longitude: float
+    speed: float | None = None  # km/h
+    course: float | None = None  # degrees
+    last_update: datetime | None = None
+    address: str | None = None
+
+
+class ViewerData(BaseModel):
+    """`GET /api/viewer/data`: everything a shared display reads, one allowlist envelope.
+
+    Every row type is one of the narrow `Viewer*` shapes above; FastAPI filters the
+    payload through this model, so a field the board has and the link must not carry
+    cannot ride along by accident.
+    """
+
+    event: EventResponse
+    incidents: list[ViewerIncident]
+    groups: list[ViewerGroup]
+    personnel: list[ViewerPersonnel]
+    materials: list[ViewerMaterial]
+    # Full rows on purpose: a vehicle carries no personal data, and its radio call sign
+    # is drawn next to it on a card.
+    vehicles: list[Vehicle]
+    vehicle_positions: list[ViewerVehiclePosition]
+    # incident_id → its active assignments
+    assignments: dict[UUID, list[ViewerAssignment]]
+    special_functions: list[ViewerSpecialFunction]
+    # Kennzahlen for the status wall: counts and reaction times only.
+    figures: EventFigures
+    # incident_id → the submitted Reko result. Photo FILENAMES ride along; the same
+    # token opens /api/photos for this event only.
+    reko_summaries: dict[UUID, ViewerRekoSummary]
+    # The Lagekarte's staleness threshold (minutes, `gps.stale_after_minutes`).
+    gps_stale_minutes: float
