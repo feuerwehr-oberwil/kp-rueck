@@ -1810,6 +1810,70 @@ class TestFatigueNotificationConcurrency:
                 await cleanup.commit()
 
     @pytest.mark.asyncio
+    async def test_a_dismissal_of_a_warning_a_poll_is_rewriting_is_refused(self, test_engine):
+        # The operator saw «Muster». A poll widened the row with Beispiel and the dismissal, which
+        # carried no version, acknowledged Beispiel unseen.
+        from app.services.notification_service import _sync_fatigue_locked, fatigue_subject_key
+        from app.utils.error_codes import DomainError, ErrorCode
+
+        maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+        event_id, user_id = uuid4(), uuid4()
+        since = datetime.now(UTC) - timedelta(hours=5)
+        people = {uuid4(): "Muster Max", uuid4(): "Beispiel Bea"}
+        muster, beispiel = (fatigue_subject_key(person_id, since) for person_id in people)
+        async with maker() as setup:
+            setup.add_all(
+                [
+                    Event(id=event_id, name="Dismissal version", training_flag=False),
+                    User(id=user_id, username=f"fatigue-{user_id}", password_hash=None, role="editor"),
+                    *(Personnel(id=i, name=name, role="Sdt", status="available") for i, name in people.items()),
+                ]
+            )
+            await setup.flush()
+            setup.add_all(
+                EventAttendance(event_id=event_id, personnel_id=i, checked_in=True, checked_in_at=since) for i in people
+            )
+            warning = Notification(
+                type="personnel_fatigue",
+                severity="warning",
+                message="Lang im Einsatz: Muster Max",
+                subject_keys=[muster],
+                event_id=event_id,
+            )
+            setup.add(warning)
+            await setup.commit()
+        seen = warning.version
+
+        try:
+            async with maker() as polling, maker() as dismissing:
+                # The poll's write, before its commit: it holds the row.
+                rewritten = await _sync_fatigue_locked(
+                    polling, event_id, NotificationSettings(fatigue_hours=4), enabled=True
+                )
+                assert rewritten is not None and rewritten.id == warning.id
+                dismissal = asyncio.create_task(
+                    dismiss_notification(dismissing, warning.id, user_id, expected_version=seen)
+                )
+                await wait_until_blocked(maker)
+                await polling.commit()
+                with pytest.raises(DomainError) as refused:
+                    await asyncio.wait_for(dismissal, timeout=10)
+                assert refused.value.code == ErrorCode.NOTIFICATION_CHANGED
+                await dismissing.rollback()
+
+            async with maker() as check:
+                row = await check.get(Notification, warning.id)
+                assert row is not None and not row.dismissed
+                assert sorted(row.subject_keys or []) == sorted([muster, beispiel])
+                assert await dismiss_notification(check, warning.id, user_id, expected_version=row.version) is not None
+        finally:
+            async with maker() as cleanup:
+                await cleanup.execute(delete(Event).where(Event.id == event_id))
+                await cleanup.execute(delete(Personnel).where(Personnel.id.in_(list(people))))
+                await cleanup.execute(delete(User).where(User.id == user_id))
+                await cleanup.commit()
+
+    @pytest.mark.asyncio
     async def test_a_poll_locks_open_warnings_in_id_order_like_the_standby_sync(self, test_engine):
         # Two open rows (one from before the grouping). The sync locks rows by id; a poll that
         # locked the newest first held it while it waited for the older one the sync held.

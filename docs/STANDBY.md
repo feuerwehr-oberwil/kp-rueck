@@ -68,7 +68,9 @@ alarms keep writing to it. When the two meet again, per row and field:
 - the bell, in the seconds after a takeover in which both systems still ask: a GPS question
   («Ist TLF angekommen?») both raised is asked once, and a «Lang im Einsatz» warning dismissed
   on one side acknowledges the people it named there – somebody the other side added to it
-  meanwhile is warned about again.
+  meanwhile is warned about again. On each system a dismissal also carries the version the bell
+  showed: a warning a poll or the sync rewrote since is refused («Die Meldung hat sich inzwischen
+  geändert») and shown again with its new names.
 - a clash is listed once per takeover: the same two values clashing again in a later outage are
   a new entry, not the one already decided.
 

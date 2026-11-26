@@ -147,6 +147,18 @@ async def test_dismiss_notification_success(editor_client: AsyncClient, test_not
 
 @pytest.mark.asyncio
 @pytest.mark.api
+async def test_a_dismiss_with_a_stale_version_is_a_coded_409(
+    editor_client: AsyncClient, test_notification: Notification
+):
+    url = f"/api/notifications/{test_notification.id}/dismiss"
+    stale = await editor_client.post(url, json={"version": "0000000000000000"})
+    assert stale.status_code == 409
+    assert stale.json()["code"] == "notification_changed"
+    assert (await editor_client.post(url, json={"version": test_notification.version})).status_code == 204
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
 async def test_dismiss_notification_not_found(editor_client: AsyncClient):
     """Test dismissing a non-existent notification."""
     response = await editor_client.post(f"/api/notifications/{uuid4()}/dismiss")

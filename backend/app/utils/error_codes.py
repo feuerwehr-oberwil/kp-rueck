@@ -136,6 +136,8 @@ class ErrorCode(StrEnum):
     INCIDENT_NOT_ON_BOARD = "incident_not_on_board"
     # Delete before archive (409).
     EVENT_NOT_ARCHIVED = "event_not_archived"
+    # A bell dismissal of a row rewritten since the operator saw it (409; the bell reloads).
+    NOTIFICATION_CHANGED = "notification_changed"
     # The board's own routes (api/incidents.py, api/divera.py, api/print.py).
     EVENT_NOT_FOUND = "event_not_found"
     # Demo mode: an Ereignis holds at most `max` Einsätze (403).

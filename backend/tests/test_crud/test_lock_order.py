@@ -40,7 +40,13 @@ from app.crud import personnel as personnel_crud
 from app.crud import personnel_checkin as checkin_crud
 from app.crud import reko_assignment as reko_assignment_crud
 from app.crud.feld.melden import create_field_report
-from app.crud.locking import lock_groups, lock_incident, lock_incident_numbering, lock_incident_with_group, lock_resource
+from app.crud.locking import (
+    lock_groups,
+    lock_incident,
+    lock_incident_numbering,
+    lock_incident_with_group,
+    lock_resource,
+)
 from app.models import (
     AuditLog,
     AuftragTemplate,

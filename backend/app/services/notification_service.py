@@ -17,6 +17,7 @@ from ..database import after_commit
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
+from ..utils.error_codes import DomainError, ErrorCode
 from ..utils.failure_latch import FailureLatch
 
 # Same German status labels the printed Lageblatt and the PDF report use, so a warning in the
@@ -900,10 +901,26 @@ async def _auto_resolve_stale_notifications(
         await db.flush()
 
 
-async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id: UUID) -> Notification | None:
-    """Dismiss a notification."""
-    result = await db.execute(select(Notification).where(Notification.id == notification_id))
+async def dismiss_notification(
+    db: AsyncSession, notification_id: UUID, user_id: UUID, *, expected_version: str | None = None
+) -> Notification | None:
+    """Dismiss a notification; ``None`` when there is none.
+
+    ``expected_version``: the ``Notification.version`` the operator saw. Locked before it is
+    compared: a poll rewriting the row (``_sync_fatigue_locked``) holds it, so the dismissal waits
+    and compares the rewritten row. A mismatch raises ``DomainError`` (409 ``notification_changed``)
+    and changes nothing – the operator must not acknowledge somebody they were not shown.
+    """
+    result = await db.execute(
+        select(Notification)
+        .where(Notification.id == notification_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     notification = result.scalar_one_or_none()
+
+    if notification and expected_version is not None and notification.version != expected_version:
+        raise DomainError(ErrorCode.NOTIFICATION_CHANGED, "Die Meldung hat sich inzwischen geändert. Bitte neu lesen.")
 
     if notification:
         now = datetime.now(UTC)
