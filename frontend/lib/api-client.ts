@@ -21,11 +21,6 @@ export type {
   ApiViewerData,
 } from './api/resources/viewer'
 export { FeldUnlockError, type FeldUnlockFailure } from './api/resources/feld'
-export type {
-  ApiNotification,
-  ApiNotificationSettings,
-  ApiNotificationSettingsUpdate,
-} from './api/resources/notifications'
 
 import { SettingsApi } from './api/resources/settings'
 import { EventsApi } from './api/resources/events'
