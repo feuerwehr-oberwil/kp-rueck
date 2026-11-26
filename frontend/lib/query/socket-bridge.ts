@@ -1,4 +1,4 @@
-import type { QueryClient, QueryKey } from "@tanstack/react-query"
+import type { Query, QueryClient, QueryKey } from "@tanstack/react-query"
 import { wsClient, type WebSocketStatus, type WsEventName, type WsEvents } from "@/lib/websocket-client"
 import { queryKeys } from "./keys"
 
@@ -6,16 +6,7 @@ import { queryKeys } from "./keys"
 interface Route {
   /** The kinds (`queryKeys.x.all`) this event can refresh. */
   kinds: readonly (readonly [string])[]
-  listen: (client: QueryClient) => () => void
-}
-
-/**
- * Read everything under `queryKey` again. A read already out may predate the change: it is
- * dropped and asked again, not joined (TanStack would join a first read that has no data yet).
- */
-async function refresh(client: QueryClient, queryKey: QueryKey) {
-  await client.cancelQueries({ queryKey })
-  await client.invalidateQueries({ queryKey })
+  listen: (refresh: (queryKey: QueryKey) => void) => () => void
 }
 
 /**
@@ -30,12 +21,12 @@ function refetch<K extends WsEventName>(
 ): Route {
   return {
     kinds,
-    listen: (client) =>
+    listen: (refresh) =>
       wsClient.on(event, (payload) => {
         const scope = ids?.(payload)
         for (const kind of kinds) {
-          if (!scope) void refresh(client, kind)
-          else for (const id of scope) void refresh(client, [...kind, id])
+          if (!scope) refresh(kind)
+          else for (const id of scope) refresh([...kind, id])
         }
       }),
   }
@@ -59,7 +50,25 @@ const ROUTES: readonly Route[] = [
  * missed for good. `QueryProvider` runs it once per tab; returns the teardown.
  */
 export function bridgeSocketToQueries(client: QueryClient): () => void {
-  const offs = ROUTES.map((route) => route.listen(client))
+  const cache = client.getQueryCache()
+  // A read that is out when its event comes may predate the change, and TanStack would join
+  // it. So it gets ONE follow-up read once it settles, however many events come meanwhile: a
+  // burst of check-ins still lands an answer every round trip.
+  const followUps = new Set<Query>()
+  const readAgain = (query: Query) => void client.invalidateQueries({ queryKey: query.queryKey, exact: true })
+  const offSettled = cache.subscribe(({ query }) => {
+    if (!followUps.has(query) || query.state.fetchStatus === "fetching") return
+    followUps.delete(query)
+    if (cache.get(query.queryHash) === query) readAgain(query)
+  })
+  const refresh = (queryKey: QueryKey) => {
+    for (const query of cache.findAll({ queryKey })) {
+      if (query.state.fetchStatus === "fetching") followUps.add(query)
+      else readAgain(query)
+    }
+  }
+
+  const offs = ROUTES.map((route) => route.listen(refresh))
   // One refetch per kind, however many events name it.
   const kinds = [...new Map(ROUTES.flatMap((route) => route.kinds).map((kind) => [kind[0], kind])).values()]
   let last: WebSocketStatus = wsClient.getStatus()
@@ -67,10 +76,11 @@ export function bridgeSocketToQueries(client: QueryClient): () => void {
     if (status === last) return // the subscription replays the current status
     last = status
     if (status !== "connected") return
-    for (const kind of kinds) void refresh(client, kind)
+    for (const kind of kinds) refresh(kind)
   })
   return () => {
     offs.forEach((off) => off())
     offStatus()
+    offSettled()
   }
 }
