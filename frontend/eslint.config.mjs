@@ -61,21 +61,25 @@ const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(mapl
 // Sweep 25.11.2026 (FE.12): window events between components went by bare strings with an
 // untyped `detail`. Every name and payload is in lib/app-events.ts (`emitAppEvent` / `onAppEvent`).
 const APP_EVENTS = "Send and hear in-tab events through lib/app-events.ts (emitAppEvent / onAppEvent): one typed map of names and payloads.";
+const APP_EVENT_NAME = "/^(kp[:-]|driver-assignment-changed$)/";
 const WINDOW_EVENTS = [
-  { selector: "CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name=/^(Custom)?Event$/]", message: APP_EVENTS },
-  { selector: "CallExpression[callee.property.name=/^(add|remove)EventListener$/] > Literal[value=/^(kp[:-]|driver-assignment-changed$)/]", message: APP_EVENTS },
+  { selector: `CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name=/^(Custom)?Event$/] > Literal.arguments:first-child[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
+  { selector: "CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name='CustomEvent']", message: APP_EVENTS },
+  { selector: `CallExpression[callee.property.name=/^(add|remove)EventListener$/] > Literal[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
 ];
 // Sweep 25.11.2026 (TS.8): `.json()` and `JSON.parse` return `any`, and 25 of 30 sites let it
 // flow on unchecked. Bind the result to `unknown` (`const body: unknown = await res.json()`),
 // then narrow it – or let lib/api/http.ts's `request<T>` do it.
 const UNKNOWN_BODIES = "Bind it to unknown first: `const body: unknown = await response.json()` (or JSON.parse), then narrow.";
+const AS_UNKNOWN = "VariableDeclarator[id.typeAnnotation.typeAnnotation.type='TSUnknownKeyword']";
+const JSON_BODY = "CallExpression[callee.property.name='json'][arguments.length=0]";
+const JSON_PARSE = "CallExpression[callee.object.name='JSON'][callee.property.name='parse']";
 const UNTYPED_PARSE = [
-  "CallExpression[callee.property.name='json'][arguments.length=0]",
-  "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
-].map((call) => ({
-  selector: `${call}:not(VariableDeclarator[id.typeAnnotation.typeAnnotation.type='TSUnknownKeyword'] ${call})`,
-  message: UNKNOWN_BODIES,
-}));
+  // The result itself is the initialiser: `= await r.json()`, `= await r.json().catch(…)`,
+  // `= JSON.parse(text)` – never a property read off it.
+  { call: JSON_BODY, allowed: [`${AS_UNKNOWN} > AwaitExpression > ${JSON_BODY}`, `${AS_UNKNOWN} > AwaitExpression > CallExpression > MemberExpression > ${JSON_BODY}`] },
+  { call: JSON_PARSE, allowed: [`${AS_UNKNOWN} > ${JSON_PARSE}`] },
+].map(({ call, allowed }) => ({ selector: `${call}:not(${allowed.join(", ")})`, message: UNKNOWN_BODIES }));
 const MAP_COMPONENT_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^react-map-gl(\\u002F.*)?$/]", message: MAP };
 
 export default [
