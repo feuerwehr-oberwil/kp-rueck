@@ -43,7 +43,8 @@ export class ExportsApi {
       throw new Error(`Preview failed: ${errorText}`)
     }
 
-    return response.json()
+    const preview: unknown = await response.json()
+    return preview as ApiExcelImportPreview
   }
 
   /** `mode` is required on the wire – the backend refuses a request without it rather
@@ -66,7 +67,8 @@ export class ExportsApi {
       throw new Error(`Import failed: ${errorText}`)
     }
 
-    return response.json()
+    const result: unknown = await response.json()
+    return result as ApiExcelImportResult
   }
 
   async exportAllData(): Promise<Blob> {

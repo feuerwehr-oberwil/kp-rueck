@@ -26,7 +26,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-import { readItem, readJson, writeJson } from '@/lib/utils/safe-storage'
+import { isRecord, readItem, readJson, writeJson } from '@/lib/utils/safe-storage'
 
 /**
  * The switchable blocks, in the order they appear on the card.
@@ -88,10 +88,6 @@ export function matchCardViewPreset(view: CardViewSettings): CardViewPreset | nu
 /** Flip one switch. Never touches the others — see rule 2 above. */
 export function toggleCardViewKey(view: CardViewSettings, key: CardViewKey): CardViewSettings {
   return { ...view, [key]: !view[key] }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /**
@@ -167,7 +163,8 @@ function initialise() {
       return
     }
     try {
-      const parsed = coerceCardView(JSON.parse(event.newValue))
+      const stored: unknown = JSON.parse(event.newValue)
+      const parsed = coerceCardView(stored)
       if (parsed) set(parsed)
     } catch {
       // Another tab wrote something unusable — keep what we have.

@@ -55,7 +55,6 @@ const SOURCE_BY_TYPE: Partial<Record<NotificationType, NotificationSource>> = {
   reko_arrived: 'reko',
   reko_submitted: 'reko',
   vehicle_arrived: 'vehicle',
-  vehicle_returned: 'vehicle',
   time_overdue: 'time',
   personnel_leaving: 'time',
   training_emergency: 'alarm',
@@ -204,7 +203,6 @@ function build(type: string, p: Params, t: NotificationTranslator): Built | unde
     }
 
     case 'vehicle_arrived':
-    case 'vehicle_returned':
       if (p.variant === 'on_site') {
         return { what: t(`${M}.vehicleOnSite`, { vehicle: str(p, 'vehicle') }), where: str(p, 'place') }
       }

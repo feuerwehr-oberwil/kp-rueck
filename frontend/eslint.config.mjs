@@ -65,6 +65,17 @@ const WINDOW_EVENTS = [
   { selector: "CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name=/^(Custom)?Event$/]", message: APP_EVENTS },
   { selector: "CallExpression[callee.property.name=/^(add|remove)EventListener$/] > Literal[value=/^(kp[:-]|driver-assignment-changed$)/]", message: APP_EVENTS },
 ];
+// Sweep 25.11.2026 (TS.8): `.json()` and `JSON.parse` return `any`, and 25 of 30 sites let it
+// flow on unchecked. Bind the result to `unknown` (`const body: unknown = await res.json()`),
+// then narrow it – or let lib/api/http.ts's `request<T>` do it.
+const UNKNOWN_BODIES = "Bind it to unknown first: `const body: unknown = await response.json()` (or JSON.parse), then narrow.";
+const UNTYPED_PARSE = [
+  "CallExpression[callee.property.name='json'][arguments.length=0]",
+  "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
+].map((call) => ({
+  selector: `${call}:not(VariableDeclarator[id.typeAnnotation.typeAnnotation.type='TSUnknownKeyword'] ${call})`,
+  message: UNKNOWN_BODIES,
+}));
 const MAP_COMPONENT_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^react-map-gl(\\u002F.*)?$/]", message: MAP };
 
 export default [
@@ -139,7 +150,7 @@ export default [
         paths: [...MAP_COMPONENT, { name: "maplibre-gl", message: MAP, allowTypeImports: true }],
         patterns: [...IMPORTS, ...MAP_PATTERNS],
       }],
-      "no-restricted-syntax": ["error", ...SYNTAX, ...WINDOW_EVENTS, MAP_IMPORT_EXPRESSION],
+      "no-restricted-syntax": ["error", ...SYNTAX, ...WINDOW_EVENTS, ...UNTYPED_PARSE, MAP_IMPORT_EXPRESSION],
     },
   },
   {
@@ -147,7 +158,7 @@ export default [
     ignores: ["components/map/base-map.tsx", ...TESTS],
     rules: {
       "@typescript-eslint/no-restricted-imports": ["error", { paths: MAP_COMPONENT, patterns: [...IMPORTS, MAP_PATTERNS[0]] }],
-      "no-restricted-syntax": ["error", ...SYNTAX, ...WINDOW_EVENTS, MAP_COMPONENT_IMPORT_EXPRESSION],
+      "no-restricted-syntax": ["error", ...SYNTAX, ...WINDOW_EVENTS, ...UNTYPED_PARSE, MAP_COMPONENT_IMPORT_EXPRESSION],
     },
   },
   // Unit tests build an Operation with makeOperation() (test-utils/operation-fixtures.ts): a cast

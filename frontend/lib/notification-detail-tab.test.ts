@@ -22,10 +22,8 @@ describe("detailTabForNotification", () => {
       "time_overdue",
       "no_personnel",
       "no_materials",
-      "fatigue_warning",
       "missing_location",
       "vehicle_arrived",
-      "vehicle_returned",
     ]) {
       expect(detailTabForNotification(type)).toBe("overview")
     }

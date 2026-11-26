@@ -8,6 +8,7 @@
 import { getApiUrl } from '../../env'
 import { request as httpRequest, requestVoid } from '../http'
 import type { ApiAuditLog, ApiAlarmWebhookSecret } from '../types'
+import { detailOf } from '../error-codes'
 
 export class SettingsApi {
   // Audit Logs
@@ -99,10 +100,11 @@ export class SettingsApi {
       signal: AbortSignal.timeout(60000),
     })
     if (!response.ok) {
-      const detail = await response.json().catch(() => null)
-      throw new Error(detail?.detail || `Upload fehlgeschlagen (${response.status})`)
+      const refusal: unknown = await response.json().catch(() => null)
+      throw new Error(detailOf(refusal) ?? `Upload fehlgeschlagen (${response.status})`)
     }
-    return response.json()
+    const stored: unknown = await response.json()
+    return stored as { size: number }
   }
 
   async deleteReportLogo(): Promise<void> {

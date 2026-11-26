@@ -10,6 +10,7 @@ import { feldDeviceId } from '../../feld-device'
 import { translateOutsideReact } from '../../i18n-messages'
 import { markRestReachable, markRestUnreachable, linkRequest, request as httpRequest, REQUEST_TIMEOUT_MS, linkRequestVoid } from '../http'
 import { errorCodeOf } from '../error-codes'
+import { isRecord } from '../../utils/safe-storage'
 import {
   ApiError,
   NetworkError,
@@ -99,7 +100,8 @@ export class FeldApi {
         { credentials: 'include', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
       )
       if (!response.ok) return null
-      return (await response.json()) as ApiFeldContextResponse
+      const context: unknown = await response.json()
+      return context as ApiFeldContextResponse
     } catch {
       return null
     }
@@ -157,7 +159,10 @@ export class FeldApi {
     } catch {
       return null
     }
-    if (response.ok) return (await response.json()) as ApiFeldUnlockResponse
+    if (response.ok) {
+      const unlocked: unknown = await response.json()
+      return unlocked as ApiFeldUnlockResponse
+    }
     if (response.status === 401 || response.status === 404) throw new FeldUnlockError({ kind: 'expired' })
     return null
   }
@@ -182,15 +187,17 @@ export class FeldApi {
     }
     markRestReachable()
 
-    if (response.ok) return (await response.json()) as ApiFeldUnlockResponse
+    if (response.ok) {
+      const unlocked: unknown = await response.json()
+      return unlocked as ApiFeldUnlockResponse
+    }
 
     // `detail` is an object on the two answers that carry numbers and a plain
     // string on everything else (including a backend older than this client).
-    const body = (await response.json().catch(() => undefined)) as { detail?: unknown; code?: unknown } | undefined
-    const detail = body?.detail
+    const body: unknown = await response.json().catch(() => undefined)
+    const detail = isRecord(body) ? body.detail : undefined
     const field = (name: string): number | null => {
-      if (typeof detail !== 'object' || detail === null) return null
-      const value = (detail as Record<string, unknown>)[name]
+      const value = isRecord(detail) ? detail[name] : undefined
       return typeof value === 'number' ? value : null
     }
 

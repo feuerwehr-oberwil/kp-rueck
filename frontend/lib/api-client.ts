@@ -21,6 +21,11 @@ export type {
   ApiViewerData,
 } from './api/resources/viewer'
 export { FeldUnlockError, type FeldUnlockFailure } from './api/resources/feld'
+export type {
+  ApiNotification,
+  ApiNotificationSettings,
+  ApiNotificationSettingsUpdate,
+} from './api/resources/notifications'
 
 import { SettingsApi } from './api/resources/settings'
 import { EventsApi } from './api/resources/events'
@@ -42,6 +47,7 @@ import { ViewerApi } from './api/resources/viewer'
 import { PrintApi } from './api/resources/print'
 import { UsersApi } from './api/resources/users'
 import { SystemApi } from './api/resources/system'
+import { NotificationsApi } from './api/resources/notifications'
 
 const RESOURCES = [
   SettingsApi,
@@ -64,6 +70,7 @@ const RESOURCES = [
   PrintApi,
   UsersApi,
   SystemApi,
+  NotificationsApi,
 ] as const
 
 /** `A | B | C` → `A & B & C`: the client carries every resource's methods at once. */

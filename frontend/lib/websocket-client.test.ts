@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Fake socket.io socket: records handler registrations and lets tests fire events.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const handlers = new Map<string, Function[]>()
+type Handler = (...args: unknown[]) => void
+const handlers = new Map<string, Handler[]>()
 const fakeSocket = {
   connected: false,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  on: vi.fn((event: string, cb: Function) => {
+  on: vi.fn((event: string, cb: Handler) => {
     if (!handlers.has(event)) handlers.set(event, [])
     handlers.get(event)!.push(cb)
   }),
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  off: vi.fn((event: string, cb: Function) => {
+  off: vi.fn((event: string, cb: Handler) => {
     const list = handlers.get(event)
     if (list) handlers.set(event, list.filter(h => h !== cb))
   }),

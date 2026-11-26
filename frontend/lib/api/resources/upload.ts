@@ -7,6 +7,7 @@ import { translateOutsideReact } from '../../i18n-messages'
 import { markRestReachable, PHOTO_UPLOAD_TIMEOUT_MS } from '../http'
 import { messageForErrorCode } from '../error-codes'
 import { NetworkError } from '../types'
+import { isRecord } from '../../utils/safe-storage'
 
 /** How far one photo has got, 0…1. Fed by `XMLHttpRequest.upload.onprogress`. */
 export type PhotoUploadProgress = (fraction: number) => void
@@ -57,7 +58,8 @@ export function uploadPhotoFile<T>(
       markRestReachable()
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(JSON.parse(xhr.responseText) as T)
+          const body: unknown = JSON.parse(xhr.responseText)
+          resolve(body as T)
         } catch {
           reject(new Error(translateOutsideReact('errors.api.photoUploadFailed')))
         }
@@ -67,8 +69,8 @@ export function uploadPhotoFile<T>(
       // invalid type) — the crew has to see them, not a status code.
       let message = translateOutsideReact('errors.api.photoUploadFailed')
       try {
-        const body = JSON.parse(xhr.responseText) as { detail?: unknown }
-        const detail = body.detail
+        const body: unknown = JSON.parse(xhr.responseText)
+        const detail = isRecord(body) ? body.detail : undefined
         // A coded error (size, type, limit) in the crew's language first.
         const localized = messageForErrorCode(body)
         if (localized) message = localized

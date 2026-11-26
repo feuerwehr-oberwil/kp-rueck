@@ -66,7 +66,8 @@ function readJsonSetting(settings: Record<string, string>, key: string): unknown
   const raw = settings[key]
   if (!raw || !raw.trim()) return null
   try {
-    return JSON.parse(raw)
+    const parsed: unknown = JSON.parse(raw)
+    return parsed
   } catch {
     // A hand-edited setting must never take the checklist down with it — the
     // checklist is what somebody reads while starting a command post.

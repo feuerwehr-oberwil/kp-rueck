@@ -17,6 +17,7 @@ const notifications = vi.hoisted(() => ({ list: [] as Notification[] }))
 
 /** One active bell entry of its own (not a field request's). */
 const activeNotification: Notification = {
+  ...UNSET_NOTIFICATION_FIELDS,
   id: 'n2',
   type: 'no_personnel',
   severity: 'warning',
@@ -89,6 +90,7 @@ vi.mock('@/components/alarm-inbox/alarm-inbox-button', () => ({
 }))
 
 import { PhoneNotificationSheet } from './phone-notification-sheet'
+import { UNSET_NOTIFICATION_FIELDS } from '@/test-utils/notification-fixtures'
 
 describe('PhoneNotificationSheet', () => {
   beforeEach(() => {

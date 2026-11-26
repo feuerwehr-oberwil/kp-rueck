@@ -14,7 +14,7 @@ import { emitAppEvent } from '../app-events'
 import { toast } from 'sonner'
 import { translateOutsideReact } from '../i18n-messages'
 import { ApiError, NetworkError } from './types'
-import { errorCodeOf, errorParamsOf, messageForErrorCode } from './error-codes'
+import { detailOf, errorCodeOf, errorParamsOf, messageForErrorCode } from './error-codes'
 
 /**
  * Hard ceiling on a single request. Generous on purpose: a command post on a saturated
@@ -261,12 +261,6 @@ async function send(endpoint: string, options?: RequestOptions): Promise<Respons
     }
     throw error
   }
-}
-
-/** The German `detail` of a FastAPI error body, when it is a sentence. */
-function detailOf(body: unknown): string | undefined {
-  if (typeof body !== 'object' || body === null || !('detail' in body)) return undefined
-  return typeof body.detail === 'string' && body.detail ? body.detail : undefined
 }
 
 /** What a JSON body can be: anything but nothing – `request<void>` is a tsc error. */
