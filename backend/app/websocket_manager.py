@@ -42,6 +42,7 @@ WsEvent = Literal[
     "gps_sim_status",
     "training_regie",
     "training_autogen",
+    "demo_reset",
 ]
 
 logger = logging.getLogger(__name__)

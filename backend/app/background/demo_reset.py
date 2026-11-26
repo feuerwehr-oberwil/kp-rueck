@@ -179,6 +179,13 @@ async def reset_demo() -> None:
     await seed_demo_database()
     _next_reset_time = _next_midnight_naive()
 
+    try:
+        from app.websocket_manager import broadcast_message
+
+        await broadcast_message("demo_reset", {})
+    except Exception as e:
+        logger.warning(f"Failed to broadcast demo_reset message: {e}")
+
     logger.info("Demo reset completed successfully. Next reset at %s", _next_reset_time.isoformat())
 
 

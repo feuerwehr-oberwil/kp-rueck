@@ -10,6 +10,7 @@ import type {
   ApiAssignment,
   ApiAutogenState,
   ApiDiveraEmergency,
+  ApiGpsSimDrive,
   ApiRegieState,
   ApiVehiclePosition,
   ApiVehicleTrail,
@@ -87,10 +88,12 @@ export interface WsEvents {
     incident_label: string
   }>
   gps_sim_status: WsMessage<'gps_sim_status', {
-    drives: { vehicle_id: string; vehicle_name: string; target_label: string; kind: string }[]
+    drives: Pick<ApiGpsSimDrive, 'vehicle_id' | 'vehicle_name' | 'target_label' | 'kind'>[]
   }>
   training_regie: WsMessage<'training_regie', ApiRegieState>
   training_autogen: WsMessage<'training_autogen', ApiAutogenState>
+  /** The demo sandbox was wiped and re-seeded (nightly or by hand). */
+  demo_reset: WsMessage<'demo_reset', object>
 }
 
 export type WsEventName = keyof WsEvents
