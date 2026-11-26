@@ -12,30 +12,24 @@ import { ApiError } from '@/lib/api/types/common'
 import { formatTime } from '@/lib/format-time'
 
 /**
- * «Noch nicht da»: the individual half of the roll call (decision 10) at the top of the /feld
- * list – «Ich bin da» and «Ich komme um …». `visible` while the person is not checked in; the
- * page keeps it mounted either way, so a check-in still out stays «busy» across a hide and show.
- * What it writes is folded back into the page's list (`onCheckedIn`, `onPlannedFrom`).
+ * The check-in's writes for one person: «Ich bin da» and «Ich komme um …», folded back into the
+ * page's list (`onCheckedIn`, `onPlannedFrom`). Called by the page, not by `FeldCheckIn`: the
+ * busy flag must outlive the section, which unmounts with the list whenever a Schadenplatz opens.
+ *
+ *   const checkIn = useFeldCheckIn({ personnelId, token, onCheckedIn, onPlannedFrom })
+ *   <FeldCheckIn checkIn={checkIn} planFrom={planFrom} planUntil={planUntil} />
  */
-export function FeldCheckIn({
-  visible,
+export function useFeldCheckIn({
   personnelId,
   token,
-  planFrom,
-  planUntil,
   onCheckedIn,
   onPlannedFrom,
 }: {
-  visible: boolean
   personnelId: string | undefined
   token: string | null
-  planFrom: string | null
-  planUntil: string | null
   onCheckedIn: () => void
   onPlannedFrom: (iso: string | null) => void
 }) {
-  const t = useTranslations('feld')
-  const tPlan = useTranslations('common.attendancePlan')
   const [attendanceBusy, setAttendanceBusy] = useState(false)
 
   /** Say you are here. Only ever true: checking out from a phone in a vehicle would edit the
@@ -63,6 +57,26 @@ export function FeldCheckIn({
     onPlannedFrom(iso)
   }, [token, personnelId, onPlannedFrom])
 
+  return { busy: attendanceBusy, checkIn: toggleAttendance, saveFrom }
+}
+
+/**
+ * «Noch nicht da»: the individual half of the roll call (decision 10) at the top of the /feld
+ * list – «Ich bin da» and «Ich komme um …». The page shows it while the person is not checked
+ * in, with the writes from its `useFeldCheckIn`.
+ */
+export function FeldCheckIn({
+  checkIn,
+  planFrom,
+  planUntil,
+}: {
+  checkIn: ReturnType<typeof useFeldCheckIn>
+  planFrom: string | null
+  planUntil: string | null
+}) {
+  const t = useTranslations('feld')
+  const tPlan = useTranslations('common.attendancePlan')
+
   /** «Ich komme um …»: one quiet button, the bottom sheet behind it. No «Ich bin da bis …» here
    *  (owner, 20.11.2026): somebody on /feld usually stays to the end, and the button only made
    *  them wonder whether they must answer it. The KP still sets «bis» in the Appell. */
@@ -75,7 +89,7 @@ export function FeldCheckIn({
       title={tPlan('selfFrom')}
       hint={tPlan('hintSelf')}
       fieldLabel={tPlan('selfFrom')}
-      onSave={saveFrom}
+      onSave={checkIn.saveFrom}
       trigger={
         <Button type="button" variant="outline" className="w-full">
           <Clock className="size-4" />
@@ -85,11 +99,10 @@ export function FeldCheckIn({
     />
   )
 
-  if (!visible) return null
   return (
     <section className="rounded-xl bg-secondary/60 p-4">
       <p className="mb-3 text-base font-semibold">{t('attendance.notHereTitle')}</p>
-      <Button size="lg" className="w-full" onClick={toggleAttendance} disabled={attendanceBusy}>
+      <Button size="lg" className="w-full" onClick={checkIn.checkIn} disabled={checkIn.busy}>
         {t('attendance.checkIn')}
       </Button>
       <div className="mt-2">{fromButton}</div>

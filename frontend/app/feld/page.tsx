@@ -30,7 +30,7 @@ import {
   type ApiFeldAssignment,
 } from '@/lib/api-client'
 import { FeldAssignmentFeed } from '@/components/feld/feld-assignment-feed'
-import { FeldCheckIn } from '@/components/feld/feld-check-in'
+import { FeldCheckIn, useFeldCheckIn } from '@/components/feld/feld-check-in'
 import { FeldDanachList } from '@/components/feld/feld-danach-list'
 import { FeldDetail } from '@/components/feld/feld-detail'
 import { FeldEmptyFeed } from '@/components/feld/feld-empty-feed'
@@ -480,12 +480,17 @@ function FeldSurface() {
 
   useFeldRefresh(selectedPerson?.personnel_id, token, loadAssignments)
 
-  /** The check-in's writes, folded into the list (`FeldCheckIn`). */
-  const markCheckedIn = useCallback(() => setFeld(prev => prev && { ...prev, checked_in: true }), [setFeld])
-  const setPlannedFrom = useCallback(
-    (iso: string | null) => setFeld(prev => prev && { ...prev, planned_from: iso }),
-    [setFeld],
-  )
+  /** The check-in's writes, folded into the list. Page-level, so a check-in still out stays
+   *  busy while a Schadenplatz is open (`useFeldCheckIn`). */
+  const checkIn = useFeldCheckIn({
+    personnelId: selectedPerson?.personnel_id,
+    token,
+    onCheckedIn: useCallback(() => setFeld(prev => prev && { ...prev, checked_in: true }), [setFeld]),
+    onPlannedFrom: useCallback(
+      (iso: string | null) => setFeld(prev => prev && { ...prev, planned_from: iso }),
+      [setFeld],
+    ),
+  })
 
   const selectedAssignment = useMemo(
     () => assignments.find(a => a.incident_id === selectedIncidentId) ?? null,
@@ -673,15 +678,9 @@ function FeldSurface() {
         {/* Not here yet: the one thing worth a full-width button, because it is
             what somebody arriving does before anything else exists for them. */}
         {/* Not after a failed first load: «nicht anwesend» would be a guess, nothing was loaded. */}
-        <FeldCheckIn
-          visible={!checkedIn && !(syncFailed && !syncedAt)}
-          personnelId={selectedPerson?.personnel_id}
-          token={token}
-          planFrom={planFrom}
-          planUntil={planUntil}
-          onCheckedIn={markCheckedIn}
-          onPlannedFrom={setPlannedFrom}
-        />
+        {!checkedIn && !(syncFailed && !syncedAt) && (
+          <FeldCheckIn checkIn={checkIn} planFrom={planFrom} planUntil={planUntil} />
+        )}
 
         {/* The Magazin's inventory, when the Materialwart has nothing else on:
             then it IS their page, and it opens the screen. Somebody who is also
