@@ -32,10 +32,10 @@ export class ApiError extends Error {
 }
 
 /**
- * Thrown when a request never reached the server (offline, DNS, refused).
- * Mutations must reject with this so callers roll back optimistic state —
- * silently resolving made the UI report success for writes that never
- * happened. Polling GETs still resolve to undefined instead (soft degrade).
+ * Thrown when a request never reached the server (offline, DNS, refused, timed
+ * out) after its retries – a read as well as a write. A write's caller rolls back
+ * its optimistic state; a poller keeps its last known state. «No answer» never
+ * resolves to a value, so it cannot pass for an empty list.
  */
 export class NetworkError extends Error {
   constructor(message: string = translateOutsideReact('errors.networkError')) {

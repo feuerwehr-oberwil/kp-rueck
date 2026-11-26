@@ -6,7 +6,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type {
   ApiAssignment,
   ApiAssignmentCreate,
@@ -62,7 +62,7 @@ export class AssignmentsApi {
   }
 
   async unassignResource(incidentId: string, assignmentId: string): Promise<void> {
-    return httpRequest<void>(`/api/incidents/${incidentId}/unassign/${assignmentId}`, {
+    return requestVoid(`/api/incidents/${incidentId}/unassign/${assignmentId}`, {
       method: 'POST',
     })
   }
@@ -81,7 +81,7 @@ export class AssignmentsApi {
    *  assigned elsewhere by now. */
   async undoCollectMaterial(incidentId: string, assignmentId: string, releasedAt: string): Promise<void> {
     const query = new URLSearchParams({ released_at: releasedAt })
-    return httpRequest<void>(`/api/incidents/${incidentId}/material-collected/${assignmentId}?${query}`, {
+    return requestVoid(`/api/incidents/${incidentId}/material-collected/${assignmentId}?${query}`, {
       method: 'DELETE',
     })
   }
@@ -125,6 +125,6 @@ export class AssignmentsApi {
   }
 
   async removePlanned(plannedId: string): Promise<void> {
-    return httpRequest<void>(`/api/planned-assignments/${plannedId}`, { method: 'DELETE' })
+    return requestVoid(`/api/planned-assignments/${plannedId}`, { method: 'DELETE' })
   }
 }

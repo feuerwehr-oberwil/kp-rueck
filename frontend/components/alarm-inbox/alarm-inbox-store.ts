@@ -100,8 +100,6 @@ async function fetchPool(): Promise<Pick<AlarmPool, 'emergencies' | 'total'>> {
     apiClient.getDiveraEmergencies({ include_archived: true, limit: PAGE }),
     apiClient.getDiveraEmergencies({ attached: false, include_archived: false, limit: WAITING_MAX }),
   ])
-  // An offline read resolves to nothing (lib/api/http.ts) – that is a failure, not an empty pool.
-  if (!page || !waiting) throw new NetworkError()
   const onPage = new Set(page.emergencies.map((e) => e.id))
   const beyond = waiting.emergencies.filter((e) => !onPage.has(e.id))
   const emergencies =

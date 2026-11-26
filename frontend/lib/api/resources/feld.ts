@@ -8,12 +8,7 @@
 import { getApiUrl } from '../../env'
 import { feldDeviceId } from '../../feld-device'
 import { translateOutsideReact } from '../../i18n-messages'
-import {
-  markRestReachable,
-  markRestUnreachable,
-  linkRequest, request as httpRequest,
-  REQUEST_TIMEOUT_MS,
-} from '../http'
+import { markRestReachable, markRestUnreachable, linkRequest, request as httpRequest, REQUEST_TIMEOUT_MS, linkRequestVoid } from '../http'
 import { errorCodeOf } from '../error-codes'
 import {
   ApiError,
@@ -303,7 +298,7 @@ export class FeldApi {
    * tablet at the door. Same attendance row either way — one roll call.
    */
   async setFeldAttendance(personnelId: string, token: string, present: boolean): Promise<void> {
-    await linkRequest<unknown>(
+    await linkRequestVoid(
       `/api/feld/attendance/${personnelId}?token=${encodeURIComponent(token)}&present=${present}`,
       { method: 'POST' },
     )
@@ -311,7 +306,7 @@ export class FeldApi {
 
   /** «Ich komme um …» / «Ich bin da bis …» – the person's own plan (`ApiAttendancePlan`). */
   async setFeldAttendancePlan(personnelId: string, token: string, plan: ApiAttendancePlan): Promise<void> {
-    await linkRequest<unknown>(
+    await linkRequestVoid(
       `/api/feld/attendance/${personnelId}/plan?token=${encodeURIComponent(token)}`,
       { method: 'PUT', body: JSON.stringify(plan) },
     )
@@ -389,7 +384,7 @@ export class FeldApi {
     // A plain string is the chip / typed sentence every phone has always sent;
     // the object form is a structured «Material nötig» / «Verstärkung nötig» (R13).
     const body = typeof message === 'string' ? { message } : message
-    await linkRequest<void>(feldQuery(incidentId, 'message', personnelId, token), {
+    await linkRequestVoid(feldQuery(incidentId, 'message', personnelId, token), {
       method: 'POST',
       body: JSON.stringify(body),
     })

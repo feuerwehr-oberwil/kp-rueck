@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { linkRequest, request as httpRequest } from '../http'
+import { linkRequest, request as httpRequest, requestVoid } from '../http'
 import type {
   BulkCategorySortOrderUpdate,
   ApiPersonnel,
@@ -47,7 +47,7 @@ export class PersonnelApi {
   }
 
   async deletePersonnel(id: string): Promise<void> {
-    return httpRequest<void>(`/api/personnel/${id}`, {
+    return requestVoid(`/api/personnel/${id}`, {
       method: 'DELETE',
     })
   }

@@ -5,7 +5,7 @@
  * the one client object). Methods go through the shared transport in `../http`.
  */
 
-import { request as httpRequest } from '../http'
+import { request as httpRequest, requestVoid } from '../http'
 import type {
   ApiIncidentGroup,
   ApiIncidentGroupCreate,
@@ -45,14 +45,14 @@ export class GroupsApi {
 
   /** Soft-delete an Auftrag; its stops stay on the board, ungrouped (204). */
   async deleteIncidentGroup(id: string): Promise<void> {
-    return httpRequest<void>(`/api/incident-groups/${id}`, {
+    return requestVoid(`/api/incident-groups/${id}`, {
       method: 'DELETE',
     })
   }
 
   /** Persist the order of the Aufträge within an event (204 No Content). */
   async reorderIncidentGroups(eventId: string, orderedIds: string[]): Promise<void> {
-    await httpRequest<void>('/api/incident-groups/reorder', {
+    await requestVoid('/api/incident-groups/reorder', {
       method: 'POST',
       body: JSON.stringify({ event_id: eventId, ordered_ids: orderedIds }),
     })
@@ -84,12 +84,12 @@ export class GroupsApi {
 
   /** Delete a Standard-Auftrag. Aufträge already created from it stay put (204). */
   async deleteAuftragTemplate(id: string): Promise<void> {
-    return httpRequest<void>(`/api/auftrag-templates/${id}`, { method: 'DELETE' })
+    return requestVoid(`/api/auftrag-templates/${id}`, { method: 'DELETE' })
   }
 
   /** Persist the settings list order of the Standard-Aufträge (204 No Content). */
   async reorderAuftragTemplates(templateIds: string[]): Promise<void> {
-    await httpRequest<void>('/api/auftrag-templates/reorder', {
+    await requestVoid('/api/auftrag-templates/reorder', {
       method: 'POST',
       body: JSON.stringify({ template_ids: templateIds }),
     })
@@ -102,7 +102,7 @@ export class GroupsApi {
    * answers 409 (`ApiError.isConflict`) and changes nothing.
    */
   async reorderGroupStops(groupId: string, orderedIds: string[], expectedIds?: string[]): Promise<void> {
-    await httpRequest<void>(`/api/incident-groups/${groupId}/stops/reorder`, {
+    await requestVoid(`/api/incident-groups/${groupId}/stops/reorder`, {
       method: 'POST',
       body: JSON.stringify(
         expectedIds ? { ordered_ids: orderedIds, expected_ids: expectedIds } : { ordered_ids: orderedIds },
@@ -151,7 +151,7 @@ export class GroupsApi {
   /** «Rückgängig» of `transferToAuftrag` with the ids it answered (204; 409 once anything
    *  changed – the caller says that in its own toast). */
   async undoTransferToAuftrag(groupId: string, incidentId: string, moved: ApiTransferToAuftragResult): Promise<void> {
-    return httpRequest<void>(`/api/incident-groups/${groupId}/transfer/undo`, {
+    return requestVoid(`/api/incident-groups/${groupId}/transfer/undo`, {
       method: 'POST',
       body: JSON.stringify({ incident_id: incidentId, ...moved }),
       skipToast: true,
@@ -160,7 +160,7 @@ export class GroupsApi {
 
   /** Detach a stop from its Auftrag (leaves the incident on the board) (204). */
   async removeStopFromGroup(groupId: string, incidentId: string): Promise<void> {
-    return httpRequest<void>(`/api/incident-groups/${groupId}/stops/${incidentId}`, {
+    return requestVoid(`/api/incident-groups/${groupId}/stops/${incidentId}`, {
       method: 'DELETE',
     })
   }
@@ -177,7 +177,7 @@ export class GroupsApi {
 
   /** Release a route-owned resource (204 No Content). */
   async unassignGroupResource(groupId: string, assignmentId: string): Promise<void> {
-    return httpRequest<void>(`/api/incident-groups/${groupId}/unassign/${assignmentId}`, {
+    return requestVoid(`/api/incident-groups/${groupId}/unassign/${assignmentId}`, {
       method: 'POST',
     })
   }

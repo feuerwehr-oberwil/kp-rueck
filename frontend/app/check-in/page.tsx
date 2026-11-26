@@ -65,14 +65,12 @@ function CheckInKiosk({ token }: { token: string | null }) {
     try {
       const data = await apiClient.getCheckInList(token)
       if (revision !== rosterRevision.current) return
-      if (data) {
-        setPersonnel(data.personnel)
-        setEventName(data.event_name)
-        setEventId(data.event_id)
-        setLoading(false)
-        setRetrying(false)
-        return
-      }
+      setPersonnel(data.personnel)
+      setEventName(data.event_name)
+      setEventId(data.event_id)
+      setLoading(false)
+      setRetrying(false)
+      return
     } catch (error) {
       if (revision !== rosterRevision.current) return
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) {

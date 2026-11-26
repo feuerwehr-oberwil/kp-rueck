@@ -397,10 +397,10 @@ describe("OperationsProvider — a failed load is not an empty board", () => {
   })
 
   it.each([
-    ["assignments", () => api.getAssignmentsByEvent.mockResolvedValueOnce(undefined)],
+    ["assignments", () => api.getAssignmentsByEvent.mockRejectedValueOnce(new NetworkError())],
     ["special functions", () => api.getEventSpecialFunctions.mockRejectedValueOnce(new Error("500"))],
-    ["reko summaries", () => api.getEventRekoSummaries.mockResolvedValueOnce(undefined)],
-    ["vehicles", () => api.getVehicles.mockResolvedValueOnce(undefined)],
+    ["reko summaries", () => api.getEventRekoSummaries.mockRejectedValueOnce(new NetworkError())],
+    ["vehicles", () => api.getVehicles.mockRejectedValueOnce(new NetworkError())],
     ["personnel", () => refreshPersonnel.mockRejectedValueOnce(new Error("500"))],
   ])("does not paint a partial snapshot when %s fail", async (_what, breakIt) => {
     const { result } = await renderBoard()

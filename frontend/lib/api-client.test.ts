@@ -45,21 +45,15 @@ describe('apiClient network failures', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
-  it('resolves GETs to undefined when the server is unreachable (soft degrade for polling)', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  it('rejects a read after its retries instead of passing an outage off as an empty list', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Load failed'))
+    vi.stubGlobal('fetch', fetchMock)
 
     const promise = apiClient.getIncidents('event-id')
-    await vi.runAllTimersAsync()
-    await expect(promise).resolves.toBeUndefined()
-  })
-
-  it('rejects the board incident list instead of passing an outage off as an empty Ereignis', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
-
-    const promise = apiClient.getIncidentsWithTotal('event-id')
     const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
     await vi.runAllTimersAsync()
     await assertion
+    expect(fetchMock).toHaveBeenCalledTimes(4)
   })
 
   it('still resolves successful mutations with the response body', async () => {
