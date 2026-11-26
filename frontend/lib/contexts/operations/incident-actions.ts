@@ -67,7 +67,7 @@ const NOT_MERGED_CODE = "incident_not_merged"
 
 /** `ops` with the cards of `orderedIds` in that order: each takes one of the slots they held
  *  together, every other card keeps its slot (so other columns do not move). */
-export function inOrder(ops: Operation[], orderedIds: readonly string[]): Operation[] {
+function inOrder(ops: Operation[], orderedIds: readonly string[]): Operation[] {
   const rank = new Map(orderedIds.map((id, index) => [id, index]))
   const moved = ops.filter((op) => rank.has(op.id)).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
   let next = 0

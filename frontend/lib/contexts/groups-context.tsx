@@ -6,13 +6,6 @@ import { useOperations, type Operation } from "@/lib/contexts/operations-context
 
 // Re-export the client type for convenience (as materials-context exposes Material).
 export type { IncidentGroup } from "@/lib/types/groups"
-export type {
-  AnnouncementInput,
-  CreateGroupInput,
-  StopRestoreResult,
-  UpdateGroupInput,
-  VehicleStopAddResult,
-} from "./operations/types"
 
 const EMPTY_RESOURCES: GroupResources = { vehicles: [], personnel: [], materials: [] }
 
