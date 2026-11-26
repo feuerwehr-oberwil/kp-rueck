@@ -153,6 +153,10 @@ class ErrorCode(StrEnum):
     # The alarm pool and the Divera webhook.
     ALARM_EXISTS = "alarm_exists"
     ALARM_WEBHOOK_FAILED = "alarm_webhook_failed"
+    # An inbound alarm (POST /api/alarms, the Divera and FireHub webhooks) without the right
+    # shared secret, or on a station that configured none (403). One code for both: an
+    # unauthenticated caller does not learn whether a secret is set; the log says which.
+    ALARM_WEBHOOK_SECRET_INVALID = "alarm_webhook_secret_invalid"  # noqa: S105 — an error code, not a secret
     ALARM_NOT_FOUND = "alarm_not_found"
     ALARM_ALREADY_ATTACHED = "alarm_already_attached"
     ALARM_TRAINING_ONLY = "alarm_training_only"

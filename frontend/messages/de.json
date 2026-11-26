@@ -3764,6 +3764,7 @@
       "unmerge_conflict": "Konflikt bei der Verarbeitung",
       "alarm_exists": "Alarm existiert bereits",
       "alarm_webhook_failed": "Webhook konnte nicht verarbeitet werden",
+      "alarm_webhook_secret_invalid": "Webhook-Secret fehlt oder ist falsch",
       "alarm_not_found": "Divera-Alarm nicht gefunden",
       "alarm_already_attached": "Alarm ist diesem Ereignis bereits zugeordnet",
       "alarm_training_only": "Übungs-Alarm kann nur an eine Übung angehängt werden",

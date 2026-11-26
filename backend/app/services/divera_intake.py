@@ -26,7 +26,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Any
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
@@ -37,9 +37,19 @@ from ..alarm_keywords import (
     KP_RUECK_WORD_BOUNDED,
 )
 from ..schemas.incidents import FREE_TEXT_MAX, TITLE_MAX
+from ..utils.error_codes import DomainError, ErrorCode
 from .settings import get_alarm_webhook_secret
 
 logger = logging.getLogger(__name__)
+
+
+def _secret_refused() -> DomainError:
+    """The one 403 both refusals of ``check_webhook_secret`` raise."""
+    return DomainError(
+        ErrorCode.ALARM_WEBHOOK_SECRET_INVALID,
+        "Webhook-Secret fehlt oder ist falsch",
+        status_code=status.HTTP_403_FORBIDDEN,
+    )
 
 
 async def check_webhook_secret(db: AsyncSession, request: Request | None, *, label: str) -> None:
@@ -53,11 +63,14 @@ async def check_webhook_secret(db: AsyncSession, request: Request | None, *, lab
 
     Fail-closed is the only safe direction here: a station that has not configured a secret
     has not authorised anyone to create incidents on its board.
+
+    Both refusals answer the same 403 with ``alarm_webhook_secret_invalid``; only the log
+    tells a missing configuration from a wrong secret.
     """
     webhook_secret = await get_alarm_webhook_secret(db)
     if not webhook_secret:
         logger.warning("%s rejected: no alarm_webhook_secret configured", label)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        raise _secret_refused()
 
     provided = ""
     if request is not None:
@@ -66,7 +79,7 @@ async def check_webhook_secret(db: AsyncSession, request: Request | None, *, lab
     # As bytes: compare_digest raises on a str with non-ASCII characters (a 500, not the 403).
     if not provided or not _secrets.compare_digest(provided.encode(), webhook_secret.encode()):
         logger.warning("%s rejected: invalid or missing secret", label)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        raise _secret_refused()
 
 
 def _incident_type(category: str) -> schemas.IncidentType:
