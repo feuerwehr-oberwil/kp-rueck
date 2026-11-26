@@ -72,7 +72,8 @@ export function FiguresDialog() {
       size="md"
       className="modal-h-tall overflow-y-auto"
     >
-      <ResponsiveDialogBody sheetClassName="pt-1 pb-sheet-safe">{panel}</ResponsiveDialogBody>
+      {/* Desk: `contents` – the panel's parts stay cells of the window's grid, 16px apart. */}
+      <ResponsiveDialogBody className="contents" sheetClassName="pt-1 pb-sheet-safe">{panel}</ResponsiveDialogBody>
     </ResponsiveDialog>
   )
 }

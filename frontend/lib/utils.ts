@@ -32,8 +32,12 @@ const Z_RUNGS = [
   'maplibre-ctrl',
 ] as const
 
+/** The bottom paddings globals.css defines as `@utility` (phone geometry): `cn('pb-4',
+ *  'pb-sheet-safe')` must keep only the second, as it would for two scale values. */
+const PB_UTILITIES = ['pb-sheet-safe', 'pb-nav-reserve']
+
 const twMerge = extendTailwindMerge({
-  extend: { classGroups: { z: Z_RUNGS.map(rung => `z-${rung}`) } },
+  extend: { classGroups: { z: Z_RUNGS.map(rung => `z-${rung}`), pb: PB_UTILITIES } },
 })
 
 export function cn(...inputs: ClassValue[]) {
