@@ -12,7 +12,7 @@
 import { PhoneEventHead } from '@/components/mobile/phone-event-pill'
 import { MapIncidentPeek } from '@/components/mobile/map-incident-peek'
 import { nextPickupId, openPickups } from '@/lib/map-pickups'
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback, useReducer } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -49,6 +49,7 @@ import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { useTranslations } from "next-intl"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { LoadingStatus } from "@/components/ui/shell-loader"
+import { AUFTRAGS_EDITOR_CLOSED, changeAuftragsEditor } from "./auftrags-editor"
 import { PlanningAddConfirm, RekoOverwriteConfirm, type PlanningAddQuestion, type RekoOverwriteQuestion } from "./editor-confirms"
 import { MapIncidentRail } from "./incident-rail"
 import { MapPageHeader } from "./map-page-header"
@@ -146,11 +147,11 @@ export default function MapPage() {
   // «Wetter»: the radar layer. Offered only when the backend serves weather (WEATHER_ENABLED);
   // the map reports that, like GPS above.
   const [weatherAvailable, setWeatherAvailable] = useState(false)
-  // Editor-only Auftrags-Editor mode.
-  const [planningActive, setPlanningActive] = useState(false)
-  const [planningGroupId, setPlanningGroupId] = useState<string | null>(null)
-  const [planningAddMode, setPlanningAddMode] = useState(false)
-  const [planningFocusStopId, setPlanningFocusStopId] = useState<string | null>(null)
+  // Editor-only Auftrags-Editor mode: off, open without an Auftrag, or open on a route.
+  const [editor, changeEditor] = useReducer(changeAuftragsEditor, AUFTRAGS_EDITOR_CLOSED)
+  const planningActive = editor.kind !== 'off'
+  const route = editor.kind === 'route' ? editor : null
+  const focusStop = (stopId: string | null) => changeEditor({ type: 'focusStop', stopId })
   // Reko-Editor — editor-only reko dispatching from the map (panel + marker taps).
   const [rekoModeActive, setRekoModeActive] = useState(false)
   const [rekoPersonId, setRekoPersonId] = useState<string | null>(null)
@@ -159,7 +160,7 @@ export default function MapPage() {
   const [rekoOverwrite, setRekoOverwrite] = useState<RekoOverwriteQuestion | null>(null)
   const rekoOverwriteIncident = rekoOverwrite ? operations.find((op) => op.id === rekoOverwrite.operationId) : undefined
   // Shared routing hook — active only while planning a selected group.
-  const planning = useRoutePlanning(planningActive ? planningGroupId : null)
+  const planning = useRoutePlanning(route?.groupId ?? null)
   // Desktop: the right rail's width, dragged by its left edge (use-rail-width.ts).
   const { railWidth, railRef } = useRailWidth()
   // id → Operation lookup for the GroupRoutes overlay (stops are real incidents).
@@ -194,8 +195,8 @@ export default function MapPage() {
   const handleIncidentClick = (incidentId: string) => {
     // In Auftrags-Editor mode with a selected route, clicking an incident marker
     // adds that incident to the route instead of selecting it on the map.
-    if (planningActive && planningGroupId) {
-      const group = groups.find((g) => g.id === planningGroupId)
+    if (route) {
+      const group = groups.find((g) => g.id === route.groupId)
       if (group?.stopIds.includes(incidentId)) {
         toast.info(t('planning.stopAlreadyOnRoute'))
       } else {
@@ -204,7 +205,7 @@ export default function MapPage() {
         // Einsatz into the route. Same guard as the board's picker.
         const op = operations.find((candidate) => candidate.id === incidentId)
         const otherGroup =
-          op?.groupId && op.groupId !== planningGroupId
+          op?.groupId && op.groupId !== route.groupId
             ? groups.find((g) => g.id === op.groupId)
             : undefined
         const dispatched = !!op && ['enroute', 'active', 'returning'].includes(op.status)
@@ -213,12 +214,12 @@ export default function MapPage() {
             incidentId,
             incidentLabel: op ? getIncidentRefLabel(op, 40) : '',
             fromName: otherGroup?.name ?? null,
-            groupId: planningGroupId,
+            groupId: route.groupId,
             toName: group?.name ?? '',
           })
           return
         }
-        void addStops(planningGroupId, [incidentId]).then((ok) => {
+        void addStops(route.groupId, [incidentId]).then((ok) => {
           if (ok) toast.success(t('planning.stopAdded'))
         })
       }
@@ -260,14 +261,9 @@ export default function MapPage() {
   const enterPlanning = () => {
     exitRekoMode()
     setSelectedIncidentId(null)
-    setPlanningActive(true)
-    setPlanningGroupId((prev) => prev ?? groups[0]?.id ?? null)
+    changeEditor({ type: 'open', firstGroupId: groups[0]?.id ?? null })
   }
-  const exitPlanning = () => {
-    setPlanningActive(false)
-    setPlanningAddMode(false)
-    setPlanningFocusStopId(null)
-  }
+  const exitPlanning = () => changeEditor({ type: 'close' })
 
   // Enter/exit Reko-Editor; mutually exclusive with Auftrags-Editor (both swap the
   // sidebar). Entering auto-colours markers by reko person so each person's
@@ -311,7 +307,7 @@ export default function MapPage() {
   // Create a new Auftrag from the panel and select it for planning.
   const handleCreatePlanningGroup = async (name: string, color: string) => {
     const created = await createGroup({ name, color })
-    if (created) setPlanningGroupId(created.id)
+    if (created) changeEditor({ type: 'pickGroup', groupId: created.id })
   }
 
   // Empty-map click while "Stop hinzufügen" is active → append a geocoded stop.
@@ -570,9 +566,9 @@ export default function MapPage() {
               groups={groups}
               groupResourcesFor={getGroupResources}
               operationsById={operationsById}
-              focusGroupId={planningActive ? planningGroupId : null}
-              highlightGroupStopId={planningActive ? planningFocusStopId : null}
-              onGroupStopMarkerClick={planningActive ? setPlanningFocusStopId : handleIncidentClick}
+              focusGroupId={route?.groupId ?? null}
+              highlightGroupStopId={route?.focusStopId ?? null}
+              onGroupStopMarkerClick={planningActive ? focusStop : handleIncidentClick}
               // Tap-modes: the hover card must not swap in under the finger —
               // that DOM churn ate the first tap of a Reko un-assign. The phone: the
               // peek tells the Einsatz, the pin keeps its short label.
@@ -587,7 +583,7 @@ export default function MapPage() {
                       setSelectedIncidentId(null)
                       setSearchHitsOpen(false)
                     }
-                  : planningActive && planningAddMode && planningGroupId ? handleMapAddStop : undefined
+                  : route?.addMode ? handleMapAddStop : undefined
               }
               topRightControls={isMobile ? phoneCountChip : undefined}
               floating={isMobile ? { top: phoneSearchRow, foot: phonePeek } : undefined}
@@ -622,13 +618,13 @@ export default function MapPage() {
               {planningActive ? (
                 <RoutenplanungPanel
                   groups={groups}
-                  groupId={planningGroupId}
-                  onGroupIdChange={setPlanningGroupId}
+                  groupId={editor.groupId}
+                  onGroupIdChange={(groupId) => changeEditor({ type: 'pickGroup', groupId })}
                   onCreateGroup={handleCreatePlanningGroup}
-                  addMode={planningAddMode}
-                  onAddModeChange={setPlanningAddMode}
-                  focusStopId={planningFocusStopId}
-                  onFocusStopChange={setPlanningFocusStopId}
+                  addMode={route?.addMode ?? false}
+                  onAddModeChange={(on) => changeEditor({ type: 'addMode', on })}
+                  focusStopId={route?.focusStopId ?? null}
+                  onFocusStopChange={focusStop}
                   planning={planning}
                   onExit={exitPlanning}
                   canEdit={isEditor}
@@ -716,7 +712,7 @@ export default function MapPage() {
 
         <PlanningAddConfirm
           question={planningAddConfirm}
-          auftragName={groups.find((g) => g.id === planningGroupId)?.name ?? ''}
+          auftragName={groups.find((g) => g.id === editor.groupId)?.name ?? ''}
           onClose={() => setPlanningAddConfirm(null)}
           onConfirm={(question) => {
             void addStops(question.groupId, [question.incidentId]).then((ok) => {

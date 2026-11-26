@@ -2,11 +2,10 @@
 
 import { Marker } from "react-map-gl/maplibre"
 import { useTranslations } from "next-intl"
-import type { MapIncident } from "@/lib/map-incident"
+import { shortAddressOf, type LocatedIncident, type MapIncident } from "@/lib/map-incident"
 import { STATUS_TO_GROUP, STATUS_GROUP_BORDER_STYLE } from "@/lib/types/incidents"
 import { PRIORITY_MARKER_COLORS, STATUS_RING, incidentPinRings, incidentPinSize } from "@/lib/map-colors"
 import { markerGlyphInk, priorityGlyphPath } from "@/lib/map-priority"
-import { formatLocationForDisplay, getGlobalHomeCity } from "@/lib/utils"
 import { PinCountBadge } from "./pin-count-badge"
 import { useOpenOnDoubleClick } from "./use-open-on-double-click"
 
@@ -156,7 +155,7 @@ export function IncidentMarker({
   onHoverStart,
   onHoverEnd,
 }: {
-  incident: MapIncident
+  incident: LocatedIncident
   highlighted: boolean
   /** Phone geometry – see IncidentPin. */
   compact: boolean
@@ -178,8 +177,8 @@ export function IncidentMarker({
   const doubleClickRef = useOpenOnDoubleClick(onOpen)
   return (
     <Marker
-      longitude={incident.location_lng!}
-      latitude={incident.location_lat!}
+      longitude={incident.location_lng}
+      latitude={incident.location_lat}
       style={{ zIndex }}
       // A click on a DOM marker also reaches the map canvas under it (Leaflet swallowed it),
       // where it would count as an empty-map click and add a route stop.
@@ -207,13 +206,5 @@ export function IncidentMarker({
         {count > 1 && <PinCountBadge count={count} />}
       </div>
     </Marker>
-  )
-}
-
-/** What a short label (and the marker's aria-label) calls the incident. */
-export function shortAddressOf(incident: MapIncident): string {
-  return (
-    (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
-    || incident.title
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { Map as MlMap } from "maplibre-gl"
 import type { ApiVehiclePosition } from "@/lib/api-client"
-import type { MapIncident } from "@/lib/map-incident"
+import { isLocatedIncident, type MapIncident } from "@/lib/map-incident"
 import { fitTo, type LatLngPoint } from "@/lib/map-view"
 import { focusOffset } from "@/lib/map-labels"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
@@ -13,8 +13,8 @@ import { INCIDENT_DOT_SIZE } from "./use-label-pass"
 /** Every located incident as a `[lat, lng]` point — what `fitTo` frames. */
 export function locatedPoints(incidents: MapIncident[]): LatLngPoint[] {
   return incidents
-    .filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
-    .map((inc) => [inc.location_lat!, inc.location_lng!] as LatLngPoint)
+    .filter(isLocatedIncident)
+    .map((inc): LatLngPoint => [inc.location_lat, inc.location_lng])
 }
 
 /** Leaflet's `padding: [x, y]`, in MapLibre's per-edge shape. */
