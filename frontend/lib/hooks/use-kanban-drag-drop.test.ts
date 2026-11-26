@@ -133,7 +133,6 @@ describe("applyOperationDrop", () => {
     card("d", "enroute"),
   ]
 
-  const setOperations = vi.fn()
   const updateOperation = vi.fn()
   const reorderColumn = vi.fn()
   const onOperationDrop = vi.fn()
@@ -150,11 +149,10 @@ describe("applyOperationDrop", () => {
         index: sourceIndex,
       },
       { type: "operation-drop", operationId: targetId, index: targetIndex },
-      { operations, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange },
+      { operations, updateOperation, reorderColumn, onOperationDrop, onStatusChange },
     )
 
   beforeEach(() => {
-    setOperations.mockClear()
     updateOperation.mockClear()
     reorderColumn.mockClear()
     onOperationDrop.mockClear()
@@ -164,7 +162,6 @@ describe("applyOperationDrop", () => {
   it("treats a card dropped on itself as the click it was — no write", () => {
     drop("a", 0, "a", 0)
     expect(reorderColumn).not.toHaveBeenCalled()
-    expect(setOperations).not.toHaveBeenCalled()
     expect(onOperationDrop).toHaveBeenCalledWith("a")
   })
 
@@ -172,13 +169,11 @@ describe("applyOperationDrop", () => {
     // Card "a" onto the top edge of its immediate neighbour "b": same order.
     drop("a", 0, "b", 1)
     expect(reorderColumn).not.toHaveBeenCalled()
-    expect(setOperations).not.toHaveBeenCalled()
   })
 
   it("still persists a real reorder", () => {
     drop("a", 0, "c", 2)
     expect(reorderColumn).toHaveBeenCalledWith(["b", "a", "c"])
-    expect(setOperations).toHaveBeenCalled()
   })
 
   it("still moves a card across columns", () => {
@@ -193,11 +188,10 @@ describe("applyOperationDrop", () => {
     applyOperationDrop(
       { type: "operation", operation: operations[0], index: 0 },
       { type: "operation-drop", operationId: "d", index: 0 },
-      { operations, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange },
+      { operations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange },
     )
     expect(holdStatusChange).toHaveBeenCalledWith("a", "enroute")
     expect(updateOperation).not.toHaveBeenCalled()
-    expect(setOperations).not.toHaveBeenCalled()
     expect(onStatusChange).not.toHaveBeenCalled()
   })
 })

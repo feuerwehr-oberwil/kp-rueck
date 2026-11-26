@@ -32,7 +32,6 @@ import { apiClient } from "@/lib/api-client"
 import { useEvent } from "@/lib/contexts/event-context"
 import { useOperations, type Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
-import { useRekoReorder } from "@/lib/hooks/use-reko-reorder"
 import { REKO_PICK_MESSAGE_ID, useRekoCandidatePicker } from "@/components/incidents/assign-reko-dialog"
 import { RouteStopList, RouteTimelineItem, TIMELINE_ROW, TimelineNode } from "./route-stop-list"
 import { RailHeader } from "./rail-header"
@@ -63,8 +62,7 @@ export function RekoModusPanel({
   const tAssign = useTranslations("incidents.assignReko")
   const tPick = useTranslations("common.personPick")
   const { selectedEvent } = useEvent()
-  const { personnel, operations, refreshOperations } = useOperations()
-  const reorder = useRekoReorder()
+  const { personnel, operations, refreshOperations, reorderRekos: reorder } = useOperations()
   // Read-only on a phone, like the Auftrags-Editor: the order is shown, not dragged.
   const isPhone = useIsMobile()
   const [markMode, setMarkMode] = useState(false)

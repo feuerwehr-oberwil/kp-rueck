@@ -20,7 +20,6 @@ interface UseKanbanDragDropProps {
   isMounted: boolean
   canEdit?: boolean
   operations: Operation[]
-  setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   updateOperation: (id: string, updates: Partial<Operation>) => void
   reorderColumn: (orderedIds: string[]) => void
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
@@ -236,7 +235,6 @@ function isSameOrder(a: readonly { id: string }[], b: readonly { id: string }[])
 type OperationDropDeps = Pick<
   UseKanbanDragDropProps,
   | 'operations'
-  | 'setOperations'
   | 'updateOperation'
   | 'reorderColumn'
   | 'onOperationDrop'
@@ -257,7 +255,6 @@ export function applyOperationDrop(
   destData: DragData,
   {
     operations,
-    setOperations,
     updateOperation,
     reorderColumn,
     onOperationDrop,
@@ -303,7 +300,6 @@ export function applyOperationDrop(
       }
 
       const sameColumnOps = operations.filter(op => op.status === draggedOp.status)
-      const otherOps = operations.filter(op => op.status !== draggedOp.status)
 
       const reordered = reorderWithinColumn(
         sameColumnOps,
@@ -319,9 +315,7 @@ export function applyOperationDrop(
       // to every other board.
       if (isSameOrder(sameColumnOps, reordered)) return
 
-      setOperations([...otherOps, ...reordered])
-
-      // Persist the new manual order so the next sync reproduces it
+      // Shows the new order and persists it, so the next sync reproduces it
       // instead of snapping the card back to its created_at slot.
       reorderColumn(reordered.map(op => op.id))
     } else {
@@ -334,7 +328,6 @@ export function applyOperationDrop(
 
       // Get operations in target column
       const targetColOps = withoutDragged.filter(op => op.status === targetOp.status)
-      const otherOps = withoutDragged.filter(op => op.status !== targetOp.status)
 
       // Calculate insert index
       let insertIndex = targetIndex
@@ -349,13 +342,11 @@ export function applyOperationDrop(
         ...targetColOps.slice(insertIndex)
       ]
 
-      setOperations([...otherOps, ...reordered])
-
       // Persist status change to backend (keeps status-transition side effects)
       updateOperation(draggedOp.id, { status: targetOp.status as OperationStatus })
 
-      // Persist the dropped card's position within the target column so the
-      // next sync keeps it where the user dropped it.
+      // The dropped card's position within the target column – on screen and
+      // persisted, so the next sync keeps it where the user dropped it.
       reorderColumn(reordered.map(op => op.id))
 
       // Auto-select the dropped card
@@ -389,7 +380,6 @@ export function useKanbanDragDrop({
   isMounted,
   canEdit = true,
   operations,
-  setOperations,
   updateOperation,
   reorderColumn,
   assignPersonToOperation,
@@ -438,7 +428,6 @@ export function useKanbanDragDrop({
         // tested without a real drag.
         applyOperationDrop(sourceData, destData, {
           operations,
-          setOperations,
           updateOperation,
           reorderColumn,
           onOperationDrop,
@@ -447,5 +436,5 @@ export function useKanbanDragDrop({
         })
       },
     })
-  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, setOperations, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange, groups, addStopsToGroup, assignGroupResource])
+  }, [isMounted, canEdit, operations, assignPersonToOperation, assignRekoPersonToOperation, assignMaterialToOperation, assignVehicleToOperation, updateOperation, reorderColumn, onOperationDrop, onStatusChange, holdStatusChange, groups, addStopsToGroup, assignGroupResource])
 }

@@ -41,7 +41,6 @@ import { useOperations, type Operation } from "@/lib/contexts/operations-context
 import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
 import { useAuftragRoster } from "@/lib/hooks/use-auftrag-roster"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { usePromoteRouteLeader, usePromoteToLeader } from "@/lib/hooks/use-promote-to-leader"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
@@ -354,6 +353,7 @@ export function IncidentDialogs({
     removeMaterial,
     removeVehicle,
     requestResourceConflict,
+    toggleDriverStay,
   } = useOperations()
   const {
     groups,
@@ -368,7 +368,6 @@ export function IncidentDialogs({
   const { selectedEvent } = useEvent()
   const personnel = useAuftragRoster()
   const release = useReleaseUndo()
-  const toggleDriverStay = useToggleDriverStay()
   // The dispatch gate's «EL» stub: the same promotion as the board detail's.
   const promoteToLeader = usePromoteToLeader()
   const promoteRouteLeader = usePromoteRouteLeader()

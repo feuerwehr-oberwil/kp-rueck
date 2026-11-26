@@ -107,6 +107,7 @@ const api = vi.hoisted(() => ({
   getAssignmentsByEvent: vi.fn(),
   getEventRekoSummaries: vi.fn(),
   updateIncident: vi.fn(),
+  updateAssignment: vi.fn(),
 }))
 vi.mock("@/lib/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api-client")>()),
@@ -637,6 +638,28 @@ describe("OperationsProvider — the board never looks current when it is not", 
     await waitFor(() => expect(incidentCalls).toHaveLength(1))
     await answer([incident("1")])
     expect(stays()).toBe(true)
+  })
+
+  it("a «bleibt vor Ort» set here is not turned back by a reload that read before it", async () => {
+    const tlf = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
+    api.getVehicles.mockResolvedValue([tlf])
+    api.getAssignmentsByEvent.mockResolvedValue({
+      "1": [{ id: "a1", resource_type: "vehicle", resource_id: "v1", driver_stay: false }],
+    })
+    let settlePatch = () => {}
+    api.updateAssignment.mockImplementation(() => new Promise<void>((resolve) => (settlePatch = resolve)))
+    const { result } = await renderLoaded()
+    const stays = () => result.current.operations[0].vehicles[0]?.driverStay
+
+    // A reload is out and has already read «kehrt zurück».
+    act(() => ws.emit("incident_update"))
+    await waitFor(() => expect(incidentCalls).toHaveLength(1))
+    act(() => result.current.toggleDriverStay("1", "v1"))
+    expect(stays()).toBe(true)
+
+    await answer([incident("1")])
+    expect(stays()).toBe(true)
+    await act(async () => settlePatch())
   })
 })
 

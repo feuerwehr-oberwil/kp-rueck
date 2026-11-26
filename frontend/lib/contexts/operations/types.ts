@@ -229,8 +229,9 @@ export interface OperationsContextType {
   /** Set or clear «Nicht einsatzbereit» (optimistic, rolls back on failure). */
   setMaterialOutOfService: (materialId: string, outOfService: boolean) => Promise<void>
   // Operations state
+  /** Written only by the board's own actions: each one bumps the mutation epoch, so a
+   *  reload already in flight cannot paint the state from before it. */
   operations: Operation[]
-  setOperations: React.Dispatch<React.SetStateAction<Operation[]>>
   homeCity: string
   isLoading: boolean
   /** True once the first data load has resolved. Stays true afterwards.
@@ -273,8 +274,13 @@ export interface OperationsContextType {
    *  (lib/status-conflict.ts): the stale view it was made from and the server's status
    *  the operator chose to override. */
   updateOperation: (operationId: string, updates: Partial<Operation>, confirm?: Required<StatusWriteGuard>) => void
-  /** Persist the manual top-to-bottom order of a status column after a drag-reorder. */
+  /** Put the cards in `orderedIds` in that order (each keeps one of their slots, so other
+   *  columns stay as they are) and persist it as the column's manual order. */
   reorderColumn: (orderedIds: string[]) => void
+  /** «bleibt vor Ort» ↔ «kehrt zurück» for a vehicle on an incident (optimistic). */
+  toggleDriverStay: (operationId: string, vehicleId: string) => void
+  /** The Reko-Editor drag: one Reko person's open Rekos in `nextOpenIds` order (optimistic). */
+  reorderRekos: (personId: string, nextOpenIds: string[]) => Promise<void>
   /** Board drag lifecycle. While a card is being dragged, remote updates are
    * queued instead of applied — a mid-drag reload remounts the columns and
    * aborts the native drag. Call with false when the drag ends (any outcome). */
@@ -397,6 +403,8 @@ export type BoardActions = Pick<
   | "removeReko"
   | "updateOperation"
   | "reorderColumn"
+  | "toggleDriverStay"
+  | "reorderRekos"
   | "changeStatusToTop"
   | "createOperation"
   | "mergeOperationInto"

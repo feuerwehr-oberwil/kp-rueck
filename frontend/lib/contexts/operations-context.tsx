@@ -106,6 +106,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   const updateBatcherRef = useRef<UpdateBatcher<Operation>>(new UpdateBatcher())
   // …and one PATCH in flight per incident, in order — see KeyedSerialQueue.
   const patchQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
+  const rekoOrderQueueRef = useRef<KeyedSerialQueue>(new KeyedSerialQueue())
   const statusGuardRef = useRef<Map<string, StatusWriteGuard>>(new Map())
   const criticalUpdateInProgress = useRef<boolean>(false)
   // Refcounted cooldown: every optimistic mutation takes a hold when it
@@ -261,6 +262,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     criticalUpdateInProgress,
     mutationEpochRef,
     patchQueueRef,
+    rekoOrderQueueRef,
     updateBatcherRef,
     statusGuardRef,
     reorderInFlightRef,
@@ -280,6 +282,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     assignMaterialToOperation,
     assignVehicleToOperation,
     resolveResourceConflict,
+    toggleDriverStay,
+    reorderRekos,
   } = createResourceActions(board)
   const {
     updateOperation,
@@ -323,6 +327,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     removeReko,
     updateOperation,
     reorderColumn,
+    toggleDriverStay,
+    reorderRekos,
     changeStatusToTop,
     createOperation,
     mergeOperationInto,
@@ -347,6 +353,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       removeReko: stable("removeReko"),
       updateOperation: stable("updateOperation"),
       reorderColumn: stable("reorderColumn"),
+      toggleDriverStay: stable("toggleDriverStay"),
+      reorderRekos: stable("reorderRekos"),
       changeStatusToTop: stable("changeStatusToTop"),
       createOperation: stable("createOperation"),
       mergeOperationInto: stable("mergeOperationInto"),
@@ -372,7 +380,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       materialGroups,
       setMaterialOutOfService,
       operations,
-      setOperations,
       homeCity,
       isLoading,
       isLoaded,

@@ -60,7 +60,6 @@ import { useStandby } from "@/lib/contexts/standby-context"
 import { useCommandPalette } from "@/lib/contexts/command-palette-context"
 import { columns } from "@/lib/kanban-utils"
 import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
-import { useToggleDriverStay } from "@/lib/hooks/use-driver-stay"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { planNext } from "@/lib/planned-actions"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
@@ -106,7 +105,6 @@ import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 export default function FireStationDashboard() {
   const {
     operations,
-    setOperations,
     formatLocation,
     refreshOperations,
     removeCrew,
@@ -115,6 +113,7 @@ export default function FireStationDashboard() {
     removeReko,
     updateOperation,
     reorderColumn,
+    toggleDriverStay,
     changeStatusToTop,
     setBoardDragging,
     createOperation,
@@ -536,7 +535,6 @@ export default function FireStationDashboard() {
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
   // One global /feld link per Ereignis — the poster in the vehicle hall, not a
   // link per incident or per vehicle (plan 25, decision 1).
-  const toggleDriverStay = useToggleDriverStay()
 
   // The Einsatz dialogs this page shares with the Lagekarte (assignment, Auftrag
   // picker, transfer, Divera, the status gates) – see incident-dialogs.tsx.
@@ -676,7 +674,6 @@ export default function FireStationDashboard() {
     requestResourceConflict,
     operations,
     updateOperation,
-    setOperations,
     reorderColumn,
     removeVehicle,
     assignVehicleToOperation,
@@ -996,7 +993,6 @@ export default function FireStationDashboard() {
     isMounted,
     canEdit: isEditor,
     operations,
-    setOperations,
     updateOperation,
     reorderColumn,
     assignPersonToOperation: boardAssignPerson,
