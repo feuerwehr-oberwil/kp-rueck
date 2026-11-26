@@ -93,7 +93,6 @@ class ErrorCode(StrEnum):
     PHOTO_DEMO_TOO_LARGE = "photo_demo_too_large"
     PHOTO_DEMO_LIMIT = "photo_demo_limit"
     PHOTO_INVALID_EXTENSION = "photo_invalid_extension"
-    PHOTO_INVALID_TYPE = "photo_invalid_type"
     PHOTO_INVALID = "photo_invalid"
     PHOTO_TOO_LARGE = "photo_too_large"
     PHOTO_TOO_MANY_PIXELS = "photo_too_many_pixels"

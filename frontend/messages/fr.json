@@ -691,7 +691,6 @@
       "photo_demo_too_large": "Mode démo : taille de fichier maximale 1 Mo.",
       "photo_demo_limit": "Mode démo : nombre maximal de photos (15) atteint.",
       "photo_invalid_extension": "Ce format de fichier n’est pas pris en charge. Formats acceptés : {allowed}.",
-      "photo_invalid_type": "Ce fichier n’est pas une image.",
       "photo_invalid": "L’image est endommagée ou illisible.",
       "photo_too_large": "Fichier trop volumineux – {max_mb} Mo au maximum.",
       "photo_too_many_pixels": "Image trop grande (dimensions en pixels).",

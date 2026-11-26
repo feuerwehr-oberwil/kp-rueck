@@ -3727,7 +3727,6 @@
       "photo_demo_too_large": "Demo-Modus: Maximale Dateigrösse 1MB.",
       "photo_demo_limit": "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.",
       "photo_invalid_extension": "Dieses Dateiformat wird nicht unterstützt. Erlaubt: {allowed}.",
-      "photo_invalid_type": "Diese Datei ist kein Bild.",
       "photo_invalid": "Das Bild ist beschädigt oder kann nicht gelesen werden.",
       "photo_too_large": "Datei zu gross – höchstens {max_mb} MB.",
       "photo_too_many_pixels": "Bild zu gross (Pixelmasse).",
