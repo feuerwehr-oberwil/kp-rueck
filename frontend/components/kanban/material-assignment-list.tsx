@@ -16,10 +16,10 @@ import { PICK_TILE } from "@/components/ui/picker-keys"
  * expand + select-all, then the ungrouped free / spoken-for blocks), its tile,
  * the type chip row, and the pure helpers that sort, group and count the list.
  *
- * The dialog frame keeps the state (search, depot filter, the ticked set, the
- * confirm prompts, the 1–9 keys) because those are shared with crew and
- * vehicles; it feeds these pieces with what they draw and the handlers they
- * call. Nothing here is memoised — it re-renders with the dialog.
+ * The dialog frame and its hooks (`useAssignmentFilters`, `useAssignmentSections`)
+ * keep the state (search, depot filter, the ticked set, the confirm prompts, the
+ * 1–9 keys) because those are shared with crew and vehicles; the frame feeds these
+ * pieces with what they draw and the handlers they call. Nothing here is memoised — it re-renders with the dialog.
  */
 
 /** Search over name, depot (`category`) and module name. */

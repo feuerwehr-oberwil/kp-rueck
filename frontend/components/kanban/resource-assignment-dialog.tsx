@@ -6,53 +6,31 @@ import { useTranslations } from "next-intl"
 import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter, ResponsiveDialogToolbar } from "@/components/ui/responsive-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { SurfaceStep, SurfaceStepEscHint, useOpeningSurface } from "@/components/ui/surface-step"
-import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
 import { ShellLoader } from "@/components/ui/shell-loader"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { AlertTriangle, Truck, Footprints, MapPin, Undo2, Ban, SlidersHorizontal, X } from "lucide-react"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { EmptyState, type EmptyStateAction } from "@/components/ui/empty-state"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useCompactFilters } from "@/lib/hooks/use-compact-filters"
 import { useOperations, type Person, type Material } from "@/lib/contexts/operations-context"
-import { isPersonOccupied, materialResourceState } from "@/lib/resource-status"
-import { usePersonMatcher } from "@/lib/hooks/use-person-matcher"
-import { useMaterials } from "@/lib/contexts/materials-context"
-import { useGroups } from "@/lib/contexts/groups-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
-import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
-import { getActiveLocale } from "@/lib/i18n-messages"
-import { compareByName, compareByRankThenName } from "@/lib/roster-order"
-import { cn } from "@/lib/utils"
+import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { usePersonTileFacts } from "@/components/kanban/person-tile-facts"
-import { ElsewhereNote, ListSection, type OccupancyLabel, PersonPickTile, type PersonWhere, TileCheck, TILE_GRID, TILE_HOVER, TILE_META, TILE_META_ICON } from "@/components/kanban/assignment-list-section"
-import {
-  MaterialAssignmentList,
-  MaterialTypeChips,
-  groupMaterialsForAssignment,
-  materialMatchesQuery,
-  materialTypeCounts,
-  sortMaterialsForAssignment,
-} from "@/components/kanban/material-assignment-list"
+import { type PersonWhere } from "@/components/kanban/assignment-list-section"
+import { MaterialAssignmentList } from "@/components/kanban/material-assignment-list"
+import { useAssignmentOccupancy } from "@/components/kanban/assignment-occupancy"
+import { useStagedMoves } from "@/components/kanban/assignment-staged-moves"
+import { useAssignmentSections } from "@/components/kanban/assignment-sections"
+import { type AssignmentResource, useAssignmentFilters } from "@/components/kanban/assignment-filters"
+import { AssignmentFilterControls } from "@/components/kanban/assignment-filter-controls"
+import { AssignmentEmptyState } from "@/components/kanban/assignment-empty-state"
+import { AssignmentConfirmDialogs } from "@/components/kanban/assignment-confirm-dialogs"
+import { CrewAssignmentList } from "@/components/kanban/crew-assignment-list"
+import { type AssignableVehicle, VehicleAssignmentList } from "@/components/kanban/vehicle-assignment-list"
 import { usePersonNaming } from "@/components/person-name"
-import { planNext } from "@/lib/planned-actions"
-import { onPickerKeyDown, PICK_TILE, PICKER_FOOTER } from "@/components/ui/picker-keys"
+import { onPickerKeyDown, PICKER_FOOTER } from "@/components/ui/picker-keys"
 
 interface ResourceAssignmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  resourceType: 'crew' | 'vehicles' | 'materials' | null
+  resourceType: AssignmentResource | null
   operationId: string | null
   /** The search the dialog opens with — a field request's item (R13), so
    *  «Material zuweisen» on «Tauchpumpe Gr. ×2» lands on the pumps. */
@@ -69,7 +47,7 @@ interface ResourceAssignmentDialogProps {
    *  poll. `outOfService` remains as an optional caller-side override and is
    *  OR-ed with the context. A flagged vehicle stays visible and is not
    *  selectable; hiding it would leave the operator wondering where it went. */
-  vehicles: Array<{ id: string; name: string; type: string; outOfService?: boolean }>
+  vehicles: AssignableVehicle[]
   materials: Material[]
   assignedPersonnelIds: string[]
   assignedVehicleIds: string[]
@@ -96,32 +74,6 @@ interface ResourceAssignmentDialogProps {
    *  dialog closes itself first. Omitted where there is no such sheet; the
    *  sentence still says where it is. */
   onShowCheckIn?: () => void
-}
-
-/** The radio value for «no filter» in the compact filter menu. */
-const ALL_FILTER = "__all__"
-/** Radix menus close on every pick; the filter menu stays open so two filters
- *  are two taps, not two trips. Outside / Escape still closes it. */
-const keepMenuOpen = (event: Event) => event.preventDefault()
-
-const vehicleMatchesQuery = (v: { name: string; type: string }, query: string) => {
-  const q = query.trim().toLowerCase()
-  return !q || v.name.toLowerCase().includes(q) || v.type.toLowerCase().includes(q)
-}
-
-/**
- * One place a resource is currently held, with enough to RELEASE it again.
- *
- * The dialog used to keep only a display label per resource, which is why its
- * own «Doppelbelegung?» could not offer «Verschieben» — it had no idea which
- * incident to take the person off. `id` is an incident id for `kind: 'incident'`
- * and an Auftrag id for `kind: 'route'`; a route release additionally needs the
- * group-assignment id.
- */
-type Binding = OccupancyLabel & {
-  kind: 'incident' | 'route'
-  id: string
-  assignmentId?: string
 }
 
 export function ResourceAssignmentDialog({
@@ -155,24 +107,17 @@ export function ResourceAssignmentDialog({
   onShowCheckIn,
 }: ResourceAssignmentDialogProps) {
   const t = useTranslations('kanban')
-  const tEmpty = useTranslations('common.emptyState')
-  const compactFilters = useCompactFilters()
   // Below 768px the dialog is a bottom sheet (see PHONE below).
   const isMobile = useIsMobile()
   // The Einsatz-Detail (an L window) this dialog was opened from, if any – then it is a step there.
   const stepHost = useOpeningSurface(open, { wideOnly: true })
-  const searchRef = useRef<HTMLInputElement>(null)
-  const { materialGroups } = useMaterials()
-  const { operations, requestResourceConflict, removeCrew, removeMaterial, outOfServiceVehicleIds } = useOperations()
-  const { groups, getGroupResources, unassignResource } = useGroups()
-  const matchesPerson = usePersonMatcher()
+  const { outOfServiceVehicleIds, operations } = useOperations()
   // Who drives what, live. Assigning a vehicle without knowing whether anybody
   // is driving it is how a Fahrzeug reaches a Schadenplatz on the board and
   // nowhere else — the driver is the half of "TLF 1 is available" that the
   // fleet list does not carry. Loaded only while the dialog is open.
   const vehicleDrivers = useVehicleDrivers()
   const naming = usePersonNaming()
-  const [searchQuery, setSearchQuery] = useState("")
   const [justAssigned, setJustAssigned] = useState<string | null>(null)
   // The 600 ms «just assigned» flash on a tile. One timer at a time, cleared on
   // unmount so it never sets state on a dialog that is gone.
@@ -184,15 +129,6 @@ export function ResourceAssignmentDialog({
   }
   useEffect(() => () => clearTimeout(justAssignedTimerRef.current), [])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-  // Quick category filter (null = all): rank for crew, depot/location for
-  // material, type for vehicles. Sits as chips below the search.
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  // Vehicles-only quick filter: when on, show only vehicles already assigned to
-  // this incident.
-  const [showOnlyAssignedVehicles, setShowOnlyAssignedVehicles] = useState(false)
-  // Materials-only quick filter: functional type (e.g. "Wasser") — narrows the
-  // visible list like the depot chips, never pre-selects anything.
-  const [typeFilter, setTypeFilter] = useState<string | null>(null)
 
   // Local selection state for crew and materials (deferred assignment)
   // These track which items are SELECTED (checked) in the dialog, separate from actual assigned state
@@ -207,46 +143,6 @@ export function ResourceAssignmentDialog({
   // A person bound to another incident/Auftrag pending the same confirmation
   // (takes precedence over the special-function confirm — one confirm is enough).
   const [confirmOccupiedPerson, setConfirmOccupiedPerson] = useState<Person | null>(null)
-  // «Jetzt verschieben» answered in the prompt, per resource id: the holders it leaves. Staged
-  // like the tick – «Fertig» frees them and then assigns, closing without «Fertig» changes
-  // neither side. Read only at «Fertig», so a ref.
-  const stagedMoves = useRef(new Map<string, Binding[]>())
-
-  // Snapshot the assigned state into the local selection ONLY on the open
-  // transition. Re-snapshotting whenever assignedPersonnelIds/assignedMaterials
-  // change (a background poll, WS push, or optimistic revert that lands while the
-  // dialog is open) was wiping the user's in-progress ticks — boxes appeared to
-  // untick themselves. Guarding on the false→true edge keeps selections stable.
-  const wasOpenRef = useRef(false)
-  // Counts the openings, so a «Fertig» that finishes after a close and reopen leaves the new
-  // picker open (`handleConfirm`).
-  const openSession = useRef(0)
-  useEffect(() => {
-    if (open && !wasOpenRef.current) {
-      openSession.current++
-      setSelectedPersonnel(new Set(assignedPersonnelIds))
-      setSelectedMaterials(new Set(assignedMaterials))
-      stagedMoves.current.clear()
-      if (initialSearch) setSearchQuery(initialSearch)
-    }
-    wasOpenRef.current = open
-  }, [open, assignedPersonnelIds, assignedMaterials, initialSearch])
-
-  // Reset search + category filter on close, and clear the category filter
-  // whenever the resource type changes (its categories no longer apply).
-  useEffect(() => {
-    if (!open) {
-      setSearchQuery("")
-      setCategoryFilter(null)
-      setTypeFilter(null)
-      setShowOnlyAssignedVehicles(false)
-    }
-  }, [open])
-  useEffect(() => {
-    setCategoryFilter(null)
-    setTypeFilter(null)
-    setShowOnlyAssignedVehicles(false)
-  }, [resourceType])
 
   // Everyone checked in is selectable. People bound to another incident/Auftrag
   // or holding a special function sink into the «Bereits im Einsatz» block below
@@ -290,42 +186,54 @@ export function ResourceAssignmentDialog({
   // visible (amber-flagged) and need an explicit confirm instead of vanishing.
   const selectableMaterials = materials
 
-  // EVERY place an occupied vehicle/material/person is currently held, resolved
-  // from the operations + Auftrag contexts (no prop threading): vehicle id →
-  // bindings, material id → bindings, person id → bindings. Each binding carries the card's
-  // two lines (`head` = number · address, `detail` = type and Meldung – the note's CSS
-  // clamps them), an untruncated `full` for the hover title, and what is needed to release it.
-  // The current assign target never counts as "elsewhere" — note operationId
-  // holds the GROUP id when assignTarget === 'route'.
-  //
-  // A LIST, not a single entry: a resource can stand on two Schadenplätze and a
-  // route at once, and «Jetzt verschieben» has to release all of them.
-  const { vehicleOccupancy, materialOccupancy, personOccupancy } = useMemo(() => {
-    const vehicleMap = new Map<string, Binding[]>()
-    const materialMap = new Map<string, Binding[]>()
-    const personMap = new Map<string, Binding[]>()
-    const push = (map: Map<string, Binding[]>, key: string, binding: Binding) => {
-      const existing = map.get(key)
-      if (existing) existing.push(binding)
-      else map.set(key, [binding])
+  const {
+    materialOccupancy,
+    personOccupancy,
+    occupiedElsewhereMaterialIds,
+    vehicleElsewhereLabel,
+    materialElsewhereLabel,
+    personElsewhereLabel,
+  } = useAssignmentOccupancy({
+    assignTarget,
+    operationId,
+    materials,
+    assignedPersonnelIds,
+    assignedVehicleIds,
+    assignedMaterials,
+    occupiedPersonnelIds,
+    occupiedVehicleIds,
+    occupiedMaterialIds,
+  })
+  const { askConflict, releaseStaged, clearStagedMoves } = useStagedMoves({ assignTarget, operationId, routeName })
+  const filters = useAssignmentFilters({
+    open,
+    resourceType,
+    personnel: selectablePersonnel,
+    vehicles: availableVehicles,
+    materials: selectableMaterials,
+    assignedVehicleIds,
+  })
+  const { setSearchQuery, groupedFilteredMaterials, emptyReason } = filters
+
+  // Snapshot the assigned state into the local selection ONLY on the open
+  // transition. Re-snapshotting whenever assignedPersonnelIds/assignedMaterials
+  // change (a background poll, WS push, or optimistic revert that lands while the
+  // dialog is open) was wiping the user's in-progress ticks — boxes appeared to
+  // untick themselves. Guarding on the false→true edge keeps selections stable.
+  const wasOpenRef = useRef(false)
+  // Counts the openings, so a «Fertig» that finishes after a close and reopen leaves the new
+  // picker open (`handleConfirm`).
+  const openSession = useRef(0)
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      openSession.current++
+      setSelectedPersonnel(new Set(assignedPersonnelIds))
+      setSelectedMaterials(new Set(assignedMaterials))
+      clearStagedMoves()
+      if (initialSearch) setSearchQuery(initialSearch)
     }
-    for (const op of operations) {
-      if (assignTarget === 'incident' && op.id === operationId) continue
-      const label = { ...getIncidentRefParts(op, 1000), full: getIncidentRefLabel(op, 1000) }
-      for (const v of op.vehicles) push(vehicleMap, v.vehicleId, { ...label, kind: 'incident', id: op.id })
-      for (const id of op.materials) push(materialMap, id, { ...label, kind: 'incident', id: op.id })
-      for (const m of op.crew) push(personMap, m.personnelId, { ...label, kind: 'incident', id: op.id })
-    }
-    for (const group of groups) {
-      if (assignTarget === 'route' && group.id === operationId) continue
-      const res = getGroupResources(group.id)
-      const label = { head: group.name, full: group.name, swatch: group.color ?? null }
-      for (const v of res.vehicles) push(vehicleMap, v.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: v.assignmentId })
-      for (const m of res.materials) push(materialMap, m.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: m.assignmentId })
-      for (const p of res.personnel) push(personMap, p.resourceId, { ...label, kind: 'route', id: group.id, assignmentId: p.assignmentId })
-    }
-    return { vehicleOccupancy: vehicleMap, materialOccupancy: materialMap, personOccupancy: personMap }
-  }, [operations, groups, getGroupResources, assignTarget, operationId])
+    wasOpenRef.current = open
+  }, [open, assignedPersonnelIds, assignedMaterials, initialSearch, clearStagedMoves, setSearchQuery])
 
   /** The Einsatz the title's «zu Einsatz» means, named under it (number + address), so the
    *  operator sees WHICH one before ticking. An Auftrag already names itself in the title. */
@@ -335,97 +243,6 @@ export function ResourceAssignmentDialog({
     return op ? { number: op.number ?? null, place: getIncidentLocationLabel(op) } : null
   }, [assignTarget, operations, operationId])
 
-  /** The conflict prompt's target card — where the resource is heading. */
-  const targetLabel = useMemo(() => {
-    if (assignTarget === 'route') return routeName ?? ''
-    const op = operations.find((o) => o.id === operationId)
-    return op ? getIncidentRefParts(op).head : ''
-  }, [assignTarget, routeName, operations, operationId])
-
-  /**
-   * Hand the double-booking question to the ONE dialog that asks it.
-   *
-   * This dialog used to ask it a second time itself, with two of the three
-   * answers: «Trotzdem zuweisen» or nothing, no «Verschieben». Same question,
-   * same answers – «Jetzt verschieben», «Danach vormerken», Abbrechen – whichever way the
-   * assignment started.
-   *
-   * «Jetzt verschieben» only ticks the resource; the move is staged in `stagedMoves` and
-   * happens together with the assign at «Fertig» (`releaseStaged`). «Danach vormerken» plans
-   * it at once and leaves it unticked – nothing is assigned now.
-   */
-  const askConflict = (
-    resourceType: 'personnel' | 'material',
-    resourceId: string,
-    resourceName: string,
-    bindings: Binding[],
-    proceed: () => void,
-  ) => {
-    requestResourceConflict({
-      resourceType,
-      resourceId,
-      resourceName,
-      targetOperationId: operationId ?? '',
-      targetOperationLabel: targetLabel,
-      conflicts: bindings.map((b) => ({ operationId: b.id, operationLabel: b.head })),
-      customResolve: async (action) => {
-        if (action === 'plan') {
-          stagedMoves.current.delete(resourceId)
-          // operationId holds the GROUP id for a route target (see above).
-          await planNext(resourceType, resourceId, resourceName, {
-            kind: assignTarget === 'route' ? 'group' : 'incident',
-            id: operationId ?? '',
-            label: targetLabel,
-          })
-          return
-        }
-        // A copy: `releaseStaged` drops each holder from it once it is freed.
-        stagedMoves.current.set(resourceId, [...bindings])
-        proceed()
-      },
-    })
-  }
-
-  /**
-   * «Fertig» for one ticked resource: free it from the holders a staged move leaves. Resolves
-   * false when a release fails (its context toasts it): the caller then skips the assign, so
-   * «Jetzt verschieben» never ends as a double booking, and the holders not yet freed stay
-   * staged for the next «Fertig». A holder that no longer holds it (released elsewhere since
-   * the prompt; an Auftrag release the server answers 404) counts as freed – no new question.
-   */
-  const releaseStaged = async (resourceType: 'personnel' | 'material', resourceId: string): Promise<boolean> => {
-    const bindings = stagedMoves.current.get(resourceId)
-    if (!bindings) return true
-    // Sequentially: two releases of the same person racing each other
-    // reconcile against each other's stale snapshot.
-    while (bindings.length > 0) {
-      const binding = bindings[0]
-      const freed =
-        !stillHeld(binding, resourceType, resourceId) ||
-        (binding.kind === 'incident'
-          ? resourceType === 'material'
-            ? await removeMaterial(binding.id, resourceId)
-            : await removeCrew(binding.id, resourceId)
-          : binding.assignmentId
-            ? await unassignResource(binding.id, binding.assignmentId)
-            : true)
-      if (!freed) return false
-      bindings.shift()
-    }
-    stagedMoves.current.delete(resourceId)
-    return true
-  }
-  /** Whether the board still shows `binding` holding the resource. */
-  const stillHeld = (binding: Binding, resourceType: 'personnel' | 'material', resourceId: string): boolean => {
-    if (binding.kind === 'route') {
-      return groups.some((g) => g.id === binding.id && g.assignments.some((a) => a.id === binding.assignmentId))
-    }
-    const op = operations.find((o) => o.id === binding.id)
-    if (!op) return false
-    return resourceType === 'material'
-      ? op.materialAssignments.has(resourceId)
-      : op.crew.some((m) => m.personnelId === resourceId)
-  }
   // One «Fertig» at a time: a second click while releases run would free and assign twice.
   // The ref answers synchronously (a double click); `saving` freezes the picker meanwhile – no
   // tick, no close – so what «Fertig» commits is what the operator sees.
@@ -438,191 +255,6 @@ export function ResourceAssignmentDialog({
     if (next) onOpenChange(true)
     else close()
   }
-
-  // Materials bound to ANOTHER incident/Auftrag (never the current target —
-  // anything in assignedMaterials is "here"). Status doubles as a fallback flag
-  // for occupancy we can't resolve to a concrete incident/route.
-  const occupiedElsewhereMaterialIds = useMemo(() => {
-    const set = new Set<string>()
-    for (const m of materials) {
-      // Verbrauchsmaterial has no stock limit – being on another incident says
-      // nothing about this one, so no amber flag and no double-booking confirm.
-      if (m.consumable) continue
-      if (assignedMaterials.includes(m.id)) continue
-      if (materialOccupancy.has(m.id) || occupiedMaterialIds.has(m.id) || m.status === 'assigned') set.add(m.id)
-    }
-    return set
-  }, [materials, assignedMaterials, materialOccupancy, occupiedMaterialIds])
-
-  // Where a vehicle/material/person is bound elsewhere ("Im Einsatz" when the
-  // exact spot can't be resolved), or null when it's free or already on this
-  // target.
-  const genericElsewhereLabel = (): OccupancyLabel => {
-    const generic = t('assignmentDialog.occupiedElsewhere')
-    return { head: generic, full: generic }
-  }
-  const vehicleElsewhereLabel = (vehicle: { id: string; name: string }): OccupancyLabel | null => {
-    if (assignedVehicleIds.includes(vehicle.id)) return null
-    if (vehicleOccupancy.has(vehicle.id)) return vehicleOccupancy.get(vehicle.id)![0]
-    if (occupiedVehicleIds.has(vehicle.id)) return genericElsewhereLabel()
-    return null
-  }
-  const materialElsewhereLabel = (material: Material): OccupancyLabel | null => {
-    if (!occupiedElsewhereMaterialIds.has(material.id)) return null
-    return materialOccupancy.get(material.id)?.[0] ?? genericElsewhereLabel()
-  }
-  const personElsewhereLabel = (person: Person): OccupancyLabel | null => {
-    if (assignedPersonnelIds.includes(person.id)) return null
-    if (personOccupancy.has(person.id)) return personOccupancy.get(person.id)![0]
-    // Deliberately NOT falling back on `status === 'assigned'`: the context sets
-    // that flag for special-function people too (Fahrer, Telefondienst, …), and
-    // the generic «Im Einsatz» next to their function badge claimed an incident
-    // that does not exist. If somebody IS on an incident or Auftrag, the two
-    // lookups above name it (short address / route name).
-    if (occupiedPersonnelIds.has(person.id)) return genericElsewhereLabel()
-    return null
-  }
-
-  // Quick-filter categories for the active resource type (rank / location / type).
-  const categories = useMemo(() => {
-    const source =
-      resourceType === 'crew'
-        ? selectablePersonnel.map(p => p.role).filter((r): r is string => Boolean(r))
-        : resourceType === 'vehicles'
-          ? availableVehicles.map(v => v.type)
-          : resourceType === 'materials'
-            ? selectableMaterials.map(m => m.category)
-            : []
-    // Ranks keep the station's OWN order (the same `role_sort_order` the list
-    // below them uses); everything else is alphabetical. Sorting the rank chips
-    // alphabetically made the chip row read «AdF · Gruppenführer · Offizier»
-    // over a list that runs the other way round — two orders for one thing, on
-    // one screen.
-    if (resourceType === 'crew') {
-      const seen = new Set<string>()
-      const ranks: string[] = []
-      for (const person of [...selectablePersonnel].sort(compareByRankThenName)) {
-        const rank = person.role
-        if (!rank || seen.has(rank)) continue
-        seen.add(rank)
-        ranks.push(rank)
-      }
-      return ranks
-    }
-    // Ranks and categories are roster/inventory data: de-CH whatever the UI
-    // language, like every roster sort (see roster-order).
-    return [...new Set(source)].sort((a, b) => a.localeCompare(b, 'de-CH'))
-  }, [resourceType, selectablePersonnel, availableVehicles, selectableMaterials])
-
-  // Second chip row for materials: functional type (e.g. "Wasser") as a quick
-  // FILTER across depots — narrows the visible list like the depot chips,
-  // selects nothing. Counts ALL listed materials of the type, occupied or not.
-  // Empty for crew and vehicles, so `materialTypeGroups.length > 1` alone
-  // already means «materials, with more than one type».
-  const materialTypeGroups = useMemo(() => {
-    if (resourceType !== 'materials') return [] as { type: string; count: number }[]
-    return materialTypeCounts(selectableMaterials)
-  }, [resourceType, selectableMaterials])
-
-  // Filter resources by search query + quick category filter. The shared
-  // matcher also finds people by their special function ("telefondienst",
-  // "kommandoposten", a driver's vehicle name) and by where they are now
-  // (Einsatz number, address, Auftrag) — see lib/resource-status.ts.
-  const filteredPersonnel = useMemo(() => {
-    return selectablePersonnel.filter(p =>
-      matchesPerson(p, searchQuery) &&
-      (!categoryFilter || p.role === categoryFilter)
-    )
-  }, [selectablePersonnel, searchQuery, categoryFilter, matchesPerson])
-
-  /**
-   * Rank first, assigned-first inside a rank, then the name.
-   *
-   * The rank legs used to collate with `getActiveLocale()` — the UI language —
-   * so a French-speaking operator got a different sequence than the board next
-   * to them. Names and rank labels are roster data (`lib/roster-order.ts`), not
-   * interface copy. The assigned-first leg stays in the middle: it is about
-   * this dialog, not about the roster.
-   */
-  const sortedFilteredPersonnel = useMemo(() => {
-    return [...filteredPersonnel].sort((a, b) => {
-      if (a.role !== b.role) return compareByRankThenName(a, b)
-      if (a.status !== b.status) return a.status === "assigned" ? -1 : 1
-      return compareByName(a, b)
-    })
-  }, [filteredPersonnel])
-
-  const filteredVehicles = useMemo(() => {
-    return availableVehicles.filter(v =>
-      vehicleMatchesQuery(v, searchQuery) &&
-      (!categoryFilter || v.type === categoryFilter) &&
-      (!showOnlyAssignedVehicles || assignedVehicleIds.includes(v.id))
-    )
-  }, [availableVehicles, searchQuery, categoryFilter, showOnlyAssignedVehicles, assignedVehicleIds])
-
-  const filteredMaterials = useMemo(() => {
-    return selectableMaterials.filter(m => {
-      if (categoryFilter && m.category !== categoryFilter) return false
-      if (typeFilter && m.type !== typeFilter) return false
-      return materialMatchesQuery(m, searchQuery, materialGroups)
-    })
-  }, [selectableMaterials, searchQuery, materialGroups, categoryFilter, typeFilter])
-
-  /**
-   * WHY the list is empty — the four answers are four different sentences
-   * (see components/ui/empty-state.tsx). The old code knew only «there is a
-   * search» and «everything is assigned», so «Nur zugewiesene» on an Einsatz
-   * without a vehicle claimed «Alle Fahrzeuge sind bereits zugewiesen».
-   *
-   * - `none`:   the pool itself is empty (nobody checked in, no fleet entered)
-   * - `search`: the search alone matches nothing — filters or not
-   * - `filter`: the search (if any) has hits, an active filter hides them
-   */
-  const query = searchQuery.trim()
-  const activeFilterLabels = [
-    ...(categoryFilter ? [categoryFilter] : []),
-    ...(resourceType === 'materials' && typeFilter ? [typeFilter] : []),
-    ...(resourceType === 'vehicles' && showOnlyAssignedVehicles ? [t('common.onlyAssignedVehicles')] : []),
-  ]
-  const filtersActive = activeFilterLabels.length > 0
-  const poolCount =
-    resourceType === 'crew' ? selectablePersonnel.length
-      : resourceType === 'vehicles' ? availableVehicles.length
-        : resourceType === 'materials' ? selectableMaterials.length
-          : 0
-  const filteredCount =
-    resourceType === 'crew' ? filteredPersonnel.length
-      : resourceType === 'vehicles' ? filteredVehicles.length
-        : resourceType === 'materials' ? filteredMaterials.length
-          : 0
-  const searchHitCount = !query
-    ? poolCount
-    : resourceType === 'crew' ? selectablePersonnel.filter((p) => matchesPerson(p, query)).length
-      : resourceType === 'vehicles' ? availableVehicles.filter((v) => vehicleMatchesQuery(v, query)).length
-        : resourceType === 'materials' ? selectableMaterials.filter((m) => materialMatchesQuery(m, query, materialGroups)).length
-          : 0
-  const emptyReason: 'none' | 'search' | 'filter' | null =
-    !resourceType || filteredCount > 0 ? null
-      : poolCount === 0 ? 'none'
-        : query && searchHitCount === 0 ? 'search'
-          : filtersActive ? 'filter'
-            : 'search'
-
-  /** «Filter zurücksetzen»: the filters only — the search and every tick stay. */
-  const resetFilters = () => {
-    setCategoryFilter(null)
-    setTypeFilter(null)
-    setShowOnlyAssignedVehicles(false)
-  }
-  /** «Suche leeren»: the query only, and the cursor stays in the field. */
-  const clearSearch = () => {
-    setSearchQuery("")
-    searchRef.current?.focus()
-  }
-
-  // Sort the material list by category sort order, then assigned-first, then
-  // name — feeds the group split so order within each group respects the setting.
-  const sortedFilteredMaterials = useMemo(() => sortMaterialsForAssignment(filteredMaterials), [filteredMaterials])
 
   // Check if a resource is selected (for crew/materials) or assigned (for vehicles)
   const isPersonSelected = (personId: string) => selectedPersonnel.has(personId)
@@ -741,165 +373,19 @@ export function ResourceAssignmentDialog({
     })
   }
 
-  // Build grouped + ungrouped structure for material display
-  const groupedFilteredMaterials = useMemo(
-    () => groupMaterialsForAssignment(sortedFilteredMaterials, materialGroups),
-    [sortedFilteredMaterials, materialGroups],
-  )
-
-  /**
-   * Free first, spoken-for underneath — the dialog's answer to "wen kann ich
-   * nehmen".
-   *
-   * An occupied row was already amber-flagged, and that was the whole of it: the
-   * flagged rows sat scattered through the grid, so finding three free people in
-   * a roster of forty meant reading all forty. Sinking them under a heading
-   * turns that into one eye movement. The rows themselves are neutral tiles now;
-   * the small amber note (icon + text) that says *where* somebody is stays.
-   *
-   * Nothing is hidden and nothing is disabled — the bottom block is still
-   * clickable and still opens the Doppelbelegung confirm. This orders the list;
-   * it does not take a decision away from the operator.
-   *
-   * "Busy" is exactly what the row's amber note names: bound to another
-   * Schadenplatz or Auftrag, or holding an Ereignis role (a Reko trupp, the
-   * TLF 1's driver). A resource on THIS target is never busy — it is selected.
-   *
-   * Module groups stay whole and stay on top: a module is a unit, and splitting
-   * its contents across two headings would be a worse lie than the scatter this
-   * fixes. Occupied items inside an expanded module keep the amber note.
-   */
-  const crewSections = (() => {
-    const free: Person[] = []
-    const busy: Person[] = []
-    for (const person of sortedFilteredPersonnel) {
-      // `isPersonOccupied` — the SAME predicate the sidebar list is filtered
-      // with and the same one its «N frei» footer counts, so the dialog and the
-      // roster two panels away can never disagree about who is available.
-      //
-      // A standing Ereignis function counts as busy: a Magaziner, a
-      // Telefondienst or the TLF's Fahrer is doing a job, and «frei» has to mean
-      // «kann ich losschicken». It is a sorting decision, not a gate — the block
-      // stays clickable and taking somebody out of it still asks first.
-      //
-      // EXCEPT on THIS target, which is never «busy» — it is selected. Somebody
-      // already on this Einsatz is `status: "assigned"` like anyone else, so
-      // without this they sank under «Bereits im Einsatz» and the dialog hid the
-      // crew it was opened to edit. `assignedPersonnelIds`, not the live checkbox
-      // set: ticking somebody must not make their row jump between blocks under
-      // the pointer.
-      const onThisTarget = assignedPersonnelIds.includes(person.id)
-      ;(!onThisTarget && isPersonOccupied(person) ? busy : free).push(person)
-    }
-    return { free, busy, ordered: [...free, ...busy] }
-  })()
-
-  const vehicleSections = (() => {
-    const free: typeof filteredVehicles = []
-    const busy: typeof filteredVehicles = []
-    for (const vehicle of filteredVehicles) {
-      // «Nicht einsatzbereit» is not free. It sinks with the spoken-for block so
-      // «4 frei» over the grid keeps meaning what it says.
-      const spokenFor = !!vehicleElsewhereLabel(vehicle) || (!!vehicle.outOfService && !isVehicleAssigned(vehicle.id))
-      ;(spokenFor ? busy : free).push(vehicle)
-    }
-    return { free, busy, ordered: [...free, ...busy] }
-  })()
+  const { crewSections, vehicleSections, ungroupedMaterialSections, allBusyText } = useAssignmentSections({
+    resourceType,
+    filters,
+    assignedPersonnelIds,
+    isVehicleAssigned,
+    vehicleElsewhereLabel,
+    occupiedElsewhereMaterialIds,
+    isMaterialSelected,
+  })
 
   // A material depot named like an assigned vehicle («MoWa») is stock already on
   // scene. Depots are free text, so this one match is by name on purpose.
   const assignedVehicleNames = vehicles.filter((v) => assignedVehicleIds.includes(v.id)).map((v) => v.name)
-
-  const ungroupedMaterialSections = (() => {
-    const free: Material[] = []
-    const busy: Material[] = []
-    for (const material of groupedFilteredMaterials.ungrouped) {
-      const spokenFor =
-        occupiedElsewhereMaterialIds.has(material.id) ||
-        (materialResourceState(material) === 'unavailable' && !isMaterialSelected(material.id))
-      ;(spokenFor ? busy : free).push(material)
-    }
-    return { free, busy }
-  })()
-
-  // (d) Everything there is, is taken: the list is NOT empty — the spoken-for
-  // block still lists them and stays clickable — so this is a line where the
-  // free block would be, not a replacement for the list.
-  const allBusy =
-    emptyReason === null &&
-    (resourceType === 'crew'
-      ? crewSections.free.length === 0 && crewSections.busy.length > 0
-      : resourceType === 'vehicles'
-        ? vehicleSections.free.length === 0 && vehicleSections.busy.length > 0
-        : resourceType === 'materials'
-          ? groupedFilteredMaterials.groups.length === 0 &&
-            ungroupedMaterialSections.free.length === 0 &&
-            ungroupedMaterialSections.busy.length > 0
-          : false)
-  // With a search, «Niemand ist frei» is wrong when free ones only do not match it (sign-off
-  // 24.11.2026): the line says the search found no free one.
-  const allBusyText =
-    query ? tEmpty('noHitsFor', { query })
-    : resourceType === 'crew' ? t('assignmentDialog.allBusyCrew')
-      : resourceType === 'vehicles' ? t('assignmentDialog.allBusyVehicles')
-        : t('assignmentDialog.allBusyMaterials')
-
-  /** The empty list's title, line and one way out — per reason (see `emptyReason`). */
-  const emptyContent = (() => {
-    if (!emptyReason) return null
-    if (emptyReason === 'none') {
-      if (resourceType === 'crew') {
-        return {
-          title: t('assignmentDialog.noneCrewTitle'),
-          description: t('assignmentDialog.noneCrewBody'),
-          action: onShowCheckIn
-            ? ({
-                label: t('assignmentDialog.showCheckInLink'),
-                // Closed the normal way first (the board's close handler resumes
-                // any status gate), then the sheet with the link opens.
-                onClick: () => {
-                  close()
-                  onShowCheckIn()
-                },
-              } satisfies EmptyStateAction)
-            : undefined,
-        }
-      }
-      return resourceType === 'vehicles'
-        ? { title: t('assignmentDialog.noneVehiclesTitle'), description: t('assignmentDialog.noneVehiclesBody') }
-        : { title: t('assignmentDialog.noneMaterialsTitle'), description: t('assignmentDialog.noneMaterialsBody') }
-    }
-    if (emptyReason === 'search') {
-      return {
-        title: tEmpty('noHitsFor', { query }),
-        description:
-          resourceType === 'crew' ? t('assignmentDialog.searchScopeCrew')
-            : resourceType === 'vehicles' ? t('assignmentDialog.searchScopeVehicles')
-              : t('assignmentDialog.searchScopeMaterials'),
-        action: { label: tEmpty('clearSearch'), onClick: clearSearch, icon: X } satisfies EmptyStateAction,
-      }
-    }
-    // A filter hides it all. Name the filter — «Keine Treffer» alone sends the
-    // operator hunting for which of four chip rows did it.
-    const filters = new Intl.ListFormat(getActiveLocale(), { type: 'conjunction' }).format(
-      activeFilterLabels.map((name) => tEmpty('quoted', { name })),
-    )
-    const noun =
-      resourceType === 'crew' ? t('assignmentDialog.nounCrew')
-        : resourceType === 'vehicles' ? t('assignmentDialog.nounVehicles')
-          : t('assignmentDialog.nounMaterials')
-    const onlyAssignedNothingYet =
-      resourceType === 'vehicles' && showOnlyAssignedVehicles && activeFilterLabels.length === 1 && assignedVehicleIds.length === 0 && !query
-    return {
-      title: tEmpty('noHits'),
-      description: onlyAssignedNothingYet
-        ? t(assignTarget === 'route' ? 'assignmentDialog.onlyAssignedNoneRoute' : 'assignmentDialog.onlyAssignedNoneIncident')
-        : query
-          ? t('assignmentDialog.filterHidesSearch', { count: activeFilterLabels.length, filters, query })
-          : t('assignmentDialog.filterHides', { count: activeFilterLabels.length, filters, noun }),
-      action: { label: tEmpty('resetFilters'), onClick: resetFilters, icon: X } satisfies EmptyStateAction,
-    }
-  })()
 
   // Quick number-key assignment (1..9): toggle the Nth visible item of the active
   // resource type — the same action as clicking it. The onAssign*/onRemove*
@@ -1069,429 +555,36 @@ export function ResourceAssignmentDialog({
     return false
   }, [resourceType, selectedPersonnel, selectedMaterials, assignedPersonnelIds, assignedMaterials])
 
-  /** One crew tile. Lifted out of the grid so the free and the spoken-for
-   *  block can draw the same thing without a second copy of it. */
-  const renderPersonTile = (person: Person) => {
-    const isSelected = isPersonSelected(person.id)
-    const wasJustAssigned = justAssigned === person.id
-    // Already on another incident/Auftrag → the amber where-note names it; else a
-    // place-like role (Reko, Magazin, …; never the driven vehicle) does. The tile
-    // itself stays neutral: the note says where, no tinted block.
-    const { where, roles, plan } = tileFactsOf(person, personElsewhereLabel(person))
-    return (
-      // ONE line for every person tile, busy or free: rank · where · roles
-      // (`PersonTileLine` says why). «Im Einsatz» and the Ereignis roles are
-      // different facts and both stay: where somebody is now, and what taking
-      // them costs the Ereignis (the TLF 1's driver). A person on no Einsatz
-      // but in Reko/Magazin … is THERE – that role is the where-note.
-      <PersonPickTile
-        key={person.id}
-        name={person.name}
-        kennung={person.kennung ?? null}
-        rank={person.role}
-        where={where}
-        roles={roles}
-        plan={plan}
-        checked={isSelected}
-        animate={wasJustAssigned}
-        onClick={() => handleTogglePersonSelection(person)}
-      />
-    )
-  }
-
-  /** One vehicle row — shared by the free and the spoken-for block. */
-  const renderVehicleTile = (vehicle: { id: string; name: string; type: string; outOfService?: boolean }) => {
-    const isAssigned = isVehicleAssigned(vehicle.id)
-    const wasJustAssigned = justAssigned === vehicle.id
-    // «Nicht einsatzbereit» beats everything: the row says so in a word and a
-    // glyph and refuses the click. No error message — the target is simply not
-    // grabbable, which is the same treatment the sidebar gives it.
-    const isOutOfService = !!vehicle.outOfService && !isAssigned
-    // Already on another incident/Auftrag → amber note with the
-    // reference, matching the crew treatment (neutral tile, amber note).
-    const elsewhere = vehicleElsewhereLabel(vehicle)
-    // «bleibt vor Ort» vs «kehrt zurück». Assigning here used to
-    // drop that decision on the floor: the flag exists from the
-    // moment the vehicle is assigned (defaulting to «zurück»),
-    // it is read out on the radio and printed on the slip, but
-    // it could only be set from the incident card — so a whole
-    // dispatch done through this dialog announced the wrong thing.
-    const stays = vehicleDriverStay?.get(vehicle.id) ?? false
-    const driver = vehicleDrivers.get(vehicle.id)
-    const canSetStay = isAssigned && !!onToggleDriverStay
-    return (
-      <div
-        key={vehicle.id}
-        className={cn(
-          "flex items-start gap-2 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors",
-          !isOutOfService && !isAssigned && TILE_HOVER,
-          isAssigned && "border-sel-edge bg-sel-wash",
-          isOutOfService && "border-dashed opacity-60"
-        )}
-      >
-        <button
-          {...PICK_TILE}
-          onClick={() => handleToggleVehicle(vehicle)}
-          disabled={isOutOfService}
-          className={cn(
-            "flex min-w-0 flex-1 items-start gap-3 text-left",
-            isOutOfService ? "cursor-not-allowed" : "cursor-pointer",
-          )}
-        >
-          {isOutOfService ? (
-            <Ban className="mt-0.5 size-4 flex-shrink-0 text-muted-foreground" />
-          ) : (
-            <TileCheck checked={isAssigned} animate={wasJustAssigned} />
-          )}
-          <div className="min-w-0">
-            <p className={cn("font-medium text-sm truncate", isOutOfService && "text-muted-foreground")} title={vehicle.name}>{vehicle.name}</p>
-            {isOutOfService ? (
-              <p className={cn(TILE_META, "truncate text-muted-foreground")}>
-                {t('assignmentDialog.outOfService')}
-              </p>
-            ) : elsewhere ? (
-              <ElsewhereNote label={elsewhere} />
-            ) : (
-              <p className="text-xs text-muted-foreground truncate">{vehicle.type}</p>
-            )}
-            {/* Whether anybody is driving it — the half of "TLF 1
-                is free" the fleet list does not carry. Said in
-                both directions on purpose: a silent row would
-                leave "no driver" and "not loaded yet" looking
-                the same on the one screen where it decides
-                whether the vehicle can actually roll. */}
-            <p
-              className={cn(
-                "flex items-start gap-1 truncate",
-                driver ? "text-xs text-muted-foreground" : cn(TILE_META, "text-warning-foreground"),
-              )}
-              title={driver ? t('assignmentDialog.vehicleDriver', { name: naming.inline(driver) }) : undefined}
-            >
-              {/* Same amber triangle as the Auftrag's «Kein Fahrer» note — not
-                  colour alone. Picking it anyway opens the driver prompt right
-                  after (incident: performVehicleAssign, Auftrag: promptIfDriverless). */}
-              {!driver && <AlertTriangle className={TILE_META_ICON} aria-hidden />}
-              {driver
-                ? t('assignmentDialog.vehicleDriver', { name: naming.inline(driver) })
-                : t('assignmentDialog.vehicleNoDriver')}
-            </p>
-          </div>
-        </button>
-        {canSetStay && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggleDriverStay!(vehicle.id)
-            }}
-            className={cn(
-              "flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1.5 py-1 text-2xs font-medium transition-colors",
-              stays
-                ? "bg-foreground/10 text-foreground hover:bg-foreground/15"
-                : "bg-muted text-muted-foreground hover:bg-muted/70",
-            )}
-            title={stays ? t('common.driverStayTooltip') : t('common.driverReturnTooltip')}
-            aria-pressed={stays}
-          >
-            {stays ? <MapPin className="h-3 w-3" /> : <Undo2 className="h-3 w-3" />}
-            {/* Full sentence here: this dialog is where the
-                decision is MADE, and «bleibt» alone left the
-                operator working out what the alternative was. */}
-            {stays ? t('common.driverStaysFull') : t('common.driverReturnsFull')}
-          </button>
-        )}
-      </div>
-    )
-  }
-
-  const searchField = (
-    <SearchInput
-      ref={searchRef}
-      containerClassName={compactFilters ? "min-w-0 flex-1" : undefined}
-      placeholder={
-        resourceType === 'crew' ? t('assignmentDialog.searchCrew')
-          : resourceType === 'vehicles' ? t('assignmentDialog.searchVehicles')
-            : resourceType === 'materials' ? t('assignmentDialog.searchMaterials')
-              : t('common.search')
-      }
-      value={searchQuery}
-      onValueChange={setSearchQuery}
-      count={query && filteredCount > 0 ? t('assignmentDialog.hits', { count: filteredCount }) : undefined}
-    />
-  )
-
-  // The compact «Filtern» menu (#24): the same filters as the chip rows, in
-  // one place. Single-choice groups are radio groups with «Alle»; the menu
-  // stays open between picks.
-  const categoryGroupLabel =
-    resourceType === 'crew' ? t('assignmentDialog.filterGroupRank')
-      : resourceType === 'vehicles' ? t('assignmentDialog.filterGroupVehicleType')
-        : t('assignmentDialog.filterGroupDepot')
-  const hasFilterMenu =
-    categories.length > 1 || materialTypeGroups.length > 1 || resourceType === 'vehicles'
-  const filterMenu = hasFilterMenu ? (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="shrink-0 gap-1.5"
-          aria-label={
-            filtersActive
-              ? `${t('assignmentDialog.filterButton')}, ${t('assignmentDialog.filterActiveCount', { count: activeFilterLabels.length })}`
-              : t('assignmentDialog.filterButton')
-          }
-        >
-          <SlidersHorizontal aria-hidden="true" />
-          {t('assignmentDialog.filterButton')}
-          {filtersActive && (
-            <span
-              aria-hidden="true"
-              className="min-w-4 rounded-sm bg-foreground px-1 text-2xs font-bold leading-4 text-background tabular-nums"
-            >
-              {activeFilterLabels.length}
-            </span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        {categories.length > 1 && (
-          <>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">{categoryGroupLabel}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={categoryFilter ?? ALL_FILTER}
-              onValueChange={(value) => setCategoryFilter(value === ALL_FILTER ? null : value)}
-            >
-              <DropdownMenuRadioItem value={ALL_FILTER} onSelect={keepMenuOpen}>
-                {t('assignmentDialog.all')}
-              </DropdownMenuRadioItem>
-              {categories.map((cat) => (
-                <DropdownMenuRadioItem key={cat} value={cat} onSelect={keepMenuOpen}>
-                  {resourceType === 'materials' && assignedVehicleNames.includes(cat) && (
-                    <Truck className="h-3 w-3 text-foreground" aria-hidden="true" />
-                  )}
-                  {cat}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </>
-        )}
-        {materialTypeGroups.length > 1 && (
-          <>
-            {categories.length > 1 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('assignmentDialog.filterGroupMaterialType')}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={typeFilter ?? ALL_FILTER}
-              onValueChange={(value) => setTypeFilter(value === ALL_FILTER ? null : value)}
-            >
-              <DropdownMenuRadioItem value={ALL_FILTER} onSelect={keepMenuOpen}>
-                {t('assignmentDialog.all')}
-              </DropdownMenuRadioItem>
-              {materialTypeGroups.map(({ type, count }) => (
-                <DropdownMenuRadioItem key={type} value={type} onSelect={keepMenuOpen}>
-                  {type} ({count})
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </>
-        )}
-        {resourceType === 'vehicles' && (
-          <>
-            {categories.length > 1 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-xs text-muted-foreground">{t('assignmentDialog.filterGroupAssignment')}</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={showOnlyAssignedVehicles}
-              onCheckedChange={(checked) => setShowOnlyAssignedVehicles(checked === true)}
-              onSelect={keepMenuOpen}
-            >
-              {t('common.onlyAssignedVehicles')}
-            </DropdownMenuCheckboxItem>
-          </>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={!filtersActive} onSelect={resetFilters}>
-          <X aria-hidden="true" />
-          {tEmpty('resetFilters')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  ) : null
-
-  // The search and the filters above the list — the same on the dialog and the phone sheet.
-  // Search — the shared field: one focus look (the `ring` token), «Suche leeren», a hit count
-  // while searching. Its own animated ring is gone.
-  const filterControls = (
-    <>
-      {compactFilters ? (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            {searchField}
-            {filterMenu}
-          </div>
-          {filtersActive && (
-            // What is filtered, readable without opening the menu, and the
-            // one-step way back.
-            <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" data-testid="filter-summary">
-              <span className="min-w-0 truncate">
-                {t('assignmentDialog.filterSummary', { filters: activeFilterLabels.join(' · ') })}
-              </span>
-              {/* Not twice: an emptied list offers the same reset as its one action. */}
-              {emptyReason !== 'filter' && (
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="shrink-0 cursor-pointer underline underline-offset-2 decoration-muted-foreground/50 hover:text-foreground"
-                >
-                  {tEmpty('resetFilters')}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-      {searchField}
-
-      {/* Quick category filter — rank (crew), depot (material), type (vehicles) */}
-      {categories.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setCategoryFilter(null)}
-            className={cn(
-              "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-              categoryFilter === null
-                ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-            )}
-          >
-            {t('assignmentDialog.all')}
-          </button>
-          {categories.map((cat) => {
-            // A material depot/location that matches an already-assigned
-            // vehicle (e.g. "MoWa") — flag it so the operator sees at a glance
-            // which stock is already on scene. Materials only; matched by name.
-            // A fact, so ink text + truck glyph – never green (frei only).
-            const vehiclePresent = resourceType === 'materials' && assignedVehicleNames.includes(cat)
-            const isActive = categoryFilter === cat
-            return (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(isActive ? null : cat)}
-                title={vehiclePresent ? t('assignmentDialog.vehicleOnSceneHint', { name: cat }) : undefined}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition-colors",
-                  isActive
-                    ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                    : vehiclePresent
-                      ? "bg-muted/50 text-foreground border-border hover:bg-muted"
-                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                )}
-              >
-                {vehiclePresent && <Truck className="h-3 w-3 flex-shrink-0" />}
-                {cat}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Materials: second chip row — FILTER the list to one functional type
-          (e.g. "Wasser") across all depots. Filters only, selects nothing. */}
-      {materialTypeGroups.length > 1 && (
-        <MaterialTypeChips typeGroups={materialTypeGroups} typeFilter={typeFilter} onTypeFilterChange={setTypeFilter} />
-      )}
-
-      {/* Vehicles-only quick filter: show only vehicles already assigned. */}
-      {resourceType === 'vehicles' && (
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setShowOnlyAssignedVehicles((v) => !v)}
-            className={cn(
-              "cursor-pointer px-2.5 py-1 rounded-full text-xs border transition-colors",
-              showOnlyAssignedVehicles
-                ? "bg-sel-wash text-sel-foreground border-sel-edge"
-                : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-            )}
-          >
-            {t('common.onlyAssignedVehicles')}
-          </button>
-        </div>
-      )}
-
-        </>
-      )}
-    </>
-  )
-
   const resourceList = (
     <div className="space-y-2">
       {resourceType === 'crew' && (
-        <div className="space-y-4">
-          {allBusy && (
-            <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: 0 })}>
-              <p className="text-sm text-muted-foreground">{allBusyText}</p>
-            </ListSection>
-          )}
-          {crewSections.free.length > 0 && (
-            <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: crewSections.free.length })}>
-              <div className={TILE_GRID}>
-                {crewSections.free.map(renderPersonTile)}
-              </div>
-            </ListSection>
-          )}
-          {crewSections.busy.length > 0 && (
-            <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: crewSections.busy.length })}>
-              <div className={TILE_GRID}>
-                {crewSections.busy.map(renderPersonTile)}
-              </div>
-            </ListSection>
-          )}
-        </div>
+        <CrewAssignmentList
+          free={crewSections.free}
+          busy={crewSections.busy}
+          allBusyText={allBusyText}
+          isPersonSelected={isPersonSelected}
+          justAssigned={justAssigned}
+          tileFacts={(person) => tileFactsOf(person, personElsewhereLabel(person))}
+          onTogglePerson={handleTogglePersonSelection}
+        />
       )}
 
       {resourceType === 'vehicles' && (
-        <div className="space-y-4">
-          {/* «Zu Fuss» and «Verfügbar · 0» go with a list a search or a
-              filter emptied: next to «Keine Treffer» they read as the
-              one hit. With truly no fleet, «Zu Fuss» is still a choice. */}
-          {(vehicleSections.free.length > 0 || allBusy ||
-            (!!onToggleZuFuss && emptyReason !== 'search' && emptyReason !== 'filter')) && (
-            <ListSection tone="free" label={t('assignmentDialog.sectionFree', { count: vehicleSections.free.length })}>
-              <div className={TILE_GRID}>
-                {/* «Zu Fuss» is not a vehicle and is never spoken for,
-                    so it leads the free block. */}
-                {onToggleZuFuss && (
-                  <button
-                    {...PICK_TILE}
-                    onClick={onToggleZuFuss}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 p-2.5 max-sm:py-3 rounded-lg border border-border/50 transition-colors text-left",
-                      zuFuss ? "border-sel-edge bg-sel-wash" : TILE_HOVER
-                    )}
-                  >
-                    {/* The same tick box as every vehicle tile; the footprints
-                        say what it is on the caption line, like a role glyph. */}
-                    <TileCheck checked={zuFuss} />
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{t('common.zuFuss')}</p>
-                      <p className={cn(TILE_META, "flex items-start gap-1 truncate text-muted-foreground")}>
-                        <Footprints className={TILE_META_ICON} aria-hidden />
-                        {t('assignmentDialog.noVehicle')}
-                      </p>
-                    </div>
-                  </button>
-                )}
-                {vehicleSections.free.map(renderVehicleTile)}
-              </div>
-              {allBusy && <p className="mt-2 text-sm text-muted-foreground">{allBusyText}</p>}
-            </ListSection>
-          )}
-          {vehicleSections.busy.length > 0 && (
-            <ListSection tone="busy" label={t('assignmentDialog.sectionBusy', { count: vehicleSections.busy.length })}>
-              <div className={TILE_GRID}>
-                {vehicleSections.busy.map(renderVehicleTile)}
-              </div>
-            </ListSection>
-          )}
-        </div>
+        <VehicleAssignmentList
+          free={vehicleSections.free}
+          busy={vehicleSections.busy}
+          allBusyText={allBusyText}
+          emptyReason={emptyReason}
+          zuFuss={zuFuss}
+          onToggleZuFuss={onToggleZuFuss}
+          isVehicleAssigned={isVehicleAssigned}
+          justAssigned={justAssigned}
+          vehicleElsewhereLabel={vehicleElsewhereLabel}
+          vehicleDrivers={vehicleDrivers}
+          vehicleDriverStay={vehicleDriverStay}
+          onToggleDriverStay={onToggleDriverStay}
+          onToggleVehicle={handleToggleVehicle}
+        />
       )}
 
       {resourceType === 'materials' && (
@@ -1499,7 +592,7 @@ export function ResourceAssignmentDialog({
           groups={groupedFilteredMaterials.groups}
           ungroupedFree={ungroupedMaterialSections.free}
           ungroupedBusy={ungroupedMaterialSections.busy}
-          allBusyText={allBusy ? allBusyText : null}
+          allBusyText={allBusyText}
           selectedMaterials={selectedMaterials}
           occupiedElsewhereMaterialIds={occupiedElsewhereMaterialIds}
           materialElsewhereLabel={materialElsewhereLabel}
@@ -1517,15 +610,20 @@ export function ResourceAssignmentDialog({
         />
       )}
 
-      {/* Why the list is empty, and the one way out — never a big icon. */}
-      {emptyContent && (
-        <EmptyState
-          title={emptyContent.title}
-          description={emptyContent.description}
-          action={emptyContent.action}
-        />
-      )}
+      <AssignmentEmptyState
+        filters={filters}
+        resourceType={resourceType}
+        assignTarget={assignTarget}
+        assignedVehicleIds={assignedVehicleIds}
+        onClose={close}
+        onShowCheckIn={onShowCheckIn}
+      />
     </div>
+  )
+
+  // The search and the filters above the list — the same on the dialog and the phone sheet.
+  const filterControls = (
+    <AssignmentFilterControls filters={filters} resourceType={resourceType} assignedVehicleNames={assignedVehicleNames} />
   )
 
   // «Abbrechen» only where «Fertig» commits a selection (crew, material); a vehicle is
@@ -1626,78 +724,18 @@ export function ResourceAssignmentDialog({
     <>
     {stepHost && !isMobile ? step : dialog}
 
-    {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
-    <ConfirmDialog
-      open={!!confirmPerson}
-      onOpenChange={(o) => !o && setConfirmPerson(null)}
-      title={
-        confirmPerson
-          ? t('assignmentDialog.specialFnConfirmTitle', {
-              name: naming.inline(confirmPerson),
-              func: specialFunctionLabels(confirmPerson).join(' · '),
-            })
-          : ''
-      }
-      description={
-        confirmPerson
-          ? t('assignmentDialog.specialFnConfirmBody', {
-              name: naming.inline(confirmPerson),
-              // Every role, so the confirm names what is actually being taken.
-              func: specialFunctionLabels(confirmPerson).join(' · '),
-            })
-          : ''
-      }
-      cancelText={t('common.cancel')}
-      confirmText={t('assignmentDialog.specialFnConfirmAction')}
-      // A double booking is chosen by hand, never by Enter (owner pick #3, 23.11.2026).
-      initialFocus="cancel"
-      onConfirm={() => {
-        if (confirmPerson) addPersonToSelection(confirmPerson)
-      }}
-    />
-
-    {/* Fallback only: the material is flagged as busy but the binding could not
-        be resolved to a concrete incident/Auftrag, so there is nothing to move
-        it off. Everything resolvable goes to the shared conflict dialog. */}
-    <ConfirmDialog
-      open={!!confirmMaterial}
-      onOpenChange={(o) => !o && setConfirmMaterial(null)}
-      title={confirmMaterial ? t('assignmentDialog.occupiedConfirmTitle', { name: confirmMaterial.name }) : ''}
-      description={
-        confirmMaterial
-          ? t('assignmentDialog.occupiedConfirmBody', {
-              name: confirmMaterial.name,
-              label: materialElsewhereLabel(confirmMaterial)?.full ?? t('assignmentDialog.occupiedElsewhere'),
-            })
-          : ''
-      }
-      cancelText={t('common.cancel')}
-      confirmText={t('assignmentDialog.occupiedConfirmAction')}
-      initialFocus="cancel"
-      onConfirm={() => {
-        if (confirmMaterial) addMaterialToSelection(confirmMaterial.id)
-      }}
-    />
-
-    {/* Fallback only — same reasoning as the material confirm above. */}
-    <ConfirmDialog
-      open={!!confirmOccupiedPerson}
-      onOpenChange={(o) => !o && setConfirmOccupiedPerson(null)}
-      title={confirmOccupiedPerson ? t('assignmentDialog.occupiedConfirmTitle', { name: naming.inline(confirmOccupiedPerson) }) : ''}
-      description={
-        confirmOccupiedPerson
-          ? t('assignmentDialog.occupiedConfirmBody', {
-              name: naming.inline(confirmOccupiedPerson),
-              label: personElsewhereLabel(confirmOccupiedPerson)?.full ?? t('assignmentDialog.occupiedElsewhere'),
-            })
-          : ''
-      }
-      cancelText={t('common.cancel')}
-      confirmText={t('assignmentDialog.occupiedConfirmAction')}
-      initialFocus="cancel"
-      onConfirm={() => {
-        if (confirmOccupiedPerson) addPersonToSelection(confirmOccupiedPerson)
-      }}
+    <AssignmentConfirmDialogs
+      confirmPerson={confirmPerson}
+      setConfirmPerson={setConfirmPerson}
+      specialFunctionLabels={specialFunctionLabels}
+      confirmMaterial={confirmMaterial}
+      setConfirmMaterial={setConfirmMaterial}
+      materialElsewhereLabel={materialElsewhereLabel}
+      confirmOccupiedPerson={confirmOccupiedPerson}
+      setConfirmOccupiedPerson={setConfirmOccupiedPerson}
+      personElsewhereLabel={personElsewhereLabel}
+      addPersonToSelection={addPersonToSelection}
+      addMaterialToSelection={addMaterialToSelection}
     />
     </>
   )
