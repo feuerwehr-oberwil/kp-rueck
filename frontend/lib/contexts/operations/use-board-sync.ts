@@ -349,8 +349,9 @@ export function useBoardSync(input: BoardSyncInput) {
                 return
               }
               window.setTimeout(() => {
-                // `Promise.resolve`: older WebKit answers `play()` with undefined.
-                Promise.resolve(audio.play()).catch(() => tryPlay(attempt + 1))
+                // Older WebKit answers `play()` with undefined: nothing to retry then.
+                const playPromise: Promise<void> | undefined = audio.play()
+                if (playPromise !== undefined) playPromise.catch(() => tryPlay(attempt + 1))
               }, retryDelays[attempt])
             }
             tryPlay(0)
@@ -528,7 +529,7 @@ export function useBoardSync(input: BoardSyncInput) {
     let pollTimeout: NodeJS.Timeout | undefined
     let isPollingActive = false
 
-    // One poll tick, then the next one armed. Never rejects: a failed check backs off.
+    // One poll tick, then the next one armed. Never rejects: a failed check is caught.
     const pollTick = async () => {
       if (!isPollingActive) return
       const tickAction = decidePollTickAction({

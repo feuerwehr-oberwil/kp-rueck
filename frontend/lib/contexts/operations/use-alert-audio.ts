@@ -22,8 +22,13 @@ export function useAlertAudio() {
       const audio = alertAudioRef.current
       if (!audio) return
       audio.volume = 0.7
-      // `Promise.resolve`: older WebKit answers `play()` with undefined (it played – unlocked).
-      Promise.resolve(audio.play())
+      // Older WebKit answers `play()` with undefined: it played, so it is unlocked.
+      const prime: Promise<void> | undefined = audio.play()
+      if (prime === undefined) {
+        alertAudioUnlockedRef.current = true
+        return
+      }
+      prime
         .then(() => {
           audio.pause()
           audio.currentTime = 0

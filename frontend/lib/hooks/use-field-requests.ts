@@ -42,8 +42,8 @@ export function useOpenFieldRequests(): {
   }, [operations])
 }
 
-/** offen → in Arbeit → erledigt (and back), with the board and the bell refreshed, then
- *  `onChanged` (awaited – a reload that must not reject). */
+/** offen → in Arbeit → erledigt (and back), with the board and the bell refreshed; then
+ *  `onChanged` runs in the background (a reload that must not reject). */
 export function useFieldRequestActions(onChanged?: () => Promise<void> | void) {
   const t = useTranslations('feld.requests')
   const { refreshOperations } = useOperations()
@@ -52,7 +52,7 @@ export function useFieldRequestActions(onChanged?: () => Promise<void> | void) {
 
   const refresh = useCallback(async () => {
     await Promise.all([refreshOperations(), notifications?.refetchNotifications()])
-    await onChanged?.()
+    void onChanged?.()
   }, [notifications, onChanged, refreshOperations])
 
   const setStatus = useCallback(

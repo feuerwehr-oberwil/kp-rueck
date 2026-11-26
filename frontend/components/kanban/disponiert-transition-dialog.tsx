@@ -177,17 +177,17 @@ export function DisponierTransitionDialog({
     : null
 
   const handleCopyWhatsApp = async () => {
-    const { whatsappIncident } = await getMessageTemplates()
-    const message = formatWhatsAppMessage({
-      operation,
-      materials,
-      // Only a loaded map may say «ohne Fahrer»; before that nothing is known.
-      vehicleDrivers: driversKnown ? effectiveVehicleDrivers : undefined,
-      auftrag: auftragCtx,
-      template: whatsappIncident,
-      personText,
-    })
     try {
+      const { whatsappIncident } = await getMessageTemplates()
+      const message = formatWhatsAppMessage({
+        operation,
+        materials,
+        // Only a loaded map may say «ohne Fahrer»; before that nothing is known.
+        vehicleDrivers: driversKnown ? effectiveVehicleDrivers : undefined,
+        auftrag: auftragCtx,
+        template: whatsappIncident,
+        personText,
+      })
       await copyToClipboard(message)
     } catch (error) {
       console.error('Failed to copy WhatsApp message:', error)
