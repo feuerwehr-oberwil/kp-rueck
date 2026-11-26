@@ -118,6 +118,13 @@ export default [
     ignores: TESTS,
     rules: { "kp/no-literal-copy": "warn" },
   },
+  // A `!` hides a null the type says is possible: narrow where the value is known (a guard, an
+  // early return, a prop that takes the non-null type). Ratcheted (eslint-ratchet.json).
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
+    ignores: TESTS,
+    rules: { "@typescript-eslint/no-non-null-assertion": "warn" },
+  },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are
   // free), and base-map.tsx the one that renders react-map-gl's <Map>. Unit tests and the
   // Playwright tree (tests/) mock them freely.

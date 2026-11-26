@@ -297,7 +297,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
       ? { lat, lng, address: address?.trim() || null }
       : null
   const { candidates: duplicateCandidates, key: duplicateKey } = useDuplicateCandidates(duplicateLookup, (q) =>
-    apiClient.getFeldDuplicateCandidates(personnelId, token, { lat: q.lat!, lng: q.lng!, address: q.address }),
+    apiClient.getFeldDuplicateCandidates(personnelId, token, { lat: q.lat, lng: q.lng, address: q.address }),
   )
   const [dismissedDuplicateKey, setDismissedDuplicateKey] = useState<string | null>(null)
   const [mergingId, setMergingId] = useState<string | null>(null)

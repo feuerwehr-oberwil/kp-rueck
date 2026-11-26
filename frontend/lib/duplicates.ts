@@ -59,14 +59,15 @@ export interface DuplicateQuery {
 
 export function duplicateQueryKey(query: DuplicateQuery | null): string | null {
   if (!query) return null
-  const hasPin = query.lat != null && query.lng != null
+  const { lat, lng } = query
+  const hasPin = lat != null && lng != null
   const address = query.address?.trim() ?? ''
   // A street without a house number never matches on the server; asking is a wasted round trip.
   if (!hasPin && !/\d/.test(address)) return null
   return JSON.stringify([
     query.eventId ?? '',
-    hasPin ? query.lat!.toFixed(6) : '',
-    hasPin ? query.lng!.toFixed(6) : '',
+    hasPin ? lat.toFixed(6) : '',
+    hasPin ? lng.toFixed(6) : '',
     address,
     query.excludeId ?? '',
   ])

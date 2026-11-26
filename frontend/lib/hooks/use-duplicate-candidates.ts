@@ -5,7 +5,8 @@
  *
  * Debounced (an address is typed, not picked), keyed on what is actually
  * compared, and silent on failure: the hint is advice, it never blocks creating
- * a card, so a lost request simply shows no hint.
+ * a card, so a lost request simply shows no hint. `load` gets the caller's own query
+ * type, so what the caller narrowed (an event id, a pin) stays narrowed there.
  */
 
 import { useEffect, useState } from 'react'
@@ -15,9 +16,9 @@ import { duplicateQueryKey, type DuplicateHintCandidate, type DuplicateQuery } f
 
 const DEBOUNCE_MS = 400
 
-export function useDuplicateCandidates<C extends DuplicateHintCandidate>(
-  query: DuplicateQuery | null,
-  load: (query: DuplicateQuery) => Promise<{ candidates: C[] }>,
+export function useDuplicateCandidates<Q extends DuplicateQuery, C extends DuplicateHintCandidate>(
+  query: Q | null,
+  load: (query: Q) => Promise<{ candidates: C[] }>,
 ): { candidates: C[]; key: string | null } {
   const key = duplicateQueryKey(query)
   const [result, setResult] = useState<{ key: string | null; candidates: C[] }>({
