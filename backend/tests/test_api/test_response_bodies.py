@@ -49,8 +49,14 @@ SPARSE_STATUS = {
     "lastAttempt": "2026-11-26T05:00:00+00:00",
     "lastError": "kaputt",
     "legacyKey": {"kept": True},
-    # An older writer: a count as text, no sha256. Served as stored, never coerced or refused.
-    "lastGood": {"provider": "x", "generatedAt": "2026-08-01T04:00:00+00:00", "count": "40"},
+    # A nested key no model names: served as stored, like the top-level one above.
+    "lastGood": {
+        "provider": "x",
+        "generatedAt": "2026-08-01T04:00:00+00:00",
+        "sha256": "ab",
+        "count": 40,
+        "note": "alt",
+    },
 }
 
 

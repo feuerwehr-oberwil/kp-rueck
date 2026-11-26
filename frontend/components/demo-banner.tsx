@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
+import type { ApiDemoOn } from '@/lib/api/types'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { ShellLoader } from '@/components/ui/shell-loader'
@@ -20,18 +21,12 @@ import { Check, Info, Users } from 'lucide-react'
 const DEMO_WELCOME_KEY = 'kp-rueck.demo-welcome.v1'
 const WELCOME_EXCLUDED_ROUTES = ['/login', '/auth', '/reko', '/alarm', '/check-in', '/feld']
 
-interface DemoStatus {
-  demo: boolean
-  next_reset: string | null
-  seconds_until_reset: number
-  reset_interval_hours: number
-}
 
 export function DemoBanner() {
   const t = useTranslations('common.demoBanner')
   const pathname = usePathname()
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const [demoStatus, setDemoStatus] = useState<DemoStatus | null>(null)
+  const [demoStatus, setDemoStatus] = useState<ApiDemoOn | null>(null)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showResetOverlay, setShowResetOverlay] = useState(false)
   const secondsLeftRef = useRef(0)

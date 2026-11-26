@@ -28,7 +28,10 @@ export type ApiSetupClaim = In<'SetupClaimRequest'>
 export type ApiSetupResult = Out<'SetupClaimResponse'>
 
 // Demo Mode Types
+/** A demo instance and its next reset. */
+export type ApiDemoOn = Out<'DemoOn'>
+
 /** `demo: false` carries nothing else; a demo instance names its next reset. */
-export type DemoStatus = Out<'DemoOff'> | Out<'DemoOn'>
+export type DemoStatus = Out<'DemoOff'> | ApiDemoOn
 
 export type DemoSandbox = Out<'DemoSandboxResponse'>
