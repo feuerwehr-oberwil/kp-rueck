@@ -281,6 +281,36 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
     assert retry.to_leader == [Op("notifications", first["id"], None, first)] and retry.to_follower == []
 
 
+def test_a_fatigue_dismissal_acknowledges_only_the_people_it_named():
+    """The hosted board takes the Ereignis back and an operator dismisses «Lang im Einsatz: Muster»
+    there. Before the box has applied the takeover, its poll adds Beispiel to the same row. The
+    dismissal stands with what it named: Beispiel is not acknowledged, the next poll warns again."""
+    named = lambda *people, **over: {
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, "fatigue")),
+        "event_id": EVENT,
+        "type": "personnel_fatigue",
+        "message": f"Lang im Einsatz: {', '.join(people)}",
+        "params": {"names": list(people)},
+        "subject_keys": [f"{person}@19:00" for person in people],
+        "dismissed": False,
+        "dismissed_by": None,
+        **over,
+    }
+    key = ("notifications", named()["id"])
+    base = named("Muster")
+    hosted = named("Muster", dismissed=True, dismissed_by="operator")
+    box = named("Muster", "Beispiel")
+
+    plan = merge({key: base}, {key: hosted}, {key: box}, event_id=EVENT, leader=HOSTED, takeover=TAKEOVER, now=NOW)
+
+    assert plan.merged[key] == hosted
+    assert plan.to_leader == [] and plan.to_follower == [Op("notifications", key[1], hosted, box)]
+    assert plan.conflicts == 0
+    # The other way round: the box (leading) widened, the hosted board (not yet told) dismissed.
+    flipped = merge({key: base}, {key: box}, {key: hosted}, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+    assert flipped.merged[key] == hosted and flipped.conflicts == 0
+
+
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
     base = _incident()
     plan = _merge(

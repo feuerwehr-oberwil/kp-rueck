@@ -19,7 +19,10 @@ Nothing is dropped without a word – an op that cannot be applied stays pending
 it) and is logged.
 
 Columns that are bookkeeping (`updated_at`, `last_activity_at`) take the later value and never
-clash. Identity columns (`journal_entries.seq`) are each system's own and never travel.
+clash. Identity columns (`journal_entries.seq`) are each system's own and never travel. The
+bell has two rules of its own, for the seconds in which both systems still poll it: a GPS
+question both asked is asked once (`_ask_gps_once`), and a time-on-duty warning dismissed on
+one side acknowledges only the people it named there (`_as_dismissed`).
 
 The merge itself (`merge`, `settle_lead`) is pure; `sync_event` is the round around it.
 """
@@ -305,6 +308,29 @@ def _merge_row(base: Row, lead: Row, other: Row) -> tuple[Row, dict[str, dict[st
     return merged, clashes
 
 
+# What the time-on-duty warning names (services/notification_service._sync_fatigue_notification).
+FATIGUE_NAMED = ("message", "params", "subject_keys")
+
+
+def _as_dismissed(base: Row, lead: Row, other: Row) -> tuple[Row, Row]:
+    """A time-on-duty warning dismissed on one side stands with the people it named there.
+
+    Dismissing it acknowledges exactly its `subject_keys`. Until a system has applied the other's
+    takeover, both poll the bell, so the other side may have named somebody new in the same row
+    meanwhile. Column by column, the dismissal would acknowledge them unseen. So the other side's
+    naming counts as unchanged; its next poll warns again about whoever is not acknowledged.
+    Returns `lead`, `other` as `_merge_row` is to see them.
+    """
+    if lead.get("type") != "personnel_fatigue" or base.get("dismissed"):
+        return lead, other
+    named = {col: base[col] for col in FATIGUE_NAMED if col in base}
+    if lead.get("dismissed") and not other.get("dismissed"):
+        return lead, {**other, **named}
+    if other.get("dismissed") and not lead.get("dismissed"):
+        return {**lead, **named}, other
+    return lead, other
+
+
 def merge(
     base: Rows,
     lead: Rows,
@@ -382,7 +408,7 @@ def merge(
                 plan.to_follower.append(Op(table, row_id, m, None))
                 conflict(table, row_id, "deleted", deleted_on=follower, row=m)
             continue
-        merged, clashes = _merge_row(b, m, t)
+        merged, clashes = _merge_row(b, *_as_dismissed(b, m, t))
         plan.merged[key] = merged
         if merged != m:
             plan.to_leader.append(Op(table, row_id, merged, m))
