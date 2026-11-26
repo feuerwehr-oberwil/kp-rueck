@@ -634,7 +634,7 @@ export default function FireStationDashboard() {
 
   // Who drives what, for the whole board. One roster call here rather than one
   // per card; the cards render the driver next to the Funkrufname.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null)
+  const vehicleDrivers = useVehicleDrivers()
 
   // Thermal printer, Divera and the Funkrufname – what the buttons may offer.
   const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()

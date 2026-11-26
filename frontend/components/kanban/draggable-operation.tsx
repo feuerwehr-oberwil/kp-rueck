@@ -242,8 +242,8 @@ function DraggableOperationBase({
   const { groups, getGroupResources } = useGroups()
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
-  // the page via a window event (mirrors the driver-assignment-changed pattern),
-  // avoiding prop threading through the column/side-panel render trees.
+  // the page via a window event, avoiding prop threading through the
+  // column/side-panel render trees.
   const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
   // This incident's 1-based position in the route (e.g. "Stop 3/5"). Derive from

@@ -6,11 +6,11 @@ import { renderWithIntl } from "@/test-utils/render-with-intl"
 
 const geocodeAddress = vi.hoisted(() => vi.fn().mockResolvedValue(null))
 const searchAddress = vi.hoisted(() => vi.fn().mockResolvedValue([]))
-const getAllSettings = vi.hoisted(() => vi.fn().mockResolvedValue({}))
 const reverseGeocode = vi.hoisted(() => vi.fn().mockResolvedValue(null))
 
 vi.mock("@/lib/geocoding", () => ({ geocodeAddress, searchAddress, reverseGeocode }))
-vi.mock("@/lib/api-client", () => ({ apiClient: { getAllSettings } }))
+// The board's settings hold no station point: no geocoder bias.
+vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => ({ settings: {} }) }))
 vi.mock("next/dynamic", () => ({ default: () => () => null }))
 
 import { LocationInput } from "@/components/location/location-input"
@@ -30,7 +30,6 @@ describe("LocationInput", () => {
       </StrictMode>,
     )
 
-    await waitFor(() => expect(getAllSettings).toHaveBeenCalled())
     expect(geocodeAddress).not.toHaveBeenCalled()
 
     rerender(

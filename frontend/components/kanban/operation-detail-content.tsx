@@ -324,7 +324,7 @@ export function OperationDetailContent({
   // The quick-assign fleet behind `1`..`5` – editors only; off the board sync.
   const fleet = useVehicleShortcuts()
   const availableVehicleCount = canEdit ? fleet.length : 0
-  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState(selectedEvent?.id ?? null, active)
+  const { drivers: vehicleDrivers, loaded: vehicleDriversLoaded } = useVehicleDriverState()
   const [rekoDialogOpen, setRekoDialogOpen] = useState(false)
   const [rekoTransferDialogOpen, setRekoTransferDialogOpen] = useState(false)
 

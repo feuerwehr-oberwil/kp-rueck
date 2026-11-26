@@ -74,6 +74,7 @@ import { WeatherRadarControls, useRadarPlayback } from "./map/weather-radar-cont
 import { WeatherWarningChip } from "./map/weather-warning-chip"
 import { useWeather } from "@/lib/hooks/use-weather"
 import { activeWarnings, radarIsStale } from "@/lib/weather"
+import { stationPoint } from "@/lib/station-point"
 
 // Permanent incident labels: the bubble sits to the RIGHT of the dot (on the desktop, the left when
 // the right is taken – `placeLabelSides`), its near edge this far from it — the arrow's tip at
@@ -1492,14 +1493,8 @@ export default function MapView({
     return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : DEFAULT_CENTER_LATLNG
   }, [stationSettings])
   const firestationSettingsReady = boardLoaded
-  // Magazin/homebase — null until configured. Same merge as the backend's
-  // get_station_coordinates: the legacy gps.* pair wins when set, the Allgemein
-  // coordinates are the fallback.
-  const magazinCoords = useMemo<[number, number] | null>(() => {
-    const magazinLat = parseFloat(stationSettings["gps.station_lat"] || stationSettings.firestation_latitude || "")
-    const magazinLng = parseFloat(stationSettings["gps.station_lng"] || stationSettings.firestation_longitude || "")
-    return Number.isFinite(magazinLat) && Number.isFinite(magazinLng) ? [magazinLat, magazinLng] : null
-  }, [stationSettings])
+  // Magazin/homebase — null until configured (`stationPoint`: the backend's key order).
+  const magazinCoords = useMemo(() => stationPoint(stationSettings), [stationSettings])
   // The live map, handed over by <BaseMap> once it has loaded (and again after a GL recovery
   // remount). Everything that used to be a react-leaflet child with `useMap()` hangs off it.
   const [map, setMap] = useState<MlMap | null>(null)

@@ -76,7 +76,6 @@ function BoardDisplay() {
   const tk = useTranslations('kanban')
   const { operations: allOperations, materialOnSite } = useOperations()
   const { materials, materialGroups } = useMaterials()
-  const { selectedEvent } = useEvent()
   // The top bar's search, same predicate the command-post board filters with —
   // an address, a name, a Fahrzeug or a Material, across every column at once.
   const { query } = useDisplaySearch()
@@ -93,7 +92,7 @@ function BoardDisplay() {
   // and nobody standing at it could put that right.
   // One roster call for the whole board rather than one per card, exactly as
   // app/page.tsx threads it down.
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id)
+  const vehicleDrivers = useVehicleDrivers()
   // groupId → Auftrag name: an incident is a stop on a route, and the route's
   // name lives on the group, not on the operation.
   const groupNames = useMemo(

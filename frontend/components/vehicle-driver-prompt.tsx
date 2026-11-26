@@ -54,6 +54,7 @@ export function VehicleDriverPrompt() {
     removeCrew,
     removeVehicle,
     formatLocation,
+    refreshOperations,
   } = useOperations()
   const { selectedEvent } = useEvent()
   const { groups, unassignResource } = useGroups()
@@ -184,8 +185,8 @@ export function VehicleDriverPrompt() {
       specialFunctions={specialFunctions}
       driversPending={driversPending}
       onDriverAssigned={() => {
-        // Notify the sidebar / vehicle status sheet of the change (same-tab).
-        window.dispatchEvent(new Event("driver-assignment-changed"))
+        // The board's drivers (every «Fahrer» on this tab) come with its snapshot.
+        void refreshOperations()
         assignedRef.current = true
       }}
       removeCrew={removeCrew}

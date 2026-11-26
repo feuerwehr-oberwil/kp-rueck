@@ -47,7 +47,6 @@ import { isIncidentType } from "@/lib/types/incidents"
 import { AddressText } from "@/components/kanban/address-text"
 import { useTranslations } from "next-intl"
 import { sortCrewByLeader } from "@/lib/crew-order"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { formatClockTime } from "@/lib/incident-time"
 import RekoReportSection from "@/components/reko/reko-report-section"
@@ -215,8 +214,7 @@ export function MobileIncidentDetailSheet({
   // The resource chips reuse the board's own labels (Funkrufname, Zu Fuss …)
   // so the phone and the board name the same thing the same way.
   const tKanban = useTranslations('kanban')
-  const { selectedEvent } = useEvent()
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  const vehicleDrivers = useVehicleDrivers()
   const { groups, getGroupResources } = useGroups()
   // The detail button that opened the sheet (`data-detail-opener`, on the phone card and the
   // Lagekarte row), read when the sheet takes the focus: a controlled sheet has no Radix trigger

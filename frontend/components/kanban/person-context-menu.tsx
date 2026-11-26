@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useTranslations } from "next-intl"
 import {
   ContextMenu,
@@ -33,8 +32,7 @@ interface PersonContextMenuProps {
  */
 export function PersonContextMenu({ children, personnelId, personnelName }: PersonContextMenuProps) {
   const t = useTranslations("kanban")
-  const [open, setOpen] = useState(false)
-  const { items, toggle, dialogs } = usePersonFunctions({ personnelId, personnelName, enabled: open })
+  const { items, toggle, dialogs } = usePersonFunctions({ personnelId, personnelName })
 
   const row = (item: PersonFunctionItem) => {
     const Icon = item.kind === "driver" ? Truck : STATION_FUNCTION_ICONS[item.functionType]
@@ -63,7 +61,7 @@ export function PersonContextMenu({ children, personnelId, personnelName }: Pers
 
   return (
     <>
-      <ContextMenu onOpenChange={setOpen}>
+      <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
           {driverItems.map(row)}

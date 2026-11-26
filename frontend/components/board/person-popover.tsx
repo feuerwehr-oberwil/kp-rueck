@@ -89,7 +89,6 @@ export function PersonPopoverBody({
   const { items, toggle, busy, dialogs } = usePersonFunctions({
     personnelId: person.id,
     personnelName: person.name,
-    enabled: true,
   })
   // The Fahrer row whose vehicle choice is open (a person may drive several vehicles).
   const [vehicleMenuFor, setVehicleMenuFor] = useState<string | null>(null)

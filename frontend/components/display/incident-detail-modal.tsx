@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
-import { useEvent } from "@/lib/contexts/event-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { type IncidentGroup, type GroupResources } from "@/lib/types/groups"
@@ -110,9 +109,8 @@ export function IncidentDetailModal({
   // component doc. False for a viewer and for a share-token display alike.
   const { isEditor } = useAuth()
   const { materials: contextMaterials } = useMaterials()
-  const { selectedEvent } = useEvent()
   const { groups: contextGroups, getGroupResources } = useGroups()
-  const vehicleDrivers = useVehicleDrivers(selectedEvent?.id, open && !!operation)
+  const vehicleDrivers = useVehicleDrivers()
   // ONE fetch of the incident's history for the whole dialog — the Funkmeldungen
   // thread and the Verlauf read the same feed, exactly as the command post's two
   // tabs do. Only with `showReports`: a share-token display has no session and

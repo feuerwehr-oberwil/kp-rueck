@@ -69,11 +69,18 @@ vi.mock("@/lib/contexts/groups-context", () => ({
   }),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({
-  useOperations: () => ({ operations: rp.operations, createOperation, refreshOperations, formatLocation: (address: string) => address }),
+  useOperations: () => ({
+    operations: rp.operations,
+    settings: rp.settings,
+    isLoaded: true,
+    boardNeverLoaded: false,
+    createOperation,
+    refreshOperations,
+    formatLocation: (address: string) => address,
+  }),
 }))
 vi.mock("@/lib/api-client", () => ({
   apiClient: {
-    getAllSettings: async () => rp.settings,
     getVehiclePositions: async () => rp.positions,
   },
 }))

@@ -385,7 +385,7 @@ export function IncidentDialogs({
   })
   const { view, statusWorkflow } = dialogs
   // Who drives what, for the dispatch gate's vehicle chips – loaded while that gate is open.
-  const gateDrivers = useVehicleDrivers(selectedEvent?.id, !!statusWorkflow.missingResourcesOperation)
+  const gateDrivers = useVehicleDrivers()
 
   // ── Assignment dialog ────────────────────────────────────────────────────
   const assignment = view.assignment
