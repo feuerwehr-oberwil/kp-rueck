@@ -1,5 +1,6 @@
 """Divera emergency CRUD operations."""
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -126,6 +127,23 @@ async def lock_divera_emergency(
         .execution_options(populate_existing=True)
     )
     return result.scalar_one_or_none()
+
+
+async def lock_divera_emergencies(db: AsyncSession, emergency_ids: Iterable[UUID]) -> None:
+    """Row-lock several alarms in ascending id order, held to the next commit (a bulk attach).
+
+    Taken before the first card: a card's INSERT takes the Ereignis' numbering lock, and a
+    single attach holds its alarm while it waits for that lock. A bulk attach that took its
+    alarms one by one held the numbering lock while it waited for such an alarm – a deadlock.
+    Outside a savepoint, so a failed alarm's rollback keeps the others locked. One query: Postgres
+    locks the rows as the sort hands them out.
+    """
+    await db.execute(
+        select(models.DiveraEmergency.id)
+        .where(models.DiveraEmergency.id.in_(list(emergency_ids)))
+        .order_by(models.DiveraEmergency.id)
+        .with_for_update()
+    )
 
 
 async def get_divera_emergency_by_divera_id(

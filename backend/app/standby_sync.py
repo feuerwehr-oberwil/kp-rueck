@@ -19,7 +19,10 @@ Nothing is dropped without a word – an op that cannot be applied stays pending
 it) and is logged.
 
 Columns that are bookkeeping (`updated_at`, `last_activity_at`) take the later value and never
-clash. Identity columns (`journal_entries.seq`) are each system's own and never travel.
+clash. Identity columns (`journal_entries.seq`) are each system's own and never travel. The
+bell has two rules of its own, for the seconds in which both systems still poll it: a GPS
+question both asked is asked once (`_ask_gps_once`), and a row dismissed on one side stands as
+it was dismissed there – a time-on-duty warning with the people it named (`_as_dismissed`).
 
 The merge itself (`merge`, `settle_lead`) is pure; `sync_event` is the round around it.
 """
@@ -305,6 +308,44 @@ def _merge_row(base: Row, lead: Row, other: Row) -> tuple[Row, dict[str, dict[st
     return merged, clashes
 
 
+# A bell row's dismissal, and what the time-on-duty warning names
+# (services/notification_service._sync_fatigue_notification).
+DISMISSAL = ("dismissed", "dismissed_at", "dismissed_by")
+FATIGUE_NAMED = ("message", "params", "subject_keys")
+
+
+def _as_dismissed(base: Row, lead: Row, other: Row) -> tuple[Row, Row]:
+    """A bell row dismissed on one side stands as that side dismissed it, whole.
+
+    Until a system has applied the other's takeover, both poll the bell, and a sync close
+    (`_ask_gps_once`) can meet a dismissal. Column by column, two dismissals clashed, and a row
+    the shadow misses (a round that died before it) clashed in every column. So, of two versions
+    of a `notifications` row not yet dismissed in the shadow, the one that stands is the
+    dismissed one, else an operator's dismissal (`dismissed_by`) over an automatic one; nothing
+    reopens a bell row. Its dismissal columns win as a whole – and, for a time-on-duty warning,
+    the people it named: dismissing it acknowledges exactly its `subject_keys`, and somebody
+    the other side added meanwhile must not be acknowledged unseen. That side's next poll warns
+    again. Returns `lead`, `other` as `_merge_row` is to see them.
+    """
+    if base.get("dismissed"):
+        return lead, other
+    stands = _dismissal_that_stands(lead, other)
+    if stands is None:
+        return lead, other
+    columns = DISMISSAL + (FATIGUE_NAMED if stands.get("type") == "personnel_fatigue" else ())
+    taken = {col: stands[col] for col in columns if col in stands}
+    return {**lead, **taken}, {**other, **taken}
+
+
+def _dismissal_that_stands(lead: Row, other: Row) -> Row | None:
+    """The one of two bell-row versions whose dismissal wins; None: neither, or both alike."""
+    if bool(lead.get("dismissed")) != bool(other.get("dismissed")):
+        return lead if lead.get("dismissed") else other
+    if lead.get("dismissed") and (lead.get("dismissed_by") is None) != (other.get("dismissed_by") is None):
+        return lead if lead.get("dismissed_by") is not None else other
+    return None
+
+
 def merge(
     base: Rows,
     lead: Rows,
@@ -382,7 +423,7 @@ def merge(
                 plan.to_follower.append(Op(table, row_id, m, None))
                 conflict(table, row_id, "deleted", deleted_on=follower, row=m)
             continue
-        merged, clashes = _merge_row(b, m, t)
+        merged, clashes = _merge_row(b, *(_as_dismissed(b, m, t) if table == "notifications" else (m, t)))
         plan.merged[key] = merged
         if merged != m:
             plan.to_leader.append(Op(table, row_id, merged, m))
@@ -396,7 +437,7 @@ def merge(
 
     _renumber(plan, base, lead, other, event_id=event_id, now=now)
     _settle_slots(plan, lead, other, conflict)
-    _ask_gps_once(plan, base, lead, other)
+    _ask_gps_once(plan, base, lead, other, now=now)
     return plan
 
 
@@ -555,16 +596,21 @@ def _slot_losers(plan: Plan, lead: Rows, table: str, slot: Callable[[Row], Any])
 GPS_TODOS = frozenset({"gps_arrival", "gps_release"})
 
 
-def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
+def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows, *, now: str) -> None:
     """One GPS question both systems raised in the seconds before their lead rows agreed.
 
     Each system keeps one open row per Ereignis, type and `params.key` (`create_gps_todo`), but
-    sees only its own, so both may ask. A copy that both systems hold, or that is agreed (in the
-    shadow), is never deleted – one side's delete and the other's dismissal would make the next
-    round take the deletion – so it is the one that stays; else the leader's, else the lower id.
-    Every other copy is held by one side alone and is deleted there: its delete carries the row
-    it expects, so a copy answered (dismissed) meanwhile is `changed`, and the next round finds
-    it dismissed and keeps it. Only open rows count.
+    sees only its own, so both may ask. The copy that stays: one both systems hold or that is
+    agreed (in the shadow), else the leader's; the lower id among equals.
+
+    - A copy held by one side alone is deleted there.
+    - A copy both hold is closed on both instead, like the bell's own auto-resolve (`dismissed`,
+      no `dismissed_by`). Deleted on one side while somebody dismissed it on the other, the next
+      round would take the deletion. Copies like this are left from before this rule existed.
+
+    Every op carries the row it expects, so a copy dismissed meanwhile is `changed`; the next
+    round finds it dismissed there and closed here, and the operator's dismissal stands
+    (`_as_dismissed`). Only open rows count; a dismissed one is never touched.
     """
 
     def shared(key: Key) -> bool:
@@ -585,8 +631,9 @@ def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
     )
     for key, row in rows:
         question = (row.get("event_id"), row["type"], row["params"]["key"])
-        if question in asked and not shared(key):
-            _replace(plan, lead, other, key, None)
+        if question in asked:
+            closed = {**row, "dismissed": True, "dismissed_at": now, "dismissed_by": None}
+            _replace(plan, lead, other, key, closed if shared(key) else None)
         asked.add(question)
 
 
@@ -780,8 +827,11 @@ async def sync_event(
         changed = [
             t
             for t in tables
-            # The conflict list is always read: a clash found again must find its own row.
-            if t in (LEADS, CONFLICTS) or not (theirs_hash.get(t, "") == mine_hash.get(t, "") == agreed_hash.get(t, ""))
+            # The conflict list is always read: a clash found again must find its own row. The
+            # bell too: a GPS question both sides hold twice, agreed long ago, is closed once
+            # (`_ask_gps_once`) – unchanged, it would never be looked at.
+            if t in (LEADS, CONFLICTS, "notifications")
+            or not (theirs_hash.get(t, "") == mine_hash.get(t, "") == agreed_hash.get(t, ""))
         ]
         base = await shadow_rows(local, event_id, changed)
         mine: Rows = {}

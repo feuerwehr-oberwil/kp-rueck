@@ -259,10 +259,32 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
     ]
     assert plan.conflicts == 0
 
-    # Copies both already hold stay: a delete on one side could meet a dismissal on the other.
-    both = {key(box): box, key(phone): phone}
+    # Copies both already hold (left from before this rule) are closed on both, never deleted: a
+    # delete on one side could meet a dismissal on the other. The lower id stays open.
+    both = {key(box): box, key(phone): phone, key(answered): answered}
     again = merge(both, both, both, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
-    assert again.to_leader == again.to_follower == []
+    stays, extra = sorted((box, phone), key=lambda r: r["id"])
+    closed = {**extra, "dismissed": True, "dismissed_at": NOW, "dismissed_by": None}
+    assert again.merged[key(stays)] == stays and again.merged[key(extra)] == closed
+    assert again.to_leader == [Op("notifications", extra["id"], closed, extra)]
+    assert again.to_follower == [Op("notifications", extra["id"], closed, extra)]
+    assert again.conflicts == 0
+
+    # An operator dismissed the extra copy on the other side meanwhile: that write was `changed`.
+    # The next round keeps the operator's dismissal whole – with the shadow and without it.
+    by_operator = {**extra, "dismissed": True, "dismissed_at": "2026-11-09T20:12:01+00:00", "dismissed_by": "op"}
+    for agreed in ({key(extra): extra}, {}):
+        retry = merge(
+            agreed,
+            {key(extra): closed},
+            {key(extra): by_operator},
+            event_id=EVENT,
+            leader=STANDBY,
+            takeover=TAKEOVER,
+            now=NOW,
+        )
+        assert retry.merged[key(extra)] == by_operator and retry.conflicts == 0
+        assert retry.to_leader == [Op("notifications", extra["id"], by_operator, closed)] and retry.to_follower == []
 
     # A round that copied the phone's question up but died before the shadow: the retry keeps
     # the copy both hold, even against a leader's copy with the lower id.
@@ -279,6 +301,39 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
     )
     assert retry.merged[key(first)] is None and retry.merged[key(phone)] == phone
     assert retry.to_leader == [Op("notifications", first["id"], None, first)] and retry.to_follower == []
+
+
+def test_a_fatigue_dismissal_acknowledges_only_the_people_it_named():
+    """The hosted board takes the Ereignis back and an operator dismisses «Lang im Einsatz: Muster»
+    there. Before the box has applied the takeover, its poll adds Beispiel to the same row. The
+    dismissal stands with what it named: Beispiel is not acknowledged, the next poll warns again."""
+    named = lambda *people, **over: {
+        "id": str(uuid.uuid5(uuid.NAMESPACE_URL, "fatigue")),
+        "event_id": EVENT,
+        "type": "personnel_fatigue",
+        "message": f"Lang im Einsatz: {', '.join(people)}",
+        "params": {"names": list(people)},
+        "subject_keys": [f"{person}@19:00" for person in people],
+        "dismissed": False,
+        "dismissed_by": None,
+        **over,
+    }
+    key = ("notifications", named()["id"])
+    base = named("Muster")
+    hosted = named("Muster", dismissed=True, dismissed_by="operator")
+    box = named("Muster", "Beispiel")
+
+    plan = merge({key: base}, {key: hosted}, {key: box}, event_id=EVENT, leader=HOSTED, takeover=TAKEOVER, now=NOW)
+
+    assert plan.merged[key] == hosted
+    assert plan.to_leader == [] and plan.to_follower == [Op("notifications", key[1], hosted, box)]
+    assert plan.conflicts == 0
+    # The other way round: the box (leading) widened, the hosted board (not yet told) dismissed.
+    flipped = merge({key: base}, {key: box}, {key: hosted}, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+    assert flipped.merged[key] == hosted and flipped.conflicts == 0
+    # A round that copied the row but died before the shadow: the dismissal still stands whole.
+    unagreed = merge({}, {key: box}, {key: hosted}, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
+    assert unagreed.merged[key] == hosted and unagreed.conflicts == 0
 
 
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
@@ -445,6 +500,41 @@ async def test_a_round_carries_the_box_work_up_and_the_hosted_boards_new_rows_do
     # Nothing left to do: a second round writes nothing.
     again = await sync_event(box, hosted, _push(hosted), event_id)
     assert (again.written_here, again.written_there) == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_a_gps_question_both_sides_hold_twice_is_closed_once_on_both(
+    db_session: AsyncSession, hosted: asyncpg.Connection
+):
+    # Two copies from before the ask-once rule: on both systems and agreed (in the shadow).
+    box = await _driver(db_session)
+    event_id, incident_id = await _same_on_both(box, hosted)
+    first, second = sorted((uuid.uuid4(), uuid.uuid4()))
+    for conn in (box, hosted):
+        for notification_id in (first, second):
+            await conn.execute(
+                "INSERT INTO notifications (id, type, severity, message, params, incident_id, event_id, created_at, "
+                "dismissed) VALUES ($1, 'gps_arrival', 'info', 'Ist TLF angekommen?', "
+                """'{"key": "arrival:7"}', $2, $3, '2026-11-09T19:30:00+00:00', false)""",
+                notification_id,
+                incident_id,
+                event_id,
+            )
+    await install_guards(box)
+    await take_over(box, event_id, "Koch René")
+    assert await box.fetchval("SELECT count(*) FROM standby.shadow WHERE tbl = 'notifications'") == 2
+
+    await sync_event(box, hosted, _push(hosted), event_id)
+
+    for conn in (box, hosted):
+        rows = await conn.fetch("SELECT id, dismissed, dismissed_at, dismissed_by FROM notifications ORDER BY id")
+        assert [(r["id"], r["dismissed"], r["dismissed_by"]) for r in rows] == [
+            (first, False, None),
+            (second, True, None),
+        ]
+        assert rows[1]["dismissed_at"] is not None
+    again = await sync_event(box, hosted, _push(hosted), event_id)
+    assert (again.written_here, again.written_there, again.pending) == (0, 0, 0)
 
 
 @pytest.mark.asyncio

@@ -570,3 +570,62 @@ async def test_a_bulk_attach_and_a_status_update_on_a_flagged_card_do_not_deadlo
             # The board fixture removes the cards; the alarms point at them.
             await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
             await db.commit()
+
+
+async def test_a_bulk_attach_and_a_single_attach_of_one_of_its_alarms_do_not_deadlock(board: Board):
+    # A single attach holds its alarm, then waits for the Ereignis' numbering lock. A bulk attach
+    # took that lock with its first card and then waited for the same alarm: each waited for the other.
+    first_alarm, second_alarm = sorted((uuid4(), uuid4()))
+    async with board.sessions() as db:
+        db.add_all(
+            [
+                DiveraEmergency(
+                    id=alarm_id,
+                    divera_id=divera_id,
+                    title=title,
+                    address=address,
+                    received_at=datetime.now(UTC),
+                    is_archived=False,
+                )
+                for alarm_id, divera_id, title, address in (
+                    (first_alarm, 910_011, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+                    (second_alarm, 910_012, "Baum auf Strasse", "Mühlemattstrasse 3, 4104 Oberwil"),
+                )
+            ]
+        )
+        await db.commit()
+    try:
+        async with board.sessions() as single, board.sessions() as bulk_db:
+            # The single attach has its alarm (the second of the bulk's) and is about to go on.
+            await single.execute(select(DiveraEmergency.id).where(DiveraEmergency.id == second_alarm).with_for_update())
+            user = await bulk_db.get(User, board.user_id)
+            operator = await single.get(User, board.user_id)
+            assert user is not None and operator is not None
+            body = schemas.BulkAttachEmergenciesRequest(
+                event_id=board.event_id, emergency_ids=[first_alarm, second_alarm]
+            )
+            bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), bulk_db, user))
+            await wait_until_blocked(board.sessions)
+
+            card = await asyncio.wait_for(
+                divera_api.attach_emergency_to_event(
+                    second_alarm,
+                    schemas.AttachEmergencyRequest(event_id=board.event_id),
+                    _request(),
+                    MagicMock(),
+                    single,
+                    operator,
+                ),
+                timeout=10,
+            )
+            await single.commit()
+            attached = await asyncio.wait_for(bulk, timeout=10)
+            await bulk_db.commit()
+
+        assert card.title == "Baum auf Strasse"
+        assert attached.errors == ["«Baum auf Strasse»: Alarm ist diesem Ereignis bereits zugeordnet"]
+        assert [created.title for created in attached.created] == ["Wasser im Keller"]
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
+            await db.commit()

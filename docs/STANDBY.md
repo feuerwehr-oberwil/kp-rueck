@@ -65,6 +65,10 @@ alarms keep writing to it. When the two meet again, per row and field:
   leader changed it, and the deletion waits in the list («Löschen»), and vice versa
   («Wiederherstellen»);
 - two takeovers in the gap: the later one leads.
+- the bell, in the seconds after a takeover in which both systems still ask: a GPS question
+  («Ist TLF angekommen?») both raised is asked once, and a «Lang im Einsatz» warning dismissed
+  on one side acknowledges the people it named there – somebody the other side added to it
+  meanwhile is warned about again.
 - a clash is listed once per takeover: the same two values clashing again in a later outage are
   a new entry, not the one already decided.
 
