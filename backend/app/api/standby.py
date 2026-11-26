@@ -28,7 +28,7 @@ from ..middleware.rate_limit import RateLimits, limiter
 from ..models import JournalEntry, User
 from ..services.photo_storage import photo_storage
 from ..standby import Lead, MirrorState, StandbyError, hosted_leads, mirror_state, take_over
-from ..standby_sync import CONFLICTS, HOSTED, STANDBY, Op, apply_ops, event_tables
+from ..standby_sync import CONFLICTS, HOSTED, STANDBY, Op, apply_ops, enter_ereignis_gate, event_tables
 from ..websocket_manager import broadcast_group_update, broadcast_incident_update
 
 router = APIRouter(prefix="/standby", tags=["standby"])
@@ -337,10 +337,17 @@ async def resolve_conflict(
     """
     conn = await _driver(db)
     await conn.execute("SET LOCAL TIME ZONE 'UTC'")
+    # The Ereignis delete gate before the conflict row's lock: a synced delete holds it exclusively
+    # and cascades to that row. Exclusive where the decision could delete the Ereignis itself.
+    seen = await conn.fetchrow("SELECT event_id, table_name FROM public.event_conflicts WHERE id = $1", conflict_id)
+    if seen is None:
+        raise HTTPException(status_code=404, detail="Konflikt nicht gefunden.")
+    await enter_ereignis_gate(conn, seen["event_id"], exclusive=seen["table_name"] == "events")
     conflict = await conn.fetchrow(
         "SELECT event_id, table_name, row_id, kind, deleted_on, columns::text AS columns, row::text AS row, resolved_at "
-        "FROM public.event_conflicts WHERE id = $1 FOR UPDATE",
+        "FROM public.event_conflicts WHERE id = $1 AND event_id = $2 FOR UPDATE",
         conflict_id,
+        seen["event_id"],
     )
     if conflict is None:
         raise HTTPException(status_code=404, detail="Konflikt nicht gefunden.")

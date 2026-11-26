@@ -6,8 +6,9 @@ op with an ``events`` delete); every other user takes it shared.
 
 An Ereignis delete locks the cards and then the Ereignis row. Writers that take the Ereignis row
 before cards – a standby sync batch (``standby_sync.apply_ops``), each write phase of the bell
-poll (``notification_service.evaluate_notifications``), a bell dismissal – take the gate shared as
-the first lock of their transaction: they never wait for each other, and the delete
+poll (``notification_service.evaluate_notifications``), a bell dismissal, a conflict decision
+(``api/standby.resolve_conflict``, exclusive for a conflict on the Ereignis row itself) – take the
+gate shared as the first lock of their transaction: they never wait for each other, and the delete
 waits until they are done (and they while it runs), so the two orders never meet. The box's sync
 round applies a batch in one transaction; the hosted board's ``POST /api/standby/sync`` runs each
 op in its own (``api/standby._driver``), so every op enters the gate again.

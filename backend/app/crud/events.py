@@ -133,7 +133,7 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
 
     Returns:
         Archived event (with its original timestamp if it was already archived), or None if
-        not found
+        not found (or deleted while it waited)
     """
     event = await get_event_by_id(db, event_id)
     if not event:
@@ -153,8 +153,11 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
         update(Event).where(Event.id == event_id, Event.archived_at.is_(None)).values(archived_at=now, updated_at=now)
     )
     await db.flush()
-    await db.refresh(event)
-    return event
+    # Read again, not refreshed: an Ereignis delete (a synced one) may have won the race – None.
+    archived: Event | None = await db.scalar(
+        select(Event).where(Event.id == event_id).execution_options(populate_existing=True)
+    )
+    return archived
 
 
 async def unarchive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:

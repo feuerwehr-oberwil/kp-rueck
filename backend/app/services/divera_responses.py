@@ -467,17 +467,20 @@ async def purge_event(db: AsyncSession, event_id: UUID) -> None:
     """Delete the stored answers of one Ereignis (it is being archived). The caller commits.
 
     Alarm rows come first in the lock order (``crud/locking.py``), in ascending id: call it before
-    the Ereignis row is written.
+    the Ereignis row is written. Only the alarms it locked are written – one attached in between
+    would be locked out of order.
     """
-    await db.execute(
-        select(models.DiveraEmergency.id)
-        .where(models.DiveraEmergency.attached_to_event_id == event_id)
-        .order_by(models.DiveraEmergency.id)
-        .with_for_update()
+    locked = list(
+        await db.scalars(
+            select(models.DiveraEmergency.id)
+            .where(models.DiveraEmergency.attached_to_event_id == event_id)
+            .order_by(models.DiveraEmergency.id)
+            .with_for_update()
+        )
     )
     await db.execute(
         update(models.DiveraEmergency)
-        .where(models.DiveraEmergency.attached_to_event_id == event_id)
+        .where(models.DiveraEmergency.id.in_(locked), models.DiveraEmergency.attached_to_event_id == event_id)
         .values(responses_json=null(), responses_updated_at=None)
         .execution_options(synchronize_session=False)
     )

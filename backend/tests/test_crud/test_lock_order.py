@@ -11,6 +11,7 @@ only a genuine second transaction shows who waits for whom.
 """
 
 import asyncio
+import json
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -20,9 +21,8 @@ from uuid import UUID, uuid4
 import asyncpg
 import pytest
 import pytest_asyncio
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import delete, select, text, update
-from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -30,6 +30,7 @@ from app import schemas
 from app.api import divera as divera_api
 from app.api import incidents as incidents_api
 from app.api import reko as reko_api
+from app.api import standby as standby_api
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
 from app.crud import divera as divera_crud
@@ -1116,11 +1117,53 @@ async def test_archiving_writes_its_alarms_before_the_ereignis_row(board: Board)
 
             # The archive must be queued for the alarm, not sitting on the Ereignis row.
             assert await asyncio.wait_for(batch, timeout=10) == ["ok"]
-            # The Ereignis is gone by the time the archive goes on: it cannot re-read it.
-            with pytest.raises(InvalidRequestError):
-                await asyncio.wait_for(archive, timeout=10)
+            # The Ereignis is gone by the time the archive goes on: «not found», the route's 404.
+            assert await asyncio.wait_for(archive, timeout=10) is None
             await archiving.rollback()
     finally:
         async with board.sessions() as db:
             await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id == alarm_id))
             await db.commit()
+
+
+async def test_a_conflict_decision_waits_for_a_synced_ereignis_delete_before_it_locks_the_conflict(board: Board):
+    # The decision locked its conflict row, then entered the gate (apply_ops). A synced Ereignis
+    # delete held the gate exclusively and reached that row in its cascade: each waited for the other.
+    conflict_id = uuid4()
+    higher = max(board.stop_id, board.loose_id)
+    async with board.sessions() as db:
+        conn = await _raw(db)
+        await conn.execute(
+            "INSERT INTO event_conflicts (id, event_id, table_name, row_id, kind, kept_on, columns) "
+            "VALUES ($1, $2, 'incidents', $3, 'field', 'hosted', $4::jsonb)",
+            conflict_id,
+            board.event_id,
+            board.loose_id,
+            json.dumps({"title": {"kept": "Lose", "lost": "Lose (Handy)", "text": True}}),
+        )
+    async with board.sessions() as holder, board.sessions() as syncing, board.sessions() as deciding:
+        conn = await _raw(syncing)
+        tables = await event_tables(conn)
+        event = (await fetch_rows(conn, tables["events"], board.event_id))[0][("events", str(board.event_id))]
+        await lock_incident(holder, higher)
+        batch = asyncio.create_task(
+            apply_ops(conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)])
+        )
+        await wait_until_blocked(board.sessions)
+        # The editor's request: its auth read begins the session's transaction, as in the app.
+        editor = await deciding.get(User, board.user_id)
+        assert editor is not None
+        decision = asyncio.create_task(
+            standby_api.resolve_conflict(
+                conflict_id, standby_api.ResolveIn(choice="other"), editor, BackgroundTasks(), deciding
+            )
+        )
+        await wait_until_blocked(board.sessions, count=2)
+        await holder.rollback()
+
+        assert await asyncio.wait_for(batch, timeout=10) == ["ok"]
+        # The conflict went with its Ereignis.
+        with pytest.raises(HTTPException) as gone:
+            await asyncio.wait_for(decision, timeout=10)
+        assert gone.value.status_code == 404
+        await deciding.rollback()
