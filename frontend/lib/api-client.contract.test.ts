@@ -368,6 +368,16 @@ describe('apiClient — the transport rules every method inherits', () => {
     await expect(apiClient.getIncident('i1')).rejects.toBeInstanceOf(ApiError)
   })
 
+  it("the bell's lost answer stays the bell's: no board-wide outage, no toast", async () => {
+    await apiClient.getAllSettings() // reachable
+    fetchMock.mockImplementation(async () => {
+      throw new TypeError('Load failed')
+    })
+    await expect(apiClient.getNotificationSettings()).rejects.toBeInstanceOf(NetworkError)
+    expect(getRestReachable()).toBe(true)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
   it('an outage raises ONE persistent toast and flips reachability; the next answer clears both', async () => {
     vi.useFakeTimers()
     const seen: boolean[] = []

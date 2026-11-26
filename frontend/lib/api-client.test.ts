@@ -9,6 +9,7 @@ vi.mock('sonner', () => ({
 }))
 
 import { apiClient, NetworkError, onRestReachableChange } from './api-client'
+import { markRestUnreachable } from './api/http'
 
 describe('apiClient network failures', () => {
   beforeEach(() => {
@@ -65,6 +66,7 @@ describe('apiClient network failures', () => {
     const fetchMock = vi.fn().mockImplementation(async () => truncated())
     vi.stubGlobal('fetch', fetchMock)
     // Headers whose body then breaks are not «back online»: no flicker of the outage state.
+    markRestUnreachable(true)
     const seen: boolean[] = []
     const unsubscribe = onRestReachableChange((reachable) => seen.push(reachable))
 

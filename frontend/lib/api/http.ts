@@ -121,6 +121,10 @@ export type RequestOptions = RequestInit & {
   skipToast?: boolean
   maxRetries?: number
   onHeaders?: (headers: Headers) => void
+  /** `false`: a lost answer stays this caller's news and does not mark REST unreachable
+   *  for the tab (the stale banner). For a side surface with its own «unavailable» state
+   *  (the bell), whose one-shot miss must not raise the board-wide band. */
+  reportsOutage?: boolean
 }
 
 /**
@@ -209,7 +213,7 @@ async function send<R>(endpoint: string, options: RequestOptions | undefined, re
       }
       // ONE persistent toast per outage instead of one per failed request, and the
       // reachability flag the stale-data banner subscribes to.
-      markRestUnreachable(skipToast)
+      if (options?.reportsOutage !== false) markRestUnreachable(skipToast)
       throw new NetworkError()
     }
 
