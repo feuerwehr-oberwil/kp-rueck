@@ -20,8 +20,9 @@ from uuid import UUID, uuid4
 import pytest
 import pytest_asyncio
 from fastapi import BackgroundTasks
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm.exc import StaleDataError
 
 from app import schemas
 from app.api import divera as divera_api
@@ -764,11 +765,9 @@ async def test_an_ereignis_delete_waits_for_a_bulk_attach_that_is_creating_cards
 
             deleted = await asyncio.wait_for(deletion, timeout=10)
             await deleting.commit()
-            # The Ereignis is gone by the time the bulk goes on: whatever it answers, it is no deadlock.
-            try:
-                await asyncio.wait_for(bulk, timeout=10)
-            except Exception as error:
-                assert "deadlock" not in str(error).lower()
+            # The Ereignis is gone by the time the bulk goes on: it creates nothing.
+            attached = await asyncio.wait_for(bulk, timeout=10)
+            assert attached.created == []
             await attaching.rollback()
 
         assert deleted is True
@@ -949,11 +948,9 @@ async def test_an_ereignis_delete_and_a_card_reorder_do_not_deadlock(board: Boar
 
         deleted = await asyncio.wait_for(deletion, timeout=10)
         await deleting.commit()
-        # The cards are gone by the time the reorder goes on: whatever it answers, it is no deadlock.
-        try:
+        # The cards are gone by the time the reorder goes on: its position UPDATE matches nothing.
+        with pytest.raises(StaleDataError):
             await asyncio.wait_for(reorder, timeout=10)
-        except Exception as error:
-            assert "deadlock" not in str(error).lower()
         await reordering.rollback()
 
     assert deleted is True
@@ -986,6 +983,7 @@ async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_do_not_de
             Op("events", str(board.event_id), None, event),
         ]
         # The batch passes the gate and waits on its first op.
+        batch_pid = await conn.fetchval("SELECT pg_backend_pid()")
         await note_holder.execute(select(Notification.id).where(Notification.id == note_id).with_for_update())
         batch = asyncio.create_task(apply_ops(conn, tables, board.event_id, ops))
         await wait_until_blocked(board.sessions)
@@ -996,7 +994,7 @@ async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_do_not_de
         await wait_until_blocked(board.sessions, count=2)
         # The batch's second op starts now; then the delete goes on.
         await note_holder.rollback()
-        await asyncio.sleep(0.5)
+        await _until_it_waits_past(board.sessions, batch_pid, "notifications")
         await card_holder.rollback()
 
         deleted = await asyncio.wait_for(deletion, timeout=10)
@@ -1004,3 +1002,40 @@ async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_do_not_de
         assert await asyncio.wait_for(batch, timeout=10) == ["ok", "ok"]  # nothing left to delete
 
     assert deleted is True
+
+
+async def _until_it_waits_past(sessions: async_sessionmaker[AsyncSession], pid: int, past: str) -> None:
+    """Until backend ``pid`` waits for a lock in a statement that no longer mentions ``past``."""
+    async with sessions() as probe:
+        for _ in range(100):
+            row = (
+                await probe.execute(
+                    text("SELECT wait_event_type, query FROM pg_stat_activity WHERE pid = :pid"), {"pid": pid}
+                )
+            ).one()
+            await probe.rollback()
+            if row.wait_event_type == "Lock" and past not in row.query:
+                return
+            await asyncio.sleep(0.05)
+    raise AssertionError(f"backend {pid} never waited past {past!r}")
+
+
+async def test_a_hosted_sync_op_that_deletes_the_ereignis_locks_its_cards_before_it(board: Board):
+    # A card reorder writes a position, then stamps the Ereignis row. The sync op that deletes the
+    # Ereignis locked its row first and reached the card in the cascade: each waited for the other.
+    await _archive(board)
+    async with board.sessions() as reordering, board.sessions() as syncing:
+        conn = (await (await syncing.connection()).get_raw_connection()).driver_connection
+        tables = await event_tables(conn)
+        event = (await fetch_rows(conn, tables["events"], board.event_id))[0][("events", str(board.event_id))]
+        await reordering.execute(update(Incident).where(Incident.id == board.loose_id).values(position=5))
+        batch = asyncio.create_task(
+            apply_ops(conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)])
+        )
+        await wait_until_blocked(board.sessions)
+
+        # The sync op must be queued for the card, not sitting on the Ereignis row.
+        await asyncio.wait_for(events_crud.update_event_activity(reordering, board.event_id), timeout=5)
+        await reordering.commit()
+        # The stamp changed the row the op expected: it deletes nothing, the next round reads again.
+        assert await asyncio.wait_for(batch, timeout=10) == ["changed"]

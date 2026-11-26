@@ -740,8 +740,25 @@ async def apply_ops(
     return results
 
 
+async def _lock_for_ereignis_delete(conn: asyncpg.Connection, event_id: str) -> None:
+    """What deleting the Ereignis row cascades to, in the order of `crud.locking.lock_event_for_delete`:
+    its alarms, its numbering lock, its Aufträge and cards – so the Ereignis row is locked last."""
+    await conn.execute(
+        "SELECT 1 FROM public.divera_emergencies WHERE attached_to_event_id = $1::uuid "
+        "OR created_incident_id IN (SELECT id FROM public.incidents WHERE event_id = $1::uuid) ORDER BY id FOR UPDATE",
+        event_id,
+    )
+    await conn.execute("SELECT pg_advisory_xact_lock(hashtext('incident_number:' || $1))", event_id)
+    await conn.execute(
+        "SELECT 1 FROM public.incident_groups WHERE event_id = $1::uuid ORDER BY id FOR UPDATE", event_id
+    )
+    await conn.execute("SELECT 1 FROM public.incidents WHERE event_id = $1::uuid ORDER BY id FOR UPDATE", event_id)
+
+
 async def _apply_one(conn: asyncpg.Connection, table: Table, event_id: uuid.UUID, op: Op) -> str:
     name = table.name
+    if name == "events" and op.row is None:
+        await _lock_for_ereignis_delete(conn, op.id)
     current_raw = await conn.fetchval(
         f"SELECT {table.row_sql}::text FROM public.{name} r WHERE r.{table.key} = $1::uuid FOR UPDATE",  # noqa: S608
         op.id,

@@ -11,8 +11,8 @@ LOCK ORDER – every writer takes row locks in this order and never backwards:
                                                by (resource_type, id)
   4. the Ereignis row (``events``)             written last: ``events.update_event_activity``
 
-Every card INSERT takes the Ereignis' numbering lock (``lock_incident_numbering``) to the
-commit, so a writer that has created a card must not wait for an alarm row after it. A single
+Every card INSERT that is not given its number (all but the standby sync's copies) takes the
+Ereignis' numbering lock (``lock_incident_numbering``) to the commit, so a writer that has created a card must not wait for an alarm row after it. A single
 attach holds its alarm while it waits for that lock; a bulk attach that took its alarms one by
 one held the lock while it waited for such an alarm. It locks all of them before its first card.
 The other way round, a writer that will create a card takes the lock before any Auftrag or card:

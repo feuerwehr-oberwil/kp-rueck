@@ -37,8 +37,8 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
 - **Row locks in one order**: Aufträge (by id) → Einsätze (by id) → the resource row → the
   Ereignis row (`update_event_activity`, last). Alarm rows (by id) come before all of them: a
   bulk attach locks every alarm before its first card. Next comes the Ereignis' numbering lock,
-  which every card INSERT takes: a writer that creates a card takes it before any Auftrag or
-  card (`lock_incident_numbering`, `lock_merge_target`). An Ereignis delete locks what its
+  which a card INSERT takes when it allocates the number (not a synced copy that brings its own):
+  a writer that creates a card takes it before any Auftrag or card (`lock_incident_numbering`, `lock_merge_target`). An Ereignis delete locks what its
   cascade writes first (`lock_event_for_delete`), behind the Ereignis delete gate
   (`app/ereignis_gate.py`) that a standby sync batch and the bell poll enter first. The helpers
   and the reasoning are in
