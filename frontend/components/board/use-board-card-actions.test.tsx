@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import de from '@/messages/de.json'
 import { useBoardCardActions } from './use-board-card-actions'
 import type { Operation } from '@/lib/contexts/operations-context'
-import type { IncidentStatusWorkflowController } from '@/components/kanban/incident-status-workflow'
+import type { IncidentStatusWorkflowController } from '@/components/kanban/incident-status/use-incident-status-workflow'
 import { makeOperation } from '@/test-utils/operation-fixtures'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))

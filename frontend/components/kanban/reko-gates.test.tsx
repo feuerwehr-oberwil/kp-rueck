@@ -35,11 +35,11 @@ vi.mock("@/lib/contexts/groups-context", () => ({ useGroups: () => ({ groups: []
 vi.mock("@/lib/contexts/auth-context", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }))
 vi.mock("@/components/kanban/disponiert-transition-dialog", () => ({ DisponierTransitionDialog: () => null }))
 
+import { IncidentStatusWorkflowDialogs } from "@/components/kanban/incident-status/incident-status-dialogs"
 import {
-  IncidentStatusWorkflowDialogs,
   useIncidentStatusWorkflow,
   type IncidentStatusWorkflowController,
-} from "@/components/kanban/incident-status-workflow"
+} from "@/components/kanban/incident-status/use-incident-status-workflow"
 import { makeOperation } from "@/test-utils/operation-fixtures"
 
 const noRoute: GroupResources = { personnel: [], vehicles: [], materials: [] }
