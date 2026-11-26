@@ -145,9 +145,6 @@ async def test_the_generic_settings_endpoint_cannot_reach_the_consent_key(editor
     assert r.status_code == 404
 
 
-# --- The manual route is gone ---------------------------------------------------------
-
-
 # --- Admin surface --------------------------------------------------------------------
 
 

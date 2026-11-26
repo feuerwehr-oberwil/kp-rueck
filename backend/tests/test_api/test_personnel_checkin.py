@@ -47,8 +47,6 @@ async def test_personnel(db_session: AsyncSession) -> list[Personnel]:
 @pytest_asyncio.fixture
 def valid_token(test_event: Event) -> str:
     """Generate a valid check-in token for the test event."""
-    from app.services.tokens import generate_link_token
-
     return generate_link_token("checkin", test_event.id)
 
 
