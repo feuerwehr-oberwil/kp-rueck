@@ -98,6 +98,11 @@ import { AUFTRAG_SWATCHES, darkenForWhiteText } from "@/lib/map-colors"
 // zuweisen», the Sonderfunktion confirm for Mannschaft) are exactly those. Answering one of
 // them therefore dismissed the whole Aufträge-Slide-up, and only Material — which has no
 // conflict prompt — appeared to behave.
+/** A board card – the one thing the backdrop lets through while this sheet is open (owner pick A,
+ *  26.11.2026): pointed at, it shows undimmed and can be dragged onto an Auftrag's header, which
+ *  takes `operation` drags (GroupRow's drop target). Pressing it must not close the sheet. */
+const BOARD_CARD = "[data-board-card]"
+
 function isDialogTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
   return !!target.closest('[role="dialog"], [role="alertdialog"]')
@@ -311,6 +316,7 @@ export function AuftraegeSheet({
           // sidebar's edge instead of centering against the covered viewport.
           rightInset={isMobile ? undefined : "var(--notification-sidebar-width, 0px)"}
           nonModal={!isMobile}
+          backdropPassThrough={isMobile ? undefined : BOARD_CARD}
           // «+ Stopp» opens the incident picker inside the sheet as a step (owner pick 5A).
           surface={isMobile ? undefined : t("title")}
           // phone: a modal sheet over the nav — only the safe area at its foot
@@ -335,7 +341,7 @@ export function AuftraegeSheet({
             if (e.defaultPrevented) return
             if (isMobile) return
             const target = e.target as HTMLElement
-            if (target.closest("footer") || isDialogTarget(target)) {
+            if (target.closest("footer") || target.closest(BOARD_CARD) || isDialogTarget(target)) {
               e.preventDefault()
             }
           }}

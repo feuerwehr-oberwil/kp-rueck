@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ignoreToastLayer } from '@/lib/toast-layer'
+import { openHoleOver } from '@/lib/backdrop-hole'
 import { OVERLAY_CLASS } from '@/components/ui/overlay'
 import { CloseLabel, CORNER_CLOSE_CLASS } from '@/components/ui/dialog'
 import { useSurfaceStepHost } from '@/components/ui/surface-step'
@@ -48,11 +49,13 @@ let mountedNonModalBackdrops = 0
  * fade from clear would blink it; the closing sheet and its backdrop leave at once instead
  * (globals.css), and the new panel rises over a backdrop that never moved.
  */
-function NonModalBackdrop({ className, style, ref }: {
+function NonModalBackdrop({ className, style, ref, passThrough }: {
   className: string
   style?: React.CSSProperties
   /** Radix's Presence watches this node's animation to know when the exit fade is over. */
   ref?: React.Ref<HTMLDivElement>
+  /** Selector of what may still be grabbed through the backdrop (lib/backdrop-hole.ts). */
+  passThrough?: string
 }) {
   const open = React.useContext(SheetOpenContext)
   // Read once per open: this div mounts with every opening (Radix's Portal) and leaves after it.
@@ -63,9 +66,23 @@ function NonModalBackdrop({ className, style, ref }: {
       mountedNonModalBackdrops--
     }
   }, [])
+  // Mounts with every opening and leaves after it, like the div: the hole lives exactly as long.
+  const setRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (typeof ref === 'function') ref(node)
+      else if (ref) ref.current = node
+      const close = node && passThrough ? openHoleOver(node, passThrough) : undefined
+      return () => {
+        close?.()
+        if (typeof ref === 'function') ref(null)
+        else if (ref) ref.current = null
+      }
+    },
+    [ref, passThrough],
+  )
   return (
     <div
-      ref={ref}
+      ref={setRef}
       data-slot="sheet-overlay"
       data-nonmodal=""
       data-state={open ? 'open' : 'closed'}
@@ -138,6 +155,7 @@ function SheetOverlay({
   rightInset,
   elevated,
   nonModal,
+  passThrough,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Overlay> & {
   overlayOffset?: string
@@ -146,6 +164,8 @@ function SheetOverlay({
   rightInset?: string
   elevated?: boolean
   nonModal?: boolean
+  /** Non-modal only: what may be grabbed through the backdrop (lib/backdrop-hole.ts). */
+  passThrough?: string
 }) {
   // For non-modal sheets, use a simple div backdrop instead of Radix Overlay.
   //
@@ -154,10 +174,13 @@ function SheetOverlay({
   // toolbar underneath stays live, everything the backdrop dims does not. It
   // used to be `pointer-events-none`, so the dimmed board still lit up its
   // hover states and handed clicks through to cards nobody was aiming at.
+  // `passThrough` opens it over ONE element under the pointer (the Aufträge sheet: a board
+  // card, to drag onto an Auftrag) – lib/backdrop-hole.ts.
   if (nonModal) {
     return (
       <NonModalBackdrop
         ref={props.ref}
+        passThrough={passThrough}
         className={cn(
           'fixed inset-0',
           OVERLAY_CLASS,
@@ -392,6 +415,7 @@ function SheetContent({
   rightInset,
   elevated = false,
   nonModal = false,
+  backdropPassThrough,
   swipeToClose = true,
   onInteractOutside,
   onOpenAutoFocus,
@@ -413,6 +437,9 @@ function SheetContent({
   rightInset?: string
   elevated?: boolean
   nonModal?: boolean
+  /** A non-modal sheet's backdrop lets the pointer through onto what this selector matches –
+   *  the Aufträge sheet: a board card, to drag it onto an Auftrag (lib/backdrop-hole.ts). */
+  backdropPassThrough?: string
   /**
    * Phone bottom sheets: a grip at the top and swipe-down-to-close (lib/sheet-swipe.ts). On by
    * default — it is what the shape promises. The close goes through Radix, i.e. through the
@@ -564,7 +591,7 @@ function SheetContent({
 
   return (
     <SheetPortal>
-      <SheetOverlay overlayOffset={overlayOffset} rightInset={rightInset} elevated={elevated} nonModal={nonModal} />
+      <SheetOverlay overlayOffset={overlayOffset} rightInset={rightInset} elevated={elevated} nonModal={nonModal} passThrough={backdropPassThrough} />
       {framed ? (
         <EdgeFrame bottom={overlayOffset} right={rightInset} elevated={elevated}>
           {content}
