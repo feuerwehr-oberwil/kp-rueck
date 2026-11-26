@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_maker
-from app.models import DiveraEmergency, Event, Incident
+from app.models import DiveraEmergency, Event, Incident, Setting
 from app.schemas.training import AutogenRun, AutogenStateResponse, RegieRun
 from app.services.settings import (
     TRAINING_AUTOGEN_ENABLED,
@@ -35,7 +35,6 @@ from app.services.settings import (
     TRAINING_AUTOGEN_MODE,
     TRAINING_BOOST_DURATION_MIN,
     TRAINING_BOOST_MULTIPLICATOR,
-    get_setting,
     read,
     update_setting,
 )
@@ -51,11 +50,18 @@ RUN_KEY = "training_autogen.run"
 
 async def read_autogen_state(db: AsyncSession) -> AutogenStateResponse:
     """The switch and the current run. An unreadable run row counts as no run."""
+    # One query, so a switch-on committed in between cannot pair the new switch with the old run.
+    result = await db.execute(select(Setting).where(Setting.key.in_([ENABLED_KEY, RUN_KEY])))
+    rows = {s.key: s.value for s in result.scalars().all()}
     run = None
-    if raw := await get_setting(db, RUN_KEY):
+    if raw := rows.get(RUN_KEY):
         with contextlib.suppress(ValidationError):
             run = AutogenRun.model_validate_json(raw)
-    return AutogenStateResponse(enabled=await read(db, TRAINING_AUTOGEN_ENABLED), run=run)
+    enabled = rows.get(ENABLED_KEY)
+    return AutogenStateResponse(
+        enabled=TRAINING_AUTOGEN_ENABLED.default if enabled is None else TRAINING_AUTOGEN_ENABLED.parse(enabled),
+        run=run,
+    )
 
 
 async def switch_autogen(

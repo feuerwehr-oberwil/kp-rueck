@@ -71,10 +71,14 @@ class BoolSetting(StationSetting[bool]):
 
 @dataclass(frozen=True)
 class FloatSetting(StationSetting[float]):
-    """A number. Unparseable, not finite or outside ``[minimum, maximum]`` reads as the default."""
+    """A number. Unparseable, not finite or outside the range reads as the default.
+
+    ``positive`` admits only values above 0 – a 0 there has always meant «not set».
+    """
 
     minimum: float | None = None
     maximum: float | None = None
+    positive: bool = False
 
     def parse(self, raw: str) -> float:
         try:
@@ -83,7 +87,7 @@ class FloatSetting(StationSetting[float]):
             return self.default
         if not math.isfinite(value) or not _in_range(value, self.minimum, self.maximum):
             return self.default
-        return value
+        return self.default if self.positive and value <= 0 else value
 
     def default_text(self) -> str:
         return format(self.default, "g")  # 100.0 → "100", as the Einstellungen page writes it
@@ -91,17 +95,19 @@ class FloatSetting(StationSetting[float]):
 
 @dataclass(frozen=True)
 class IntSetting(StationSetting[int]):
-    """A whole number (``"2.0"`` reads as 2). Out of range or unparseable reads as the default."""
+    """A whole number (``"2.0"`` reads as 2). A fraction, out of range or unparseable reads as the default."""
 
     minimum: int | None = None
     maximum: int | None = None
 
     def parse(self, raw: str) -> int:
         try:
-            value = int(float(raw))
-        except (ValueError, OverflowError):
+            number = float(raw)
+        except ValueError:
             return self.default
-        return value if _in_range(value, self.minimum, self.maximum) else self.default
+        if not number.is_integer() or not _in_range(number, self.minimum, self.maximum):
+            return self.default
+        return int(number)
 
 
 @dataclass(frozen=True)
@@ -138,7 +144,7 @@ class LinesSetting(StationSetting[tuple[str, ...]]):
         return "\n".join(self.default)
 
 
-def _in_range[N: (int, float)](value: N, minimum: N | None, maximum: N | None) -> bool:
+def _in_range(value: float, minimum: float | None, maximum: float | None) -> bool:
     return (minimum is None or value >= minimum) and (maximum is None or value <= maximum)
 
 
@@ -153,9 +159,9 @@ ALARM_WEBHOOK_SECRET = TextSetting("alarm_webhook_secret")  # generated on first
 # switched on for (state row `training_autogen.run`). The switch itself has its own
 # endpoint – see GENERIC_WRITE_DENY_REASONS.
 TRAINING_AUTOGEN_ENABLED = BoolSetting("training_autogen_enabled", False)
-TRAINING_AUTOGEN_INTERVAL_MIN = FloatSetting("training_autogen_interval_min", 5.0, minimum=0.1)
+TRAINING_AUTOGEN_INTERVAL_MIN = FloatSetting("training_autogen_interval_min", 5.0, positive=True)
 TRAINING_AUTOGEN_MODE = TextSetting("training_autogen_mode", "board")  # "board" (incidents) or "divera" (pool alarms)
-TRAINING_BOOST_MULTIPLICATOR = FloatSetting("training_boost_multiplicator", 2.0, minimum=0.1)  # interval divisor
+TRAINING_BOOST_MULTIPLICATOR = FloatSetting("training_boost_multiplicator", 2.0, positive=True)  # interval divisor
 TRAINING_BOOST_DURATION_MIN = IntSetting("training_boost_duration_min", 30, minimum=0)  # boost after switch-on
 TRAINING_AUTOGEN_MAX_EMERGENCIES = IntSetting("training_autogen_max_emergencies", 50, minimum=0)
 
@@ -258,21 +264,22 @@ GPS_RULE_RETURN_ENABLED = BoolSetting("gps.rule_return_enabled", True)
 # Legacy Magazin position (Rule B geofence centre); see get_station_coordinates.
 GPS_STATION_LAT = CoordinateSetting("gps.station_lat")
 GPS_STATION_LNG = CoordinateSetting("gps.station_lng")
-GPS_STATION_RADIUS_METERS = FloatSetting("gps.station_radius_meters", 100.0, minimum=1)  # tight: passers-by
-# Tuning constants (shared by both rules), tuned against real Traccar tracks (2026-07-06
-# field test): parked clients throttle to one fix every ~30-100 s, so freshness is generous
-# while the «standing there» requirement lives in min_dwell_seconds.
-GEOFENCE_RADIUS_METERS = FloatSetting("geofence_radius_meters", 200.0, minimum=1)  # Rule A arrival radius
+GPS_STATION_RADIUS_METERS = FloatSetting("gps.station_radius_meters", 100.0, positive=True)  # tight: passers-by
+# Tuning constants (shared by both rules). Each is positive: a 0 reads as the default, as it
+# always has. Tuned against real Traccar tracks (2026-07-06 field test): parked clients
+# throttle to one fix every ~30-100 s, so freshness is generous while the «standing there»
+# requirement lives in min_dwell_seconds.
+GEOFENCE_RADIUS_METERS = FloatSetting("geofence_radius_meters", 200.0, positive=True)  # Rule A arrival radius
 GPS_DEBOUNCE_COUNT = IntSetting("gps.debounce_count", 2, minimum=1)  # consecutive confirming fixes
-GPS_FRESHNESS_SECONDS = FloatSetting("gps.freshness_seconds", 180.0, minimum=1)  # ignore older fixes
+GPS_FRESHNESS_SECONDS = FloatSetting("gps.freshness_seconds", 180.0, positive=True)  # ignore older fixes
 # Confirming fixes must span at least this long – short, so the prompt lands while the vehicle
 # is still rolling to a stop; the speed gate + confirm modal carry the false-positive protection.
-GPS_MIN_DWELL_SECONDS = FloatSetting("gps.min_dwell_seconds", 10.0, minimum=0)
-GPS_SPEED_GATE_KMH = FloatSetting("gps.speed_gate_kmh", 10.0, minimum=1)  # stationary below this
+GPS_MIN_DWELL_SECONDS = FloatSetting("gps.min_dwell_seconds", 10.0, positive=True)
+GPS_SPEED_GATE_KMH = FloatSetting("gps.speed_gate_kmh", 10.0, positive=True)  # stationary below this
 # Lagekarte, not automation: from how many minutes on a vehicle pill shows the time of its last
 # GPS report (frontend lib/map-vehicles.ts `parseStaleMinutes` reads it the same way). Also
 # handed to the wall display with the viewer payload (api/viewer.py).
-GPS_STALE_AFTER_MINUTES = FloatSetting("gps.stale_after_minutes", 10.0, minimum=0.01)
+GPS_STALE_AFTER_MINUTES = FloatSetting("gps.stale_after_minutes", 10.0, positive=True)
 
 # `/feld` Freitext-Meldung: the one-tap chips a crew sends instead of typing (plan 25,
 # decision 20). Station-configurable and deliberately NOT i18n, like the message templates

@@ -64,13 +64,17 @@ def _send_failed(e: alerting.AlarmSendError) -> CodedHTTPException:
     )
 
 
-async def _require_alerting(db: AsyncSession) -> alerting.AlarmProvider:
-    """The provider for an outbound send – refused without one, while switched off, or in demo mode."""
+async def _require_alerting(
+    db: AsyncSession,
+    no_provider: tuple[ErrorCode, str] = (ErrorCode.ALERTING_NO_PROVIDER, "Kein Alarmierungs-Provider konfiguriert"),
+) -> alerting.AlarmProvider:
+    """The provider for an outbound send – refused without one, while switched off, or in demo mode.
+
+    ``no_provider`` is the refusal without a provider (the test alarm names the access key).
+    """
     provider = alerting.get_provider()
     if provider is None:
-        raise CodedHTTPException(
-            status.HTTP_400_BAD_REQUEST, ErrorCode.ALERTING_NO_PROVIDER, "Kein Alarmierungs-Provider konfiguriert"
-        )
+        raise CodedHTTPException(status.HTTP_400_BAD_REQUEST, *no_provider)
     if not await settings_service.read(db, settings_service.ALERTING_ENABLED):
         raise CodedHTTPException(
             status.HTTP_403_FORBIDDEN, ErrorCode.ALERTING_DISABLED, "Ausalarmierung ist deaktiviert"
@@ -1024,11 +1028,7 @@ async def send_test_alarm(
     the test button too — a test alarm is a real push to a real phone.
     """
     # The test button lives next to the access key, so say which key is missing.
-    if alerting.get_provider() is None:
-        raise CodedHTTPException(
-            status.HTTP_400_BAD_REQUEST, ErrorCode.DIVERA_NOT_CONFIGURED, ErrorMessages.DIVERA_NOT_CONFIGURED
-        )
-    provider = await _require_alerting(db)
+    provider = await _require_alerting(db, (ErrorCode.DIVERA_NOT_CONFIGURED, ErrorMessages.DIVERA_NOT_CONFIGURED))
 
     name = request_data.name or "Testperson"
     foreign_id = f"kprueck-test-{request_data.divera_user_id}"

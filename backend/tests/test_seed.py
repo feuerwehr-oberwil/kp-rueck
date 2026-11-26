@@ -47,6 +47,9 @@ class RecordingSession:
     def add(self, obj):
         self.added.append(obj)
 
+    def add_all(self, objs):
+        self.added.extend(objs)
+
     async def flush(self):
         pass
 
