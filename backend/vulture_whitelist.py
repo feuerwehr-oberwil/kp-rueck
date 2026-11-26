@@ -483,3 +483,16 @@ accuracy  # unused variable (app/traccar.py:46)
 serverTime  # unused variable (app/traccar.py:48)
 fixTime  # unused variable (app/traccar.py:49)
 attributes  # unused variable (app/traccar.py:51)
+
+# Station settings only the frontend reads: declared so DEFAULT_SETTINGS (collected from the
+# module in app/services/settings.py) seeds and admits them.
+FUNKRUFNAME
+PERSONNEL_ROLE_ABBREVIATIONS
+MAP_MODE
+MAP_STYLE
+INCIDENT_TIME_DISPLAY
+WHATSAPP_INCIDENT_TEMPLATE
+WHATSAPP_MESSAGE_1
+WHATSAPP_MESSAGE_2
+CHECKLIST_HIDDEN_TASKS
+CHECKLIST_NOTES
