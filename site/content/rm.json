@@ -63,6 +63,7 @@
     "note": "Sviluppà or dal manaschi real d’acziun dals\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">pumpiers d’Oberwil BL</a>\n        – là testà e sviluppà vinavant cuntinuadamain."
   },
   "tenet": {
+    "h2": "Trais stgalims da redundanza.",
     "eyebrow": "La mesira",
     "quote": "«Sche la rait croda ora, maina il <em>palpiri</em>»",
     "expl": "Ina tavla che daventa naira tar ina panna da current n’è nagin instrument da direcziun.\n        Perquai è integrada ina redundanza sin plirs stgalims – <strong>mintga stgalim\n        funcziuna senza quel sura</strong>.",
@@ -74,8 +75,8 @@
       },
       {
         "n": "Stgalim 2",
-        "h3": "Ina box da reserva en il magazin",
-        "p": "In mini-PC en il magazin reflectescha il board cuntinuadamain. Sche l’internet croda, surpiglia el: il board funcziuna vinavant en la rait locala, cun la charta dal agen server da chartas ed il stampader en la rait locala. Cur che la rait è enavos, vegn quai ch’è vegnì manà là puspè sincronisà."
+        "h3": "In mini-PC da reserva en il magazin",
+        "p": "In mini-PC en il magazin reflectescha il board cuntinuadamain. Sche l’internet croda, surpiglia el: il board funcziuna vinavant en la rait locala, cun la charta dal agen server da chartas ed il stampader en la rait locala. Cur che la rait è puspè disponibla, vegnan las datas registradas localmain sincronisadas."
       },
       {
         "n": "Stgalim 3",
@@ -103,7 +104,7 @@
         "p": "Sur il formular d’annunzia, per telefon u sur l’interfatscha averta dal sistem d’alarm (p.&nbsp;ex. Divera u FireHub). Il sustegn da direcziun surpiglia l’annunzia cun in clic – e quella daventa in’acziun sin la tavla.",
         "li": [
           "Formular d’annunzia cun link u code QR per telefon e spurtegl, senza conto",
-          "Sch’insatgi annunzia il medem lieu ina segunda giada, dumonda la tavla",
+          "Sch’insatgi annunzia il medem lieu ina segunda giada, dumonda la tavla ina conferma",
           "Interfatscha averta – mintga sistem da disposiziun po avrir acziuns"
         ],
         "alt": "Formular d’annunzia sin il telefonin: lieu, annunzia e datas da la persuna che annunzia"
@@ -114,7 +115,7 @@
         "p": "Tut las acziuns sin ina charta, cun posiziuns GPS dals vehichels sco opziun. Cur ch’in vehichel arriva al lieu, propona la tavla la midada da status.",
         "li": [
           "Tut las acziuns tenor prioritad e status sin ina charta",
-          "Attribuziuns mussadas sco lingias",
+          "Attribuziuns mussadas sco lingias – tge vehichel è attribuì a tge acziun",
           "Radar da precipitaziuns ed avertiments uffizials (MeteoSvizra, Alertswiss)"
         ],
         "alt": "Charta da situaziun: acziuns tenor prioritad, cun ils vehichels e lur attribuziuns"
@@ -162,7 +163,7 @@
       {
         "h3": "Hosting",
         "tag": "Nagin sto tgirar ina maschina",
-        "p": "Tar in purschider da hosting da vossa tscherna. Ina box da reserva en il magazin po surpigliar, sche la rait croda."
+        "p": "Tar in purschider da hosting da vossa tscherna. In mini-PC da reserva en il magazin po surpigliar, sche la rait croda."
       }
     ],
     "note": "Sustegn per installaziun e manaschi è pussaivel suenter cunvegna – <a href=\"#kontakt\">contact</a>."
@@ -177,14 +178,14 @@
         "peek": "Fasas d’acziun · attribuir · attribuziuns dublas · registraziun QR · temps da servetsch · projectur",
         "items": [
           "<strong>Las colonnas èn las fasas d’acziun</strong> – las cartas sa movan cun drag-and-drop da sanestra a dretga",
-          "Attribuir persunal, vehichels e material – e far visiblas attribuziuns dublas, resursas mancantas e cuntradicziuns",
+          "Attribuir persunal, vehichels e material – KP Rück avertescha tar attribuziuns dublas e renda visibels conflicts da resursas",
           "Material al lieu d’acziun cun attribuziun e durada",
           "Prioritad, durada e termin per mintga acziun",
           "Reunir pliras acziuns ad ina ruta per ina gruppa ed optimar tenor distanza",
-          "Preparar incumbensas recurrentas",
-          "Registraziun cun code QR",
-          "Temps da servetsch: tgi è qua dapi cura, quant da quel temp en acziun e tgi ha pausa",
-          "Fegl d’acziun cun code QR per gruppas e manischunzs",
+          "Incumbensas recurrentas sco serrar giu zonas u allontanar laina suenter ina tempesta pon vegnir preparadas e messas directamain a disposiziun tar in eveniment",
+          "Registraziun cun code QR – tgi che arriva sa registrescha sez",
+          "Temps da servetsch: tgi è qua dapi cura, quant da quel temp en acziun e tgi ha pausa – duradas da servetsch memia lungas dattan en egl",
+          "Fegl d’acziun cun code QR per gruppas e manischunzs, surdà directamain al post da commando",
           "Vista da projectur senza elements da cumond per la paraid dal post da commando",
           "Attribuir cun la tastatura: «14 tlf meier» en la paletta da cumonds attribuescha il TLF e Meier a l’acziun 14 – e scursanidas da tastatura"
         ]
@@ -200,8 +201,8 @@
           "Annunzias dublas per il medem lieu vegnan renconuschidas; duas acziuns sa laschan unir – cun persunal, reko e rapport – e puspè separar",
           "Alarmar il persunal directamain da la tavla <span class=\"opt\">opziunal</span>",
           "Sin via: tgi che ha confermà l’alarm da Divera cumpara en la glista da preschientscha – registraziun cun in clic <span class=\"opt\">opziunal</span>",
-          "Rapports da reko cun fotografias, colliads cun l’acziun correcta",
-          "Vista dal lieu per gruppas: annunziar arriv, fin, transport e rapports al post da commando – mintga gruppa vesa mo ses agens lieus",
+          "Rapports da reko cun fotografias, directamain dal telefonin da la gruppa da reko",
+          "Vista dal lieu per gruppas: vesair ils agens lieus d’acziun, annunziar l’arriv e la fin da l’acziun, dumandar in transport e trametter annunzias e rapports cun fotografias al post da commando",
           "Dumondas dal lieu – material, rinforz, transport – restan avertas tar l’acziun fin ch’il post da commando las ha liquidadas; la gruppa vesa il stadi sin ses telefonin"
         ]
       },
@@ -212,23 +213,23 @@
           "Tut las acziuns tenor prioritad e status sin ina charta",
           "Posiziuns GPS dals vehichels <span class=\"opt\">opziunal</span>",
           "Proposta da midada da status cur ch’in vehichel arriva al lieu",
-          "Attribuziuns mussadas sco lingias",
+          "Attribuziuns mussadas sco lingias – tge vehichel è attribuì a tge acziun",
           "Radar da precipitaziuns da l’ultima ura ed avertiments uffizials (MeteoSvizra, Alertswiss) sin la charta <span class=\"opt\">opziunal</span>",
-          "Chartas era dal server local en il magazin"
+          "Tegulas da charta era dal server local en il magazin"
         ]
       },
       {
         "h3": "Suenter &amp; manaschi",
         "peek": "Rapport sco PDF · diari · cifras · administraziun · stampa termica · exercizi",
         "items": [
-          "<strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun",
+          "<strong>Rapport d’acziun sco PDF</strong> cun diari d’acziun e temps da reacziun – vegn generà durant l’acziun ed è gia per gronda part preparà al return",
           "Diari d’acziun sin la tavla: registrescha sez midadas da status, attribuziuns ed annunzias; atgnas endataziuns cun ⇧J – mo cumplettà, mai surscrit",
           "Cifras actualas gia durant l’eveniment: annunzias avertas tenor prioritad e temps da reacziun – en l’exercizi sco evaluaziun",
-          "Glista da chaussas avertas fin a la conclusiun",
+          "Glista da chaussas avertas: rapports averts, transports pendents e material che sa chatta anc al lieu d’acziun restan visibels fin a la conclusiun",
           "<strong>Atgna administraziun</strong> per persunal, parc da vehichels, material, tips d’acziun e prioritads",
           "Import ed export cun Excel",
-          "Stampa termica en il magazin <span class=\"opt\">opziunal</span>",
-          "Rollas per modifitgar u mo leger",
+          "Stampa termica en il magazin sur in agen agent da stampa <span class=\"opt\">opziunal</span>",
+          "Rollas: modifitgar u mo leger; interfatscha stgira per il post da commando en la stgirezza",
           "Modus d’exercizi separà cleramain dal cas real, cun scenaris e viadis simulads"
         ]
       }
@@ -245,7 +246,7 @@
     "items": [
       {
         "q": "Pertge midar?",
-        "a": "Attribuziuns dublas vegnan immediatamain visiblas. Nagina annunzia va a perder, il traffic da radio diminuescha e tuts vesan la medema situaziun a medem temp. Il rapport è gia preparà al return."
+        "a": "Naginas attribuziuns dublas pli. Nagina annunzia che va a perder en il chat da gruppa. Damain traffic da radio per dumondas che vegnan gia respundidas sin la tavla. Tuts vesan il medem maletg da la situaziun a medem temp – ed il rapport d’acziun è gia preparà al return, empè pir la fin d’emna suenter."
       },
       {
         "q": "Per tge corps da pumpiers e tge acziuns è KP Rück fatg?",

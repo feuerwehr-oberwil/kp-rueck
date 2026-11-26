@@ -66,6 +66,7 @@
     "note": "Entwickelt aus dem realen Einsatzbetrieb der\n        <a href=\"https://www.feuerwehr-oberwil.ch\" target=\"_blank\" rel=\"noopener\">Feuerwehr Oberwil BL</a>\n        – dort erprobt und laufend weiterentwickelt."
   },
   "tenet": {
+    "h2": "Dreifache Redundanz.",
     "eyebrow": "Der Massstab",
     "quote": "«Wenn das Netz weg ist, führt <em>Papier</em>»",
     "expl": "Ein Board, das bei Stromausfall schwarz wird, ist keine\n        Führungsunterlage. Darum ist eine mehrstufige Redundanz eingebaut – <strong>jede Stufe\n        funktioniert ohne die darüber</strong>.",
