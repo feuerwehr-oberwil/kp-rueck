@@ -202,6 +202,15 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     specialFunctions: payload.special_functions ?? [],
     assignmentsByIncident: payload.assignments ?? {},
   })
+  // A vehicle archived since its assignment is not in the share payload's fleet, but the
+  // incident row still names it (`assigned_vehicles`): drawn last, without a call sign.
+  payload.incidents.forEach((incident, index) => {
+    const op = operations[index]
+    for (const v of incident.assigned_vehicles ?? []) {
+      if (op.vehicles.some((known) => known.vehicleId === v.vehicle_id)) continue
+      op.vehicles.push({ vehicleId: v.vehicle_id, assignmentId: v.assignment_id, name: v.name, callsign: null, driverStay: v.driver_stay })
+    }
+  })
   // A route's crew and material live on the Auftrag, not on its stops.
   const onAuftrag = auftragOccupancy(viewerGroupsToIncidentGroups(payload))
   const personnel = withAuftragCrew(eventScopedPersonnel, onAuftrag.personnel)

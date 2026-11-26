@@ -34,6 +34,11 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
   const eventId = selectedEvent && isValidUUID(selectedEvent.id) ? selectedEvent.id : null
   const groupById = (id: string) => groupsRef.current.find((g) => g.id === id)
   const replaceGroup = (id: string, next: IncidentGroup) => setGroups((gs) => gs.map((g) => (g.id === id ? next : g)))
+  // Each write touches only the fields it owns: a whole route from an answer that left the server
+  // before another write landed would drop that write (a route assign still on its way).
+  const patchGroup = (id: string, fields: Partial<IncidentGroup>) =>
+    setGroups((gs) => gs.map((g) => (g.id === id ? { ...g, ...fields } : g)))
+  const stopsOf = (g: IncidentGroup) => ({ stopIds: g.stopIds, progress: g.progress })
   // A whole-list rollback only onto the Ereignis it was taken from: after a switch the list on
   // screen is another Ereignis's routes.
   const stillOnEvent = () => selectedEventIdRef.current === eventId
@@ -87,18 +92,18 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     const previous = groupById(id)
     if (!previous) return Promise.resolve(false)
     return held(async () => {
-      replaceGroup(id, {
-        ...previous,
+      patchGroup(id, {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.color !== undefined ? { color: input.color } : {}),
         ...(input.notes !== undefined ? { notes: input.notes } : {}),
       })
       try {
-        replaceGroup(id, apiIncidentGroupToGroup(await apiClient.updateIncidentGroup(id, input)))
+        const { name, color, notes, updatedAt } = apiIncidentGroupToGroup(await apiClient.updateIncidentGroup(id, input))
+        patchGroup(id, { name, color, notes, updatedAt })
         return true
       } catch (error) {
         console.error("Failed to update Auftrag:", error)
-        replaceGroup(id, previous)
+        patchGroup(id, { name: previous.name, color: previous.color, notes: previous.notes })
         toast.error(translateOutsideReact("notifications.groups.updateFailed"))
         return false
       }
@@ -112,8 +117,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     const previous = groupById(id)
     if (!previous) return Promise.resolve(false)
     return held(async () => {
-      replaceGroup(id, {
-        ...previous,
+      patchGroup(id, {
         lastAnnounced: { at: new Date(), fingerprint: announcement.fingerprint, stopId: announcement.stopId ?? null, full: announcement.full },
       })
       try {
@@ -122,11 +126,11 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
           stop_id: announcement.stopId ?? null,
           full: announcement.full,
         })
-        replaceGroup(id, apiIncidentGroupToGroup(updated))
+        patchGroup(id, { lastAnnounced: apiIncidentGroupToGroup(updated).lastAnnounced })
         return true
       } catch (error) {
         console.error("Failed to record Funkdurchsage:", error)
-        replaceGroup(id, previous)
+        patchGroup(id, { lastAnnounced: previous.lastAnnounced })
         return false
       }
     })
@@ -229,16 +233,15 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     if (incidentIds.length === 0) return Promise.resolve("failed")
     const appended = incidentIds.filter((id) => !previous.stopIds.includes(id))
     return held(async () => {
-      replaceGroup(groupId, {
-        ...previous,
+      patchGroup(groupId, {
         stopIds: [...previous.stopIds, ...appended],
         progress: { ...previous.progress, total: previous.progress.total + appended.length },
       })
       try {
-        replaceGroup(groupId, apiIncidentGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds, guard)))
+        patchGroup(groupId, stopsOf(apiIncidentGroupToGroup(await apiClient.addStopsToGroup(groupId, incidentIds, guard))))
         return "added"
       } catch (error) {
-        replaceGroup(groupId, previous)
+        patchGroup(groupId, stopsOf(previous))
         // 409: the Einsatz or the vehicle's Auftrag changed; 404: the Auftrag is gone.
         if (guarded && error instanceof ApiError && (error.status === 409 || error.status === 404)) {
           reloadWhenSettled()
@@ -256,8 +259,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
     if (!previous) return Promise.resolve(false)
     const wasMember = previous.stopIds.includes(incidentId)
     return held(async () => {
-      replaceGroup(groupId, {
-        ...previous,
+      patchGroup(groupId, {
         stopIds: previous.stopIds.filter((id) => id !== incidentId),
         progress: { ...previous.progress, total: wasMember ? Math.max(0, previous.progress.total - 1) : previous.progress.total },
       })
@@ -266,7 +268,7 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
         return true
       } catch (error) {
         console.error("Failed to remove stop:", error)
-        replaceGroup(groupId, previous)
+        patchGroup(groupId, stopsOf(previous))
         toast.error(translateOutsideReact("notifications.groups.removeStopFailed"))
         return false
       }
@@ -362,7 +364,14 @@ export function createGroupActions(board: BoardMutationContext): GroupActions {
           return true
         }
         console.error("Failed to release route resource:", error)
-        replaceGroup(groupId, previous)
+        // The released row comes back, unless a newer copy of the route already has it.
+        setGroups((gs) =>
+          gs.map((g) => {
+            const row = previous.assignments.find((a) => a.id === assignmentId)
+            if (g.id !== groupId || !row || g.assignments.some((a) => a.id === assignmentId)) return g
+            return { ...g, assignments: [...g.assignments, row] }
+          }),
+        )
         toast.error(translateOutsideReact("notifications.groups.unassignFailed"))
         return false
       }

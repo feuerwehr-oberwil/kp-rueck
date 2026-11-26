@@ -341,6 +341,29 @@ describe("route resources", () => {
     expect(result.current.groups[0].assignments.map((a) => a.id)).toEqual(["a1"])
   })
 
+  it("keeps a confirmed assignment when an older rename answer lands after it", async () => {
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
+    const { result } = await renderLoaded()
+    let answerRename: (g: ApiIncidentGroup) => void = () => {}
+    api.updateIncidentGroup.mockImplementation(() => new Promise((resolve) => (answerRename = resolve)))
+    api.assignGroupResource.mockResolvedValue(apiAssignment({ resource_type: "material", resource_id: "m1" }))
+
+    let renamed: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      renamed = result.current.updateGroup(GROUP_ID, { name: "Neu" })
+    })
+    await act(async () => {
+      await result.current.assignResource(GROUP_ID, "material", "m1")
+    })
+    // The rename left the server before the assign landed: its route has no assignment.
+    await act(async () => {
+      answerRename(apiGroup({ name: "Neu" }))
+      await renamed
+    })
+    expect(result.current.groups[0].name).toBe("Neu")
+    expect(result.current.groups[0].assignments.map((a) => a.id)).toEqual(["a1"])
+  })
+
   it("asks for a driver for a route vehicle nobody drives, and stays «settling» until it asked", async () => {
     api.getIncidentGroups.mockResolvedValue([apiGroup()])
     const { result } = await renderLoaded()
