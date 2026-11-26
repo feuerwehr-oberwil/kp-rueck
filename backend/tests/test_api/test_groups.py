@@ -27,39 +27,12 @@ from app.services.tokens import generate_viewer_token
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    event = Event(id=uuid4(), name="Group API Event", training_flag=False)
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def second_event(db_session: AsyncSession) -> Event:
     event = Event(id=uuid4(), name="Other API Event", training_flag=False)
     db_session.add(event)
     await db_session.commit()
     await db_session.refresh(event)
     return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Board Stop",
-        type="brandbekaempfung",
-        priority="medium",
-        status="incoming",
-        location_address="Test Street 123",
-        created_by=test_editor.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
 
 
 @pytest_asyncio.fixture
@@ -78,15 +51,6 @@ async def second_incident(db_session: AsyncSession, test_event: Event, test_edit
     await db_session.commit()
     await db_session.refresh(incident)
     return incident
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    vehicle = Vehicle(id=uuid4(), name="TLF API", type="TLF", status="available")
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
 
 
 async def _create_group(client: AsyncClient, event: Event, name: str = "Sturm-Route West", **extra) -> dict:
@@ -786,34 +750,6 @@ async def test_public_viewer_data_includes_groups(
             "assignments": [],
         }
     ]
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_viewer_forbidden_on_mutations(viewer_client: AsyncClient, test_event: Event, test_incident: Incident):
-    gid = uuid4()
-    iid = test_incident.id
-    calls = [
-        viewer_client.post("/api/incident-groups/", json={"name": "X", "event_id": str(test_event.id)}),
-        viewer_client.patch(f"/api/incident-groups/{gid}", json={"name": "Y"}),
-        viewer_client.delete(f"/api/incident-groups/{gid}"),
-        viewer_client.post(
-            "/api/incident-groups/reorder",
-            json={"event_id": str(test_event.id), "ordered_ids": [str(gid)]},
-        ),
-        viewer_client.post(f"/api/incident-groups/{gid}/stops/reorder", json={"ordered_ids": [str(iid)]}),
-        viewer_client.post(f"/api/incident-groups/{gid}/stops", json={"incident_ids": [str(iid)]}),
-        viewer_client.delete(f"/api/incident-groups/{gid}/stops/{iid}"),
-        viewer_client.post(
-            f"/api/incident-groups/{gid}/assign",
-            json={"resource_type": "vehicle", "resource_id": str(uuid4())},
-        ),
-        viewer_client.post(f"/api/incident-groups/{gid}/unassign/{uuid4()}"),
-        viewer_client.post(f"/api/incident-groups/{gid}/announce", json={"fingerprint": "x"}),
-    ]
-    for coro in calls:
-        response = await coro
-        assert response.status_code == 403, response.text
 
 
 # ============================================

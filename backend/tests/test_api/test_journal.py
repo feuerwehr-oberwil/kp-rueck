@@ -126,8 +126,8 @@ async def test_since_seq_returns_what_is_new_plus_the_recent_overlap(editor_clie
 async def test_there_is_no_edit_or_delete(editor_client: AsyncClient, test_event: Event):
     url = f"/api/events/{test_event.id}/journal"
     row = (await editor_client.post(url, json={"client_id": _cid(), "text": "eins"})).json()
-    assert (await editor_client.delete(f"{url}/{row['id']}")).status_code in (404, 405)
-    assert (await editor_client.put(f"{url}/{row['id']}", json={"text": "x"})).status_code in (404, 405)
+    assert (await editor_client.delete(f"{url}/{row['id']}")).status_code == 404
+    assert (await editor_client.put(f"{url}/{row['id']}", json={"text": "x"})).status_code == 404
 
 
 async def test_same_id_with_a_different_line_is_a_conflict(editor_client: AsyncClient, test_event: Event):

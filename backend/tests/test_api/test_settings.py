@@ -81,15 +81,6 @@ class TestUpdateSetting:
     """Test PATCH /api/settings/{key} endpoint."""
 
     @pytest.mark.asyncio
-    async def test_update_setting_requires_editor(self, viewer_client: AsyncClient, test_settings_data: list[Setting]):
-        """Viewer role cannot update settings."""
-        response = await viewer_client.patch(
-            "/api/settings/fallback.auto_print_enabled",
-            json={"value": "true"},
-        )
-        assert response.status_code == 403
-
-    @pytest.mark.asyncio
     async def test_update_setting_editor_success(
         self,
         editor_client: AsyncClient,

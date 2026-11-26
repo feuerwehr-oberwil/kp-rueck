@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import { fieldNudgeForNotification } from "@/lib/notification-field-action"
 import type { Operation, OperationStatus } from "@/lib/contexts/operations-context"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 function operation(status: OperationStatus): Operation {
-  return { id: "i1", status } as Operation
+  return makeOperation({ id: "i1", status })
 }
 
 describe("fieldNudgeForNotification", () => {

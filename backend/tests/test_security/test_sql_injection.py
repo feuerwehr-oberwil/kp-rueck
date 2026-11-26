@@ -7,10 +7,7 @@ Tests verify that:
 4. Application responds gracefully to injection attempts
 """
 
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,21 +21,6 @@ SQL_INJECTION_PAYLOADS = [
     "' OR ''='",
     "${7*7}",  # Server-side template injection attempt
 ]
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Security Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 # ============================================
@@ -59,14 +41,12 @@ async def test_incident_title_sql_injection(editor_client: AsyncClient, test_eve
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    # Should either succeed (payload stored as literal string) or return validation error
-    # Should NOT return 500 (SQL error) or execute SQL
-    assert response.status_code in [201, 422]
+    # Stored as literal text: bound as a parameter, never executed
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        # Verify payload was stored as literal text, not executed
-        data = response.json()
-        assert data["title"] == payload.strip()
+    # Verify payload was stored as literal text, not executed
+    data = response.json()
+    assert data["title"] == payload.strip()
 
 
 @pytest.mark.asyncio
@@ -83,11 +63,10 @@ async def test_incident_description_sql_injection(editor_client: AsyncClient, te
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["description"] == payload
+    data = response.json()
+    assert data["description"] == payload
 
 
 @pytest.mark.asyncio
@@ -104,11 +83,10 @@ async def test_incident_location_sql_injection(editor_client: AsyncClient, test_
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["location_address"] == payload
+    data = response.json()
+    assert data["location_address"] == payload
 
 
 # ============================================
@@ -127,12 +105,11 @@ async def test_personnel_name_sql_injection(editor_client: AsyncClient, payload:
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        # Name is normalized (excessive whitespace removed)
-        assert payload.strip() in data["name"] or data["name"] == " ".join(payload.split())
+    data = response.json()
+    # Name is normalized (excessive whitespace removed)
+    assert payload.strip() in data["name"] or data["name"] == " ".join(payload.split())
 
 
 @pytest.mark.asyncio
@@ -147,11 +124,10 @@ async def test_personnel_role_sql_injection(editor_client: AsyncClient, payload:
     }
     response = await editor_client.post("/api/personnel/", json=personnel_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["role"] == payload
+    data = response.json()
+    assert data["role"] == payload
 
 
 # ============================================
@@ -177,11 +153,10 @@ async def test_vehicle_name_sql_injection(editor_client: AsyncClient, payload: s
     }
     response = await editor_client.post("/api/vehicles/", json=vehicle_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["name"] == payload.strip()
+    data = response.json()
+    assert data["name"] == payload.strip()
 
 
 # ============================================
@@ -202,11 +177,10 @@ async def test_material_name_sql_injection(editor_client: AsyncClient, payload: 
     }
     response = await editor_client.post("/api/materials/", json=material_data)
 
-    assert response.status_code in [201, 422]
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        assert data["name"] == payload.strip()
+    data = response.json()
+    assert data["name"] == payload.strip()
 
 
 # ============================================
@@ -221,13 +195,8 @@ async def test_status_filter_sql_injection(editor_client: AsyncClient, test_even
     """Test that SQL injection in status query parameter is safely handled."""
     response = await editor_client.get(f"/api/incidents/?event_id={test_event.id}&status={payload}")
 
-    # Should return empty list or validation error, not 500
-    assert response.status_code in [200, 422, 400]
-
-    if response.status_code == 200:
-        # Should be empty - payload won't match any valid status
-        data = response.json()
-        assert isinstance(data, list)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
 
 @pytest.mark.asyncio
@@ -251,16 +220,16 @@ async def test_event_id_sql_injection(editor_client: AsyncClient):
 @pytest.mark.security
 async def test_incident_id_path_sql_injection(editor_client: AsyncClient):
     """Test that SQL injection in incident_id path parameter is safely handled."""
-    malicious_ids = [
-        "'; DROP TABLE incidents; --",
-        "1' OR '1'='1",
-        "../../../etc/passwd",
-    ]
+    # Not a UUID: refused by validation. The traversal never reaches the route at all.
+    answers = {
+        "'; DROP TABLE incidents; --": 422,
+        "1' OR '1'='1": 422,
+        "../../../etc/passwd": 404,
+    }
 
-    for malicious_id in malicious_ids:
+    for malicious_id, status in answers.items():
         response = await editor_client.get(f"/api/incidents/{malicious_id}")
-        # Should return 422 (invalid UUID) or 404 (not found), not 500
-        assert response.status_code in [404, 422]
+        assert response.status_code == status, malicious_id
 
 
 # ============================================
@@ -275,8 +244,8 @@ async def test_settings_key_sql_injection(editor_client: AsyncClient, payload: s
     """Test that SQL injection in settings key is safely handled."""
     response = await editor_client.get(f"/api/settings/{payload}")
 
-    # Should return 404 (not found) or validation error, not 500
-    assert response.status_code in [200, 404, 422, 400]
+    # Looked up as a key, found nowhere
+    assert response.status_code == 404
 
 
 # ============================================
@@ -307,12 +276,11 @@ async def test_update_incident_sql_injection(editor_client: AsyncClient, test_ev
     }
     response = await editor_client.patch(f"/api/incidents/{incident_id}", json=update_data)
 
-    assert response.status_code in [200, 422]
+    assert response.status_code == 200
 
-    if response.status_code == 200:
-        data = response.json()
-        # Verify payload was stored literally, not executed
-        assert data["title"] == payload.strip()
+    data = response.json()
+    # Verify payload was stored literally, not executed
+    assert data["title"] == payload.strip()
 
 
 # ============================================

@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,22 +19,6 @@ from app.models import IncidentAssignment, Material
 # ============================================
 # Fixtures
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def test_material(db_session: AsyncSession) -> Material:
-    """Create a test material."""
-    material = Material(
-        id=uuid4(),
-        name="Tauchpumpe TP 8/1",
-        type="Tauchpumpen",
-        location="TLF",
-        status="available",
-    )
-    db_session.add(material)
-    await db_session.commit()
-    await db_session.refresh(material)
-    return material
 
 
 # ============================================
@@ -173,14 +156,6 @@ async def test_create_material_minimal(editor_client: AsyncClient):
     assert data["name"] == "Basic Material"
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_create_material_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot create materials."""
-    response = await viewer_client.post("/api/materials/", json={"name": "New Material"})
-    assert response.status_code == 403
-
-
 # ============================================
 # Update Material Tests
 # ============================================
@@ -229,14 +204,6 @@ async def test_update_material_not_found(editor_client: AsyncClient):
     """Test updating a non-existent material."""
     response = await editor_client.put(f"/api/materials/{uuid4()}", json={"name": "Updated"})
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_material_viewer_forbidden(viewer_client: AsyncClient, test_material: Material):
-    """Test that viewers cannot update materials."""
-    response = await viewer_client.put(f"/api/materials/{test_material.id}", json={"name": "Updated"})
-    assert response.status_code == 403
 
 
 # ============================================
@@ -441,14 +408,6 @@ async def test_delete_material_not_found(editor_client: AsyncClient):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_delete_material_viewer_forbidden(viewer_client: AsyncClient, test_material: Material):
-    """Test that viewers cannot delete materials."""
-    response = await viewer_client.delete(f"/api/materials/{test_material.id}")
-    assert response.status_code == 403
-
-
 # ============================================
 # Category Sort Order Tests
 # ============================================
@@ -480,17 +439,6 @@ async def test_update_category_sort_order_success(editor_client: AsyncClient, te
     data = response.json()
     assert data["status"] == "success"
     assert data["updated_categories"] == 2
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_category_sort_order_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot update category sort order."""
-    response = await viewer_client.post(
-        "/api/materials/categories/sort-order",
-        json={"categories": [{"category": "TLF", "sort_order": 1}]},
-    )
-    assert response.status_code == 403
 
 
 # ============================================

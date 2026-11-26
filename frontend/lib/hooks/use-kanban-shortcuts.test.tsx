@@ -28,37 +28,17 @@ import {
   type KanbanShortcutsState,
 } from "./use-kanban-shortcuts";
 import type { UseGPrefixNavigation } from "./use-g-prefix-navigation";
-import { assignedVehicle } from "@/test-utils/operation-fixtures"
+import { assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 
 const baseOp = (overrides: Partial<Operation> = {}): Operation =>
-  ({
+  makeOperation({
     id: "op-1",
     location: "Bahnhof",
-    vehicle: null,
-    vehicles: [],
-    incidentType: "elementarereignis",
     dispatchTime: new Date(),
-    crew: [],
     priority: "low",
-    status: "incoming",
     coordinates: [47.5, 7.5],
-    materials: [],
-    notes: "",
-    contact: "",
-    internalNotes: "",
-    nachbarhilfe: false,
-    nachbarhilfeNote: "",
-    amWarten: false,
-    amWartenNote: "",
-    zuFuss: false,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    materialAssignments: new Map(),
     ...overrides,
-  }) as Operation;
+  });
 
 const press = (key: string, init: KeyboardEventInit = {}) => {
   const evt = new KeyboardEvent("keydown", {

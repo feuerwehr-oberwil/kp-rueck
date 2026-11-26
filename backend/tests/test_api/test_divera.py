@@ -36,21 +36,6 @@ async def webhook_secret(db_session: AsyncSession) -> str:
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Test Divera Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_emergency(db_session: AsyncSession) -> DiveraEmergency:
     """Create a test Divera emergency."""
     emergency = DiveraEmergency(
@@ -344,19 +329,6 @@ async def test_attach_emergency_requires_auth(client: AsyncClient, test_emergenc
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_attach_emergency_viewer_forbidden(
-    viewer_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
-):
-    """Test that viewers cannot attach emergencies."""
-    response = await viewer_client.post(
-        f"/api/divera/emergencies/{test_emergency.id}/attach",
-        json={"event_id": str(test_event.id)},
-    )
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_attach_emergency_success(editor_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event):
     """Test successfully attaching an emergency to an event."""
     # Mock WebSocket broadcast
@@ -471,7 +443,7 @@ async def test_attach_emergency_again_after_its_card_was_deleted_is_refused(
         )
     assert response1.status_code == 201
     deleted = await editor_client.delete(f"/api/incidents/{response1.json()['id']}")
-    assert deleted.status_code in (200, 204), deleted.text
+    assert deleted.status_code == 204, deleted.text
 
     response2 = await editor_client.post(
         f"/api/divera/emergencies/{test_emergency.id}/attach",
@@ -524,19 +496,6 @@ async def test_bulk_attach_requires_auth(client: AsyncClient, test_emergency: Di
         json={"event_id": str(test_event.id), "emergency_ids": [str(test_emergency.id)]},
     )
     assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_bulk_attach_viewer_forbidden(
-    viewer_client: AsyncClient, test_emergency: DiveraEmergency, test_event: Event
-):
-    """Test that viewers cannot bulk attach."""
-    response = await viewer_client.post(
-        "/api/divera/emergencies/bulk-attach",
-        json={"event_id": str(test_event.id), "emergency_ids": [str(test_emergency.id)]},
-    )
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -628,14 +587,6 @@ async def test_archive_emergency_requires_auth(client: AsyncClient, test_emergen
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_archive_emergency_viewer_forbidden(viewer_client: AsyncClient, test_emergency: DiveraEmergency):
-    """Test that viewers cannot archive emergencies."""
-    response = await viewer_client.delete(f"/api/divera/emergencies/{test_emergency.id}")
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_archive_emergency_success(editor_client: AsyncClient, test_emergency: DiveraEmergency):
     """Test successfully archiving an emergency."""
     response = await editor_client.delete(f"/api/divera/emergencies/{test_emergency.id}")
@@ -669,9 +620,9 @@ async def test_archive_emergency_idempotent(editor_client: AsyncClient, db_sessi
     response1 = await editor_client.delete(f"/api/divera/emergencies/{emergency.id}")
     assert response1.status_code == 204
 
-    # Second archive - could be 204 (idempotent) or 404 (already archived)
+    # Archiving again is idempotent
     response2 = await editor_client.delete(f"/api/divera/emergencies/{emergency.id}")
-    assert response2.status_code in [204, 404]
+    assert response2.status_code == 204
 
 
 # ============================================
@@ -1182,16 +1133,6 @@ async def test_detach_names_the_card_it_undoes(
         json={"incident_id": "00000000-0000-0000-0000-000000000001"},
     )
     assert response.status_code == 409
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_detach_viewer_forbidden(viewer_client: AsyncClient, test_emergency: DiveraEmergency):
-    response = await viewer_client.post(
-        f"/api/divera/emergencies/{test_emergency.id}/detach",
-        json={"incident_id": "00000000-0000-0000-0000-000000000001"},
-    )
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

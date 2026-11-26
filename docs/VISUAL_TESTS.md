@@ -36,7 +36,9 @@ specs only mean something against the visual seed and a production build. The ex
 `scripts/visual-test.sh` (`just visual`) does the whole run: the production frontend build
 (`next build`, standalone server — no dev overlay, no compile-on-demand), an empty Postgres
 (`postgres:16-alpine`, as in production), migrations, the visual seed, the backend, the specs,
-and the teardown. CI runs the same script.
+and the teardown. CI runs the same script with `VISUAL_SKIP_BUILD=1` and `VISUAL_API_PORT=8000`:
+it serves the one production bundle the `frontend-build` job made for every browser job, whose
+baked-in API URL is `http://localhost:8000`. `visual-baselines.yml` still builds its own.
 
 ## How it stays deterministic
 

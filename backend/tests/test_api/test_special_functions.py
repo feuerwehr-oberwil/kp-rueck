@@ -73,51 +73,6 @@ async def test_removal_takes_every_copy_written_before_idempotency(
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Special Functions Test Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create a test personnel."""
-    person = Personnel(
-        id=uuid4(),
-        name="Test Person SF",
-        role="atemschutz",
-        status="available",
-    )
-    db_session.add(person)
-    await db_session.commit()
-    await db_session.refresh(person)
-    return person
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="TLF Test SF",
-        type="tlf",
-        status="available",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
-@pytest_asyncio.fixture
 async def test_assignment(
     db_session: AsyncSession, test_event: Event, test_personnel: Personnel, test_editor: User
 ) -> EventSpecialFunction:
@@ -292,19 +247,6 @@ async def test_assign_special_function_requires_auth(client: AsyncClient, test_e
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_assign_special_function_viewer_forbidden(
-    viewer_client: AsyncClient, test_event: Event, test_personnel: Personnel
-):
-    """Test that viewers cannot assign special functions."""
-    response = await viewer_client.post(
-        f"/api/events/{test_event.id}/special-functions/",
-        json={"personnel_id": str(test_personnel.id), "function_type": "einsatzleiter"},
-    )
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_assign_special_function_success(
     editor_client: AsyncClient, test_event: Event, test_personnel: Personnel
 ):
@@ -376,8 +318,8 @@ async def test_assign_special_function_duplicate(
         f"/api/events/{test_event.id}/special-functions/",
         json={"personnel_id": str(test_personnel.id), "function_type": "reko"},
     )
-    # Should either succeed or return appropriate error
-    assert response.status_code in [201, 400]
+    # Assigning the same function again is accepted
+    assert response.status_code == 201
 
 
 # ============================================
@@ -397,20 +339,6 @@ async def test_unassign_special_function_requires_auth(
         json={"personnel_id": str(test_personnel.id), "function_type": "reko"},
     )
     assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_unassign_special_function_viewer_forbidden(
-    viewer_client: AsyncClient, test_event: Event, test_personnel: Personnel
-):
-    """Test that viewers cannot unassign special functions."""
-    response = await viewer_client.request(
-        "DELETE",
-        f"/api/events/{test_event.id}/special-functions/",
-        json={"personnel_id": str(test_personnel.id), "function_type": "reko"},
-    )
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

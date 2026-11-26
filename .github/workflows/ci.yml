@@ -2,18 +2,23 @@ name: CI
 
 # CI strategy – keep this comment truthful, it is the only place the split is written down.
 #
-# BLOCKING (a red one of these must stop a merge; these are the checks required on main):
-#   secrets, backend-lint, backend-test, backend-security, print-agent, frontend-lint,
-#   frontend-typecheck, frontend-unit-tests, frontend-security, frontend-build, images, e2e-smoke
-#   plus backend-typecheck's FIRST step (mypy over the packages that are at zero)
-#   plus shared-files («Shared files match KP Front») — the ONLY check that compares anything
+# REQUIRED on main (branch protection, mirrored in AGENTS.md «Required PR checks»): a red one
+# cannot be merged.
+#   Backend Tests, Backend Lint & Format, Frontend Type Check, Frontend Lint, Frontend Unit
+#   Tests, Frontend Build, Images (build + boot + smoke), E2E (@smoke), Visual (screenshots),
+#   Shared files match KP Front, Static analysis.
+#   shared-files («Shared files match KP Front») is the ONLY check that compares anything
 #   against kp-front; the in-repo manifest test cannot see the other repository. It replaced
-#   five per-file drift jobs on 2026-10-09 (four of them required since 2026-09-23, the snail
-#   one on probation): one manifest, one script, the same job in kp-front, and the output
-#   still names which question failed. It reads `env.SIBLING_REPO` and SKIPS (never fails)
-#   when that is empty or cannot be checked out, so a fork inherits an honest "not checked"
-#   rather than a red X against a repository it has nothing to do with. It still fails on
-#   real drift for the upstream pair.
+#   five per-file drift jobs on 2026-10-09: one manifest, one script, the same job in
+#   kp-front, and the output still names which question failed. It reads `env.SIBLING_REPO`
+#   and SKIPS (never fails) when that is empty or cannot be checked out, so a fork inherits an
+#   honest "not checked" rather than a red X against a repository it has nothing to do with.
+#   It still fails on real drift for the upstream pair.
+#
+# BLOCKING but NOT required by branch protection: a red one fails the run, and AGENTS.md says
+# to fix it before asking for review – but GitHub would let it merge.
+#   secrets, backend-security, print-agent, frontend-security, demo-sandbox, and
+#   backend-typecheck's FIRST step (mypy over the packages that are at zero).
 #
 # ADVISORY (runs, reports, never fails the build) – with the real numbers as of 2026-07-30:
 #   backend-typecheck  mypy, second step – 55 errors in 7 files across the packages NOT in the
@@ -600,10 +605,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Next's own build cache: an incremental `next build` instead of a cold one. Keyed per
+      # commit, restored from the newest entry for the same lockfile.
+      - name: Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: frontend/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
+
+      # The ONE production build of this run. E2E (@smoke), Visual and the demo sandbox serve
+      # it (frontend/scripts/serve-standalone.sh) instead of building or running `pnpm dev`
+      # themselves. NEXT_PUBLIC_API_URL is baked in, so each of them runs its backend on :8000.
       - name: Build
         run: pnpm build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:8000
+
+      # public/ too: `prebuild` writes the MapLibre worker into it, and that file is gitignored,
+      # so a fresh checkout's public/ lacks it.
+      - name: Pack the standalone server
+        run: tar -czf next-standalone.tgz .next/standalone .next/static public
+
+      - name: Upload the standalone server
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: next-standalone
+          path: frontend/next-standalone.tgz
+          # Long enough to re-run one browser job of this run on its own later.
+          retention-days: 7
 
       # GitHub Pages serves site/ verbatim, so the generated pages are committed.
       # This fails if index.html / fr/index.html are behind the template or the
@@ -704,11 +734,10 @@ jobs:
     runs-on: ubuntu-latest
     # The whole point is a fast signal; if it is not fast it is not doing its job.
     timeout-minutes: 15
-    # No `needs:`. It used to wait for backend-test and frontend-build, but it consumes
-    # nothing they produce (it runs its own backend and `pnpm dev`), so the wait only made the
-    # gate serial: ~6.5 min of backend tests, THEN ~3 min of this, on every run. In parallel
-    # the gate's wall clock is its slowest job, not the sum of two. A red backend test now
-    # costs one extra E2E run of runner time — cheap next to everyone waiting three minutes.
+    # It runs the production bundle frontend-build made, so it waits for that job (~1.5 min)
+    # and for nothing else: the specs no longer wait on `pnpm dev` compiling each route on its
+    # first hit. It still runs its own backend, so it does not wait for backend-test.
+    needs: frontend-build
 
     services:
       postgres:
@@ -793,6 +822,17 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
           CORS_ORIGINS: http://localhost:3000
 
+      - name: Download the standalone server
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: next-standalone
+          path: frontend
+
+      # E2E_BASE_URL in the next step tells playwright.config.ts the server is already up.
+      - name: Start frontend server
+        working-directory: frontend
+        run: bash scripts/serve-standalone.sh 3000 http://localhost:8000
+
       # A quarantined spec (`@quarantine-until-YYYY-MM-DD`, see e2e-nightly.yml) is out of the
       # gate. Only the tag's FORMAT is checked here; its expiry fails the nightly instead, so a
       # date passing can never turn an unrelated pull request red.
@@ -804,6 +844,7 @@ jobs:
         working-directory: frontend
         run: pnpm exec playwright test --grep @smoke --grep-invert @quarantine
         env:
+          E2E_BASE_URL: http://localhost:3000
           TEST_USERNAME: admin
           TEST_PASSWORD: ${{ env.E2E_PASSWORD }}
           # The 07-viewer-role @smoke specs log in as the viewer. Without this the specs fall
@@ -836,13 +877,14 @@ jobs:
   # deliberate, regenerate the baselines with visual-baselines.yml and commit them on their own
   # — never to turn this check green.
   #
-  # No `needs:` and not on the critical path: it builds its own frontend and runs its own
-  # backend, in parallel with everything else.
+  # It serves the production bundle frontend-build made (VISUAL_SKIP_BUILD) and runs its own
+  # backend, on :8000 because that is the API URL baked into the bundle.
   # ============================================
   visual:
     name: Visual (screenshots)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: frontend-build
 
     services:
       postgres:
@@ -893,26 +935,28 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      # Next's own build cache: an incremental `next build` instead of a cold one. Keyed per
-      # commit, restored from the newest entry for the same lockfile.
-      - name: Next.js build cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Download the standalone server
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          path: frontend/.next/cache
-          key: next-visual-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-${{ github.sha }}
-          restore-keys: next-visual-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}-
+          name: next-standalone
+          path: frontend
+
+      - name: Unpack the standalone server
+        working-directory: frontend
+        run: tar -xzf next-standalone.tgz
 
       - name: Install Playwright browsers
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
 
-      # Build, migrate + seed the service database, start both servers, run the specs, stop.
-      # The same script as `just visual`; CI=true makes a missing baseline a failure instead
-      # of a write.
+      # Migrate + seed the service database, start both servers, run the specs, stop. The same
+      # script as `just visual`; CI=true makes a missing baseline a failure instead of a write.
       - name: Compare the screenshots
         run: bash scripts/visual-test.sh
         env:
           VISUAL_DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+          VISUAL_SKIP_BUILD: "1"
+          VISUAL_API_PORT: "8000"
           CI: true
 
       - name: Summarise
@@ -931,6 +975,110 @@ jobs:
             frontend/test-results/
             frontend/playwright-report/
           retention-days: 7
+
+  # ============================================
+  # Demo sandbox: the two specs in tests/e2e/17-demo-sandbox, against a backend in DEMO_MODE
+  # with the demo seed – the public demo's login and its per-visitor sandbox. Every other E2E
+  # run has a normal backend, where these specs skip.
+  # ============================================
+  demo-sandbox:
+    name: E2E (demo sandbox)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: frontend-build
+
+    services:
+      postgres:
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: kprueck
+          POSTGRES_PASSWORD: kprueck
+          POSTGRES_DB: kprueck
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://kprueck:kprueck@localhost:5433/kprueck
+      DEMO_MODE: "true"
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: "latest"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Python
+        working-directory: backend
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      # DEMO_MODE makes app.seed write the demo seed (demo-editor, demo-viewer, the base Lage).
+      - name: Migrate and seed (demo)
+        working-directory: backend
+        run: |
+          uv run alembic upgrade head
+          uv run python -m app.seed
+
+      - name: Start backend server (demo)
+        working-directory: backend
+        run: |
+          uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+        env:
+          CORS_ORIGINS: http://localhost:3000
+
+      - name: Download the standalone server
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: next-standalone
+          path: frontend
+
+      - name: Start frontend server
+        working-directory: frontend
+        run: bash scripts/serve-standalone.sh 3000 http://localhost:8000
+
+      # The specs skip themselves when /api/demo/status says no demo – here that would hide a
+      # broken setup, so a skip fails the step.
+      - name: Run the demo sandbox specs
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          pnpm exec playwright test tests/e2e/17-demo-sandbox --reporter=list | tee demo.log
+          if grep -qE "[0-9]+ skipped" demo.log; then echo "::error::the demo specs skipped – the backend is not in demo mode"; exit 1; fi
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+          CI: true
 
   # ============================================
   # Images: build all four, boot the production stack, smoke it

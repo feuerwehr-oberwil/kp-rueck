@@ -12,9 +12,10 @@ const writes = vi.hoisted(() => ({ saveRekoArrived: vi.fn(), saveFieldReport: vi
 vi.mock('@/lib/hooks/use-field-report-writes', () => ({ useFieldReportWrites: () => writes }))
 
 import { CardContextMenu } from '@/components/kanban/card-context-menu'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 function openMenu(status: Operation['status'], onRepeatRadio = vi.fn()) {
-  const operation = { id: 'op-1', status, nachbarhilfe: false, amWarten: false } as Operation
+  const operation = makeOperation({ id: 'op-1', status, nachbarhilfe: false, amWarten: false })
   renderWithIntl(
     <ContextMenu>
       <ContextMenuTrigger>Karte</ContextMenuTrigger>
@@ -43,7 +44,7 @@ describe('CardContextMenu «Funkdurchsage wiederholen»', () => {
 // Sign-off 24.11.2026: a closed Einsatz is not considered for anything new – no Auftrag either.
 describe('CardContextMenu «An Auftrag verteilen»', () => {
   function openWithDistribute(status: Operation['status']) {
-    const operation = { id: 'op-1', status, nachbarhilfe: false, amWarten: false, groupId: null } as Operation
+    const operation = makeOperation({ id: 'op-1', status, nachbarhilfe: false, amWarten: false, groupId: null })
     renderWithIntl(
       <ContextMenu>
         <ContextMenuTrigger>Karte</ContextMenuTrigger>
@@ -70,7 +71,7 @@ describe('CardContextMenu Funkmeldungen', () => {
   function openWith(overrides: Partial<Operation>, canReport = true) {
     writes.saveRekoArrived.mockClear()
     writes.saveFieldReport.mockClear()
-    const operation = { id: 'op-1', status: 'reko', nachbarhilfe: false, amWarten: false, ...overrides } as Operation
+    const operation = makeOperation({ id: 'op-1', status: 'reko', nachbarhilfe: false, amWarten: false, ...overrides })
     renderWithIntl(
       <ContextMenu>
         <ContextMenuTrigger>Karte</ContextMenuTrigger>

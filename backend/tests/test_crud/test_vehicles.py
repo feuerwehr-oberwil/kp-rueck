@@ -26,38 +26,6 @@ from app.models import User, Vehicle
 
 
 @pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="vehicle_test_editor",
-        password_hash="hashed_password",
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="TLF Test",
-        type="TLF",
-        status="available",
-        display_order=1,
-        radio_call_sign="Test-1",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
-@pytest_asyncio.fixture
 async def multiple_vehicles(db_session: AsyncSession) -> list[Vehicle]:
     """Create multiple test vehicles."""
     vehicles = []

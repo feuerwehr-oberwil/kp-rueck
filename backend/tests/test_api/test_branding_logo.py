@@ -34,15 +34,6 @@ class TestAuth:
     async def test_unauthenticated_cannot_read(self, client: AsyncClient):
         assert (await client.get("/api/settings/branding/logo")).status_code == 401
 
-    @pytest.mark.asyncio
-    async def test_viewer_cannot_upload(self, viewer_client: AsyncClient):
-        response = await viewer_client.put("/api/settings/branding/logo", files=_upload(_image_bytes()))
-        assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_viewer_cannot_delete(self, viewer_client: AsyncClient):
-        assert (await viewer_client.delete("/api/settings/branding/logo")).status_code == 403
-
 
 class TestRoundTrip:
     @pytest.mark.asyncio

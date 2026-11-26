@@ -34,38 +34,6 @@ from app.models import (
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Assignment Test Event",
-        training_flag=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    """Create a test incident."""
-    incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Assignment Test Incident",
-        type="brandbekaempfung",
-        priority="medium",
-        status="incoming",
-        created_by=test_editor.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
-
-
-@pytest_asyncio.fixture
 async def second_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
     """Create a second test incident for conflict testing."""
     incident = Incident(
@@ -84,40 +52,8 @@ async def second_incident(db_session: AsyncSession, test_event: Event, test_edit
 
 
 @pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Test Firefighter",
-        role="Gruppenführer",
-        status="available",
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="TLF 1",
-        type="TLF",
-        status="available",
-        display_order=1,
-        radio_call_sign="Florian 1",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
-@pytest_asyncio.fixture
 async def test_material(db_session: AsyncSession) -> Material:
-    """Create test material."""
+    """Overrides conftest's: the material_collected fact a test reads names «Tauchpumpe 1»."""
     material = Material(
         id=uuid4(),
         name="Tauchpumpe 1",
@@ -223,18 +159,6 @@ async def test_assign_material_success(editor_client: AsyncClient, test_incident
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_assign_viewer_forbidden(viewer_client: AsyncClient, test_incident: Incident, test_personnel: Personnel):
-    """Test that viewers cannot assign resources."""
-    assignment_data = {
-        "resource_type": "personnel",
-        "resource_id": str(test_personnel.id),
-    }
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/assign", json=assignment_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_assign_invalid_resource_type(editor_client: AsyncClient, test_incident: Incident):
     """A bad resource_type is refused with a message that names the legal values.
 
@@ -317,16 +241,6 @@ async def test_unassign_success(
     """Test unassigning a resource from incident."""
     response = await editor_client.post(f"/api/incidents/{test_incident.id}/unassign/{existing_assignment.id}")
     assert response.status_code == 204
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_unassign_viewer_forbidden(
-    viewer_client: AsyncClient, test_incident: Incident, existing_assignment: IncidentAssignment
-):
-    """Test that viewers cannot unassign resources."""
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/unassign/{existing_assignment.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -455,15 +369,6 @@ async def test_collect_material_refuses_a_unit_the_amended_rapport_took_back(
     assert response.json()["detail"] == "Laut Rapport ist dieses Material nicht mehr vor Ort."
     await db_session.refresh(material_on_site)
     assert material_on_site.unassigned_at is None
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_collect_material_viewer_forbidden(
-    viewer_client: AsyncClient, test_incident: Incident, material_on_site: IncidentAssignment
-):
-    response = await viewer_client.post(f"/api/incidents/{test_incident.id}/material-collected/{material_on_site.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

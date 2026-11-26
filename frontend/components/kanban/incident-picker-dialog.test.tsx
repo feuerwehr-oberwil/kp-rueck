@@ -48,21 +48,18 @@ vi.mock("@/lib/contexts/groups-context", () => ({
 }))
 
 import { IncidentPickerDialog } from "./incident-picker-dialog"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 // --- Fixtures ----------------------------------------------------------------
 
 const makeOp = (id: string, overrides: Partial<Operation> = {}): Operation =>
-  ({
+  makeOperation({
     id,
     location: `Hauptstrasse ${id}`,
     locationDisplay: `Hauptstrasse ${id}`,
-    incidentType: "elementarereignis",
-    notes: "",
-    status: "incoming",
-    groupId: null,
     coordinates: null, // unlocated on purpose – keeps the GL map out of jsdom
     ...overrides,
-  }) as unknown as Operation
+  })
 
 const groups = [
   { id: "g-target", name: "Auftrag Nord", color: "#3b82f6", stopIds: [] },

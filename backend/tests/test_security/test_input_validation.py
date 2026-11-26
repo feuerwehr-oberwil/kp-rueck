@@ -8,30 +8,10 @@ Tests verify that:
 5. Format validation works (coordinates, UUIDs, etc.)
 """
 
-from uuid import uuid4
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Validation Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
 
 # ============================================
 # String Length Boundary Tests - Incidents
@@ -411,7 +391,7 @@ async def test_negative_display_order_rejected(editor_client: AsyncClient):
 @pytest.mark.security
 async def test_boolean_field_type_coercion(editor_client: AsyncClient):
     """Test that boolean fields handle various input types."""
-    # These should either work (type coercion) or fail with validation error
+    # Pydantic's lax mode coerces each of these to a bool
     event_data_variants = [
         {"name": "Bool Test 1", "training_flag": "true"},  # String
         {"name": "Bool Test 2", "training_flag": 1},  # Integer
@@ -420,8 +400,7 @@ async def test_boolean_field_type_coercion(editor_client: AsyncClient):
 
     for event_data in event_data_variants:
         response = await editor_client.post("/api/events/", json=event_data)
-        # Should either accept with coercion or reject with 422
-        assert response.status_code in [201, 422]
+        assert response.status_code == 201
 
 
 # ============================================
@@ -604,14 +583,13 @@ async def test_extra_fields_ignored_or_rejected(editor_client: AsyncClient, test
         "another_extra": 12345,
     }
     response = await editor_client.post("/api/incidents/", json=incident_data)
-    # Should either accept (ignoring extra fields) or reject
-    assert response.status_code in [201, 422]
+    # Unknown fields are ignored
+    assert response.status_code == 201
 
-    if response.status_code == 201:
-        data = response.json()
-        # Extra fields should not appear in response
-        assert "extra_field" not in data
-        assert "another_extra" not in data
+    data = response.json()
+    # Extra fields should not appear in response
+    assert "extra_field" not in data
+    assert "another_extra" not in data
 
 
 # ============================================

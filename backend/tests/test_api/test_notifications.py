@@ -24,23 +24,8 @@ from app.models import Event, Incident, Notification
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Test Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_incident(db_session: AsyncSession, test_event: Event) -> Incident:
-    """Create a test incident."""
+    """Overrides conftest's: the notification texts a test reads name «Test Incident»."""
     incident = Incident(
         id=uuid4(),
         event_id=test_event.id,
@@ -170,14 +155,6 @@ async def test_dismiss_notification_not_found(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_dismiss_notification_viewer_forbidden(viewer_client: AsyncClient, test_notification: Notification):
-    """Dismissal is global (hides it for the whole board), so a viewer may not do it."""
-    response = await viewer_client.post(f"/api/notifications/{test_notification.id}/dismiss")
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_dismiss_notification_idempotent(editor_client: AsyncClient, test_notification: Notification):
     """Test that dismissing a notification twice is idempotent."""
     # First dismiss
@@ -274,23 +251,14 @@ async def test_update_notification_settings_partial(editor_client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_update_notification_settings_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot update notification settings."""
-    response = await viewer_client.patch("/api/notifications/settings/", json={"fatigue_hours": 5})
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_update_notification_settings_invalid_value(editor_client: AsyncClient):
     """Test updating with invalid values."""
     response = await editor_client.patch(
         "/api/notifications/settings/",
         json={"fatigue_hours": -1},
     )
-    # API might accept negative values - depends on validation
-    # This tests the boundary behavior
-    assert response.status_code in [200, 422]
+    # A negative fatigue window is refused by validation
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { standbyLists } from './standby'
 import type { Operation } from './contexts/operations-context'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 const NOW = new Date('2026-07-11T17:30:00Z').getTime()
 
 function op(id: string, status: Operation['status'], priority: Operation['priority'], minutesInStatus: number): Operation {
   const since = new Date(NOW - minutesInStatus * 60_000)
-  return { id, status, priority, dispatchTime: since, statusChangedAt: since } as Operation
+  return makeOperation({ id, status, priority, dispatchTime: since, statusChangedAt: since })
 }
 
 describe('standbyLists', () => {

@@ -125,7 +125,7 @@ async def test_feld_sets_only_its_own_plan_and_reads_it_back(
     db_session.add(other)
     await db_session.commit()
     refused = await client.put(f"/api/feld/attendance/{other.id}/plan?token={token}", json={"planned_until": _at(90)})
-    assert refused.status_code in (401, 403)
+    assert refused.status_code == 403
 
     backwards = await client.put(
         f"/api/feld/attendance/{person.id}/plan?token={token}", json={"planned_from": _at(120)}

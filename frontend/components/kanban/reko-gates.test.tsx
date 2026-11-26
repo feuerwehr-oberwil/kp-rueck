@@ -40,44 +40,18 @@ import {
   useIncidentStatusWorkflow,
   type IncidentStatusWorkflowController,
 } from "@/components/kanban/incident-status-workflow"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 const noRoute: GroupResources = { personnel: [], vehicles: [], materials: [] }
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: "incident-1",
     location: "Bahnhofstrasse 22",
     locationDisplay: "Bahnhofstrasse 22",
-    vehicle: null,
-    vehicles: [],
-    incidentType: "elementarereignis",
     dispatchTime: new Date("2026-11-19T18:00:00Z"),
-    crew: [],
-    priority: "medium",
-    status: "incoming",
-    coordinates: null,
-    materials: [],
-    notes: "",
-    contact: "",
-    contactPhone: "",
-    internalNotes: "",
-    nachbarhilfe: false,
-    nachbarhilfeNote: "",
-    amWarten: false,
-    amWartenNote: "",
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  }
+  })
 }
 
 function renderBoard(initial: Operation) {

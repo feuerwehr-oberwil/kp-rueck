@@ -34,69 +34,6 @@ from app.utils.error_codes import DomainError
 
 
 @pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="checkin_crud_editor",
-        password_hash="hashed_password",
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Check-in CRUD Test Event",
-        training_flag=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_user: User, test_event: Event) -> Incident:
-    """Create a test incident."""
-    incident = Incident(
-        id=uuid4(),
-        title="Test Incident",
-        type="brandbekaempfung",
-        priority="high",
-        location_address="Test Street 1",
-        status="incoming",
-        event_id=test_event.id,
-        created_by=test_user.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Test Firefighter",
-        role="atemschutz",
-        status="available",
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
-
-
-@pytest_asyncio.fixture
 async def unavailable_personnel(db_session: AsyncSession) -> Personnel:
     """Create unavailable personnel."""
     personnel = Personnel(

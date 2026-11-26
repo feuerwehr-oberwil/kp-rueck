@@ -21,23 +21,6 @@ from app.models import User, Vehicle
 # ============================================
 
 
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="TLF 16/25",
-        type="TLF",
-        status="available",
-        display_order=1,
-        radio_call_sign="Florian Basel 1",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
 # ============================================
 # List Vehicles Tests
 # ============================================
@@ -179,17 +162,6 @@ async def test_create_vehicle_core_fields(editor_client: AsyncClient):
     assert data["status"] == "available"
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_create_vehicle_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot create vehicles."""
-    response = await viewer_client.post(
-        "/api/vehicles/",
-        json={"name": "New Vehicle", "display_order": 1},
-    )
-    assert response.status_code == 403
-
-
 # ============================================
 # Update Vehicle Tests
 # ============================================
@@ -238,14 +210,6 @@ async def test_update_vehicle_not_found(editor_client: AsyncClient):
     """Test updating a non-existent vehicle."""
     response = await editor_client.put(f"/api/vehicles/{uuid4()}", json={"name": "Updated"})
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_vehicle_viewer_forbidden(viewer_client: AsyncClient, test_vehicle: Vehicle):
-    """Test that viewers cannot update vehicles."""
-    response = await viewer_client.put(f"/api/vehicles/{test_vehicle.id}", json={"name": "Updated"})
-    assert response.status_code == 403
 
 
 # ============================================
@@ -362,14 +326,6 @@ async def test_delete_vehicle_not_found(editor_client: AsyncClient):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_delete_vehicle_viewer_forbidden(viewer_client: AsyncClient, test_vehicle: Vehicle):
-    """Test that viewers cannot delete vehicles."""
-    response = await viewer_client.delete(f"/api/vehicles/{test_vehicle.id}")
-    assert response.status_code == 403
-
-
 # ============================================
 # Response Structure Tests
 # ============================================
@@ -403,22 +359,6 @@ async def test_vehicle_response_structure(editor_client: AsyncClient, test_vehic
 # ============================================
 # Vehicle Status Endpoint Tests
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> "Event":
-    """Create a test event."""
-    from app.models import Event
-
-    event = Event(
-        id=uuid4(),
-        name="Vehicle Status Test Event",
-        training_flag=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 @pytest_asyncio.fixture

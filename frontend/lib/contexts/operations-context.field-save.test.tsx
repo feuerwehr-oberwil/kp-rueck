@@ -103,6 +103,8 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
 import { NetworkError } from "@/lib/api-client"
 import { getFieldSave, resetFieldSaveForTests, unsavedFieldDrafts, watchFieldSave } from "@/lib/field-save"
 import { OperationsProvider, useOperations } from "./operations-context"
+import { MUTATION_COOLDOWN_GRACE_MS } from "./operations/board-context"
+import { EDIT_DEBOUNCE_MS } from "./operations/incident-actions"
 
 const wrapper = ({ children }: { children: ReactNode }) => <OperationsProvider>{children}</OperationsProvider>
 
@@ -154,6 +156,14 @@ async function renderLoaded() {
 }
 
 const notesState = () => getFieldSave("1", "notes")
+
+
+/** Let `ms` of board time pass on the fake clock: a timer the code moves later cannot slip past the check. */
+async function pass(ms: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
+}
 
 describe("text field save state", () => {
   it("is «pending» through the debounce and «saving» until the server answers — then «saved»", async () => {
@@ -212,6 +222,7 @@ describe("text field save state", () => {
   })
 
   it("a background reload does not replace the kept draft", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const { result } = await renderLoaded()
 
     act(() => result.current.updateOperation("1", { notes: "Pumpe läuft" }))
@@ -221,7 +232,7 @@ describe("text field save state", () => {
     // Somebody else's change arrives; the board reloads.
     serverIncidents = [incident("1", { description: "Keller unter Wasser (Nachtrag KP)" })]
     const loadsBefore = api.getIncidentsWithTotal.mock.calls.length
-    await new Promise((r) => setTimeout(r, 600)) // cooldown grace
+    await pass(MUTATION_COOLDOWN_GRACE_MS) // past the failed write's cooldown
     act(() => ws.emit("incident_update"))
     await waitFor(() => expect(api.getIncidentsWithTotal.mock.calls.length).toBeGreaterThan(loadsBefore))
     await waitFor(() => expect(result.current.operations[0].notes).toBe("Keller unter Wasser (Nachtrag KP)"))
@@ -250,6 +261,7 @@ describe("text field save state", () => {
   })
 
   it("a user switch drops the previous operator's drafts and never sends their queued write", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const { result, rerender } = await renderLoaded()
 
     // A failed draft…
@@ -266,7 +278,7 @@ describe("text field save state", () => {
     await waitFor(() => expect(getFieldSave("1", "contact")).toBeUndefined())
     expect(getFieldSave("1", "notes")).toBeUndefined()
     expect(unsavedFieldDrafts()).toEqual([])
-    await new Promise((r) => setTimeout(r, 700))
+    await pass(EDIT_DEBOUNCE_MS.text) // when the queued write would have gone out
     expect(patches).toHaveLength(1)
   })
 })

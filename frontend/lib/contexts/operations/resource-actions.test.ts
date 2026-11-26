@@ -9,6 +9,7 @@ vi.mock('@/lib/api-client', () => ({ apiClient: api }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), warning: vi.fn() } }))
 
 import { createResourceActions } from './resource-actions'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 const sina = { id: 'p-sina', name: 'Unternährer Sina', isReko: true } as Person
 const bea = { id: 'p-bea', name: 'Brunner Bea', isReko: true } as Person
@@ -16,7 +17,7 @@ const bea = { id: 'p-bea', name: 'Brunner Bea', isReko: true } as Person
 /** The actions over one incident, with `setOperations` writing to `state.operations`.
  *  `fresh()` builds them over the current state, as the provider does on every render. */
 function board(op: Partial<Operation>) {
-  const state = { operations: [{ id: 'op-14', status: 'reko', assignedReko: null, ...op } as Operation] }
+  const state = { operations: [makeOperation({ id: 'op-14', status: 'reko', assignedReko: null, ...op })] }
   const settled = vi.fn()
   const context = {
     personnel: [sina, bea],

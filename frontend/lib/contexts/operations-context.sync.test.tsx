@@ -114,6 +114,7 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
 }))
 
 import { NetworkError } from "@/lib/api-client"
+import { REMOTE_UPDATE_MAX_WAIT_MS } from "@/lib/reload-scheduler"
 import { OperationsProvider, useBoardSyncStatus, useOperations } from "./operations-context"
 
 const wrapper = ({ children }: { children: ReactNode }) => <OperationsProvider>{children}</OperationsProvider>
@@ -167,6 +168,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+/** Let `ms` of board time pass on the fake clock: a timer the code moves later cannot slip past the check. */
+async function pass(ms: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
+}
+
 /** Answer the oldest open incident fetch and let the reload finish. */
 async function answer(incidents: ApiIncident[]) {
   const call = incidentCalls.shift()
@@ -186,6 +194,7 @@ async function renderLoaded(initial: ApiIncident[] = [incident("1")]) {
 
 describe("OperationsProvider — reload scheduling", () => {
   it("turns a burst of socket events into one reload", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     await renderLoaded()
     expect(api.getIncidentsWithTotal).toHaveBeenCalledTimes(1)
 
@@ -199,12 +208,12 @@ describe("OperationsProvider — reload scheduling", () => {
 
     await waitFor(() => expect(api.getIncidentsWithTotal).toHaveBeenCalledTimes(2))
     await answer([incident("1")])
-    // Give a would-be second reload time to appear.
-    await new Promise((r) => setTimeout(r, 300))
+    await pass(REMOTE_UPDATE_MAX_WAIT_MS) // the longest a second reload could be held back
     expect(api.getIncidentsWithTotal).toHaveBeenCalledTimes(2)
   })
 
   it("never overlaps two reloads, and the NEWEST fetch is what the board shows", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     const { result } = await renderLoaded()
 
     act(() => ws.emit("incident_update"))
@@ -213,7 +222,7 @@ describe("OperationsProvider — reload scheduling", () => {
     // More news while that reload is still out: it must queue, not start a
     // second request that could come back first.
     act(() => ws.emit("incident_update"))
-    await new Promise((r) => setTimeout(r, 300))
+    await pass(REMOTE_UPDATE_MAX_WAIT_MS)
     expect(incidentCalls).toHaveLength(1)
 
     await answer([incident("1"), incident("2")])

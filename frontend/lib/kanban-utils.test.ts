@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { colorGroupFor, findAuftragForStop, rekoColorOrder, remainingRouteStops, startableNextStop } from "./kanban-utils"
-import type { Operation, OperationStatus } from "./contexts/operations-context"
+import type { OperationStatus } from "./contexts/operations-context"
 import { REKO_PALETTE } from "./map-colors"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 const auftrag = (id: string, stopIds: string[]) => ({ id, stopIds })
 
@@ -85,7 +86,7 @@ describe("startableNextStop", () => {
 })
 
 describe("«Färben nach Reko»", () => {
-  const rekoOp = (personId: string) => ({ assignedReko: { id: personId, name: personId } }) as Operation
+  const rekoOp = (personId: string) => makeOperation({ assignedReko: { id: personId, name: personId } })
   const reko = (personnel_id: string) => ({ personnel_id, function_type: "reko" })
 
   it("gives the Ereignis's Reko people the palette in turn – no repeat until it is used up", () => {

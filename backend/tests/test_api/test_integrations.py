@@ -10,7 +10,7 @@ from app.config import settings
 @pytest.mark.api
 async def test_integrations_requires_auth(client: AsyncClient):
     resp = await client.get("/api/integrations")
-    assert resp.status_code in (401, 403)
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio

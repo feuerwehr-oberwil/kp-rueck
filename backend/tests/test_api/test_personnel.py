@@ -24,7 +24,7 @@ from app.models import Event, EventAttendance, Personnel
 
 @pytest_asyncio.fixture
 async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create test personnel."""
+    """Overrides conftest's: with tags, so the read tests see them come back."""
     personnel = Personnel(
         id=uuid4(),
         name="Hans Müller",
@@ -205,14 +205,6 @@ async def test_create_personnel_minimal(editor_client: AsyncClient):
     assert data["status"] == "available"
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_create_personnel_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot create personnel."""
-    response = await viewer_client.post("/api/personnel/", json={"name": "New Person"})
-    assert response.status_code == 403
-
-
 # ============================================
 # Update Personnel Tests
 # ============================================
@@ -276,14 +268,6 @@ async def test_update_personnel_not_found(editor_client: AsyncClient):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_personnel_viewer_forbidden(viewer_client: AsyncClient, test_personnel: Personnel):
-    """Test that viewers cannot update personnel."""
-    response = await viewer_client.put(f"/api/personnel/{test_personnel.id}", json={"name": "Updated"})
-    assert response.status_code == 403
-
-
 # ============================================
 # Delete Personnel Tests
 # ============================================
@@ -311,14 +295,6 @@ async def test_delete_personnel_not_found(editor_client: AsyncClient):
     """Test deleting a non-existent personnel record."""
     response = await editor_client.delete(f"/api/personnel/{uuid4()}")
     assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_delete_personnel_viewer_forbidden(viewer_client: AsyncClient, test_personnel: Personnel):
-    """Test that viewers cannot delete personnel."""
-    response = await viewer_client.delete(f"/api/personnel/{test_personnel.id}")
-    assert response.status_code == 403
 
 
 # ============================================
@@ -352,17 +328,6 @@ async def test_update_role_sort_order_success(editor_client: AsyncClient, test_p
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_update_role_sort_order_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot update role sort order."""
-    response = await viewer_client.post(
-        "/api/personnel/categories/sort-order",
-        json={"categories": [{"category": "Gruppenführer", "sort_order": 1}]},
-    )
-    assert response.status_code == 403
 
 
 # ============================================

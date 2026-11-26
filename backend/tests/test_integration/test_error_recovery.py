@@ -12,77 +12,10 @@ Tests verify system behavior under error conditions:
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, Personnel, User, Vehicle
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Error Recovery Test Event",
-        training_flag=False,
-        auto_attach_divera=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    """Create a test incident."""
-    incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Error Recovery Test Incident",
-        type="brandbekaempfung",
-        priority="medium",
-        status="incoming",
-        created_by=test_editor.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create a test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Error Test Person",
-        role="Feuerwehrmann",
-        status="available",
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
-
-
-@pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    """Create a test vehicle."""
-    vehicle = Vehicle(
-        id=uuid4(),
-        name="Error Test Vehicle",
-        type="TLF",
-        display_order=1,
-        status="available",
-        radio_call_sign="Error-1",
-    )
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
+from app.models import Event, Incident, Personnel
 
 # ============================================
 # Invalid Data Handling Tests
@@ -104,7 +37,7 @@ async def test_invalid_uuid_handling(editor_client: AsyncClient):
     for invalid_uuid in invalid_uuids:
         response = await editor_client.get(f"/api/incidents/{invalid_uuid}")
         # Should return 422 (validation error) not 500
-        assert response.status_code in [404, 422], f"Unexpected status for UUID: {invalid_uuid}"
+        assert response.status_code == 422, f"Unexpected status for UUID: {invalid_uuid}"
 
         # Should have proper error response
         data = response.json()
@@ -233,13 +166,12 @@ async def test_double_assignment_conflict(
     )
     assert response.status_code == 200
 
-    # Second assignment to same incident should fail or be idempotent
+    # A second assignment to the same incident is a conflict
     response = await editor_client.post(
         f"/api/incidents/{test_incident.id}/assign",
         json={"resource_type": "personnel", "resource_id": personnel_id},
     )
-    # Should return 409 (conflict) or be idempotent (200)
-    assert response.status_code in [200, 409]
+    assert response.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -370,29 +302,6 @@ async def test_event_delete_cascade_handling(admin_client: AsyncClient, db_sessi
 # ============================================
 # Authorization Error Tests
 # ============================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_viewer_cannot_create_incident(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot create incidents."""
-    incident_data = {
-        "event_id": str(test_event.id),
-        "title": "Viewer Created Incident",
-        "type": "brandbekaempfung",
-        "priority": "high",
-    }
-    response = await viewer_client.post("/api/incidents/", json=incident_data)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_viewer_cannot_update_incident(viewer_client: AsyncClient, test_incident: Incident):
-    """Test that viewers cannot update incidents."""
-    update_data = {"title": "Viewer Updated Title"}
-    response = await viewer_client.patch(f"/api/incidents/{test_incident.id}", json=update_data)
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -562,10 +471,9 @@ async def test_pagination_boundaries(editor_client: AsyncClient, test_event: Eve
 @pytest.mark.integration
 async def test_empty_update_body(editor_client: AsyncClient, test_incident: Incident):
     """Test handling of empty update body."""
-    # Empty object should be valid (no-op update)
+    # An empty object is a valid no-op update
     response = await editor_client.patch(f"/api/incidents/{test_incident.id}", json={})
-    # Should either succeed or return validation error
-    assert response.status_code in [200, 422]
+    assert response.status_code == 200
 
 
 # ============================================

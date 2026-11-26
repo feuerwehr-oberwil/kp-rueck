@@ -1,6 +1,5 @@
 import { act, cleanup, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { Operation } from "@/lib/contexts/operations-context"
 
 const fixture = vi.hoisted(() => ({ onLoad: undefined as undefined | ((map: unknown) => void) }))
 vi.mock("@/components/map/base-map", () => ({
@@ -12,11 +11,12 @@ vi.mock("@/components/map/base-map", () => ({
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }))
 vi.mock("@/lib/map-view", () => ({ fitTo: vi.fn() }))
 import PrintableMap from "./printable-map"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
-const operation = {
+const operation = makeOperation({
   id: "synthetic", coordinates: [47, 8], priority: "medium", location: "Synthetic",
   incidentType: "elementarereignis", status: "incoming",
-} as Operation
+})
 
 function mount() {
   const onReady = vi.fn()

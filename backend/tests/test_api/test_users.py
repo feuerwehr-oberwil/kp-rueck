@@ -829,7 +829,7 @@ async def test_reactivation_does_not_restore_previous_sessions(admin_client, tar
             disabled = await admin_client.delete(f"/api/users/{user_id}")
         else:
             disabled = await admin_client.put(f"/api/users/{user_id}", json={"is_active": False})
-        assert disabled.status_code in (200, 204)
+        assert disabled.status_code == (204 if soft_delete else 200)
         stored = await stored_user(db_session, user_id)
         assert stored.session_version == 1
         assert (await admin_client.put(f"/api/users/{user_id}", json={"is_active": False})).status_code == 200

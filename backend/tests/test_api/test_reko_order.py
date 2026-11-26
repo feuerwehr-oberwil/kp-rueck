@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.crud import reko_assignment as reko_crud
 from app.crud.manual_order import OrderChangedError
 from app.models import Event, EventSpecialFunction, Incident, IncidentAssignment, Personnel, User
-from tests.conftest import feld_device_token
+from tests.conftest import feld_device_token, wait_until_blocked
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.api]
 
@@ -262,8 +262,7 @@ class TestPersonLock:
                     reorderer, event_id, person_id, [second, first], expected_ids=[first, second]
                 )
             )
-            await asyncio.sleep(0.3)
-            assert not reorder.done(), "the reorder must wait for the person's row lock"
+            await wait_until_blocked(sessions)  # the reorder waits for the person's row lock
 
             await assigner.commit()
             with pytest.raises(OrderChangedError):

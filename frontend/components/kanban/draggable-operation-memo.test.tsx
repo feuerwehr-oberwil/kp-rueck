@@ -35,35 +35,21 @@ vi.mock('@atlaskit/pragmatic-drag-and-drop/combine', () => ({
 }))
 
 import { DraggableOperation, sameStrings } from '@/components/kanban/draggable-operation'
-import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
+import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: 'incident-1',
     location: 'Hauptstrasse 1, 4104 Oberwil',
-    vehicle: null,
     vehicles: [assignedVehicle('TLF Oberwil')],
     incidentType: 'brandbekaempfung',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
     crew: [crewMember('Muster Hans')],
     priority: 'low',
-    status: 'incoming',
     coordinates: [47.1, 7.2],
     materials: ['mat-1'],
     notes: 'Wasser im Keller',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
     hasCompletedReko: true,
-    rekoArrivedAt: null,
     rekoSummary: {
       isRelevant: true,
       hasDangers: true,
@@ -73,12 +59,8 @@ function operation(overrides: Partial<Operation> = {}): Operation {
       summaryText: null,
       photos: [],
     },
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  } as Operation
+  })
 }
 
 const MATERIALS = [{ id: 'mat-1', name: 'Tauchpumpe' }] as unknown as Material[]

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest"
 import type { Operation } from "@/lib/contexts/operations-context"
 import { mergeOpenOrder, openRekosByPerson, rekoEditorTap, rekosOf } from "./reko-order"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 const op = (id: string, person: string | null, rekoPosition: number | null, extra: Partial<Operation> = {}): Operation =>
-  ({
+  makeOperation({
     id,
     status: "reko",
-    hasCompletedReko: false,
     assignedReko: person ? { id: person, name: person } : null,
     rekoPosition,
     ...extra,
-  }) as Operation
+  })
 
 describe("rekosOf", () => {
   it("lists a person's Rekos in their order, unnumbered ones last as they came", () => {

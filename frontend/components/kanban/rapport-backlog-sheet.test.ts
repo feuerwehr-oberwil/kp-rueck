@@ -6,42 +6,20 @@ import {
   selectFiledRapports,
   selectOpenRapports,
 } from '@/components/kanban/rapport-backlog-sheet'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: 'incident-1',
     location: 'Hauptstrasse 1',
-    vehicle: null,
-    vehicles: [],
-    incidentType: 'elementarereignis',
     dispatchTime: new Date('2026-08-09T18:00:00Z'),
-    crew: [],
     priority: 'low',
     status: 'complete',
     coordinates: [47.1, 7.2],
-    materials: [],
-    notes: '',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
     statusChangedAt: new Date('2026-08-09T20:00:00Z'),
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
     hasBeenDispatched: true,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  }
+  })
 }
 
 describe('isOpenRapport', () => {

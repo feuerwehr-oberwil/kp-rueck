@@ -26,6 +26,7 @@ from app import schemas
 from app.crud import groups as groups_crud
 from app.crud.manual_order import OrderChangedError
 from app.models import AuditLog, Event, Incident, IncidentGroup, User
+from tests.conftest import wait_until_blocked
 
 
 def _request() -> MagicMock:
@@ -212,8 +213,7 @@ class TestOverlap:
             restore = asyncio.create_task(
                 groups_crud.reorder_group_stops(undo, group_id, [a, b, c], expected_ids=optimised)
             )
-            await asyncio.sleep(0.3)
-            assert not restore.done(), "the guarded restore must wait for the Auftrag lock"
+            await wait_until_blocked(sessions)  # the guarded restore waits for the Auftrag lock
 
             await other.commit()
             with pytest.raises(OrderChangedError):
@@ -231,7 +231,6 @@ class TestOverlap:
             await holder.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
             user = await remover.get(User, user_id)
             removal = asyncio.create_task(groups_crud.remove_stop_from_group(remover, group_id, a, user, _request()))
-            await asyncio.sleep(0.3)
-            assert not removal.done(), "remove_stop_from_group must take the Auftrag lock"
+            await wait_until_blocked(sessions)  # remove_stop_from_group takes the Auftrag lock
             await holder.rollback()
             assert await asyncio.wait_for(removal, timeout=10) is True

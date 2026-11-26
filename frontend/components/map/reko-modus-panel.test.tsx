@@ -9,7 +9,6 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { NextIntlClientProvider } from "next-intl"
 import de from "@/messages/de.json"
-import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
 
 const reorder = vi.hoisted(() => vi.fn(async () => {}))
@@ -44,10 +43,11 @@ vi.mock("@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge", () => ({
 vi.mock("@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box", () => ({ DropIndicator: () => null }))
 
 import { RekoModusPanel } from "./reko-modus-panel"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 const person = (id: string, name: string) => ({ id, name, role: "Offizier", isReko: true }) as Person
 const op = (id: string, location: string) =>
-  ({ id, location, incidentType: "elementarereignis", status: "reko", notes: "", number: null, coordinates: [47.5, 7.5] }) as unknown as Operation
+  makeOperation({ id, location, incidentType: "elementarereignis", status: "reko", notes: "", number: null, coordinates: [47.5, 7.5] })
 
 const keller = person("p1", "Keller Marco")
 const brunner = person("p2", "Brunner Sarah")

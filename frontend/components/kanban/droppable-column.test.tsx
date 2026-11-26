@@ -11,6 +11,7 @@ import {
   columns,
 } from '@/lib/kanban-utils'
 import type { Material, Operation } from '@/lib/contexts/operations-context'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 /**
  * Folding a column is a safety trade: the board buys width by hiding cards, so
@@ -56,29 +57,14 @@ function installStorage() {
 const HOUR_AGO = new Date(Date.now() - 90 * 60 * 1000)
 
 function op(id: string, overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id,
     location: `Hauptstrasse ${id}`,
     locationDisplay: `Hauptstrasse ${id}`,
     incidentType: 'brand',
-    status: 'incoming',
-    priority: 'medium',
-    crew: [],
-    vehicles: [],
-    materials: [],
     dispatchTime: new Date(),
-    statusChangedAt: null,
-    notes: '',
-    contact: '',
-    groupId: null,
-    groupPosition: 0,
-    nachbarhilfe: false,
-    zuFuss: false,
-    hasCompletedReko: false,
-    assignedReko: null,
-    materialAssignments: new Map(),
     ...overrides,
-  } as Operation
+  })
 }
 
 const INCOMING = columns[0]

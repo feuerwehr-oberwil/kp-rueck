@@ -30,7 +30,6 @@ from app.models import (
     IncidentAssignment,
     IncidentGroup,
     IncidentGroupAssignment,
-    Material,
     Personnel,
     User,
     Vehicle,
@@ -40,31 +39,6 @@ from app.utils.error_codes import DomainError
 # ============================================
 # Fixtures
 # ============================================
-
-
-@pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession) -> User:
-    """Create a test editor user."""
-    user = User(
-        id=uuid4(),
-        username="group_test_editor",
-        password_hash="hashed_password",
-        role="editor",
-    )
-    db_session.add(user)
-    await db_session.commit()
-    await db_session.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(id=uuid4(), name="Group Test Event", training_flag=False)
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
 
 
 @pytest_asyncio.fixture
@@ -372,15 +346,6 @@ class TestAddRemoveStops:
 
 
 @pytest_asyncio.fixture
-async def test_vehicle(db_session: AsyncSession) -> Vehicle:
-    vehicle = Vehicle(id=uuid4(), name="TLF 1", type="TLF", status="available")
-    db_session.add(vehicle)
-    await db_session.commit()
-    await db_session.refresh(vehicle)
-    return vehicle
-
-
-@pytest_asyncio.fixture
 async def person_a(db_session: AsyncSession) -> Personnel:
     p = Personnel(id=uuid4(), name="Anna", role="Truppmann", status="available")
     db_session.add(p)
@@ -396,15 +361,6 @@ async def person_b(db_session: AsyncSession) -> Personnel:
     await db_session.commit()
     await db_session.refresh(p)
     return p
-
-
-@pytest_asyncio.fixture
-async def test_material(db_session: AsyncSession) -> Material:
-    m = Material(id=uuid4(), name="Stromerzeuger", type="Stromerzeuger", status="available", location="Lager")
-    db_session.add(m)
-    await db_session.commit()
-    await db_session.refresh(m)
-    return m
 
 
 async def _group_active_types(db, group_id):

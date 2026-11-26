@@ -101,7 +101,7 @@ async def test_alarm_requires_auth(client: AsyncClient, alarm_incident: Incident
         f"/api/divera/incidents/{alarm_incident.id}/alarm",
         json={"personnel_ids": [str(uuid4())]},
     )
-    assert resp.status_code in (401, 403)
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio

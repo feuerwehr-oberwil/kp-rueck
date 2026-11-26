@@ -53,8 +53,9 @@ export default defineConfig({
     },
   ],
 
-  // An E2E_BASE_URL means the caller brought its own server (fat-perf.sh, notification-storm.sh,
-  // a throwaway stack); otherwise `pnpm dev` on :3000.
+  // An E2E_BASE_URL means the caller brought its own server (CI's production bundle via
+  // scripts/serve-standalone.sh, fat-perf.sh, notification-storm.sh, a throwaway stack);
+  // otherwise `pnpm dev` on :3000.
   webServer: process.env.E2E_BASE_URL ? undefined : {
     command: 'pnpm dev',
     url: 'http://localhost:3000',

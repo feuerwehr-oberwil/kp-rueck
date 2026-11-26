@@ -6,6 +6,10 @@ import type { Person } from "../personnel-context"
 import type { Material } from "../materials-context"
 import type { Operation, OperationsContextType, StatusWriteGuard, VehicleNeedingDriver } from "./types"
 
+/** How long the board keeps holding remote reloads back after a mutation's request
+ *  settled (the default of `releaseAssignmentCooldown`). */
+export const MUTATION_COOLDOWN_GRACE_MS = 500
+
 /**
  * What the board's mutations read and write: this render's state plus the
  * provider's setters, refs and cooldown hooks. The action factories are called

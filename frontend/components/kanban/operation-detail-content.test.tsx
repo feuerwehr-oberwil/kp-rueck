@@ -6,7 +6,7 @@ import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { apiClient } from "@/lib/api-client"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { Person } from "@/lib/contexts/personnel-context"
-import { crewMember, assignedVehicle } from "@/test-utils/operation-fixtures"
+import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
 import { byAddress } from "@/test-utils/address-text"
 import { noteFieldEdit, noteFieldQueued, noteFieldSend, noteFieldSettled, resetFieldSaveForTests, setFieldSaveScope } from "@/lib/field-save"
 
@@ -144,38 +144,16 @@ vi.mock("@/components/kanban/transfer-reko-dialog", () => ({
 
 import { OperationDetailContent } from "@/components/kanban/operation-detail-content"
 
-const operation: Operation = {
+const operation = makeOperation({
   id: "incident-1",
   location: "Hauptstrasse 1",
-  vehicle: null,
-  vehicles: [],
   incidentType: "brand",
   dispatchTime: new Date(),
-  crew: [],
   priority: "high",
-  status: "incoming",
   coordinates: [47.1, 7.2],
-  materials: [],
   notes: "Meldung",
-  contact: "",
-  contactPhone: "",
-  internalNotes: "",
-  nachbarhilfe: false,
-  nachbarhilfeNote: "",
-  amWarten: false,
-  amWartenNote: "",
-  zuFuss: false,
-  groupId: null,
-  groupPosition: 0,
-  statusChangedAt: null,
-  hasCompletedReko: false,
-  rekoArrivedAt: null,
-  rekoSummary: null,
   assignedReko: { id: sourcePerson.id, name: sourcePerson.name },
-  leaderId: null,
-  leaderName: null,
-  materialAssignments: new Map(),
-}
+})
 
 const tab = (name: string | RegExp) => screen.getByRole("tab", { name })
 
@@ -916,13 +894,13 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
 
   /** A stop of `auftrag` that still holds the crew and material it was given
    *  BEFORE it was grouped — the case that used to render as nothing. */
-  const groupedOperation: Operation = {
+  const groupedOperation = makeOperation({
     ...operation,
     groupId: "g1",
     crew: [{ personnelId: "p-beat", assignmentId: "a1", name: "Beat Kunz" }],
     materials: ["mat-1"],
     materialAssignments: new Map([["mat-1", "a2"]]),
-  }
+  })
 
   const seedAuftrag = () => {
     groupsState.groups = [auftrag]

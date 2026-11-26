@@ -7,6 +7,7 @@ import type { Operation } from "@/lib/contexts/operations-context"
 import type { IncidentChoice } from "@/lib/journal"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { JournalSheet } from "./journal-sheet"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 const mobile = vi.hoisted(() => ({ value: false }))
 vi.mock("@/components/ui/use-mobile", () => ({ useIsMobile: () => mobile.value }))
@@ -44,13 +45,13 @@ function row(over: Partial<ApiJournalEntry>): ApiJournalEntry {
   }
 }
 
-const op = {
+const op = makeOperation({
   id: "i1",
   location: "Gartenweg 4, Oberwil",
   locationDisplay: "Gartenweg 4",
   incidentType: "brandbekaempfung",
   status: "active",
-} as unknown as Operation
+})
 
 const ROWS = [
   row({ kind: "status", category: "status", incident_id: "i1", incident_title: "Gartenweg 4", data: { from_status: "incoming", to_status: "enroute" } }),

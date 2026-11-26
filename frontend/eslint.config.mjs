@@ -140,6 +140,17 @@ export default [
       "no-restricted-syntax": ["error", ...SYNTAX, MAP_COMPONENT_IMPORT_EXPRESSION],
     },
   },
+  // Unit tests build an Operation with makeOperation() (test-utils/operation-fixtures.ts): a cast
+  // hides a new required field, and the test runs on a shape the board never makes.
+  {
+    files: TESTS,
+    rules: {
+      "no-restricted-syntax": ["error", ...SYNTAX, {
+        selector: "TSAsExpression > TSTypeReference.typeAnnotation[typeName.name='Operation']",
+        message: "Build the Operation with makeOperation() from @/test-utils/operation-fixtures – no cast.",
+      }],
+    },
+  },
   {
     // Node scripts. The overflow scanner also carries a function that runs IN the page
     // (serialised by Playwright), hence the DOM names beside Node's.

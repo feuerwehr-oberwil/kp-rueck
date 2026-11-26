@@ -5,6 +5,7 @@ import type { Operation } from '@/lib/contexts/operations-context'
 import { ageLevel } from '@/lib/kanban-utils'
 
 import { AGED_FROM_MINUTES, WallColumnAgeChip } from '@/components/display/wall-column-age-chip'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 /**
  * The wall column's overdue mark says how many and from when, in the age
@@ -14,13 +15,12 @@ import { AGED_FROM_MINUTES, WallColumnAgeChip } from '@/components/display/wall-
 const MIN = 60_000
 
 function op(id: string, minutesAgo: number): Operation {
-  return {
+  return makeOperation({
     id,
     location: `Strasse ${id}`,
     status: 'active',
     dispatchTime: new Date(Date.now() - minutesAgo * MIN),
-    statusChangedAt: null,
-  } as Operation
+  })
 }
 
 describe('WallColumnAgeChip', () => {

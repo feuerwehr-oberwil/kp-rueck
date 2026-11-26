@@ -153,17 +153,6 @@ async def test_generate_emergencies_requires_auth(client: AsyncClient, training_
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_generate_emergencies_viewer_forbidden(viewer_client: AsyncClient, training_event: Event):
-    """Test that viewers cannot generate emergencies."""
-    response = await viewer_client.post(
-        f"/api/training/events/{training_event.id}/generate/",
-        json={"count": 1},
-    )
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_generate_emergencies_event_not_found(editor_client: AsyncClient):
     """Test generating emergencies for non-existent event."""
     response = await editor_client.post(
@@ -1474,19 +1463,6 @@ async def test_simulate_pickup_on_a_live_event_is_refused(
     # Nothing was written on the way out.
     await db_session.refresh(incident)
     assert incident.pickup_needed is False
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_simulate_arrived_and_pickup_refuse_a_viewer(
-    viewer_client: AsyncClient, training_event: Event, crewed_incident: Incident
-):
-    """Injects are the Übungsleiter's, not a spectator's."""
-    for path in ("arrived", "pickup"):
-        response = await viewer_client.post(
-            f"/api/training/events/{training_event.id}/simulate/{path}/{crewed_incident.id}"
-        )
-        assert response.status_code == 403
 
 
 @pytest.mark.asyncio

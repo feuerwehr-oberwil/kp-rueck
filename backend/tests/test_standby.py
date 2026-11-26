@@ -20,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models import Event, Incident, Setting
 from app.standby import (
+    LOCAL_IDENTITY_START,
+    _lift_identities,
     event_links,
     install_guards,
     mirror_state,
@@ -213,6 +215,32 @@ async def test_the_boxs_own_journal_rows_never_take_a_seq_the_hosted_board_hands
 
 
 @pytest.mark.asyncio
+async def test_lifting_the_identities_never_hands_out_a_value_the_box_already_wrote(db_session):
+    """After a reset the box's sequence starts again, but the rows it wrote before are still there."""
+    event = Event(id=uuid4(), name="Unwetter", training_flag=False, created_at=datetime.now(UTC))
+    db_session.add(event)
+    await db_session.flush()
+    conn = await _driver(db_session)
+    written_before = LOCAL_IDENTITY_START + 50
+    await conn.execute(
+        "INSERT INTO journal_entries (id, seq, event_id, kind, text) VALUES ($1, $2, $3, 'manual', 'vor dem Reset')",
+        uuid4(),
+        written_before,
+        event.id,
+    )
+    # The sequence back at its start (sequences outlive the test's rollback, so it is set here).
+    await conn.execute("SELECT setval(pg_get_serial_sequence('public.journal_entries', 'seq'), 1, false)")
+    insert = "INSERT INTO journal_entries (id, event_id, kind, text) VALUES ($1, $2, 'manual', 'x') RETURNING seq"
+
+    await _lift_identities(conn)
+    first = await conn.fetchval(insert, uuid4(), event.id)
+    await _lift_identities(conn)  # every setup round lifts again
+    second = await conn.fetchval(insert, uuid4(), event.id)
+
+    assert (first, second) == (written_before + 1, written_before + 2)
+
+
+@pytest.mark.asyncio
 async def test_a_lead_the_hosted_board_still_gives_the_box_is_taken_up_again_after_a_reset(db_session, two_events):
     a, _, ia, _ = two_events
     conn = await _driver(db_session)
@@ -347,7 +375,7 @@ async def test_an_ereignis_created_on_the_mirror_is_offline_from_the_start(
 
     created = await editor_client.post("/api/events/", json={"name": "Brand Magazin", "training_flag": False})
 
-    assert created.status_code in (200, 201)
+    assert created.status_code == 201
     state = await mirror_state(await _driver(db_session))
     assert str(next(iter(state.detached))) == created.json()["id"]
     # Led here from its first row, so the sync takes it to the hosted board.

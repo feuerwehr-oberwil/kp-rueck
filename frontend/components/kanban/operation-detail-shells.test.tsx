@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { cleanup, screen, waitFor } from "@testing-library/react"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
-import type { Operation, Material } from "@/lib/contexts/operations-context"
+import type { Material } from "@/lib/contexts/operations-context"
 
 const renderedDetailProps = vi.hoisted(() => [] as Array<Record<string, unknown>>)
 
@@ -20,39 +20,16 @@ vi.mock("next/dynamic", () => ({ default: () => () => null }))
 
 import { OperationDetailModal } from "@/components/kanban/operation-detail-modal"
 import { SidePanel } from "@/components/kanban/side-panel"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
-const operation: Operation = {
+const operation = makeOperation({
   id: "incident-1",
   location: "Hauptstrasse 1",
-  vehicle: null,
-  vehicles: [],
   incidentType: "brand",
   dispatchTime: new Date("2026-07-23T10:00:00Z"),
-  crew: [],
   priority: "high",
-  status: "incoming",
-  coordinates: null,
-  materials: [],
   notes: "Meldung",
-  contact: "",
-  contactPhone: "",
-  internalNotes: "",
-  nachbarhilfe: false,
-  nachbarhilfeNote: "",
-  amWarten: false,
-  amWartenNote: "",
-  zuFuss: false,
-  groupId: null,
-  groupPosition: 0,
-  statusChangedAt: null,
-  hasCompletedReko: false,
-  rekoArrivedAt: null,
-  rekoSummary: null,
-  assignedReko: null,
-  leaderId: null,
-  leaderName: null,
-  materialAssignments: new Map(),
-}
+})
 
 const materials: Material[] = []
 const noop = vi.fn()

@@ -35,43 +35,21 @@ vi.mock('@/components/reko/reko-report-section', () => ({ default: () => null })
 import { MobileIncidentCard } from '@/components/mobile/mobile-incident-card'
 import { MobileIncidentDetailSheet } from '@/components/mobile/mobile-incident-detail-sheet'
 import { MapIncidentPeek } from '@/components/mobile/map-incident-peek'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 const REQUESTED = new Date('2026-08-09T21:14:00Z')
 
 function operation(overrides: Partial<Operation> = {}): Operation {
-  return {
+  return makeOperation({
     id: 'incident-1',
     location: 'Hauptstrasse 1, 4104 Oberwil',
-    vehicle: null,
-    vehicles: [],
     incidentType: 'brandbekaempfung',
     dispatchTime: new Date('2026-08-09T10:00:00Z'),
-    crew: [],
     priority: 'low',
     status: 'complete',
     coordinates: [47.1, 7.2],
-    materials: [],
-    notes: '',
-    contact: '',
-    contactPhone: '',
-    internalNotes: '',
-    nachbarhilfe: false,
-    nachbarhilfeNote: '',
-    amWarten: false,
-    amWartenNote: '',
-    zuFuss: false,
-    groupId: null,
-    groupPosition: 0,
-    statusChangedAt: null,
-    hasCompletedReko: false,
-    rekoArrivedAt: null,
-    rekoSummary: null,
-    assignedReko: null,
-    leaderId: null,
-    leaderName: null,
-    materialAssignments: new Map(),
     ...overrides,
-  } as Operation
+  })
 }
 
 const WAITING = operation({ pickupNeeded: true, pickupRequestedAt: REQUESTED })

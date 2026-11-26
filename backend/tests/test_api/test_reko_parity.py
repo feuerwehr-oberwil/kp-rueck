@@ -185,7 +185,7 @@ class TestRekoReportParity:
             json=_body(incident_id=str(target_id), token=wrong_token),
         )
 
-        assert response.status_code in (400, 401)
+        assert response.status_code == 400
         assert await _reports(db_session, target_id) == []
 
     @pytest.mark.asyncio
@@ -211,7 +211,7 @@ class TestRekoReportParity:
             json=_body(incident_id=str(target_id), token=generate_form_token(str(other.id))),
         )
 
-        assert response.status_code in (400, 401)
+        assert response.status_code == 400
         assert await _reports(db_session, target_id) == []
 
     @pytest.mark.asyncio

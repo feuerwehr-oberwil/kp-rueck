@@ -4,17 +4,15 @@ import {
   applyResourceDrop,
   reorderWithinColumn,
 } from "@/lib/hooks/use-kanban-drag-drop"
-import type { Material, Operation, Person } from "@/lib/contexts/operations-context"
+import type { Material, OperationStatus, Person } from "@/lib/contexts/operations-context"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
-const ungrouped = { id: "op-2", status: "incoming", crew: [], materials: [] } as unknown as Operation
+const ungrouped = makeOperation({ id: "op-2", status: "incoming", crew: [], materials: [] })
 /** A stop of an Auftrag — the case where a drop used to vanish. */
-const stop = {
+const stop = makeOperation({
   id: "op-3",
-  status: "incoming",
   groupId: "grp-1",
-  crew: [],
-  materials: [],
-} as unknown as Operation
+})
 
 const assignPersonToOperation = vi.fn()
 const assignMaterialToOperation = vi.fn()
@@ -87,8 +85,8 @@ describe("applyResourceDrop", () => {
 
   // Owner feedback 23.11.2026 #7: a closed Einsatz takes nothing new, not even via its Auftrag.
   it("assigns nothing onto a closed Einsatz or a closed stop", () => {
-    const closed = { ...ungrouped, status: "complete" } as Operation
-    const closedStop = { ...stop, status: "complete" } as Operation
+    const closed = makeOperation({ ...ungrouped, status: "complete" })
+    const closedStop = makeOperation({ ...stop, status: "complete" })
     const onClosed = deps()
     onClosed.operations = [closed, closedStop]
     expect(applyResourceDrop({ type: "person", person: busyPerson }, onCard, onClosed)).toBe(true)
@@ -103,8 +101,7 @@ describe("applyResourceDrop", () => {
   })
 })
 
-const card = (id: string, status: string) =>
-  ({ id, status, crew: [], materials: [] }) as unknown as Operation
+const card = (id: string, status: OperationStatus) => makeOperation({ id, status })
 
 describe("reorderWithinColumn", () => {
   const column = [card("a", "incoming"), card("b", "incoming"), card("c", "incoming")]

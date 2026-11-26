@@ -135,18 +135,6 @@ async def test_import_preview_requires_auth(client: AsyncClient):
 
 @pytest.mark.asyncio
 @pytest.mark.api
-async def test_import_preview_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot preview import."""
-    # Create a mock file
-    files = {
-        "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    }
-    response = await viewer_client.post("/api/admin/import/preview", files=files)
-    assert response.status_code == 403
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
 async def test_import_preview_invalid_file_type(editor_client: AsyncClient):
     """Test that non-Excel files are rejected."""
     files = {"file": ("test.txt", b"fake content", "text/plain")}
@@ -219,17 +207,6 @@ async def test_import_execute_requires_auth(client: AsyncClient):
     """Test that import execution requires authentication."""
     response = await client.post("/api/admin/import/execute")
     assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_import_execute_viewer_forbidden(viewer_client: AsyncClient):
-    """Test that viewers cannot execute import."""
-    files = {
-        "file": ("test.xlsx", b"fake content", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    }
-    response = await viewer_client.post("/api/admin/import/execute", files=files)
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

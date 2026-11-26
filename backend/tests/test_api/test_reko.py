@@ -44,55 +44,6 @@ from tests.conftest import TEST_PASSWORD
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Reko Test Event",
-        training_flag=False,
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
-async def test_incident(db_session: AsyncSession, test_event: Event, test_editor: User) -> Incident:
-    """Create a test incident."""
-    incident = Incident(
-        id=uuid4(),
-        event_id=test_event.id,
-        title="Reko Test Incident",
-        type="brandbekaempfung",
-        priority="medium",
-        status="reko",
-        location_address="Teststrasse 1",
-        description="Test incident for reko",
-        created_by=test_editor.id,
-    )
-    db_session.add(incident)
-    await db_session.commit()
-    await db_session.refresh(incident)
-    return incident
-
-
-@pytest_asyncio.fixture
-async def test_personnel(db_session: AsyncSession) -> Personnel:
-    """Create test personnel."""
-    personnel = Personnel(
-        id=uuid4(),
-        name="Test Firefighter",
-        role="Zugführer",
-        status="available",
-    )
-    db_session.add(personnel)
-    await db_session.commit()
-    await db_session.refresh(personnel)
-    return personnel
-
-
-@pytest_asyncio.fixture
 def valid_token(test_incident: Incident) -> str:
     """Generate a valid token for the test incident."""
     return generate_form_token(str(test_incident.id), "reko")
@@ -679,7 +630,7 @@ async def test_generate_reko_link_is_editor_only(client: AsyncClient, test_incid
     session.
     """
     response = await client.post(f"/api/reko/generate-link?incident_id={test_incident.id}")
-    assert response.status_code in (401, 403)
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

@@ -25,21 +25,6 @@ from app.services.tokens import generate_checkin_token, generate_link_token
 
 
 @pytest_asyncio.fixture
-async def test_event(db_session: AsyncSession) -> Event:
-    """Create a test event."""
-    event = Event(
-        id=uuid4(),
-        name="Check-in Test Event",
-        training_flag=False,
-        created_at=datetime.now(UTC),
-    )
-    db_session.add(event)
-    await db_session.commit()
-    await db_session.refresh(event)
-    return event
-
-
-@pytest_asyncio.fixture
 async def test_personnel(db_session: AsyncSession) -> list[Personnel]:
     """Create test personnel."""
     personnel_list = []
@@ -78,14 +63,6 @@ async def test_generate_link_requires_auth(client: AsyncClient, test_event: Even
     """Test that generating check-in link requires authentication."""
     response = await client.post(f"/api/personnel/check-in/generate-link?event_id={test_event.id}")
     assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-@pytest.mark.api
-async def test_generate_link_requires_editor(viewer_client: AsyncClient, test_event: Event):
-    """Test that viewers cannot generate check-in links."""
-    response = await viewer_client.post(f"/api/personnel/check-in/generate-link?event_id={test_event.id}")
-    assert response.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -240,7 +217,7 @@ async def test_checkin_success(client: AsyncClient, valid_token: str, test_perso
 async def test_checkin_not_found(client: AsyncClient, valid_token: str):
     """Test check-in for non-existent personnel."""
     response = await client.post(f"/api/personnel/check-in/{uuid4()}/in?token={valid_token}")
-    assert response.status_code in [400, 404]
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -253,9 +230,9 @@ async def test_checkin_twice(client: AsyncClient, valid_token: str, test_personn
     response1 = await client.post(f"/api/personnel/check-in/{person.id}/in?token={valid_token}")
     assert response1.status_code == 200
 
-    # Second check-in - should either succeed or return appropriate error
+    # Checking in again is idempotent
     response2 = await client.post(f"/api/personnel/check-in/{person.id}/in?token={valid_token}")
-    assert response2.status_code in [200, 400]
+    assert response2.status_code == 200
 
 
 # ============================================
@@ -297,8 +274,8 @@ async def test_checkout_not_checked_in(client: AsyncClient, valid_token: str, te
     """Test check-out for person who wasn't checked in."""
     person = test_personnel[0]
     response = await client.post(f"/api/personnel/check-in/{person.id}/out?token={valid_token}")
-    # Should handle gracefully
-    assert response.status_code in [200, 400, 404]
+    # Nothing to undo: answered, not refused
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio

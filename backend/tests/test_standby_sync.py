@@ -5,17 +5,19 @@ real databases – the test database as the box, a scratch one as the hosted boa
 push going straight into the hosted database through the same `apply_ops` its endpoint runs.
 """
 
+import json
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 
 import asyncpg
+import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.database import Base
-from app.standby import install_guards, take_over
+from app.standby import install_guards, sync_once, take_over
 from app.standby_sync import (
     CONFLICTS,
     HOSTED,
@@ -270,17 +272,31 @@ def test_an_einsatz_number_given_out_on_both_sides_is_renumbered_with_a_tagebuch
 # --- a real round: the box and the hosted board as two databases --------------------------------
 
 HOSTED_URL = worker_database_url("_hosted")
+BOX_URL = worker_database_url("_box")
+
+
+async def _scratch_board(url: str) -> AsyncGenerator[str, None]:
+    """A scratch database with the app's schema, for one module; yields its asyncpg URL."""
+    await create_scratch_database(url)
+    engine = create_async_engine(url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    yield url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    await drop_scratch_database(url)
 
 
 @pytest_asyncio.fixture(scope="module")
 async def hosted_database() -> AsyncGenerator[str, None]:
-    await create_scratch_database(HOSTED_URL)
-    engine = create_async_engine(HOSTED_URL)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await engine.dispose()
-    yield HOSTED_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
-    await drop_scratch_database(HOSTED_URL)
+    async for url in _scratch_board(HOSTED_URL):
+        yield url
+
+
+@pytest_asyncio.fixture(scope="module")
+async def box_database() -> AsyncGenerator[str, None]:
+    """The box as the sidecar sees it: committed rows behind its own connection."""
+    async for url in _scratch_board(BOX_URL):
+        yield url
 
 
 @pytest_asyncio.fixture
@@ -311,6 +327,14 @@ INCIDENT_SQL = (
 async def mirrored(db_session: AsyncSession, hosted: asyncpg.Connection):
     """One Ereignis with one Einsatz, the same on both – what the mirror holds – taken over on the box."""
     box = await _driver(db_session)
+    event_id, incident_id = await _same_on_both(box, hosted)
+    await install_guards(box)
+    await take_over(box, event_id, "Koch René")
+    return box, hosted, event_id, incident_id
+
+
+async def _same_on_both(box: asyncpg.Connection, hosted: asyncpg.Connection) -> tuple[uuid.UUID, uuid.UUID]:
+    """One Ereignis with one Einsatz, written identically to both. Returns their ids."""
     event_id, incident_id = uuid.uuid4(), uuid.uuid4()
     for conn in (box, hosted):
         await conn.execute(EVENT_SQL, event_id)
@@ -326,9 +350,7 @@ async def mirrored(db_session: AsyncSession, hosted: asyncpg.Connection):
             incident_id,
             datetime(2026, 11, 9, 19, 0, tzinfo=UTC),
         )
-    await install_guards(box)
-    await take_over(box, event_id, "Koch René")
-    return box, hosted, event_id, incident_id
+    return event_id, incident_id
 
 
 def _push(hosted: asyncpg.Connection):
@@ -546,3 +568,48 @@ async def test_a_new_row_that_clashes_on_a_place_rather_than_a_copy_is_held_not_
         [result] = await apply_ops(hosted, tables, event_id, [Op("incidents", other["id"], other, None)])
 
     assert result == "held"
+
+
+@pytest.mark.asyncio
+async def test_the_sidecar_round_counts_what_waits_offline_and_sends_it_once_online(
+    box_database: str, hosted_database: str, hosted: asyncpg.Connection, monkeypatch: pytest.MonkeyPatch
+):
+    """`sync_once` as the box's sidecar runs it: its own connections, the hosted board over HTTP."""
+    box = await asyncpg.connect(box_database, server_settings={"timezone": "UTC"})
+    try:
+        event_id, incident_id = await _same_on_both(box, hosted)
+        await install_guards(box)
+        async with box.transaction():
+            await take_over(box, event_id, "Koch René")
+        await box.execute("UPDATE incidents SET description = 'Fahrer gerettet.' WHERE id = $1", incident_id)
+
+        async def hosted_api(request: httpx.Request) -> httpx.Response:
+            """What `POST /api/standby/sync` does with a batch (app/api/standby.py)."""
+            assert request.url.path == "/api/standby/sync"
+            assert request.headers["Authorization"] == "Bearer s3cret"
+            body = json.loads(request.content)
+            ops = [Op.from_json(raw) for raw in body["ops"]]
+            async with hosted.transaction():
+                results = await apply_ops(hosted, await event_tables(hosted), uuid.UUID(body["event_id"]), ops)
+            return httpx.Response(200, json={"results": results})
+
+        client = httpx.AsyncClient
+        monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: client(**kw, transport=httpx.MockTransport(hosted_api)))
+        monkeypatch.setenv("DATABASE_URL", box_database)
+        monkeypatch.setenv("STANDBY_SOURCE_API", "http://hosted.test")
+        monkeypatch.setenv("STANDBY_SYNC_TOKEN", "s3cret")
+        status = "SELECT leader, pending, contact_at, message FROM standby.sync_status WHERE event_id = $1"
+
+        monkeypatch.setenv("STANDBY_SOURCE_URL", "postgresql://nobody@127.0.0.1:1/kprueck")  # no internet
+        assert await sync_once() == 0
+        offline = await box.fetchrow(status, event_id)
+        assert (offline["pending"], offline["contact_at"]) == (1, None) and offline["message"]
+
+        monkeypatch.setenv("STANDBY_SOURCE_URL", hosted_database)
+        assert await sync_once() == 1
+        assert await _description(hosted, incident_id) == "Fahrer gerettet."
+        online = await box.fetchrow(status, event_id)
+        assert (online["leader"], online["pending"], online["message"]) == (STANDBY, 0, None)
+        assert online["contact_at"] is not None
+    finally:
+        await box.close()

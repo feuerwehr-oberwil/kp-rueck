@@ -26,21 +26,16 @@ vi.mock('@/components/mobile/mobile-incident-detail-sheet', () => ({
 }))
 
 import { MobileIncidentListView } from '@/components/mobile/mobile-incident-list-view'
+import { makeOperation } from '@/test-utils/operation-fixtures'
 
 const op = (id: string, location: string, status: Operation['status'], notes = '') =>
-  ({
+  makeOperation({
     id,
     location,
     status,
     notes,
-    contact: '',
-    materials: [],
-    incidentType: 'elementarereignis',
-    priority: 'medium',
-    vehicles: [],
-    crew: [],
     dispatchTime: new Date('2026-10-02T10:00:00Z'),
-  }) as unknown as Operation
+  })
 
 function renderList() {
   return renderWithIntl(

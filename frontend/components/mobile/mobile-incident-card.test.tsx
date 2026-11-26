@@ -13,25 +13,23 @@ import type { IncidentGroup } from '@/lib/types/groups'
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
 
 import { MobileIncidentCard } from '@/components/mobile/mobile-incident-card'
+import { crewMember, makeOperation } from '@/test-utils/operation-fixtures'
 
-const operation = {
+const operation = makeOperation({
   id: 'incident-1',
   number: 7,
   location: 'Hauptstrasse 1',
-  vehicles: [],
   incidentType: 'brandbekaempfung',
   dispatchTime: new Date('2026-08-09T10:00:00Z'),
   crew: [
-    { personnelId: 'p-1', name: 'Hoffmann Lisa' },
-    { personnelId: 'p-2', name: 'Müller Hans' },
+    crewMember('Hoffmann Lisa', 'p-1'),
+    crewMember('Müller Hans', 'p-2'),
   ],
   priority: 'low',
   status: 'active',
-  materials: [],
-  notes: '',
   leaderId: 'p-2',
   leaderName: 'Müller Hans',
-} as unknown as Operation
+})
 
 describe('the phone Einsatz card', () => {
   it('lists the Einsatzleiter first in the crew, as the detail sheet does', () => {
@@ -55,7 +53,7 @@ describe('the phone Einsatz card', () => {
         materials: [],
       },
     }
-    const stop = { ...operation, crew: [], groupId: 'g-1', groupPosition: 1 } as Operation
+    const stop: Operation = { ...operation, crew: [], groupId: 'g-1', groupPosition: 1 }
     renderWithIntl(<MobileIncidentCard operation={stop} onClick={vi.fn()} formatLocation={(a) => a} auftrag={auftrag} />)
     const row = screen.getByText('Auftrag').nextElementSibling
     expect(row).toHaveTextContent('Sturmholz Oberwil')
