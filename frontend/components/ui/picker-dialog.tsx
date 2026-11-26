@@ -1,21 +1,20 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { DialogFooter } from '@/components/ui/dialog'
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter, ResponsiveDialogToolbar } from '@/components/ui/responsive-dialog'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from '@/components/ui/surface-step'
 import { onPickerKeyDown, PICKER_FOOTER } from '@/components/ui/picker-keys'
-import { SubjectLine, type Subject } from '@/components/ui/subject-line'
+import type { Subject } from '@/components/ui/subject-line'
 
 /**
- * The frame of a «pick one person» window (Fahrer, Reko zuweisen, Rekos übertragen): a
- * centred dialog on a desk, a bottom sheet on a phone – the assignment dialog's switch
- * (ENT-10 A). Header (title, and one line under it – required: it is the dialog's
- * description, truncated with the full text in `title`), an optional `toolbar` that stays put
- * (search, «Person hinzufügen»), the list as the ONE scroller, and the `footer` answers – on
- * the phone equal halves standing on the keys, with grip and swipe-to-close through
- * `onOpenChange`.
+ * The «pick one person» window (Fahrer, Reko zuweisen, Rekos übertragen): a `ResponsiveDialog`
+ * – a centred dialog on a desk in its `panel` frame, the one bottom sheet on a phone. Header
+ * (title, and one line under it – required: it is the dialog's description, on a desk
+ * truncated with the full text in `title`), an optional `toolbar` that stays put (search,
+ * «Person hinzufügen»), the list as the ONE scroller, and the `footer` answers – on the phone
+ * equal halves standing on the keys, with grip and swipe-to-close through `onOpenChange`.
  *
  * Fixed height on the phone (`h-[88dvh]`, the `modal-h-tall` cap) like the assignment and
  * Appell sheets: a sheet sized to its list shrinks with every letter searched and the search
@@ -61,35 +60,9 @@ export function PickerDialog({
 }) {
   const isMobile = useIsMobile()
   const surface = useOpenSurface()
-  const fullDescription = typeof description === 'string' ? description : undefined
   const listRole = radioGroupLabel ? { role: 'radiogroup', 'aria-label': radioGroupLabel } : {}
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="bottom"
-          className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]"
-          onKeyDown={onPickerKeyDown}
-        >
-          <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
-            <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{title}</SheetTitle>
-            {subject && <SubjectLine subject={subject} />}
-            <SheetDescription className="truncate text-xs" title={fullDescription}>{description}</SheetDescription>
-          </SheetHeader>
-          {toolbar && <div className="flex shrink-0 flex-col gap-3 px-4 pb-3">{toolbar}</div>}
-          <SheetBody data-testid={listTestId} {...listRole} className="space-y-2 px-4 pb-4">
-            {children}
-          </SheetBody>
-          <SheetFooter {...PICKER_FOOTER} className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
-            {footer}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
-  if (surface) {
+  if (surface && !isMobile) {
     if (!open) return null
     return (
       <SurfaceStep host={surface} title={title} description={description} onBack={() => onOpenChange(false)}>
@@ -115,19 +88,22 @@ export function PickerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0" onKeyDown={onPickerKeyDown}>
-        <DialogHeader className="gap-1 px-5 pt-5 pb-3 pr-12">
-          <DialogTitle>{title}</DialogTitle>
-          {subject && <SubjectLine subject={subject} />}
-          <DialogDescription className="truncate" title={fullDescription}>{description}</DialogDescription>
-        </DialogHeader>
-        {toolbar && <div className="flex shrink-0 flex-col gap-3 px-5 pb-3">{toolbar}</div>}
-        <div data-testid={listTestId} {...listRole} className="relative min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-5 pb-3">
-          {children}
-        </div>
-        <DialogFooter {...PICKER_FOOTER} className="border-t px-5 py-3">{footer}</DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      subject={subject}
+      description={description}
+      truncateDescription
+      frame="panel"
+      fill
+      onKeyDown={onPickerKeyDown}
+    >
+      {toolbar && <ResponsiveDialogToolbar>{toolbar}</ResponsiveDialogToolbar>}
+      <ResponsiveDialogBody data-testid={listTestId} {...listRole} className="space-y-2" sheetClassName="space-y-2">
+        {children}
+      </ResponsiveDialogBody>
+      <ResponsiveDialogFooter {...PICKER_FOOTER}>{footer}</ResponsiveDialogFooter>
+    </ResponsiveDialog>
   )
 }
