@@ -2518,7 +2518,7 @@
           "divera"
         ],
         "summary": "Get Polling Status",
-        "description": "Get Divera polling status.\n\nReturns information about the polling fallback mechanism:\n- Whether polling is configured (access key set)\n- Whether polling is currently active (users connected)\n- Last poll time\n- Poll and error counts",
+        "description": "Get Divera polling status.\n\nReturns information about the polling fallback mechanism:\n- Whether polling is configured (access key set)\n- Whether polling is currently active (it runs from boot whenever it is configured)\n- Last poll time\n- Poll and error counts",
         "operationId": "get_polling_status_api_divera_polling_status_get",
         "parameters": [
           {

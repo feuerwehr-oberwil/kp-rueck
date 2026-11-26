@@ -2,7 +2,8 @@
 
 Polls Traccar server-side and broadcasts positions/trails via WebSocket,
 replacing N independent client-side polls with a single server-side poll.
-Only runs when WebSocket clients are connected.
+Runs from boot (a job of background/jobs.py) whenever there is anything to poll, board
+open or not: the GPS automation it drives must not pause when nobody is looking.
 """
 
 import asyncio
@@ -11,8 +12,14 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from ..traccar import VehiclePosition, traccar_client
+from ..utils.failure_latch import FailureLatch
 
 logger = logging.getLogger(__name__)
+_positions_failures = FailureLatch(logger, "Traccar position poll")
+_automation_failures = FailureLatch(logger, "GPS automation run")
+_trails_failures = FailureLatch(logger, "Traccar trails poll")
+#: One latch per Traccar device, dropped when its history reads again.
+_trail_device_failures: dict[int, FailureLatch] = {}
 
 POSITIONS_INTERVAL_SECONDS = 10
 TRAILS_INTERVAL_SECONDS = 30
@@ -64,6 +71,7 @@ class TraccarPoller:
 
     async def stop_polling(self) -> None:
         """Stop polling."""
+        was_polling = self.is_polling
         self._should_poll = False
         for task in (self._positions_task, self._trails_task):
             if task and not task.done():
@@ -77,7 +85,8 @@ class TraccarPoller:
         # be handed positions from before the gap.
         self._last_positions = []
         self._last_positions_at = None
-        logger.info("Stopped Traccar polling")
+        if was_polling:
+            logger.info("Stopped Traccar polling")
 
     def cached_positions(self, max_age_seconds: int = POSITION_CACHE_MAX_AGE_SECONDS) -> list[VehiclePosition]:
         """Positions from the last successful poll, or `[]` if none are recent enough.
@@ -130,7 +139,9 @@ class TraccarPoller:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.debug("Traccar position poll failed: %s", e)
+                _positions_failures.failed(e)
+            else:
+                _positions_failures.ok()
 
             try:
                 await asyncio.sleep(POSITIONS_INTERVAL_SECONDS)
@@ -156,8 +167,10 @@ class TraccarPoller:
         try:
             async with async_session_maker() as db:
                 await run_automation_tick(db, positions)
-        except Exception as e:
-            logger.debug("GPS automation invocation failed: %s", e)
+        except Exception as e:  # the session itself (the tick swallows its own)
+            _automation_failures.failed(e)
+        else:
+            _automation_failures.ok()
 
     async def _poll_trails(self) -> None:
         """Poll vehicle trails and broadcast."""
@@ -173,8 +186,10 @@ class TraccarPoller:
                 for device in devices:
                     try:
                         positions = await traccar_client.get_position_history(device.id, from_time, now)
+                        if (latch := _trail_device_failures.pop(device.id, None)) is not None:
+                            latch.ok()
                         if not positions:
-                            continue
+                            continue  # expected: no history in the window
                         trails_data.append(
                             {
                                 "device_id": device.id,
@@ -190,14 +205,18 @@ class TraccarPoller:
                                 ],
                             }
                         )
-                    except Exception as e:
-                        logger.debug("Failed to get trail for device %s: %s", device.name, e)
+                    except Exception as e:  # one device's failure must not cost the others their trail
+                        _trail_device_failures.setdefault(
+                            device.id, FailureLatch(logger, f"Traccar trail of device {device.name} ({device.id})")
+                        ).failed(e)
 
                 await broadcast_vehicle_trails(trails_data)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.debug("Traccar trails poll failed: %s", e)
+                _trails_failures.failed(e)
+            else:
+                _trails_failures.ok()
 
             try:
                 await asyncio.sleep(TRAILS_INTERVAL_SECONDS)

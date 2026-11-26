@@ -111,7 +111,9 @@ export function ChoiceDialog({
               aria-keyshortcuts={choice.shortcut.toUpperCase()}
               aria-labelledby={`${id}-${choice.shortcut}-label`}
               aria-describedby={`${id}-${choice.shortcut}-consequence`}
-              className="rounded-xl border bg-background p-3.5 text-left shadow-xs transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
+              // flex-col + justify-start: a <button> centres its content vertically, so the card
+              // with the shorter text had its title lower than its neighbour's (owner, 25.11.2026)
+              className="flex flex-col justify-start rounded-xl border bg-background p-3.5 text-left shadow-xs transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-50"
             >
               <span className="flex items-center gap-2 text-sm font-semibold [&_svg]:size-4 [&_svg]:shrink-0">
                 {busy === choice.shortcut ? <ShellLoader className="size-4" /> : choice.icon}

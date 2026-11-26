@@ -1559,12 +1559,23 @@ export function OperationDetailContent({
                   70px to the left of every chip under it — the one row of the
                   group that did not line up. The binoculars stay, demoted into
                   the label: it is the mnemonic, not a second heading level. */}
-              <span className="flex w-[120px] shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+              {/* With an Auftrag the rows below sit in `ResourceSourceBlock`s, whose bar and
+                  padding push their values 14px right (border-l-2 + pl-3); the Reko value
+                  follows, so all four still start on one edge (owner, 26.11.2026: «Kurmann
+                  Thomas» stood left of the Auftrag's «keine» and «TLF»). Narrowing the
+                  block's gutter instead wrapped «Mannschaft · 3». */}
+              <span className={cn("flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground", auftrag ? "w-[134px]" : "w-[120px]")}>
                 <Binoculars className="h-3.5 w-3.5 shrink-0" />
                 {t('common.reko')}
               </span>
               {assignedRekoPersonnel ? (
-                <span className="min-w-0 flex-1 truncate text-sm">
+                // `title`: the whole value when the wider gutter (with an Auftrag) cuts it short
+                <span
+                  className="min-w-0 flex-1 truncate text-sm"
+                  title={operation.rekoArrivedAt
+                    ? `${assignedRekoPersonnel.name} · ${t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}`
+                    : assignedRekoPersonnel.name}
+                >
                   <PersonName name={assignedRekoPersonnel.name} personnelId={assignedRekoPersonnel.id} />
                   {operation.rekoArrivedAt && (
                     <span className="text-muted-foreground">

@@ -5,7 +5,7 @@ import os
 import secrets
 import shutil
 from datetime import datetime
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select, text
@@ -171,12 +171,13 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
     # Check audit cleanup scheduler
     try:
         from ..background.audit_cleanup import get_effective_retention_days
-        from ..background.audit_cleanup import scheduler as audit_scheduler
+        from ..background.jobs import scheduled_job_running
 
-        if audit_scheduler:
+        running = scheduled_job_running("audit_cleanup")
+        if running is not None:
             health_status["components"]["audit_cleanup"] = {
-                "status": "healthy" if audit_scheduler.running else "stopped",
-                "running": audit_scheduler.running,
+                "status": "healthy" if running else "stopped",
+                "running": running,
                 "retention_days": get_effective_retention_days(),
             }
         else:
@@ -284,7 +285,9 @@ async def create_demo_sandbox(
 
 @router.post("/api/demo/reset", response_model=None)
 @limiter.limit(RateLimits.DEMO_RESET)
-async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, str]:
+async def demo_reset(
+    request: Request, current_user: CurrentAdmin, db: Annotated[AsyncSession, Depends(get_db)]
+) -> dict[str, str]:
     """Manually trigger a demo reset. Only available in demo mode, admin only.
 
     Requires admin auth: every demo visitor shares the demo-editor account, so
@@ -294,17 +297,14 @@ async def demo_reset(request: Request, current_user: CurrentAdmin) -> dict[str, 
     if not settings.demo_mode:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    from ..background.demo_reset import _clear_photos, _truncate_all_tables
+    from ..background.demo_reset import reset_demo
 
+    # End the request's transaction first: the admin check read `users` in it, and the reset's
+    # TRUNCATE (its own connection) waits for that read lock – the request would wait on itself.
+    await db.rollback()
     try:
-        await _truncate_all_tables()
-        _clear_photos()
-
-        from ..seed_demo import seed_demo_database
-
-        await seed_demo_database()
-
-        return {"status": "reset_complete"}
+        await reset_demo()
     except Exception as e:
-        logger.error(f"Demo reset failed: {e}")
+        logger.exception("Demo reset failed")
         raise HTTPException(status_code=500, detail="Zurücksetzen fehlgeschlagen") from e
+    return {"status": "reset_complete"}

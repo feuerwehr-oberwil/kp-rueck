@@ -597,7 +597,7 @@ async def test_board_snapshot_marks_a_kp_checked_in_person(
     stood at the Magazin and scanned the code", and the slip should not flatten
     the two.
     """
-    from app.api.print import _build_board_payload
+    from app.crud.print_jobs import build_board_payload
 
     by_link, by_board = crew[0], crew[1]
     token = generate_checkin_token(parity_event.id)
@@ -606,7 +606,7 @@ async def test_board_snapshot_marks_a_kp_checked_in_person(
         await editor_client.post(f"/api/personnel/check-in/{by_board.id}/in?event_id={parity_event.id}")
     ).status_code == 200
 
-    payload = await _build_board_payload(db_session, parity_event.id)
+    payload = await build_board_payload(db_session, parity_event)
     listed = {person["name"]: person for person in payload["personnel_list"]}
 
     assert listed[by_board.name].get("channel") == "kp"

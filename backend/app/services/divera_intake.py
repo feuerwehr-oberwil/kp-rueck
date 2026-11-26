@@ -1,7 +1,7 @@
-"""Divera inbound intake: type/priority inference and event auto-attach.
+"""Divera inbound intake: type/priority inference, the webhook secret, the pool broadcast.
 
-Shared by the webhook endpoint, the polling fallback and the manual attach
-endpoints so all ingest paths derive the same incident from an emergency.
+Shared by the webhook endpoints, the polling fallback and every attach
+(``services/alarm_attach.py``) so all ingest paths derive the same incident from an emergency.
 
 The keyword vocabulary is not a literal here any more. It lives in
 ``app/data/alarm_keywords.json``, vendored byte-for-byte from kp-front and pinned by
@@ -19,7 +19,6 @@ module requires letter boundaries for a few ambiguous ones. That difference is r
 recorded in the shared file rather than quietly settled — see ``known_matcher_divergence``.
 """
 
-import contextlib
 import logging
 import re
 import secrets as _secrets
@@ -28,7 +27,6 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import HTTPException, Request, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
@@ -38,17 +36,8 @@ from ..alarm_keywords import (
     KEYWORD_TO_CATEGORY,
     KP_RUECK_WORD_BOUNDED,
 )
-from ..crud import divera as divera_crud
-from ..crud import events as events_crud
-from ..database import after_commit
 from ..schemas.incidents import FREE_TEXT_MAX, TITLE_MAX
-from .audit import log_action
-from .duplicates import flag_possible_duplicate
-from .settings import (
-    get_alarm_description_filter_prefixes,
-    get_alarm_description_label_prefixes,
-    get_alarm_webhook_secret,
-)
+from .settings import get_alarm_webhook_secret
 
 logger = logging.getLogger(__name__)
 
@@ -377,145 +366,18 @@ def incident_create_from_emergency(
     )
 
 
-async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
-    """Attach a fresh emergency to the newest active event with auto-attach on.
-
-    Only real emergencies attach to real events: simulated training alarms are
-    skipped entirely (trainees attach them by hand — that's the exercise), and
-    training events never receive auto-attached incidents. Returns the created
-    incident, or None when no event wants auto-attach.
-
-    Never raises: a failed auto-attach must not fail the webhook ACK back to
-    Divera — the emergency is already stored and stays manually attachable.
-    """
-    try:
-        # A savepoint: the caller's transaction holds the emergency itself, which a failed
-        # attach must not take down with it.
-        async with db.begin_nested():
-            return await _auto_attach(db, emergency)
-    except Exception:
-        logger.exception("Auto-attach failed for Divera emergency %s", emergency.divera_id)
-        # Leave the session usable for the caller's response handling. The
-        # rollback expires loaded attributes, so re-load the emergency before
-        # the caller serializes it (sync attribute access on an expired object
-        # would blow up in the async session).
-        with contextlib.suppress(Exception):  # already on the error path; a failed refresh changes nothing
-            await db.refresh(emergency)
-        return None
-
-
-async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
-    # Row-locked like the manual attach (crud.divera.lock_divera_emergency): an operator who
-    # pulls the fresh alarm onto a board in the same instant must not get a second card.
-    # populate_existing refreshes `emergency` itself, so the check below sees the locked row.
-    if await divera_crud.lock_divera_emergency(db, emergency.id) is None:
-        return None
-    if emergency.is_training or emergency.attached_to_event_id is not None:
-        return None
-
-    event = (
-        await db.execute(
-            select(models.Event)
-            .where(models.Event.auto_attach_divera.is_(True))
-            .where(models.Event.training_flag.is_(False))
-            .where(models.Event.archived_at.is_(None))
-            .order_by(models.Event.created_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if event is None:
-        return None
-
-    data = incident_create_from_emergency(
-        emergency,
-        event.id,
-        description_filter_prefixes=await get_alarm_description_filter_prefixes(db),
-        description_label_prefixes=await get_alarm_description_label_prefixes(db),
-    )
-    incident_data = data.model_dump()
-    # The editor schema's `source` only ever carries what an operator may claim
-    # ("operator"/"intake"); the sending system names itself below.
-    incident_data.pop("source")
-    incident = models.Incident(
-        **incident_data,
-        created_by=None,
-        # Alarm provenance flows onto the board card
-        source=emergency.source or "divera",
-        source_ref=emergency.source_id,
-    )
-    db.add(incident)
-    await db.flush()
-
-    # A second alarm for a Schadenplatz already on the board: never merged
-    # silently — nobody has looked at it yet — but the card says so and offers
-    # the one-click merge (services/duplicates.py).
-    duplicate_of = await flag_possible_duplicate(db, incident)
-
-    # System action — no user; the audit trail still shows where it came from.
-    await log_action(
-        db=db,
-        action_type="create",
-        resource_type="incident",
-        resource_id=incident.id,
-        user=None,
-        changes={
-            "created": data.model_dump(mode="json"),
-            "auto_attach_divera": True,
-            **({"possible_duplicate_of_id": str(duplicate_of)} if duplicate_of else {}),
-        },
-    )
-    await events_crud.update_event_activity(db, event.id)
-
-    # The caller's commit stores incident and link together — it is also what releases the row lock.
-    await divera_crud.attach_emergency_to_event(
-        db=db, emergency_id=emergency.id, event_id=event.id, incident_id=incident.id
-    )
-    await db.refresh(incident)
-    # «Anrückend» on that Ereignis now includes this alarm's Rückmeldungen.
-    from .divera_responses import broadcast_link_change
-
-    after_commit(db, broadcast_link_change, event.id, incident.id)
-
-    # Reality preempts the drill. Simulated drives are global: they mask the real
-    # Traccar position of their vehicle for EVERY consumer (map, GPS automation,
-    # geofences), and they outlive the Übung that started them by design (30 min
-    # lifetime, in-memory). A real alarm just put a real incident on the board —
-    # from here on the map has to show where the vehicles actually are, so every
-    # running simulation stops now rather than expiring under a live Einsatz.
-    after_commit(db, _stop_gps_simulations, event.id)
-
-    logger.info(
-        "Divera emergency %s auto-attached to event %s (incident %s)",
-        emergency.divera_id,
-        event.id,
-        incident.id,
-    )
-    return incident
-
-
-async def _stop_gps_simulations(event_id: uuid.UUID) -> None:
-    """Once the real alarm is on the board: stop every simulated drive (see `_auto_attach`)."""
-    # Lazy import mirrors traccar.py's: gps_simulation pulls in websocket_manager.
-    from .gps_simulation import gps_simulation
-
-    stopped = await gps_simulation.stop()
-    if stopped:
-        logger.info("Stopped %d simulated GPS drive(s): real alarm attached to event %s", stopped, event_id)
-
-
 async def broadcast_emergency_received(
-    emergency_data: dict[str, Any], incident_data: dict[str, Any] | None = None, source: str | None = None
+    emergency_data: dict[str, Any], *, auto_attached: bool = False, source: str | None = None
 ) -> None:
-    """Broadcast a new pool emergency (and its auto-attached incident, if any)."""
-    from ..websocket_manager import broadcast_incident_update, broadcast_message
+    """Tell the boards about a new pool alarm. An auto-attached card announces itself
+    (``alarm_attach.attach``); ``auto_attached`` only tells the pool toast."""
+    from ..websocket_manager import broadcast_message
 
     message: dict[str, Any] = {
         "type": "divera_emergency_received",
         "emergency": emergency_data,
-        "auto_attached": incident_data is not None,
+        "auto_attached": auto_attached,
     }
     if source:
         message["source"] = source
     await broadcast_message(message)
-    if incident_data is not None:
-        await broadcast_incident_update(incident_data, "create")

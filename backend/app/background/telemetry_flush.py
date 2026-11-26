@@ -22,8 +22,6 @@ from app.telemetry.outbox import sweep
 
 logger = get_logger(__name__)
 
-scheduler: AsyncIOScheduler | None = None
-
 
 async def flush_outbox(session_maker: Any = None) -> int:
     """Deliver what is queued and sweep what has expired. Never raises."""
@@ -40,11 +38,8 @@ async def flush_outbox(session_maker: Any = None) -> int:
             return 0
 
 
-def start_telemetry_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        return
-    scheduler = AsyncIOScheduler()
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add the flush to the app's scheduler (background/jobs.py)."""
     scheduler.add_job(
         flush_outbox,
         IntervalTrigger(minutes=max(1, settings.telemetry_flush_minutes)),
@@ -52,12 +47,4 @@ def start_telemetry_scheduler() -> None:
         max_instances=1,
         coalesce=True,
     )
-    scheduler.start()
-    logger.info("Telemetry flush scheduler started (%d min)", settings.telemetry_flush_minutes)
-
-
-def stop_telemetry_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        scheduler.shutdown(wait=False)
-        scheduler = None
+    logger.info("Telemetry flush scheduled (%d min)", settings.telemetry_flush_minutes)

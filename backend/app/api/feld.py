@@ -60,11 +60,13 @@ from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..crud import planned_assignments as planned_crud
 from ..crud.feld.melden import never_left_the_window
+from ..crud.locking import lock_incident
 from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import Event, Incident, IncidentGroup, Personnel, SchadenplatzReport
 from ..services import duplicates, incident_display
 from ..services.audit import log_action
+from ..services.board_cards import board_response
 from ..services.duplicates import MergeRefusedError
 from ..services.photo_storage import enforce_demo_photo_limits, photo_storage
 from ..services.settings import (
@@ -82,7 +84,6 @@ from ..services.tokens import (
 )
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..websocket_manager import broadcast_incident_update, broadcast_personnel_update
-from .incidents import board_response, lock_incident
 
 logger = logging.getLogger(__name__)
 

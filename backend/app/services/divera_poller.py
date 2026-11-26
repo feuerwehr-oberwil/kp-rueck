@@ -1,8 +1,9 @@
 """Divera247 API polling service for alarm fallback.
 
 This service polls the Divera API for recent alarms as a fallback mechanism
-when webhooks might be missed. Polling only occurs when users are actively
-connected via WebSocket to avoid unnecessary API load.
+when webhooks might be missed. It runs from boot whenever DIVERA_ACCESS_KEY is set
+(`start_divera_polling`, a job of the lifespan table in background/jobs.py), so an
+alarm is taken in and auto-attached even when no board is open.
 
 The same answer also carries each alarm's Rückmeldungen (who was alarmed, who
 answered «Komme» / «Komme nicht»); those are handed to `responses_sink`
@@ -20,7 +21,12 @@ import httpx
 
 from .. import schemas
 from ..config import settings
+from ..crud import divera as divera_crud
+from ..database import async_session_maker
+from ..websocket_manager import broadcast_divera_responses_update
 from . import divera_responses
+from .alarm_attach import try_auto_attach
+from .divera_intake import broadcast_emergency_received
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +48,7 @@ class DiveraPoller:
         self._last_poll_time: datetime | None = None
         self._poll_count = 0
         self._error_count = 0
-        # Set by main.py at startup; None = Rückmeldungen are not stored (tests, scripts).
+        # Set by `start_divera_polling`; None = Rückmeldungen are not stored (tests, scripts).
         self.responses_sink: _ResponsesSink | None = None
 
     @property
@@ -250,3 +256,49 @@ class DiveraPoller:
 
 # Global poller instance
 divera_poller = DiveraPoller()
+
+
+async def _take_in_polled_alarm(payload: schemas.DiveraWebhookPayload) -> bool:
+    """One polled alarm into the pool, auto-attached like a webhook's. True if it was new."""
+    async with async_session_maker() as db:
+        try:
+            if await divera_crud.get_divera_emergency_by_divera_id(db, payload.id):
+                return False  # already in the pool (webhook or an earlier poll)
+            emergency = await divera_crud.create_divera_emergency(db, payload)
+            logger.info(
+                "Divera poll: new emergency ID %s, Divera ID %s, Title: %s",
+                emergency.id,
+                emergency.divera_id,
+                emergency.title,
+            )
+            incident = await try_auto_attach(db, emergency)
+            await db.commit()  # this loop owns the transaction; the boards refetch on the broadcasts
+            await broadcast_emergency_received(
+                schemas.DiveraEmergencyResponse.model_validate(emergency).model_dump(mode="json"),
+                auto_attached=incident is not None,
+                source="poll",
+            )
+            return True
+        except Exception:
+            # With the traceback: an alarm that failed here is one the board never showed.
+            logger.exception("Error processing polled alarm %s", payload.id)
+            return False
+
+
+async def _store_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
+    """Store the Rückmeldungen of the polled alarms; tell the boards when they changed."""
+    async with async_session_maker() as db:
+        event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
+        await divera_responses.purge_expired(db)
+        await db.commit()  # this loop owns the transaction
+    if event_ids or incident_ids:
+        await broadcast_divera_responses_update(event_ids, incident_ids)
+
+
+async def start_divera_polling() -> None:
+    """Start the poll with the app's sinks. A no-op without DIVERA_ACCESS_KEY (logged)."""
+    if not divera_poller.is_configured:
+        logger.info("Divera polling disabled (no DIVERA_ACCESS_KEY configured)")
+        return
+    divera_poller.responses_sink = _store_polled_responses
+    await divera_poller.start_polling(_take_in_polled_alarm)

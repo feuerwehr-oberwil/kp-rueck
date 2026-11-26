@@ -353,14 +353,16 @@ async def test_a_warning_that_expires_between_rounds_disappears_at_once():
     assert service.snapshot(datetime(2026, 10, 9, 6, 1, tzinfo=UTC))["warnings"]["items"] == []
 
 
-def test_scheduler_is_not_started_when_the_deployment_switched_weather_off(monkeypatch):
+def test_nothing_is_scheduled_when_the_deployment_switched_weather_off(monkeypatch):
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
     from app.background import weather as weather_scheduler
     from app.config import settings
 
     monkeypatch.setattr(settings, "weather_enabled", False)
-    monkeypatch.setattr(weather_scheduler, "scheduler", None)
-    weather_scheduler.start_weather_scheduler()
-    assert weather_scheduler.scheduler is None
+    scheduler = AsyncIOScheduler()
+    weather_scheduler.schedule(scheduler)
+    assert scheduler.get_jobs() == []
 
 
 def test_snapshot_orders_frames_by_time_whatever_the_insertion_order(frame: radar.RenderedFrame):

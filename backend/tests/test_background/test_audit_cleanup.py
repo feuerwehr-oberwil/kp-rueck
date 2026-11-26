@@ -1,32 +1,16 @@
 """Tests for the audit log cleanup background job."""
 
-import asyncio
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 
 from app.background import audit_cleanup
-from app.background.audit_cleanup import (
-    cleanup_old_audit_logs,
-    start_audit_cleanup_scheduler,
-    stop_audit_cleanup_scheduler,
-)
+from app.background.audit_cleanup import cleanup_old_audit_logs, schedule
 from app.models import AuditLog
-
-
-@pytest.fixture(autouse=True)
-def reset_scheduler_state():
-    """Reset global scheduler state before each test."""
-    audit_cleanup.scheduler = None
-    audit_cleanup._shutting_down = False
-    yield
-    if audit_cleanup.scheduler and audit_cleanup.scheduler.running:
-        audit_cleanup.scheduler.shutdown(wait=False)
-    audit_cleanup.scheduler = None
-    audit_cleanup._shutting_down = False
 
 
 @pytest.fixture
@@ -189,16 +173,6 @@ class TestCleanupOldAuditLogs:
         assert await cleanup_old_audit_logs(session_maker=session_maker) == 0
 
     @pytest.mark.asyncio
-    async def test_skipped_during_shutdown(self, db_session, session_maker, pruning_enabled):
-        audit_cleanup._shutting_down = True
-        row = _audit_row(timedelta(days=100))
-        db_session.add(row)
-        await db_session.commit()
-
-        assert await cleanup_old_audit_logs(session_maker=session_maker) == 0
-        assert await _remaining_of(db_session, [row]) == {row.id}
-
-    @pytest.mark.asyncio
     async def test_errors_are_swallowed(self, monkeypatch):
         @asynccontextmanager
         async def broken_maker():
@@ -209,26 +183,20 @@ class TestCleanupOldAuditLogs:
         assert await cleanup_old_audit_logs(session_maker=broken_maker) == 0
 
 
-class TestSchedulerLifecycle:
-    async def test_scheduler_does_not_start_when_retention_is_off(self, monkeypatch):
+class TestSchedule:
+    def test_nothing_is_scheduled_when_retention_is_off(self, monkeypatch):
         """No sweep job at all — not a job that runs and deletes nothing."""
         monkeypatch.setattr(audit_cleanup.settings, "audit_retention_days", 0)
         monkeypatch.setattr(audit_cleanup.settings, "demo_mode", False)
+        scheduler = AsyncIOScheduler()
 
-        start_audit_cleanup_scheduler()
+        schedule(scheduler)
 
-        assert audit_cleanup.scheduler is None
+        assert scheduler.get_jobs() == []
 
-    @pytest.mark.asyncio
-    async def test_start_then_stop(self, pruning_enabled):
-        start_audit_cleanup_scheduler()
-        assert audit_cleanup.scheduler is not None
-        assert audit_cleanup.scheduler.running
-        job_ids = {job.id for job in audit_cleanup.scheduler.get_jobs()}
-        assert job_ids == {"audit_cleanup", "audit_cleanup_startup"}
+    def test_sweep_and_startup_catch_up(self, pruning_enabled):
+        scheduler = AsyncIOScheduler()
 
-        stop_audit_cleanup_scheduler()
-        # AsyncIOScheduler defers shutdown via the running event loop
-        await asyncio.sleep(0)
-        assert not audit_cleanup.scheduler.running
-        assert audit_cleanup._shutting_down is True
+        schedule(scheduler)
+
+        assert {job.id for job in scheduler.get_jobs()} == {"audit_cleanup", "audit_cleanup_startup"}

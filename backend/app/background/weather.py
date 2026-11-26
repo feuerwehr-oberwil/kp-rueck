@@ -22,8 +22,6 @@ from app.services.weather.service import WARNINGS_INTERVAL_MINUTES, weather_serv
 
 logger = get_logger(__name__)
 
-scheduler: AsyncIOScheduler | None = None
-
 
 async def poll_radar() -> None:
     await weather_service.poll_radar()
@@ -40,15 +38,12 @@ async def poll_warnings() -> None:
     await weather_service.poll_warnings(station)
 
 
-def start_weather_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        return
+def schedule(scheduler: AsyncIOScheduler) -> None:
+    """Add both polls to the app's scheduler (background/jobs.py). Nothing with WEATHER_ENABLED=false."""
     if not settings.weather_enabled:
         logger.info("Weather layer disabled (WEATHER_ENABLED=false)")
         return
     now = datetime.now(UTC)
-    scheduler = AsyncIOScheduler()
     scheduler.add_job(
         poll_radar,
         # :01:30, :06:30, … – 90 s after each 5-minute slot.
@@ -66,12 +61,4 @@ def start_weather_scheduler() -> None:
         coalesce=True,
         next_run_time=now,
     )
-    scheduler.start()
-    logger.info("Weather scheduler started (radar 5 min, warnings %d min)", WARNINGS_INTERVAL_MINUTES)
-
-
-def stop_weather_scheduler() -> None:
-    global scheduler
-    if scheduler is not None:
-        scheduler.shutdown(wait=False)
-        scheduler = None
+    logger.info("Weather scheduled (radar 5 min, warnings %d min)", WARNINGS_INTERVAL_MINUTES)

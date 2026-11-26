@@ -35,11 +35,12 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
-from ..crud.locking import lock_incident_with_group
+from ..crud.locking import lock_incident, lock_incident_with_group, lock_pair
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display, incident_history
 from ..services.audit import log_action
+from ..services.board_cards import board_response, broadcast_repointed
 from ..services.rapport_rows import STATUS_LABELS
 from ..utils.error_codes import CodedHTTPException, ErrorCode
 from ..utils.errors import ErrorMessages
@@ -328,37 +329,6 @@ async def get_duplicate_candidates(
     return await duplicate_candidates_response(db, event_id, lat=lat, lng=lng, address=address, exclude_id=exclude_id)
 
 
-async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> models.Incident | None:
-    """Row-lock an incident (deleted ones included) for a merge or its undo.
-
-    Two merges into the same card both append to its «Notizen»; without the
-    lock the second write would carry the first one's old text and drop its
-    Nachtrag.
-    """
-    return (
-        await db.execute(
-            select(models.Incident)
-            .where(models.Incident.id == incident_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-    ).scalar_one_or_none()
-
-
-async def lock_pair(
-    db: AsyncSession, first_id: uuid.UUID, second_id: uuid.UUID
-) -> tuple[models.Incident | None, models.Incident | None]:
-    """Both rows, locked in id order so two opposite merges cannot deadlock."""
-    locked = {i: await lock_incident(db, i) for i in sorted({first_id, second_id})}
-    return locked.get(first_id), locked.get(second_id)
-
-
-async def board_response(db: AsyncSession, incident: models.Incident) -> schemas.IncidentResponse:
-    """The card as GET /{id} returns it — vehicles, reko flags and all — for the broadcast."""
-    populated = await crud.get_incident(db, incident.id)
-    return await incident_display.incident_with_display(db, populated or incident)
-
-
 async def merge_and_broadcast(
     db: AsyncSession,
     background_tasks: BackgroundTasks,
@@ -380,19 +350,8 @@ async def merge_and_broadcast(
     )
     background_tasks.add_task(broadcast_reko_update, {"incident_id": str(result.target.id)}, "update")
     background_tasks.add_task(broadcast_kp_message_update, {"incident_id": str(result.target.id)}, "merged")
-    await broadcast_repointed(db, background_tasks, result.repointed_ids)
+    await broadcast_repointed(db, result.repointed_ids)
     return schemas.MergeResponse(target=target_response, merged_incident_id=report_id)
-
-
-async def broadcast_repointed(
-    db: AsyncSession, background_tasks: BackgroundTasks, incident_ids: list[uuid.UUID]
-) -> None:
-    """Cards whose «mögliches Duplikat» now names a different card: every board redraws them."""
-    for incident_id in incident_ids:
-        row = await crud.get_incident(db, incident_id)
-        if row is not None and row.deleted_at is None:
-            response = await incident_display.incident_with_display(db, row)
-            background_tasks.add_task(broadcast_incident_update, response.model_dump(mode="json"), "update")
 
 
 async def enforce_demo_cap(db: AsyncSession, event_id: uuid.UUID) -> None:

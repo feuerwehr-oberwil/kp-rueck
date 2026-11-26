@@ -10,7 +10,6 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
-from ..database import after_commit
 from ..models import (
     AuditLog,
     EventAttendance,
@@ -33,7 +32,7 @@ from ..utils.error_codes import DomainError, ErrorCode
 from . import events as events_crud
 from . import feld as feld_crud
 from .active_resources import active_deployments
-from .locking import lock_incident_with_group, lock_resources
+from .locking import lock_groups, lock_incident_with_group, lock_resources
 
 
 class InvalidIncidentGroupError(ValueError):
@@ -547,13 +546,19 @@ async def get_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | N
 async def create_incident(
     db: AsyncSession,
     incident: schemas.IncidentCreate,
-    current_user: User,
-    request: Request,
+    current_user: User | None,
+    request: Request | None,
     *,
     source: str | None = None,
     source_ref: str | None = None,
+    possible_duplicate_of_id: uuid.UUID | None = None,
+    audit_extra: dict[str, Any] | None = None,
 ) -> Incident:
     """Create new incident with audit logging. Flushes; the caller (the request) commits.
+
+    ``current_user=None`` is the system (the alarm auto-attach); ``audit_extra`` joins the
+    audit row's changes (``{"auto_attach_divera": True}``). ``possible_duplicate_of_id`` is the
+    «mögliches Duplikat» flag an alarm attach found before the card existed.
 
     ``source``/``source_ref`` carry alarm provenance when the incident is
     created from a pool alarm ("divera" or a generic-webhook slug + the
@@ -582,10 +587,11 @@ async def create_incident(
 
     db_incident = Incident(
         **incident_data,
-        created_by=current_user.id,
+        created_by=current_user.id if current_user else None,
         group_position=group_position,
         source=source or editor_source,
         source_ref=source_ref,
+        possible_duplicate_of_id=possible_duplicate_of_id,
     )
 
     db.add(db_incident)
@@ -598,7 +604,7 @@ async def create_incident(
         resource_type="incident",
         resource_id=db_incident.id,
         user=current_user,
-        changes={"created": incident.model_dump(mode="json")},
+        changes={"created": incident.model_dump(mode="json"), **(audit_extra or {})},
         request=request,
     )
 
@@ -814,13 +820,9 @@ async def update_incident(
     leaving_group_id = incident.group_id if "group_id" in update_data else None
     if leaving_group_id is not None and leaving_group_id != update_data.get("group_id"):
         joining_group_id = update_data.get("group_id")
-        if joining_group_id is not None and joining_group_id < leaving_group_id:
-            await _validate_and_lock_group(db, joining_group_id, incident.event_id)
-            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
-        else:
-            await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == leaving_group_id).with_for_update())
-            if joining_group_id is not None:
-                await _validate_and_lock_group(db, joining_group_id, incident.event_id)
+        await lock_groups(db, [leaving_group_id, joining_group_id])
+        if joining_group_id is not None:
+            await _validate_and_lock_group(db, joining_group_id, incident.event_id)  # held already: a check
     elif update_data.get("group_id") is not None:
         await _validate_and_lock_group(db, update_data["group_id"], incident.event_id)
 
@@ -930,7 +932,6 @@ async def update_incident(
     # Auto-print the assignment slip on the incident's FIRST dispatch — into `enroute`
     # OR straight into `active` (Anfahrt is skippable), never twice. The rule and its
     # history live in `_dispatch_print_due`.
-    queued_print = None
     if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -940,20 +941,14 @@ async def update_incident(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                queued_print = await print_crud.queue_assignment_print(db, incident_id)
+                # Wakes the agent after the commit itself (`print_crud.enqueue`).
+                await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.flush()
     await db.refresh(incident)
-
-    # The agent reads the slip from its own session, so the wake-up waits for the commit —
-    # this is the auto-print on dispatch, the one print whose latency anybody actually feels.
-    if queued_print is not None:
-        from ..services import print_signal
-
-        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 
@@ -1068,7 +1063,6 @@ async def update_incident_status(
     # Auto-print the assignment slip on the first dispatch — same rule as
     # update_incident above (`_dispatch_print_due`): into `enroute` or straight
     # into `active`, once per incident, ever.
-    queued_print = None
     if print_due:
         from ..services import settings as settings_service
         from . import print_jobs as print_crud
@@ -1078,18 +1072,14 @@ async def update_incident_status(
 
         if printer_enabled.lower() == "true" and auto_anfahrt.lower() == "true":
             try:
-                queued_print = await print_crud.queue_assignment_print(db, incident_id)
+                # Wakes the agent after the commit itself (`print_crud.enqueue`).
+                await print_crud.queue_assignment_print(db, incident_id)
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Auto-print failed for incident {incident_id}: {e}")
 
     await db.flush()
     await db.refresh(incident)
-
-    if queued_print is not None:
-        from ..services import print_signal
-
-        after_commit(db, print_signal.notify_job_queued)
 
     return incident
 

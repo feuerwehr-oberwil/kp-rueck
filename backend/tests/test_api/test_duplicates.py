@@ -638,7 +638,10 @@ class TestWhatAMergeMustNotDo:
         target = await _card(db_session, test_event)
         dup = await _card(db_session, test_event, possible_duplicate_of_id=target.id)
         third = await _card(db_session, test_event, possible_duplicate_of_id=dup.id)
-        with patch("app.api.incidents.broadcast_incident_update", new_callable=AsyncMock) as broadcast:
+        with (
+            patch("app.api.incidents.broadcast_incident_update", new_callable=AsyncMock) as broadcast,
+            patch("app.services.board_cards.broadcast_incident_update", broadcast),
+        ):
             response = await editor_client.post(f"/api/incidents/{dup.id}/merge", json={"target_id": str(target.id)})
         assert response.status_code == 200
         await db_session.refresh(third)
