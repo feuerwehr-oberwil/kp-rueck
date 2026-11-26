@@ -28,7 +28,8 @@ import { attachClosestEdge, extractClosestEdge, type Edge } from '@atlaskit/prag
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box'
 import { type Operation, type Material } from "@/lib/contexts/operations-context"
 import { sameCrew, sameVehicles } from "@/lib/operation-equality"
-import { isResourceDrag, takesAssignments } from "@/lib/assignable"
+import { takesAssignments } from "@/lib/assignable"
+import { isResourceDrag, type BoardDragSource, type BoardDropTarget } from "@/lib/board-drag"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -401,7 +402,7 @@ function DraggableOperationBase({
         ? [
             draggable({
               element,
-              getInitialData: () => ({ type: "operation", operation, index }),
+              getInitialData: () => ({ type: "operation", operation, index }) satisfies BoardDragSource,
               onDragStart: () => {
                 setIsDragging(true)
                 isDraggingRef.current = true
@@ -427,7 +428,7 @@ function DraggableOperationBase({
         canDrop: ({ source }) => !isResourceDrag(source.data) || takesAssignments(operation),
         getData: ({ input }) => {
           return attachClosestEdge(
-            { type: "operation-drop", operationId: operation.id, index },
+            { type: "operation-drop", operationId: operation.id, index } satisfies BoardDropTarget,
             { element, input, allowedEdges: ['top', 'bottom'] }
           )
         },
