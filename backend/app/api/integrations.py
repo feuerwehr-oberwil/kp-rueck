@@ -20,6 +20,7 @@ from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import get_db
 from ..environment import blocked_domains, blocked_reason, deployment_role, deployment_role_label
+from ..schemas.integrations import RosterSnapshotResponse, RosterSnapshotStatus
 from ..services import alerting
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -205,11 +206,12 @@ async def get_integrations(current_user: CurrentUser) -> IntegrationsResponse:
     return integrations()
 
 
-@router.get("/roster-snapshot")
+@router.get("/roster-snapshot", response_model=RosterSnapshotResponse, response_model_exclude_unset=True)
 async def get_roster_snapshot_status(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """The last roster-snapshot run: outcome report, held/stale flags, the last good file.
 
-    ``configured`` is false and ``status`` null on a station that never set a source."""
+    ``configured`` is false and ``status`` null on a station that never set a source. The
+    status is the stored document, served key for key (see `schemas/integrations.py`)."""
     from ..services import roster_snapshot_sync
 
     return {
@@ -226,7 +228,7 @@ class RosterSnapshotSyncBody(BaseModel):
     force: bool = False
 
 
-@router.post("/roster-snapshot/sync")
+@router.post("/roster-snapshot/sync", response_model=RosterSnapshotStatus, response_model_exclude_unset=True)
 async def sync_roster_snapshot(
     current_user: CurrentAdmin,
     body: RosterSnapshotSyncBody | None = None,

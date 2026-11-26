@@ -1191,7 +1191,11 @@ async def delete_photo(
     return schemas.RapportPhotosResponse(incident_id=incident.id, photos=photos)
 
 
-@router.get("/incidents/{incident_id}/photos/{filename}")
+@router.get(
+    "/incidents/{incident_id}/photos/{filename}",
+    response_class=FileResponse,
+    responses={200: {"content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}},
+)
 @limiter.limit(RateLimits.FELD)
 async def serve_feld_photo(
     request: Request,

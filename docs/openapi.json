@@ -19,7 +19,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             }
           }
@@ -39,7 +41,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedHealthResponse"
+                }
               }
             }
           }
@@ -59,7 +63,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentRole"
+                }
               }
             }
           }
@@ -79,7 +85,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DemoOff"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DemoOn"
+                    }
+                  ],
+                  "title": "Response Demo Status Api Demo Status Get"
+                }
               }
             }
           }
@@ -117,7 +133,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DemoSandboxResponse"
+                }
               }
             }
           },
@@ -165,7 +183,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DemoResetResponse"
+                }
               }
             }
           },
@@ -212,8 +232,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -388,8 +411,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -609,7 +635,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
               }
             }
           },
@@ -1340,9 +1368,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Export Diagnostics Api Diag Export Get"
+                  "$ref": "#/components/schemas/DiagnosticsExport"
                 }
               }
             }
@@ -1392,9 +1418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Telemetry Status Api Diag Telemetry Get"
+                  "$ref": "#/components/schemas/TelemetryStatus"
                 }
               }
             }
@@ -1454,9 +1478,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Update Consent Api Diag Telemetry Consent Put"
+                  "$ref": "#/components/schemas/TelemetryConsentResult"
                 }
               }
             }
@@ -1506,9 +1528,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Rotate Install Id Api Diag Telemetry Install Id Post"
+                  "$ref": "#/components/schemas/InstallIdResult"
                 }
               }
             }
@@ -1558,9 +1578,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Client Address Api Diag Client Address Get"
+                  "$ref": "#/components/schemas/ClientAddressResponse"
                 }
               }
             }
@@ -1601,7 +1619,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DiveraWebhookStored"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DiveraWebhookDuplicate"
+                    }
+                  ],
+                  "title": "Response Receive Divera Webhook Api Divera Webhook Post"
+                }
               }
             }
           },
@@ -2543,7 +2571,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DiveraPollingStatus"
+                }
               }
             }
           },
@@ -3380,7 +3410,17 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/FireHubStartAck"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FireHubEndAck"
+                    }
+                  ],
+                  "title": "Response Receive Firehub Webhook Api Firehub Webhook Post"
+                }
               }
             }
           },
@@ -3602,8 +3642,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -3660,8 +3703,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -3718,8 +3764,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -3776,8 +3825,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -6933,7 +6985,7 @@
           "integrations"
         ],
         "summary": "Get Roster Snapshot Status",
-        "description": "The last roster-snapshot run: outcome report, held/stale flags, the last good file.\n\n``configured`` is false and ``status`` null on a station that never set a source.",
+        "description": "The last roster-snapshot run: outcome report, held/stale flags, the last good file.\n\n``configured`` is false and ``status`` null on a station that never set a source. The\nstatus is the stored document, served key for key (see `schemas/integrations.py`).",
         "operationId": "get_roster_snapshot_status_api_integrations_roster_snapshot_get",
         "parameters": [
           {
@@ -6959,9 +7011,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Roster Snapshot Status Api Integrations Roster Snapshot Get"
+                  "$ref": "#/components/schemas/RosterSnapshotResponse"
                 }
               }
             }
@@ -7028,9 +7078,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Sync Roster Snapshot Api Integrations Roster Snapshot Sync Post"
+                  "$ref": "#/components/schemas/RosterSnapshotStatus"
                 }
               }
             }
@@ -8990,9 +9038,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Checkin Stats Api Personnel Check In Stats Get"
+                  "$ref": "#/components/schemas/CheckInStats"
                 }
               }
             }
@@ -11567,7 +11613,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RekoPhotoUploaded"
+                }
               }
             }
           },
@@ -11650,7 +11698,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RekoPhotoDeleted"
+                }
               }
             }
           },
@@ -11946,7 +11996,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RekoTransferResult"
+                }
               }
             }
           },
@@ -13672,8 +13724,11 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -13978,10 +14033,16 @@
           "200": {
             "description": "Successful Response",
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
+          },
+          "404": {
+            "description": "No logo set"
           },
           "422": {
             "description": "Validation Error",
@@ -16659,7 +16720,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/GpsSimStopped"
+                }
               }
             }
           },
@@ -18409,6 +18472,34 @@
         "title": "AttendancePlanUpdate",
         "description": "«kommt um» / «geht um» for one person at one Ereignis (`crud.set_attendance_plan`).\n\nA PATCH: only the fields sent change, and an explicit null clears one. The client\nresolves the typed «22:00» to an instant (it knows the station's clock and which day is\nmeant, `lib/planned-times.ts`), so the server stores what it is given – tz-aware only."
       },
+      "AuditCleanupHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "stopped",
+              "not_initialized"
+            ],
+            "title": "Status"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running"
+          },
+          "retention_days": {
+            "type": "integer",
+            "title": "Retention Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "running",
+          "retention_days"
+        ],
+        "title": "AuditCleanupHealth"
+      },
       "AuditLogEntry": {
         "properties": {
           "id": {
@@ -19223,6 +19314,97 @@
         "title": "CheckInListResponse",
         "description": "Response for check-in list with event information."
       },
+      "CheckInStats": {
+        "properties": {
+          "total_available": {
+            "type": "integer",
+            "title": "Total Available"
+          },
+          "checked_in": {
+            "type": "integer",
+            "title": "Checked In"
+          },
+          "checked_out": {
+            "type": "integer",
+            "title": "Checked Out"
+          },
+          "left": {
+            "type": "integer",
+            "title": "Left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_available",
+          "checked_in",
+          "checked_out",
+          "left"
+        ],
+        "title": "CheckInStats",
+        "description": "The roll-call header's numbers for one Ereignis."
+      },
+      "ClientAddressResponse": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "x_forwarded_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X Forwarded For"
+          },
+          "x_real_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X Real Ip"
+          },
+          "socket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Socket"
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "source",
+          "x_forwarded_for",
+          "x_real_ip",
+          "socket"
+        ],
+        "title": "ClientAddressResponse",
+        "description": "Which address the backend takes for the caller, and from where (proxy-chain check)."
+      },
       "ClientError": {
         "properties": {
           "message": {
@@ -19289,6 +19471,29 @@
         "type": "object",
         "title": "ClientError",
         "description": "A bounded report of a frontend error. All fields optional/length-capped."
+      },
+      "ComponentFailure": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unhealthy",
+              "unknown"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "error"
+        ],
+        "title": "ComponentFailure",
+        "description": "A component whose check raised: the exception's type name, never its message."
       },
       "ConcurrentEditor": {
         "properties": {
@@ -19419,6 +19624,96 @@
         "title": "DangersAssessment",
         "description": "Structured danger checklist."
       },
+      "DemoOff": {
+        "properties": {
+          "demo": {
+            "type": "boolean",
+            "const": false,
+            "title": "Demo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "demo"
+        ],
+        "title": "DemoOff",
+        "description": "Not a demo instance: the banner and the reset countdown stay away."
+      },
+      "DemoOn": {
+        "properties": {
+          "demo": {
+            "type": "boolean",
+            "const": true,
+            "title": "Demo"
+          },
+          "next_reset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Reset"
+          },
+          "seconds_until_reset": {
+            "type": "integer",
+            "title": "Seconds Until Reset"
+          },
+          "reset_interval_hours": {
+            "type": "integer",
+            "title": "Reset Interval Hours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "demo",
+          "next_reset",
+          "seconds_until_reset",
+          "reset_interval_hours"
+        ],
+        "title": "DemoOn"
+      },
+      "DemoResetResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "reset_complete",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "DemoResetResponse"
+      },
+      "DemoSandboxResponse": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reused": {
+            "type": "boolean",
+            "title": "Reused"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "name",
+          "reused"
+        ],
+        "title": "DemoSandboxResponse",
+        "description": "The visitor's own sandbox Ereignis – or, at the cap, the oldest one (`reused`)."
+      },
       "DeploymentRole": {
         "properties": {
           "role": {
@@ -19465,6 +19760,135 @@
         ],
         "title": "DetachEmergencyRequest",
         "description": "«Rückgängig» of an attach: the card the attach made goes away again and the alarm\nis back in the Alarmeingang. ``incident_id`` is that card – the undo only runs while\nthe alarm is still linked to it and nobody has worked on it."
+      },
+      "DetailedHealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded"
+            ],
+            "title": "Status"
+          },
+          "components": {
+            "$ref": "#/components/schemas/HealthComponents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "components"
+        ],
+        "title": "DetailedHealthResponse",
+        "description": "`GET /health/detailed` (not on production)."
+      },
+      "DiagnosticsExport": {
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          },
+          "app": {
+            "type": "string",
+            "title": "App"
+          },
+          "release": {
+            "type": "string",
+            "title": "Release"
+          },
+          "install": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install"
+          },
+          "device": {
+            "type": "string",
+            "title": "Device"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/RecentError"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "errorsKept": {
+            "type": "integer",
+            "title": "Errorskept"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "app",
+          "release",
+          "install",
+          "device",
+          "errors",
+          "errorsKept",
+          "note"
+        ],
+        "title": "DiagnosticsExport",
+        "description": "The bundle an operator attaches to a Rückmeldung (served without unset keys)."
+      },
+      "DiskReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "low"
+            ],
+            "title": "Status"
+          },
+          "free_bytes": {
+            "type": "integer",
+            "title": "Free Bytes"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "title": "Total Bytes"
+          },
+          "free_percent": {
+            "type": "number",
+            "title": "Free Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "free_bytes",
+          "total_bytes",
+          "free_percent"
+        ],
+        "title": "DiskReport",
+        "description": "Free space on the photo volume (advisory: it never changes the HTTP status)."
+      },
+      "DiskUnknown": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "unknown",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "DiskUnknown",
+        "description": "The volume could not be measured."
       },
       "DiveraAlarmRecipient": {
         "properties": {
@@ -19977,6 +20401,47 @@
         "title": "DiveraMessageResponse",
         "description": "Result of a Mitteilung send."
       },
+      "DiveraPollingStatus": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "polling": {
+            "type": "boolean",
+            "title": "Polling"
+          },
+          "last_poll": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Poll"
+          },
+          "poll_count": {
+            "type": "integer",
+            "title": "Poll Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "polling",
+          "last_poll",
+          "poll_count",
+          "error_count"
+        ],
+        "title": "DiveraPollingStatus",
+        "description": "The polling fallback, for the Verbindung indicator."
+      },
       "DiveraResponseKindCounts": {
         "properties": {
           "coming": {
@@ -20258,6 +20723,26 @@
         "title": "DiveraTestAlarmRequest",
         "description": "Request to send a setup test alarm to a single Divera member.\n\nTargets a Divera user directly (by user_cluster_relation id), so the test\nworks even before any local personnel are linked."
       },
+      "DiveraWebhookDuplicate": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "DiveraWebhookDuplicate",
+        "description": "A redelivery of an alarm already in the pool: acknowledged, nothing stored."
+      },
       "DiveraWebhookPayload": {
         "properties": {
           "id": {
@@ -20403,6 +20888,44 @@
         ],
         "title": "DiveraWebhookPayload",
         "description": "Divera 24/7 webhook payload structure (actual format from Divera PRO)."
+      },
+      "DiveraWebhookStored": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "emergency_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Emergency Id"
+          },
+          "auto_attached_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Attached Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "emergency_id",
+          "auto_attached_incident_id"
+        ],
+        "title": "DiveraWebhookStored"
       },
       "DuplicateCandidate": {
         "properties": {
@@ -23302,6 +23825,58 @@
         "title": "FieldRequestStatusUpdate",
         "description": "The KP working a request: offen → in Arbeit → erledigt, or back to offen.\n\n``expected_status`` is the state the operator's screen showed; when the row\nhas moved on meanwhile (a second operator), the change is refused with 409\ninstead of overwriting what the other one did."
       },
+      "FireHubEndAck": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "action": {
+            "type": "string",
+            "const": "end",
+            "title": "Action"
+          },
+          "noted": {
+            "type": "boolean",
+            "title": "Noted"
+          },
+          "emergency_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emergency Id"
+          },
+          "incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incident Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "action",
+          "noted",
+          "emergency_id",
+          "incident_id"
+        ],
+        "title": "FireHubEndAck",
+        "description": "FireHub's «Einsatzende»: noted on the incident's audit trail, nothing moved."
+      },
       "FireHubOperation": {
         "properties": {
           "opsID": {
@@ -23404,6 +23979,49 @@
         ],
         "title": "FireHubOperation",
         "description": "The ``operation`` object of a FireHub webhook.\n\nField names mirror FireHub's camelCase JSON via aliases. ``extra=\"ignore\"`` so fields\nFireHub may add later never break intake before we map them."
+      },
+      "FireHubStartAck": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          },
+          "emergency_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Emergency Id"
+          },
+          "auto_attached_incident_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Attached Incident Id"
+          },
+          "action": {
+            "type": "string",
+            "const": "start",
+            "title": "Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "emergency_id",
+          "action"
+        ],
+        "title": "FireHubStartAck",
+        "description": "FireHub's «Einsatzstart»: the generic alarm ack, plus which trigger it answers."
       },
       "FireHubTrigger": {
         "properties": {
@@ -23572,6 +24190,20 @@
         },
         "type": "object",
         "title": "GpsSimStopRequest"
+      },
+      "GpsSimStopped": {
+        "properties": {
+          "stopped": {
+            "type": "integer",
+            "title": "Stopped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stopped"
+        ],
+        "title": "GpsSimStopped",
+        "description": "How many simulated drives were stopped."
       },
       "GroupAnnouncementRequest": {
         "properties": {
@@ -23798,6 +24430,81 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HealthComponents": {
+        "properties": {
+          "database": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PoolHealth"
+              },
+              {
+                "$ref": "#/components/schemas/ComponentFailure"
+              }
+            ],
+            "title": "Database"
+          },
+          "audit_pool": {
+            "$ref": "#/components/schemas/PoolHealth"
+          },
+          "websocket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebsocketHealth"
+              },
+              {
+                "$ref": "#/components/schemas/ComponentFailure"
+              }
+            ],
+            "title": "Websocket"
+          },
+          "audit_cleanup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuditCleanupHealth"
+              },
+              {
+                "$ref": "#/components/schemas/ComponentFailure"
+              }
+            ],
+            "title": "Audit Cleanup"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database",
+          "audit_pool",
+          "websocket",
+          "audit_cleanup"
+        ],
+        "title": "HealthComponents"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "healthy",
+            "title": "Status"
+          },
+          "disk": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiskReport"
+              },
+              {
+                "$ref": "#/components/schemas/DiskUnknown"
+              }
+            ],
+            "title": "Disk"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "disk"
+        ],
+        "title": "HealthResponse",
+        "description": "`GET /health`, for load balancers and uptime monitors."
       },
       "IncidentCreate": {
         "properties": {
@@ -25335,6 +26042,19 @@
         "title": "IncidentUpdate",
         "description": "Schema for updating incident: the create rules (`IncidentFields`), every field optional.\n\nThe free-text fields, the coordinates, `group_id` and the two move fields may be sent\nas null; the other columns cannot be emptied. `internal_notes` carries no length cap:\nmerges and `/feld` append to it on the server, so a note may already be past any\nlimit a form would set."
       },
+      "InstallIdResult": {
+        "properties": {
+          "installId": {
+            "type": "string",
+            "title": "Installid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installId"
+        ],
+        "title": "InstallIdResult"
+      },
       "IntakeAlarmCreated": {
         "properties": {
           "id": {
@@ -25927,6 +26647,19 @@
         ],
         "title": "KpFieldMessageCreate",
         "description": "The KP's payload: one sentence, same length cap as the field's own."
+      },
+      "LogoutResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "LogoutResponse"
       },
       "ManualDispatchRequest": {
         "properties": {
@@ -28122,6 +28855,74 @@
         "title": "PlannedAssignmentUpdate",
         "description": "«Verwerfen» of the «Danach frei» to-do (true) and its undo (false). The plan stays."
       },
+      "PoolHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "healthy",
+            "title": "Status"
+          },
+          "pool": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PoolStats"
+              },
+              {
+                "$ref": "#/components/schemas/PoolStatsUnavailable"
+              }
+            ],
+            "title": "Pool"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "pool"
+        ],
+        "title": "PoolHealth",
+        "description": "A database pool that answered."
+      },
+      "PoolStats": {
+        "properties": {
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "checked_in": {
+            "type": "integer",
+            "title": "Checked In"
+          },
+          "checked_out": {
+            "type": "integer",
+            "title": "Checked Out"
+          },
+          "overflow": {
+            "type": "integer",
+            "title": "Overflow"
+          }
+        },
+        "type": "object",
+        "required": [
+          "size",
+          "checked_in",
+          "checked_out",
+          "overflow"
+        ],
+        "title": "PoolStats"
+      },
+      "PoolStatsUnavailable": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "PoolStatsUnavailable"
+      },
       "PrintBoardRequest": {
         "properties": {
           "event_id": {
@@ -29506,6 +30307,67 @@
         "title": "RapportVehicleUpdate",
         "description": "The one tick, as the form sends it back."
       },
+      "RecentError": {
+        "properties": {
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "stack": {
+            "type": "string",
+            "title": "Stack"
+          },
+          "componentStack": {
+            "type": "string",
+            "title": "Componentstack"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          }
+        },
+        "type": "object",
+        "required": [
+          "at",
+          "kind",
+          "message",
+          "stack",
+          "componentStack",
+          "path"
+        ],
+        "title": "RecentError",
+        "description": "One sanitised client error from the in-memory buffer (`app/telemetry/recent.py`)."
+      },
       "RegieHistoryItem": {
         "properties": {
           "at": {
@@ -29982,6 +30844,34 @@
         ],
         "title": "RekoOrderRequest",
         "description": "Reorder a Reko person's Rekos (Einsatz ids) in one Ereignis.\n\n``expected_ids`` makes the write conditional, like ``GroupStopsReorder``: applied only\nwhile the person still holds exactly these Rekos (as a set), else 409. The Reko-Modus\nsends the list it showed, so a drag can never re-insert a Reko somebody released or\nhanded over meanwhile, nor order one it never saw."
+      },
+      "RekoPhotoDeleted": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "const": true,
+            "title": "Success"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "RekoPhotoDeleted"
+      },
+      "RekoPhotoUploaded": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename"
+        ],
+        "title": "RekoPhotoUploaded",
+        "description": "The stored name of an uploaded Reko photo (what the form keeps and later deletes)."
       },
       "RekoReportCreate": {
         "properties": {
@@ -30503,6 +31393,29 @@
         "title": "RekoSummary",
         "description": "Lightweight Reko report summary for bulk loading (used in kanban board)."
       },
+      "RekoTransferResult": {
+        "properties": {
+          "transferred_count": {
+            "type": "integer",
+            "title": "Transferred Count"
+          },
+          "incident_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Incident Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transferred_count",
+          "incident_ids"
+        ],
+        "title": "RekoTransferResult",
+        "description": "The open Rekos moved from one person to another."
+      },
       "ResolveIn": {
         "properties": {
           "choice": {
@@ -30759,6 +31672,247 @@
         "type": "object",
         "title": "ReversedAddress"
       },
+      "RosterLastGood": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "provider",
+          "generatedAt",
+          "sha256",
+          "count"
+        ],
+        "title": "RosterLastGood",
+        "description": "The snapshot the roster reflects now – after a refused run, still the previous one."
+      },
+      "RosterPostponed": {
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "display_name",
+          "reason"
+        ],
+        "title": "RosterPostponed",
+        "description": "A deactivation waiting because the person is checked in or assigned on an open Ereignis."
+      },
+      "RosterSnapshotResponse": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "intervalMinutes": {
+            "type": "integer",
+            "title": "Intervalminutes"
+          },
+          "maxDeactivatePct": {
+            "type": "integer",
+            "title": "Maxdeactivatepct"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterSnapshotStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "intervalMinutes",
+          "maxDeactivatePct",
+          "status"
+        ],
+        "title": "RosterSnapshotResponse",
+        "description": "The status card: the configuration and the last run (null on a station without one)."
+      },
+      "RosterSnapshotStatus": {
+        "properties": {
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterStatusOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unmatchedTotal": {
+            "type": "integer",
+            "title": "Unmatchedtotal",
+            "default": 0
+          },
+          "held": {
+            "type": "boolean",
+            "title": "Held",
+            "default": false
+          },
+          "unchanged": {
+            "type": "boolean",
+            "title": "Unchanged",
+            "default": false
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "default": false
+          },
+          "activeBefore": {
+            "type": "integer",
+            "title": "Activebefore",
+            "default": 0
+          },
+          "deactivationLimit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deactivationlimit"
+          },
+          "pendingDeactivations": {
+            "type": "integer",
+            "title": "Pendingdeactivations",
+            "default": 0
+          },
+          "postponed": {
+            "items": {
+              "$ref": "#/components/schemas/RosterPostponed"
+            },
+            "type": "array",
+            "title": "Postponed"
+          },
+          "lastGood": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RosterLastGood"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appliedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appliedat"
+          },
+          "lastAttempt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastattempt"
+          },
+          "lastSuccess": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsuccess"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "index",
+                  "direct"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
+          },
+          "index": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StationIndexSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "RosterSnapshotStatus",
+        "description": "The last roster-snapshot run, as stored."
+      },
       "RosterSnapshotSyncBody": {
         "properties": {
           "force": {
@@ -30770,6 +31924,117 @@
         "type": "object",
         "title": "RosterSnapshotSyncBody",
         "description": "``force`` releases a run the deactivation cap held — never the other refusals."
+      },
+      "RosterStatusOutcome": {
+        "properties": {
+          "schema": {
+            "type": "string",
+            "title": "Schema",
+            "default": "roster-snapshot-outcome/1"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "snapshot_generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Generated At"
+          },
+          "refused": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refused"
+          },
+          "matched": {
+            "type": "integer",
+            "title": "Matched",
+            "default": 0
+          },
+          "created": {
+            "type": "integer",
+            "title": "Created",
+            "default": 0
+          },
+          "updated": {
+            "type": "integer",
+            "title": "Updated",
+            "default": 0
+          },
+          "deactivated": {
+            "type": "integer",
+            "title": "Deactivated",
+            "default": 0
+          },
+          "unmatched": {
+            "items": {
+              "$ref": "#/components/schemas/RosterUnmatched"
+            },
+            "type": "array",
+            "title": "Unmatched"
+          },
+          "unknown_ranks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unknown Ranks"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "RosterStatusOutcome",
+        "description": "The run's outcome report (`roster-snapshot-outcome/1`), its unmatched list capped."
+      },
+      "RosterUnmatched": {
+        "properties": {
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "display_name",
+          "reason"
+        ],
+        "title": "RosterUnmatched",
+        "description": "One person a run could not place (`roster_snapshot.UnmatchedEntry`)."
       },
       "SchadenplatzRapport": {
         "properties": {
@@ -31843,6 +33108,68 @@
         "title": "StandbyStatus",
         "description": "`GET /api/standby` (and the takeover answers). The mirror fields are null on the hosted board."
       },
+      "StationIndexFile": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "schema": {
+            "type": "string",
+            "title": "Schema"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "known": {
+            "type": "boolean",
+            "title": "Known"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "kind",
+          "schema",
+          "read",
+          "known"
+        ],
+        "title": "StationIndexFile"
+      },
+      "StationIndexSummary": {
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/StationIndexFile"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "generatedAt",
+          "provider",
+          "sha256",
+          "files"
+        ],
+        "title": "StationIndexSummary",
+        "description": "The station index the run read the roster through (`station_index.summary`)."
+      },
       "StatusTransitionCreate": {
         "properties": {
           "from_status": {
@@ -31894,6 +33221,153 @@
         ],
         "title": "SyncVersion",
         "description": "`GET /api/incidents/sync-version`: a fingerprint of the board; a change means «reload»."
+      },
+      "TelemetryConsentResult": {
+        "properties": {
+          "consent": {
+            "type": "string",
+            "enum": [
+              "off",
+              "errors"
+            ],
+            "title": "Consent"
+          },
+          "discarded": {
+            "type": "integer",
+            "title": "Discarded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "consent",
+          "discarded"
+        ],
+        "title": "TelemetryConsentResult"
+      },
+      "TelemetryOutboxRow": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "sentAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentat"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "lastError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lasterror"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "channel",
+          "createdAt",
+          "sentAt",
+          "attempts",
+          "lastError",
+          "payload"
+        ],
+        "title": "TelemetryOutboxRow",
+        "description": "A queued or sent telemetry payload, verbatim – the admin reads the actual JSON."
+      },
+      "TelemetryStatus": {
+        "properties": {
+          "consent": {
+            "type": "string",
+            "enum": [
+              "off",
+              "errors"
+            ],
+            "title": "Consent"
+          },
+          "decided": {
+            "type": "boolean",
+            "title": "Decided"
+          },
+          "installId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installid"
+          },
+          "outboundAllowed": {
+            "type": "boolean",
+            "title": "Outboundallowed"
+          },
+          "ingestConfigured": {
+            "type": "boolean",
+            "title": "Ingestconfigured"
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryOutboxRow"
+            },
+            "type": "array",
+            "title": "Recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "consent",
+          "decided",
+          "installId",
+          "outboundAllowed",
+          "ingestConfigured",
+          "pending",
+          "recent"
+        ],
+        "title": "TelemetryStatus",
+        "description": "What this instance sends, and whether it may."
       },
       "TraccarStatusResponse": {
         "properties": {
@@ -34124,6 +35598,33 @@
           "texts"
         ],
         "title": "WeatherWarningOut"
+      },
+      "WebsocketHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "healthy",
+            "title": "Status"
+          },
+          "connections": {
+            "type": "integer",
+            "title": "Connections"
+          },
+          "rooms": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Rooms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "connections",
+          "rooms"
+        ],
+        "title": "WebsocketHealth"
       },
       "WsTokenResponse": {
         "properties": {

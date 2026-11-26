@@ -51,3 +51,8 @@ export type ApiRekoOpenAssignmentInfo = Out<'RekoOpenAssignmentInfo'>
 export type ApiAvailableRekoPersonnel = Out<'AvailableRekoPersonnel'>
 
 export type ApiAvailableRekoPersonnelResponse = Out<'AvailableRekoPersonnelResponse'>
+
+/** The stored name of an uploaded Reko photo – what the form keeps and later deletes. */
+export type ApiRekoPhotoUploaded = Out<'RekoPhotoUploaded'>
+
+export type ApiRekoTransferResult = Out<'RekoTransferResult'>

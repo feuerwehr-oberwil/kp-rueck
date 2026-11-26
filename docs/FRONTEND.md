@@ -26,9 +26,10 @@ change. Read the section you touch. The visual rules and their reasons are
 - **API Integration**: Centralized API client in `lib/api-client.ts`. Collection routes need
   their trailing slash, or a write is lost to a 307: [`BACKEND.md`](BACKEND.md#api-endpoints).
   - Wire types are aliases of the spec: `Out<'XResponse'>` / `In<'XCreate'>` from
-    `lib/api/wire.ts` over the generated `lib/api/schema.d.ts` (`just openapi`). Write a hand
-    type only where the backend answers an untyped dict, and narrow a `str` vocabulary beside
-    the reason.
+    `lib/api/wire.ts` over the generated `lib/api/schema.d.ts` (`just openapi`). Every JSON
+    route has a model, so a hand type is never the answer: narrow a `str` vocabulary beside the
+    reason. A stored document served without its unset keys (the roster-snapshot status, the
+    diagnostics bundle) is `Sparse<'X'>`: its optional fields may be absent.
   - `request<T>` is for a route that answers JSON, `requestVoid` for a bodyless one (204). No
     answer after the retries rejects with `NetworkError`, a read as well as a write – never
     `undefined`. So every call is awaited, returned, caught or handed to React Query. The

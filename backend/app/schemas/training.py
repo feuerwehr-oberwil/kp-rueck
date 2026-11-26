@@ -430,3 +430,9 @@ class SimulateBulkRapportResponse(BaseModel):
     skipped: int
     rapports: list[SimulateRapportResponse] = []
     message: str
+
+
+class GpsSimStopped(BaseModel):
+    """How many simulated drives were stopped."""
+
+    stopped: int

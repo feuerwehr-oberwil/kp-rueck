@@ -5,7 +5,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -32,6 +32,21 @@ from ..services.settings import FIRESTATION_NAME, HOME_CITY, KOMMANDANT_NAME, re
 from ..utils.errors import ErrorMessages
 
 logger = get_logger(__name__)
+
+
+# The downloads say what they are, so the contract does not list them as JSON.
+_XLSX: dict[int | str, dict[str, Any]] = {
+    200: {
+        "content": {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {"type": "string", "format": "binary"}
+            }
+        }
+    }
+}
+_PDF: dict[int | str, dict[str, Any]] = {
+    200: {"content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}
+}
 
 router = APIRouter(prefix="/exports", tags=["exports"])
 
@@ -95,7 +110,7 @@ def _collect_report_photos(data: EventReportData) -> dict[uuid.UUID, list[Export
     return photos
 
 
-@router.post("/events/{event_id}/audit")
+@router.post("/events/{event_id}/audit", response_class=StreamingResponse, responses=_XLSX)
 @limiter.limit(RateLimits.EXPORT)
 async def export_event_audit(
     request: Request,
@@ -175,7 +190,7 @@ async def export_event_audit(
         ) from e
 
 
-@router.get("/events/{event_id}/report")
+@router.get("/events/{event_id}/report", response_class=StreamingResponse, responses=_PDF)
 @limiter.limit(RateLimits.EXPORT)
 async def export_event_report(
     request: Request,
@@ -263,7 +278,7 @@ async def export_event_report(
         ) from e
 
 
-@router.get("/events/{event_id}/lageblatt")
+@router.get("/events/{event_id}/lageblatt", response_class=StreamingResponse, responses=_PDF)
 @limiter.limit(RateLimits.EXPORT)
 async def export_event_lageblatt(
     request: Request,
@@ -313,7 +328,7 @@ async def export_event_lageblatt(
         ) from e
 
 
-@router.get("/events/{event_id}/einsaetze.xlsx")
+@router.get("/events/{event_id}/einsaetze.xlsx", response_class=StreamingResponse, responses=_XLSX)
 @limiter.limit(RateLimits.EXPORT)
 async def export_event_einsaetze(
     request: Request,

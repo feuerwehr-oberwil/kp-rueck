@@ -14,6 +14,7 @@ from ..database import get_db
 from ..models import (
     Vehicle,
 )
+from ..schemas.training import GpsSimStopped
 from ..services.gps_simulation import DriveKind
 from ..utils.errors import ErrorMessages
 
@@ -69,7 +70,7 @@ async def list_gps_simulations(current_user: CurrentUser) -> list[GpsSimDriveRes
     return [_drive_response(d, now) for d in gps_simulation.list_drives()]
 
 
-@router.post("/gps-sim/stop", response_model=None)
+@router.post("/gps-sim/stop", response_model=GpsSimStopped)
 async def stop_gps_simulation(
     request: GpsSimStopRequest,
     current_user: CurrentEditor,

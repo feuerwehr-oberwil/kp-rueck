@@ -331,3 +331,35 @@ class DiveraResponsesSummary(BaseModel):
     # Answers from Divera members no roster person is linked to (count only, in `counts` too).
     unmapped: int = 0
     updated_at: datetime | None = None
+
+
+class DiveraPollingStatus(BaseModel):
+    """The polling fallback, for the Verbindung indicator."""
+
+    #: True when an access key is set (alarms and inbound polling can work).
+    configured: bool
+    #: True while the polling task runs (it runs from boot whenever it is configured).
+    polling: bool
+    #: ISO timestamp of the last successful poll, if any.
+    last_poll: str | None
+    poll_count: int
+    error_count: int
+
+
+class DiveraWebhookDuplicate(BaseModel):
+    """A redelivery of an alarm already in the pool: acknowledged, nothing stored."""
+
+    status: Literal["ok"]
+    message: str
+
+
+class DiveraWebhookStored(BaseModel):
+    status: Literal["ok"]
+    message: str
+    emergency_id: UUID
+    #: The incident the alarm became on an auto-attach Ereignis, else None.
+    auto_attached_incident_id: UUID | None
+
+
+#: What Divera gets back. A duplicate ack carries no ids, so the two forms cannot be confused.
+DiveraWebhookAck = DiveraWebhookStored | DiveraWebhookDuplicate

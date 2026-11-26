@@ -96,6 +96,26 @@ class AlarmAck(BaseModel):
     auto_attached_incident_id: UUID | None = None
 
 
+class FireHubStartAck(AlarmAck):
+    """FireHub's «Einsatzstart»: the generic alarm ack, plus which trigger it answers."""
+
+    action: Literal["start"]
+
+
+class FireHubEndAck(BaseModel):
+    """FireHub's «Einsatzende»: noted on the incident's audit trail, nothing moved."""
+
+    status: Literal["ok"]
+    action: Literal["end"]
+    #: False when no alarm with that opsID is known.
+    noted: bool
+    emergency_id: UUID | None
+    incident_id: UUID | None
+
+
+FireHubAck = FireHubStartAck | FireHubEndAck
+
+
 # --- FireHub (Tercero) adapter ------------------------------------------------------------
 # FireHub has no public REST API for our use case, but it fires a station-configured webhook
 # on the "Einsatzstart" and "Einsatzende" triggers. That is enough for the board: a start
