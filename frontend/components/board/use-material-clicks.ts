@@ -2,7 +2,8 @@
 
 import { useCallback, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
-import { useMaterials, type Material } from "@/lib/contexts/materials-context"
+import { useOperations } from "@/lib/contexts/operations-context"
+import type { Material } from "@/lib/contexts/materials-context"
 import { materialResourceState } from "@/lib/resource-status"
 import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import type { useResourceBindings } from "./use-resource-bindings"
@@ -18,7 +19,7 @@ interface UseMaterialClicksInput {
  * The person rows' twin is `handlePersonClick` in use-resource-bindings.ts.
  */
 export function useMaterialClicks({ resourceBindings, setBindingsPopover }: UseMaterialClicksInput) {
-  const { setMaterialOutOfService } = useMaterials()
+  const { setMaterialOutOfService } = useOperations()
   const { collectMaterialBindings, followBinding } = resourceBindings
   const tCommon = useTranslations('kanban.common')
 
