@@ -9,7 +9,7 @@
     "kp/disable-reason": 2,
     "kp/no-effect-read": 66,
     "kp/no-literal-copy": 26,
-    "kp/no-raw-effect": 325,
+    "kp/no-raw-effect": 324,
     "kp/no-raw-timer": 109
   },
   "suppressed": {

@@ -708,7 +708,7 @@ export function CommandPalette() {
                     </CommandItem>
                   )}
                   {/* «Färben nach» — hint letters mirror COLOR_BY_SHORTCUTS in
-                      app/map/page.tsx (German mnemonics P/K/F/T/A). */}
+                      app/map/view-menu.tsx (German mnemonics P/K/F/T/A). */}
                   {onSetMapColorBy &&
                     ([
                       ['P', 'priority'],
