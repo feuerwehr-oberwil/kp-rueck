@@ -102,13 +102,12 @@ export function useMapViewOptions() {
   const [options, setOptions] = useState(DEFAULT_MAP_VIEW_OPTIONS)
   useEffect(() => {
     const saved = localStorage.getItem(COLOR_BY_STORAGE_KEY)
-    setOptions((current) =>
-      changeMapView(current, {
-        type: 'restore',
-        colorBy: isColorByDimension(saved) ? saved : null,
-        showWeather: readWeatherLayerPref(),
-      }),
-    )
+    const restore: MapViewChange = {
+      type: 'restore',
+      colorBy: isColorByDimension(saved) ? saved : null,
+      showWeather: readWeatherLayerPref(),
+    }
+    setOptions((current) => changeMapView(current, restore))
   }, [])
   // Stable: the page's keydown handler and the command palette close over it.
   const changeView = useCallback((change: MapViewChange) => {
