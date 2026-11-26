@@ -17,7 +17,8 @@ import { Fragment, useState, useEffect, useMemo, useRef, useCallback, type CSSPr
 import type { Map as MlMap } from "maplibre-gl"
 import { Marker, NavigationControl, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
-import type { Incident, IncidentStatus, StatusGroup } from "@/lib/types/incidents"
+import type { IncidentStatus, StatusGroup } from "@/lib/types/incidents"
+import type { MapIncident } from "@/lib/map-incident"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { BaseMap } from "./map/base-map"
 import { MapTooltip } from "./map/map-tooltip"
@@ -114,7 +115,7 @@ function IncidentPin({
   expanded,
   onActivate,
 }: {
-  incident: Incident
+  incident: MapIncident
   highlighted: boolean
   /** Its place in the selected Reko person's order (Reko-Editor): the number replaces the
    *  priority glyph, as the Auftrag pins carry theirs (mock 2a, 19.11.2026). */
@@ -272,7 +273,7 @@ function IncidentMarker({
   onHoverStart,
   onHoverEnd,
 }: {
-  incident: Incident
+  incident: MapIncident
   highlighted: boolean
   /** Phone geometry – see IncidentPin. */
   compact: boolean
@@ -611,7 +612,7 @@ function IncidentLabel({
 }
 
 /** What a short label (and the marker's aria-label) calls the incident. */
-function shortAddressOf(incident: Incident): string {
+function shortAddressOf(incident: MapIncident): string {
   return (
     (incident.location_display ?? formatLocationForDisplay(incident.location_address ?? '', getGlobalHomeCity()))
     || incident.title
@@ -816,15 +817,15 @@ function useVehiclePlacement(
 
 // --- Same-address pins and overlap bubbles ----------------------------------
 
-type IncidentSpot = MapSpot<Incident>
+type IncidentSpot = MapSpot<MapIncident>
 
 /** A bubble on the map: its pins' incidents, drawn at their geographic centre. */
 interface IncidentCluster {
   key: string
   /** The spot keys merged into it – their pins and labels are left out. */
   spotKeys: string[]
-  incidents: Incident[]
-  lead: Incident
+  incidents: MapIncident[]
+  lead: MapIncident
   latitude: number
   longitude: number
 }
@@ -1035,7 +1036,7 @@ function SpotListRow({
   onPick,
   onOpen,
 }: {
-  incident: Incident
+  incident: MapIncident
   selected: boolean
   onPick?: (incidentId: string) => void
   onOpen?: (incidentId: string) => void
@@ -1078,7 +1079,7 @@ function SpotListRow({
 // --- Map controls -----------------------------------------------------------
 
 /** Every located incident as a `[lat, lng]` point — what `fitTo` frames. */
-function locatedPoints(incidents: Incident[]): LatLngPoint[] {
+function locatedPoints(incidents: MapIncident[]): LatLngPoint[] {
   return incidents
     .filter((inc) => inc.location_lat !== null && inc.location_lng !== null)
     .map((inc) => [inc.location_lat!, inc.location_lng!] as LatLngPoint)
@@ -1109,7 +1110,7 @@ function useMapZoom(map: MlMap | null, fallback: number): number {
  * but keeps watching until then: on a cold cache the incidents arrive well after the map mounts,
  * and a mount-only effect would leave the operator at the default zoom forever.
  */
-function useFitBoundsOnce(map: MlMap | null, incidents: Incident[], padding: FitPadding) {
+function useFitBoundsOnce(map: MlMap | null, incidents: MapIncident[], padding: FitPadding) {
   const done = useRef(false)
   useEffect(() => {
     if (!map) return
@@ -1162,7 +1163,7 @@ function selectedLabelBox(map: MlMap, lngLat: [number, number]) {
 function usePanToSelected(
   map: MlMap | null,
   selectedIncidentId: string | null,
-  incidents: Incident[],
+  incidents: MapIncident[],
   trigger: number,
   compact: boolean,
   padding: FitPadding,
@@ -1225,7 +1226,7 @@ function usePanToVehicle(
 }
 
 /** Reset zoom to show all incidents (the `z` shortcut / panel resize). */
-function useResetZoom(map: MlMap | null, trigger: number, incidents: Incident[], padding: FitPadding) {
+function useResetZoom(map: MlMap | null, trigger: number, incidents: MapIncident[], padding: FitPadding) {
   const incidentsRef = useRef(incidents)
   useEffect(() => { incidentsRef.current = incidents }, [incidents])
 
@@ -1255,7 +1256,7 @@ function FitAllButton({
   floating,
 }: {
   map: MlMap | null
-  incidents: Incident[]
+  incidents: MapIncident[]
   padding: FitPadding
   /** The phone Lagekarte: under the zoom buttons on the RIGHT, in the floating family's shape. */
   floating: boolean
@@ -1305,7 +1306,7 @@ function MissingLocationsWarning({
   setIsExpanded,
   alignStart,
 }: {
-  incidents: Incident[]
+  incidents: MapIncident[]
   onIncidentClick?: (incidentId: string) => void
   /** The chip stands at the row's start (the phone Lagekarte): its list hangs to the right. */
   alignStart: boolean
@@ -1415,7 +1416,7 @@ interface MapViewProps {
   // Token/read-only display: feed data directly instead of auth-only contexts
   // and API fetches. When incidentsOverride is set, the map runs in token mode
   // (no getVehicles/getVehiclePositions/getAllSettings/WS).
-  incidentsOverride?: Incident[]
+  incidentsOverride?: MapIncident[]
   vehiclesOverride?: ApiVehicle[]
   positionsOverride?: ApiVehiclePosition[]
   /** Token mode: the station's staleness threshold (`gps.stale_after_minutes`), from the payload. */
@@ -1689,7 +1690,7 @@ export default function MapView({
         .map((spot): LabelSource => {
           const single = spot.incidents.length === 1
           const numbers = single ? (spot.lead.number != null ? String(spot.lead.number) : "") : spotNumberText(spot.incidents)
-          const personnel = single ? ((spot.lead as { assigned_personnel?: unknown[] }).assigned_personnel?.length ?? 0) : 0
+          const personnel = single ? spot.lead.crewCount : 0
           return {
             id: spot.key,
             latitude: spot.latitude,
@@ -2080,7 +2081,7 @@ export default function MapView({
           // Split, not summed: a bare "(3)" hid whether that was three people,
           // three vehicles or a mix — an icon each answers it without a click.
           const vehicleCount = incident.assigned_vehicles.length
-          const personnelCount = ("assigned_personnel" in incident ? incident.assigned_personnel?.length : 0) || 0
+          const personnelCount = incident.crewCount
           const select = () => onMarkerClick?.(incident.id)
           const openDetail = onMarkerDoubleClick ? () => onMarkerDoubleClick(incident.id) : undefined
 

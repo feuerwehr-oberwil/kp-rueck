@@ -8,7 +8,6 @@ export function makeOperation(overrides: Partial<Operation> = {}): Operation {
     id: "op-1",
     number: null,
     location: "Dorfstrasse 1",
-    vehicle: null,
     vehicles: [],
     incidentType: "elementarereignis",
     dispatchTime: new Date("2026-11-25T20:00:00"),

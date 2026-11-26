@@ -76,7 +76,6 @@ export function apiIncidentToOperation(incident: ApiIncident): Operation {
     number: incident.number ?? null,
     location: incident.location_address || incident.title,
     locationDisplay: incident.location_display ?? undefined,
-    vehicle: null,
     vehicles: [],
     incidentType: incident.type || "elementarereignis",
     dispatchTime: new Date(incident.created_at),

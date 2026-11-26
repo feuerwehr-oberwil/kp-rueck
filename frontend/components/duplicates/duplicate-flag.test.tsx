@@ -51,7 +51,6 @@ describe('DuplicateFlag', () => {
       status: 'active',
       crew: [crewMember('Meier Hans')],
       vehicles: [assignedVehicle('TLF 1')],
-      vehicle: null,
       materials: [],
       hasCompletedReko: true,
       fieldRequests: [],

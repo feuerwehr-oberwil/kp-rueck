@@ -79,7 +79,6 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
     id: a.id,
     location: a.location_address || a.title,
     locationDisplay: a.location_display ?? undefined,
-    vehicle: "" as unknown as Operation["vehicle"],
     // From the assignments, as on the board (`reconcileEvent`).
     vehicles: [],
     incidentType: a.type,

@@ -34,7 +34,6 @@ export interface StatusWriteGuard {
   /** Set by «Trotzdem …» only: the server's status the operator was shown and overrides. */
   override?: OperationStatus
 }
-export type VehicleType = string | null
 
 /** Payload of an `assignment_update` with `action: 'driver_stay'`. */
 export interface DriverStayPayload {
@@ -91,7 +90,6 @@ export interface Operation {
   /** Server-computed short location label (home city stripped). Absent on
    *  locally-created optimistic operations until the next server sync. */
   locationDisplay?: string
-  vehicle: VehicleType
   /** In the fleet's display order. */
   vehicles: OperationVehicle[]
   incidentType: string

@@ -9,9 +9,8 @@ import dynamic from "next/dynamic"
 import { useIncidents, useOperations, type Operation } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useAuth } from "@/lib/contexts/auth-context"
-import { type ApiViewerIncident } from "@/lib/api-client"
-import type { Incident } from "@/lib/types/incidents"
-import type { AssignedVehicle, StatusGroup, IncidentStatus } from "@/lib/types/incidents"
+import { toMapIncident } from "@/lib/map-incident"
+import type { StatusGroup, IncidentStatus } from "@/lib/types/incidents"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import type { IncidentGroup } from "@/lib/types/groups"
 import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
@@ -470,39 +469,6 @@ function AuthenticatedDisplayMap({
   )
 }
 
-/** Map the token payload's API incident onto the domain Incident MapView wants.
- *  Typed on `ApiViewerIncident`, not `ApiIncident`: the share payload is a
- *  deliberate subset (no contact, no internal notes), so the narrower type is
- *  what actually arrives — and reading a field that is not in it must not
- *  compile. */
-function apiIncidentToIncident(a: ApiViewerIncident): Incident {
-  return {
-    id: a.id,
-    event_id: a.event_id,
-    title: a.title,
-    type: a.type,
-    priority: a.priority,
-    location_address: a.location_address,
-    location_display: a.location_display ?? null,
-    location_lat: a.location_lat != null ? parseFloat(a.location_lat) : null,
-    location_lng: a.location_lng != null ? parseFloat(a.location_lng) : null,
-    status: a.status,
-    description: a.description,
-    source: a.source,
-    nachbarhilfe: a.nachbarhilfe ?? false,
-    am_warten: a.am_warten ?? false,
-    zu_fuss: a.zu_fuss ?? false,
-    created_at: new Date(a.created_at),
-    updated_at: new Date(a.updated_at),
-    created_by: a.created_by ?? null,
-    completed_at: a.completed_at ? new Date(a.completed_at) : null,
-    status_changed_at: a.status_changed_at ? new Date(a.status_changed_at) : null,
-    assigned_vehicles: (a.assigned_vehicles ?? []) as unknown as AssignedVehicle[],
-    has_completed_reko: a.has_completed_reko,
-    reko_arrived_at: a.reko_arrived_at ? new Date(a.reko_arrived_at) : null,
-  }
-}
-
 function TokenDisplayMap({
   token,
   selectedIncidentId,
@@ -521,13 +487,10 @@ function TokenDisplayMap({
 }: DisplayMapVariantProps & { token: string }) {
   const { payload: data, data: situation, groups } = useViewerSituation()
 
-  const incidents = useMemo<Incident[]>(
-    () => data.incidents.map(apiIncidentToIncident),
-    [data]
-  )
   // Full operation view-model (crew/materials/reko from the payload's
-  // assignments) — feeds the route overlay, "Färben nach" and the detail dialog.
+  // assignments) — the pins, the route overlay, "Färben nach" and the detail dialog.
   const operations = situation.operations
+  const incidents = useMemo(() => operations.map(toMapIncident), [operations])
   const operationsById = useMemo(
     () => new Map(operations.map((op) => [op.id, op] as const)),
     [operations],

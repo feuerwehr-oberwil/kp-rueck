@@ -312,7 +312,6 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       number: 14,
       location: "Hauptstrasse 12, 4104 Oberwil",
       locationDisplay: "Hauptstrasse 12",
-      vehicle: null,
       vehicles: [
         { vehicleId: "v-tlf", assignmentId: "a-tlf", name: "TLF", callsign: "Omega 1", driverStay: true },
         { vehicleId: "v-mtw", assignmentId: "a-mtw", name: "MTW", callsign: null, driverStay: false },
@@ -384,7 +383,6 @@ describe("OperationsProvider — the board snapshot (golden)", () => {
       number: null,
       location: "Baum auf Strasse",
       locationDisplay: undefined,
-      vehicle: null,
       vehicles: [],
       incidentType: "elementarereignis",
       dispatchTime: new Date("2026-09-23T09:00:00Z"),

@@ -136,7 +136,6 @@ export function useRoutePlanning(groupId: string | null | undefined) {
         // "+ Stop" path. Awaited, so the refresh below sees the new stop.
         await createOperation({
           location: address,
-          vehicle: null,
           vehicles: [],
           incidentType: "elementarereignis",
           crew: [],
