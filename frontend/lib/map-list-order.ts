@@ -1,6 +1,6 @@
 /**
  * The order of the Lagekarte's list (the desktop rail and the phone list under the map – one
- * component, `app/map/page.tsx`): within each status group («Offen», «Aktiv», …) Hoch → Mittel →
+ * component, `app/map/use-map-incident-lists.ts`): within each status group («Offen», «Aktiv», …) Hoch → Mittel →
  * Niedrig, then the oldest first (owner pick U10 B, 08.11.2026). The rail is scanned for exactly
  * that – what is Hoch, then what has waited longest.
  *

@@ -46,7 +46,7 @@ test.describe('Viewer role — map', () => {
     authenticatedPage,
     viewerPage,
   }) => {
-    // app/map/page.tsx: the two editor modes (Auftrags-Editor / Reko-Editor) are
+    // app/map/incident-rail.tsx: the two editor modes (Auftrags-Editor / Reko-Editor) are
     // direct buttons now, not a "Modus" dropdown — still the one control block
     // on this page rendered behind a bare `{isEditor && …}`.
     await expect(
