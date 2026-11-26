@@ -186,7 +186,7 @@ export function RekoReportGateDialog({
   const footer = (
     <>
       {phase !== 'loading' && !answered && (
-        <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:basis-full! sm:mr-auto" onClick={onFinish}>
+        <Button variant="ghost" size="sm" className="text-muted-foreground max-md:basis-full! sm:mr-auto" onClick={onFinish}>
           {t('finishWithout')}
         </Button>
       )}

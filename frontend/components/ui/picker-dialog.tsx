@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react'
 import { DialogFooter } from '@/components/ui/dialog'
 import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter, ResponsiveDialogToolbar } from '@/components/ui/responsive-dialog'
-import { useIsMobile } from '@/components/ui/use-mobile'
 import { SurfaceStep, SurfaceStepEscHint, useOpenSurface } from '@/components/ui/surface-step'
 import { onPickerKeyDown, PICKER_FOOTER } from '@/components/ui/picker-keys'
 import type { Subject } from '@/components/ui/subject-line'
@@ -58,11 +57,10 @@ export function PickerDialog({
   listTestId?: string
   radioGroupLabel?: string
 }) {
-  const isMobile = useIsMobile()
   const surface = useOpenSurface()
   const listRole = radioGroupLabel ? { role: 'radiogroup', 'aria-label': radioGroupLabel } : {}
 
-  if (surface && !isMobile) {
+  if (surface) {
     if (!open) return null
     return (
       <SurfaceStep host={surface} title={title} description={description} onBack={() => onOpenChange(false)}>
