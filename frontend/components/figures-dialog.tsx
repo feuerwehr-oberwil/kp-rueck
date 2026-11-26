@@ -15,8 +15,7 @@
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { ResponsiveDialog, ResponsiveDialogBody } from "@/components/ui/responsive-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { EventFiguresPanel } from "@/components/event-figures"
 import { useEvent } from "@/lib/contexts/event-context"
@@ -55,36 +54,26 @@ export function FiguresDialog() {
   const title = t(selectedEvent?.training_flag ? "titleTraining" : "title")
   const panel = <EventFiguresPanel eventId={selectedEvent?.id ?? null} enabled={open} onOpenIncident={openIncident} />
 
-  // The phone: a bottom sheet like every phone surface (FRONTEND.md, phone geometry) – it opens
-  // without focusing anything (the Sheet primitive focuses the sheet itself), and the Ereignis
-  // is its own line under the title. As a centred dialog the title wrapped beside the ✕ and
-  // the ✕ wore a focus ring from the first frame (after-shots 14.11.2026).
-  if (isPhone) {
-    return (
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="modal-h-tall gap-0 p-0">
-          {/* The one phone sheet head (SheetHeader's frame, phone sweep 24.11.2026 #30). */}
-          <SheetHeader>
-            <SheetTitle>{title}</SheetTitle>
-            {selectedEvent && <SheetDescription>{selectedEvent.name}</SheetDescription>}
-          </SheetHeader>
-          <SheetBody className="px-6 pt-1 pb-sheet-safe">{panel}</SheetBody>
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
+  // The phone: the one bottom sheet (FRONTEND.md, phone geometry) – it opens without focusing
+  // anything, and the Ereignis is its own line under the title. A desk names it in the title.
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent size="md" className="modal-h-tall overflow-y-auto" aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={setOpen}
+      title={
+        isPhone ? title : (
+          <>
             {title}
             {selectedEvent && <span className="font-normal text-muted-foreground"> · {selectedEvent.name}</span>}
-          </DialogTitle>
-        </DialogHeader>
-        {panel}
-      </DialogContent>
-    </Dialog>
+          </>
+        )
+      }
+      description={isPhone ? selectedEvent?.name : undefined}
+      size="md"
+      className="modal-h-tall overflow-y-auto"
+    >
+      {/* Desk: `contents` – the panel's parts stay cells of the window's grid, 16px apart. */}
+      <ResponsiveDialogBody className="contents" sheetClassName="pt-1 pb-sheet-safe">{panel}</ResponsiveDialogBody>
+    </ResponsiveDialog>
   )
 }

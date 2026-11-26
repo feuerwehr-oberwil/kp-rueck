@@ -3,8 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter, ResponsiveDialogToolbar } from "@/components/ui/responsive-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { SurfaceStep, SurfaceStepEscHint, useOpeningSurface } from "@/components/ui/surface-step"
 import { SearchInput } from "@/components/ui/search-input"
@@ -33,7 +32,6 @@ import { useMaterials } from "@/lib/contexts/materials-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { getIncidentLocationLabel, getIncidentRefLabel, getIncidentRefParts } from "@/lib/incident-types"
-import { SubjectLine } from "@/components/ui/subject-line"
 import { getActiveLocale } from "@/lib/i18n-messages"
 import { compareByName, compareByRankThenName } from "@/lib/roster-order"
 import { cn } from "@/lib/utils"
@@ -1555,74 +1553,49 @@ export function ResourceAssignmentDialog({
     </>
   )
 
-  // The destination line under the title: «1 Langegasse 28», up to two lines.
-  const destinationLine = destination && <SubjectLine subject={destination} />
-
-  // PHONE (U3 B, 08.11.2026): a bottom sheet like «Neuer Einsatz»'s – grip and swipe-to-close
-  // (through `onOpenChange`, like the ✕), the header, the search and filters fixed, the list
-  // scrolling in `SheetBody`, «Abbrechen» / «Fertig» in a footer that stays on the keys. Full
-  // height (`h-[88dvh]`, the `modal-h-tall` cap): the sheet does not jump while a search or a
-  // filter shortens the list. Opening focuses the sheet, not the search (ui/sheet.tsx) – no
-  // keyboard until a tap. The ✕ is centred on the title line: 20px top padding + half its
-  // 22px line = 31px.
-  const sheet = (
-    <Sheet open={open} onOpenChange={onOpenChangeUnlessSaving}>
-      <SheetContent side="bottom" className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [--close-centre:31px]" onKeyDown={onPickerKeyDown}>
-        <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12 text-left">
-          <SheetTitle className="text-lg leading-[1.375rem] font-semibold">{getDialogTitle()}</SheetTitle>
-          {destinationLine}
-          <SheetDescription className="text-xs">{getDialogDescription()}</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-4 px-4 pb-4">{filterControls}</div>
-        <SheetBody className="px-4 pb-4">{resourceList}</SheetBody>
-        <SheetFooter {...PICKER_FOOTER} className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
-          {footerButtons}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+  // The list on a desk: it scrolls between the filters and the footer, and while tiles run on
+  // below, its bottom edge fades instead of cutting a tile off flush against the footer.
+  const scrollingList = (
+    <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
+      {resourceList}
+    </ScrollArea>
   )
 
+  // PHONE (U3 B, 08.11.2026): the one bottom sheet – grip and swipe-to-close (through
+  // `onOpenChange`, like the ✕), the head, the search and filters fixed, the list scrolling,
+  // «Abbrechen» / «Fertig» in a footer that stays on the keys. Full height (`fill`): the sheet
+  // does not jump while a search or a filter shortens the list. Opening focuses the sheet, not
+  // the search (ui/sheet.tsx) – no keyboard until a tap.
+  // DESK: L, a work surface – fixed height and place (dialog-frame.ts), so the list scrolls
+  // inside it and the top does not jump as quick filters change. A Fahrer picker for a vehicle
+  // assigned here opens inside it as a step (`surface`, owner pick 5A). ONE header: title
+  // (18/600, 22px line) · the destination («1 Langegasse 28», up to two lines) · the counts
+  // (12, muted), left-aligned with the search field, no icon before the title. `ps-0!` cancels
+  // the start padding globals.css gives centred narrow headers.
   const dialog = (
-    <Dialog open={open} onOpenChange={onOpenChangeUnlessSaving}>
-      {/* Fixed (definite) height (size L): gives flex-1 a real basis so the list scrolls
-          internally instead of overflowing, and keeps the dialog the same size as
-          you switch quick filters so the top doesn't jump. overflow-hidden clips.
-          The phone has its own sheet (above); this is the tablet-to-desktop dialog. */}
-      {/* L: a work surface – fixed height and place (dialog-frame.ts). A Fahrer picker
-          for a vehicle assigned here opens inside it as a step (`surface`, owner pick 5A). */}
-      <DialogContent size="lg" surface={getDialogTitle()} className="overflow-hidden flex flex-col" onKeyDown={onPickerKeyDown}>
-        {/* ONE header on every size: title (18/600, 22px line) · the destination (14/500, up to
-            two lines) · the counts (12, muted), 6px then 4px apart – left-aligned with the search
-            field, no icon before the title (the words say what is assigned). `ps-0!` cancels the
-            start padding globals.css gives CENTRED phone headers; the 2.5rem kept clear for the ✕
-            at the end stays. */}
-        <DialogHeader className="gap-1 text-left ps-0!">
-          <DialogTitle className="text-lg leading-[1.375rem] font-semibold">
-            {getDialogTitle()}
-          </DialogTitle>
-          {destinationLine}
-          <DialogDescription className="text-xs">{getDialogDescription()}</DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col min-h-0 flex-1 gap-4">
-          {filterControls}
-
-          {/* Resource List — flexes to fill the space between chips and footer,
-              so the list scrolls internally and the dialog never exceeds 85dvh. `fadeEnd`:
-              while tiles run on below, its bottom edge fades instead of cutting a tile
-              off flush against the footer. */}
-          <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
-            {resourceList}
-          </ScrollArea>
-
-          {/* Footer — a rule and 16px above the buttons, so the last tiles and section heads
-              end at an edge instead of running into the footer's surface. */}
-          <div {...PICKER_FOOTER} className="flex justify-end gap-2 border-t border-border pt-4">
-            {footerButtons}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChangeUnlessSaving}
+      title={getDialogTitle()}
+      subject={destination ?? undefined}
+      description={getDialogDescription()}
+      size="lg"
+      fill
+      surface={isMobile ? undefined : getDialogTitle()}
+      onKeyDown={onPickerKeyDown}
+      className="overflow-hidden flex flex-col"
+      headerClassName="gap-1 text-left ps-0!"
+      titleClassName="text-lg leading-[1.375rem] font-semibold"
+      descriptionClassName="text-xs"
+    >
+      {/* Desk: `contents` – the filters, the list and the footer are the window's rows, 16px apart. */}
+      <ResponsiveDialogToolbar className="contents">{filterControls}</ResponsiveDialogToolbar>
+      <ResponsiveDialogBody className="contents">{isMobile ? resourceList : scrollingList}</ResponsiveDialogBody>
+      {/* A rule and 16px above the buttons, so the last tiles end at an edge. */}
+      <ResponsiveDialogFooter {...PICKER_FOOTER} className="border-t border-border pt-4">
+        {footerButtons}
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
   )
 
   // Opened from the Einsatz-Detail (an L window): a step of that window – the place first in
@@ -1640,9 +1613,7 @@ export function ResourceAssignmentDialog({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-4" onKeyDown={onPickerKeyDown}>
         {filterControls}
-        <ScrollArea className="flex-1 min-h-0 pr-2" fadeEnd>
-          {resourceList}
-        </ScrollArea>
+        {scrollingList}
         <div {...PICKER_FOOTER} className="flex items-center justify-end gap-2 border-t border-border pt-4">
           <SurfaceStepEscHint host={stepHost} />
           {footerButtons}
@@ -1653,7 +1624,7 @@ export function ResourceAssignmentDialog({
 
   return (
     <>
-    {isMobile ? sheet : stepHost ? step : dialog}
+    {stepHost && !isMobile ? step : dialog}
 
     {/* Double-booking guard: assigning a driver/reko/magazin to crew asks first. */}
     <ConfirmDialog

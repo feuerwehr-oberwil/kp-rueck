@@ -6,10 +6,10 @@
  *
  * The dashed «+ Person» chip at the end of the section's chips opens the picker
  * (owner pick 1B, 24.11.2026): a search field, the list in groups, and
- * «Fertig (n)» in the footer. Below 768px it is a bottom sheet (the
- * phone rules: opens without focusing the search, grip + swipe); from 768px –
- * the board's incident detail mounts the same Rapport form – a centred dialog
- * with the same content, the split `new-emergency-modal.tsx` makes. A tap TICKS a row and the sheet stays
+ * «Fertig (n)» in the footer – a `ResponsiveDialog`. Below 768px it is a bottom
+ * sheet (the phone rules: opens without focusing the search, grip + swipe); from
+ * 768px – the board's incident detail mounts the same Rapport form – a centred
+ * dialog with the same content. A tap TICKS a row and the sheet stays
  * open, so three people are three taps and one «Fertig», not three trips. Text
  * that matches no row exactly becomes the first row – «‹Text› als Gast
  * hinzufügen» – when the section can store a name that is on no list
@@ -32,11 +32,9 @@ import { CheckCircle, Circle, Plus } from 'lucide-react'
 
 import { FELD_CHIP_CLASS } from '@/components/feld/feld-chip'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState, SearchEmptyState } from "@/components/ui/empty-state"
 import { SearchInput } from '@/components/ui/search-input'
-import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { useIsMobile } from '@/components/ui/use-mobile'
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter, ResponsiveDialogToolbar } from '@/components/ui/responsive-dialog'
 import { personMatchesQuery } from '@/lib/resource-status'
 import { cn } from '@/lib/utils'
 
@@ -115,7 +113,6 @@ export function FeldAddPicker({
   onAdd,
 }: FeldAddPickerProps) {
   const t = useTranslations('feld.rapport.picker')
-  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [ticked, setTicked] = useState<string[]>([])
@@ -222,50 +219,22 @@ export function FeldAddPicker({
         {chipLabel}
       </button>
 
-      {isMobile ? (
-        <Sheet open={open} onOpenChange={handleOpenChange}>
-          {/* A fixed height (`h-[88dvh]`, the `modal-h-tall` cap), like the
-              assignment and Appell sheets: sized to its content, the sheet shrank
-              with every letter typed and the search field slid away under the
-              thumb. With the keyboard up globals.css fits it to the visible band. */}
-          <SheetContent
-            side="bottom"
-            className="mx-auto h-[88dvh] modal-h-tall max-w-md gap-0 rounded-t-2xl p-0"
-            aria-describedby={undefined}
-          >
-            <SheetHeader className="gap-3 px-4 pt-5 pb-3 pr-12">
-              <SheetTitle className="text-lg">{label}</SheetTitle>
-              {searchField}
-            </SheetHeader>
-            <SheetBody className="space-y-1 px-2 pb-3">{list}</SheetBody>
-            <SheetFooter className="mt-0 border-t px-4 pt-3 pb-sheet-safe">
-              <Button type="button" size="lg" className="w-full" onClick={close}>
-                {doneLabel}
-              </Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-      ) : (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          {/* The board's detail is desktop: a centred dialog with the list scrolling
-              between the search and «Fertig», not a strip along the screen's foot. */}
-          <DialogContent
-            className="flex modal-h-tall flex-col gap-0 overflow-hidden p-0"
-            aria-describedby={undefined}
-          >
-            <DialogHeader className="gap-3 px-5 pt-5 pb-3 pr-12">
-              <DialogTitle>{label}</DialogTitle>
-              {searchField}
-            </DialogHeader>
-            <div className="relative min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 pb-3">{list}</div>
-            <DialogFooter className="border-t px-5 py-3">
-              <Button type="button" onClick={close}>
-                {doneLabel}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* A fixed height on the phone (`fill`): sized to its content, the sheet shrank with
+          every letter typed and the search field slid away under the thumb. On the desk (the
+          board's detail) a centred dialog, the list scrolling between the search and «Fertig». */}
+      <ResponsiveDialog open={open} onOpenChange={handleOpenChange} title={label} frame="panel" fill>
+        {/* `pe-10`: the search ends where the head does, clear of the ✕. */}
+        <ResponsiveDialogToolbar className="pe-10">{searchField}</ResponsiveDialogToolbar>
+        {/* The rows carry their own 12px inset: the frame gives the rest. */}
+        <ResponsiveDialogBody className="space-y-1 px-3" sheetClassName="space-y-1 px-3">
+          {list}
+        </ResponsiveDialogBody>
+        <ResponsiveDialogFooter>
+          <Button type="button" onClick={close}>
+            {doneLabel}
+          </Button>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialog>
     </>
   )
 }

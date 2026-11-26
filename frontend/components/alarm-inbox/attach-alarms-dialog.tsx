@@ -13,7 +13,7 @@
  *   (R2) – advice only: the server flags the card anyway when it is not merged, as it does for
  *   a bulk attach, which is not asked per alarm.
  * While a write runs it stays open (no Esc, outside click or swipe) and offers nothing else.
- * Desktop: a centred dialog; phone: a bottom sheet (FRONTEND.md «Phone geometry»).
+ * A `ResponsiveDialog`: a centred dialog on a desk, a bottom sheet on a phone.
  */
 
 import { useEffect, useId, useState } from 'react'
@@ -28,16 +28,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import { useIsMobile } from '@/components/ui/use-mobile'
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter } from '@/components/ui/responsive-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
 interface AttachAlarmsDialogProps {
   alarms: readonly ApiDiveraEmergency[] | null
@@ -262,39 +254,18 @@ export function AttachAlarmsDialog({ alarms, onClose, onAttached }: AttachAlarms
     if (!next && !busy) close()
   }
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        {/* as tall as its content, up to the tall step; the body scrolls, the footer stays */}
-        <SheetContent
-          side="bottom"
-          className="modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2"
-        >
-          <SheetHeader className="px-4 pt-5 pb-3 pr-12">
-            <SheetTitle className="text-lg leading-none">{t('attachDialogTitle')}</SheetTitle>
-            <SheetDescription>{t('attachDialogDescription', { count: selected.length })}</SheetDescription>
-          </SheetHeader>
-          <SheetBody className="px-4 pb-4">{fields}</SheetBody>
-          <SheetFooter className="mt-0 flex-row gap-2 border-t px-4 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
-            {buttons}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* S: one select and its hints – a short form (#14 row 18). The duplicate hint fits the
-          phone sheet, so it fits 512 px too. */}
-      <DialogContent size="sm">
-        <DialogHeader>
-          <DialogTitle>{t('attachDialogTitle')}</DialogTitle>
-          <DialogDescription>{t('attachDialogDescription', { count: selected.length })}</DialogDescription>
-        </DialogHeader>
-        <div className="py-4">{fields}</div>
-        <DialogFooter className="gap-2 sm:gap-0">{buttons}</DialogFooter>
-      </DialogContent>
-    </Dialog>
+    // Desk: S – one select and its hints, a short form (#14 row 18). The duplicate hint fits
+    // the phone sheet, so it fits 512 px too.
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('attachDialogTitle')}
+      description={t('attachDialogDescription', { count: selected.length })}
+      size="sm"
+    >
+      <ResponsiveDialogBody className="py-4">{fields}</ResponsiveDialogBody>
+      <ResponsiveDialogFooter className="gap-2 sm:gap-0">{buttons}</ResponsiveDialogFooter>
+    </ResponsiveDialog>
   )
 }

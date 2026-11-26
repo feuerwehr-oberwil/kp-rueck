@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { footerCollisionPadding, formatLocationForDisplay } from './utils'
+import { cn, footerCollisionPadding, formatLocationForDisplay } from './utils'
 
 /**
  * The address formatter exists twice – here and as `format_location_for_display`
@@ -61,5 +61,14 @@ describe('footerCollisionPadding', () => {
   it('reserves the phone bottom nav that --nav-reserve measures', () => {
     document.documentElement.style.setProperty('--nav-reserve', '65px')
     expect(footerCollisionPadding().bottom).toBe(69)
+  })
+})
+
+// Sol r2 (sweep W3-4): a phone sheet body's `pb-4` beat a caller's `pb-sheet-safe`, so the
+// last row stood on the home indicator.
+describe('cn', () => {
+  it('lets a phone-geometry bottom padding replace a scale one', () => {
+    expect(cn('px-6 pb-4', 'pb-sheet-safe')).toBe('px-6 pb-sheet-safe')
+    expect(cn('pb-3', 'pb-nav-reserve')).toBe('pb-nav-reserve')
   })
 })

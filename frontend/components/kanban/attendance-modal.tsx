@@ -44,8 +44,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { CheckCircle2, Circle, LogOut, Users } from 'lucide-react'
 import { apiClient, type ApiPersonnelListItem } from '@/lib/api-client'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter, ResponsiveDialogToolbar } from '@/components/ui/responsive-dialog'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { LoadingStatus } from '@/components/ui/shell-loader'
 import { Button } from '@/components/ui/button'
@@ -415,74 +414,48 @@ export function AttendanceModal({
 
   return (
     <>
-      {isMobile ? (
-        // The phone: a bottom sheet by the phone-form rules (FRONTEND.md «Phone geometry») –
-        // search on top, the list scrolls in SheetBody, «Neue Person hinzufügen» stays in the
-        // footer above the keys. It opens without focusing the search (no keyboard until a
-        // tap) and swipes down to close. The centred dialog it replaces cut every name that
-        // had a «zugewiesen» chip and a time beside it («Birrer Abd…»), so a row here is two
-        // lines: the full name, then the facts. «Alle auschecken» is desktop-only: a list
-        // screen on the phone has one action, and sending everybody home is the end of the
-        // Ereignis, done at the board.
-        <Sheet open={open} onOpenChange={onOpenChange}>
-          <SheetContent
-            side="bottom"
-            className="h-[88dvh] modal-h-tall gap-0 rounded-t-2xl [&>[data-slot=sheet-close]]:top-[29px] [&>[data-slot=sheet-close]]:-translate-y-1/2"
-          >
-            {/* Same frame as «Neuer Einsatz»: title 18/600, the ✕ centred on its line. The
-                height is fixed (88dvh, the tall clamp) so the sheet – and the search field under
-                the thumb – does not jump while a search narrows the list; with the keyboard up,
-                globals.css sizes it to the visible band instead. */}
-            <SheetHeader className="gap-1 px-4 pt-5 pb-3 pr-12">
-              <SheetTitle className="text-lg leading-tight">{title}</SheetTitle>
-              <SheetDescription>{summary}</SheetDescription>
-            </SheetHeader>
-            <div className="flex px-4 pb-2">{searchField}</div>
-            <SheetBody className="px-4 pb-3">{list}</SheetBody>
-            <SheetFooter className="mt-0 gap-0 border-t px-4 pt-3 pb-sheet-safe">{quickAdd}</SheetFooter>
-          </SheetContent>
-        </Sheet>
-      ) : (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-          {/* On the modal height scale like every other dialog, instead of the
-              hand-rolled `max-h-[62vh]` the list used to carry. That clamped only
-              the list, so header + search + quick-add stacked on top of it and the
-              dialog came out ~95vh tall — 757px in an 800px window, 21px of air
-              top and bottom, and `vh` rather than `dvh` (see modal-h-* in
-              globals.css: with `vh` a mobile address bar pushes the quick-add row
-              out of reach). The list scrolls inside the clamp now.
-
-              `sm:max-w-3xl` needs its prefix: DialogContent's own `sm:max-w-lg`
-              is variant-scoped, so the bare `max-w-3xl` this used to carry never
-              won at desktop widths and the roll-call ran in a 512px column. */}
-          <DialogContent size="md" className="flex modal-h-tall flex-col">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Users className="size-4" />
-                {title}
-              </DialogTitle>
-              <DialogDescription>{summary}</DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-row items-center gap-2">
-              {searchField}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmOutAll(true)}
-                disabled={stats.present === 0}
-              >
-                <LogOut className="size-3.5" />
-                {t('checkOutAll')}
-              </Button>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">{list}</div>
-
-            <div className="border-t pt-3">{quickAdd}</div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* The phone: the one bottom sheet (FRONTEND.md «Phone geometry») – search on top, the
+          list scrolls, «Neue Person hinzufügen» stays in the footer above the keys. It opens
+          without focusing the search and swipes down to close. A row there is two lines (the
+          full name, then the facts): one line cut every name that had a «zugewiesen» chip and
+          a time beside it. «Alle auschecken» is desktop-only: a list screen on the phone has
+          one action, and sending everybody home is the end of the Ereignis, done at the board.
+          The height is fixed (`fill`), so the search field does not jump while a search
+          narrows the list. The desk: an M window on the modal height scale, the list scrolling
+          inside it. */}
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={
+          isMobile ? title : (
+            <>
+              <Users className="size-4" />
+              {title}
+            </>
+          )
+        }
+        titleClassName="flex items-center gap-2"
+        description={summary}
+        size="md"
+        fill
+        className="flex modal-h-tall flex-col"
+      >
+        <ResponsiveDialogToolbar className="flex flex-row items-center gap-2">
+          {searchField}
+          {!isMobile && (
+            <Button variant="outline" size="sm" onClick={() => setConfirmOutAll(true)} disabled={stats.present === 0}>
+              <LogOut className="size-3.5" />
+              {t('checkOutAll')}
+            </Button>
+          )}
+        </ResponsiveDialogToolbar>
+        <ResponsiveDialogBody className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {list}
+        </ResponsiveDialogBody>
+        <ResponsiveDialogFooter className="block border-t pt-3">
+          <div>{quickAdd}</div>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialog>
 
       <CheckOutAssignedDialog
         open={!!confirmOut}

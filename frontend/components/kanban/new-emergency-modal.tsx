@@ -63,8 +63,7 @@ import { useState, useEffect, useRef, type KeyboardEvent } from "react"
 import { flushSync } from "react-dom"
 import { useTranslations } from "next-intl"
 import { CONTACT_PHONE_MAX, sanitizePhoneInput } from "@/lib/utils"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogFooter } from "@/components/ui/responsive-dialog"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -575,60 +574,40 @@ export function NewEmergencyModal({
 
   // PHONE: a bottom sheet standing on the keyboard's edge (ui/sheet.tsx → `--kb-inset`), the
   // rows in their own scroll area and «Abbrechen» / «Einsatz erstellen» in a footer that stays
-  // above the keys. The centred 90vh dialog this replaces kept its buttons — and with the
-  // autofocused Einsatzort, the keyboard — at the bottom of the whole screen: whoever wanted to
-  // create the Einsatz had to put the keyboard away first. Swiping it down closes it like the
-  // ✕ does — and, with something typed, asks first (`closeGuard`).
-  if (isMobile) {
-    return (
-      <>
-      <Sheet open={open} onOpenChange={unlessLocked(closeGuard.handleOpenChange)}>
-        {/* A surface like the desk dialog: the Einsatzort's map picker opens inside the sheet
-            as a step (owner pick 5A), not as a centred desk card over it. */}
-        <SheetContent side="bottom" surface={t('common.newIncident')} className="modal-h-tall gap-0 p-0 rounded-t-2xl" onKeyDown={onKeyDown}>
-          {/* HEADER: the head frame every phone sheet has (docs/FRONTEND.md «Phone layout»): the
-              plain title 24px in, no glyph, the ✕ plate on its line. The sentence under it only
-              restated the title, so it is for screen readers alone. 16px to the first field; while
-              typing 4px – the band above the keys is ~350px – so the body moves up under the head's
-              12px foot (`-mt-2`) instead of the head losing its frame to a className. */}
-          <SheetHeader>
-            <SheetTitle>{t('common.newIncident')}</SheetTitle>
-            <SheetDescription className="sr-only">{t('newEmergency.description')}</SheetDescription>
-          </SheetHeader>
-          <SheetBody className="px-6 pt-1 pb-4 [:root[data-kb]_&]:-mt-2 [:root[data-kb]_&]:pt-0">{fields}</SheetBody>
-          {createFailedMessage}
-          <SheetFooter className="mt-0 flex-row gap-2 border-t px-6 pt-3 pb-sheet-safe [&>*]:min-h-11 [&>*]:flex-1">
-            {cancelButton}
-            {createButton}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-      <UnsavedChangesDialog {...closeGuard.dialogProps} />
-      </>
-    )
-  }
-
+  // above the keys – not at the foot of the whole screen under the keyboard. Swiping it down
+  // closes it like the ✕ does – and, with something typed, asks first (`closeGuard`).
+  // DESK: an M window, a form (dialog-frame.ts). On both the map picker of the Einsatzort
+  // opens inside it as a step (`surface`, owner pick 5A), not as a second window on top.
   return (
-    <Dialog open={open} onOpenChange={unlessLocked(onOpenChange)}>
-      {/* M: a form (dialog-frame.ts). The map picker of the Einsatzort opens inside it as
-          a step (`surface`, owner pick 5A) instead of a wider dialog on top. */}
-      <DialogContent size="md" surface={t('common.newIncident')} onKeyDown={onKeyDown}>
-        {/* The plain title (see HEADER above); the grid's gap-4 is the 16px to the first field. */}
-        <DialogHeader>
-          <DialogTitle>{t('common.newIncident')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('newEmergency.description')}</DialogDescription>
-        </DialogHeader>
-
+    <>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={unlessLocked(isMobile ? closeGuard.handleOpenChange : onOpenChange)}
+      title={t('common.newIncident')}
+      // It only restated the title, so it is for screen readers alone.
+      description={t('newEmergency.description')}
+      hideDescription
+      size="md"
+      surface={t('common.newIncident')}
+      onKeyDown={onKeyDown}
+    >
+      {/* Phone: 16px to the first field; while typing 4px – the band above the keys is ~350px –
+          so the body moves up under the head's 12px foot (`-mt-2`) instead of the head losing
+          its frame. Desk: `contents`, the grid's gap-4 is the 16px to the first field. */}
+      <ResponsiveDialogBody
+        className="contents"
+        sheetClassName="pt-1 [:root[data-kb]_&]:-mt-2 [:root[data-kb]_&]:pt-0"
+      >
         {fields}
-
-        {createFailedMessage}
-
-        {/* Actions — Abbrechen left, primary right, like every other dialog. */}
-        <DialogFooter className="pt-1">
-          {cancelButton}
-          {createButton}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogBody>
+      {createFailedMessage}
+      {/* Abbrechen left, primary right, like every other dialog. */}
+      <ResponsiveDialogFooter className="pt-1">
+        {cancelButton}
+        {createButton}
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
+    {isMobile && <UnsavedChangesDialog {...closeGuard.dialogProps} />}
+    </>
   )
 }
