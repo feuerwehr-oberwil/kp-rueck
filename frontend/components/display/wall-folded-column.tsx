@@ -25,7 +25,7 @@
 
 import { useTranslations } from "next-intl"
 import { ChevronRight } from "lucide-react"
-import type { Operation, OperationStatus } from "@/lib/contexts/operations-context"
+import type { Operation } from "@/lib/contexts/operations-context"
 import { STATUS_ACCENT, WALL_COLUMN_COUNT_CLASS, WALL_COLUMN_HEADER_CLASS, type columns } from "@/lib/kanban-utils"
 import { WALL_STACK_FOLDED } from "@/lib/wall-stack"
 import { WallColumnAgeChip } from "@/components/display/wall-column-age-chip"
@@ -40,7 +40,7 @@ export function WallFoldedColumn({ columnId, operations, onOpen }: {
   const tk = useTranslations("kanban.columns")
   const title = t("collapsedColumnTitle", { title: tk(columnId), count: operations.length })
   // `columnId` IS a status (see kanban-utils), so the lookup cannot miss.
-  const accent = STATUS_ACCENT[columnId as OperationStatus]
+  const accent = STATUS_ACCENT[columnId]
   return (
     <button
       type="button"

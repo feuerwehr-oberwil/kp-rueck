@@ -21,7 +21,7 @@ function installSessionStorage(overrides: Partial<Storage> = {}) {
       return data.size
     },
     ...overrides,
-  } as Storage)
+  })
 }
 
 describe('display-retry', () => {

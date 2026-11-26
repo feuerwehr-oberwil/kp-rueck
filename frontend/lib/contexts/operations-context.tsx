@@ -34,7 +34,7 @@ import type {
 // incident-actions), the alert sound and the useIncidents adapter.
 
 // Re-export types for backward compatibility
-export type { Person, PersonStatus } from "./personnel-context"
+export type { Person } from "./personnel-context"
 export type { Material } from "./materials-context"
 export type {
   OperationStatus,

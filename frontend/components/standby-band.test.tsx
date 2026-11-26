@@ -1,14 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
-const mocks = vi.hoisted(() => ({
+type Mocks = {
+  getDeployment: Mock
+  getStandby: Mock
+  takeOverEvent: Mock
+  takeBackEvent: Mock
+  selectedEvent: { id: string; name: string } | null
+}
+const mocks = vi.hoisted((): Mocks => ({
   getDeployment: vi.fn(),
   getStandby: vi.fn(),
   takeOverEvent: vi.fn(),
   takeBackEvent: vi.fn(),
-  selectedEvent: { id: 'ev-1', name: 'Unwetter Beispielhausen' } as { id: string; name: string } | null,
+  selectedEvent: { id: 'ev-1', name: 'Unwetter Beispielhausen' },
 }))
 
 vi.mock('@/lib/api-client', () => ({
@@ -39,7 +46,7 @@ function authAs(role: 'editor' | 'viewer'): AuthContextType {
     isEditor: role === 'editor',
     isViewer: role === 'viewer',
     isAuthenticated: true,
-  } as AuthContextType
+  }
 }
 
 /** What every control below the provider sees: may it edit? */

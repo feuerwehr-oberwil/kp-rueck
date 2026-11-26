@@ -17,7 +17,7 @@ function installStorage() {
     get length() {
       return data.size
     },
-  } as Storage)
+  })
 }
 
 let renders = 0

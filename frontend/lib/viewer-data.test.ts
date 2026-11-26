@@ -89,7 +89,7 @@ describe('buildSituationData — pickup and the crew leader', () => {
       ...base,
       incidents: [
         { ...base.incidents[0], pickup_needed: true, pickup_requested_at: '2026-08-13T21:30:00Z' },
-      ] as unknown as ApiViewerData['incidents'],
+      ],
       personnel: [
         { id: 'p-1', name: 'Suter Nina', role: 'Feuerwehrfrau', role_sort_order: 1, tags: null },
         { id: 'p-2', name: 'Frey Marc', role: 'Gruppenführer', role_sort_order: 0, tags: null },
@@ -186,7 +186,7 @@ describe('the resources of a route on a shared display', () => {
 
   it('counts material held only on an Auftrag as assigned', () => {
     const group = withRoute.groups![0]
-    const assignment = { ...group.assignments![0], resource_type: 'material' as const, resource_id: 'pump' }
+    const assignment = { ...group.assignments[0], resource_type: 'material' as const, resource_id: 'pump' }
     const { materials } = buildSituationData({
       ...withRoute,
       materials: [{ id: 'pump', name: 'Pumpe' }] as ApiViewerData['materials'],

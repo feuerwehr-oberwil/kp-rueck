@@ -65,7 +65,7 @@ import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { PRIORITY_CARD_CLASSES, type Priority } from "@/lib/priority"
+import { PRIORITY_CARD_CLASSES } from "@/lib/priority"
 import { formatClockTime } from "@/lib/incident-time"
 import { formatDurationHours } from "@/lib/duration"
 import { WALL_TEXT_WRAP } from "@/lib/kanban-utils"
@@ -215,7 +215,7 @@ export function DisplayIncidentCard({
   const tFeld = useTranslations("feld.board")
   const tBoard = useTranslations("display.board")
 
-  const priority = (operation.priority || "low") as Priority
+  const priority = operation.priority || "low"
   // «Am Warten · Grund», or just the label – the desk card's wording, word for word.
   const amWartenNote = operation.amWartenNote?.trim()
   const amWartenLabel = amWartenNote ? `${t("common.amWarten")} · ${amWartenNote}` : t("common.amWarten")

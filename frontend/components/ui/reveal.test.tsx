@@ -16,7 +16,7 @@ function setReducedMotion(reduce: boolean) {
     media: query,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-  })) as unknown as typeof window.matchMedia
+  }))
 }
 
 beforeEach(() => {

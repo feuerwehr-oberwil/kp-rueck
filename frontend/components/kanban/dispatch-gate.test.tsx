@@ -202,7 +202,7 @@ describe("dispatch gate – press twice", () => {
 
     const crew = screen.getByRole("group", { name: "Mannschaft" })
     expect(crew).toHaveTextContent("Mannschaft · 2")
-    expect(crew.textContent!.indexOf("Meier Andrea")).toBeLessThan(crew.textContent!.indexOf("Ackermann Reto"))
+    expect(crew.textContent.indexOf("Meier Andrea")).toBeLessThan(crew.textContent.indexOf("Ackermann Reto"))
     // The current EL is a read-only mark, not a button: a tap on it must not fall through to
     // the box's picker on a touch screen.
     expect(screen.getByLabelText("Einsatzleiter")).toHaveTextContent("EL")
@@ -273,6 +273,6 @@ describe("dispatch gate – press twice", () => {
 
     expect(screen.getAllByLabelText("Einsatzleiter")).toHaveLength(1)
     const crew = screen.getByRole("group", { name: "Mannschaft" })
-    expect(crew.textContent!.indexOf("Weber Martin")).toBeLessThan(crew.textContent!.indexOf("Meier Andrea"))
+    expect(crew.textContent.indexOf("Weber Martin")).toBeLessThan(crew.textContent.indexOf("Meier Andrea"))
   })
 })

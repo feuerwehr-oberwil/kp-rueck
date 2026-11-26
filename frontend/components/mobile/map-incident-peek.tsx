@@ -15,7 +15,6 @@
 import { ChevronUp, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { type Operation } from "@/lib/contexts/operations-context"
-import { type Priority } from "@/lib/priority"
 import { getIncidentRefParts, getIncidentTypeLabel } from "@/lib/incident-types"
 import { getOperationStatusLabel } from "@/lib/status-labels"
 import { vehicleLabel } from "@/lib/vehicle-label"
@@ -41,7 +40,7 @@ interface MapIncidentPeekProps {
 
 export function MapIncidentPeek({ operation, formatLocation, onClose, onOpenDetail }: MapIncidentPeekProps) {
   const t = useTranslations("map.page")
-  const priority = (operation.priority || "low") as Priority
+  const priority = operation.priority || "low"
   const address = formatLocation(operation.location)
   // A route stop's vehicles are the Auftrag's (they ride on to the next stop), not its own.
   const { groups, getGroupResources } = useGroups()

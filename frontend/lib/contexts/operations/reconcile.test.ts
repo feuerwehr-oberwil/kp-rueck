@@ -148,7 +148,7 @@ describe("buildEventState", () => {
               submitted_by_personnel_name: null,
             },
           },
-        } as EventSnapshot["rekoSummaries"],
+        },
       }),
     )
     expect(ops[1].hasCompletedReko).toBe(true)

@@ -62,7 +62,7 @@ export function JournalText({ entry, text }: { entry: JournalFact; text: string 
   const t = useTranslations("journal.rows")
   const tStatus = useTranslations("kanban")
   const data = (entry.data ?? {}) as Record<string, unknown>
-  const str = (k: string) => (typeof data[k] === "string" ? (data[k] as string) : "")
+  const str = (k: string) => (typeof data[k] === "string" ? data[k] : "")
   const status = (s: string) => (isIncidentStatus(s) ? tStatus(`columns.${s}`) : s)
 
   switch (entry.kind) {
@@ -131,7 +131,8 @@ export function JournalText({ entry, text }: { entry: JournalFact; text: string 
           {text}
         </span>
       )
-    default:
+    case "manual":
+    default: // a kind this build does not know yet still shows its text
       return <span>{text}</span>
   }
 }

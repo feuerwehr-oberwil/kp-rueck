@@ -11,7 +11,7 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 if (typeof globalThis.ResizeObserver === "undefined") {
-  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  globalThis.ResizeObserver = ResizeObserverStub;
 }
 
 // hasPointerCapture is touched by Radix Select; jsdom doesn't implement it.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FAT_PRESETS, actionMix, fatEvent, type FatAction } from './fat-event'
+import { FAT_PRESETS, actionMix, fatEvent } from './fat-event'
 
 // The generator is only worth something while it stays calibrated against the record
 // (29.06.2026: 63 Einsätze, 431 actions in 2 h — see the header of fat-event.ts).
@@ -28,7 +28,7 @@ describe('fatEvent', () => {
       const slotIncident = new Map<string, number>()
       const created = new Set<number>()
       const done = new Set<number>()
-      for (const a of fat.actions as FatAction[]) {
+      for (const a of fat.actions) {
         if (a.kind === 'create') created.add(a.incident)
         else if (a.kind === 'assign') {
           expect(created.has(a.incident) && !done.has(a.incident)).toBe(true)

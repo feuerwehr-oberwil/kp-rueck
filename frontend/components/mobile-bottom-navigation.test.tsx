@@ -12,8 +12,8 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { MobileBottomNavigation } from './mobile-bottom-navigation'
 
 type Auth = { isEditor: boolean; isViewer?: boolean; isAuthenticated?: boolean; logout: () => void; user: { role: string } }
-const auth = vi.hoisted(() => ({ current: { isEditor: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'editor' } } as Auth }))
-const event = vi.hoisted(() => ({ current: { training_flag: false } as { training_flag: boolean } | null }))
+const auth = vi.hoisted((): { current: Auth } => ({ current: { isEditor: true, isAuthenticated: true, logout: vi.fn(), user: { role: 'editor' } } }))
+const event = vi.hoisted((): { current: { training_flag: boolean } | null } => ({ current: { training_flag: false } }))
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 // A tab's <Link> must not navigate jsdom; the tap's own answer is what is under test.

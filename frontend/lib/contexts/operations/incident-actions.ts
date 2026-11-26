@@ -7,8 +7,6 @@
 import { apiClient, ApiError, type ApiIncident, type ApiIncidentCreate, type ApiIncidentUpdate } from "@/lib/api-client"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { isValidUUID } from "@/lib/utils/validation"
-import type { PersonStatus } from "../personnel-context"
-import type { Material } from "../materials-context"
 import { toast } from "sonner"
 import { undoToast } from "@/lib/toast-undo"
 import { translateOutsideReact } from "@/lib/i18n-messages"
@@ -55,9 +53,9 @@ function operationToIncidentCreate(
     // modal. Anything else the caller might carry (a webhook slug on a
     // copied operation) is not an editor's to claim, so it collapses to
     // the operator default.
-    source: (operation.source === 'intake' || operation.source === 'feld'
+    source: operation.source === 'intake' || operation.source === 'feld'
       ? operation.source
-      : 'operator') as ApiIncidentCreate['source'],
+      : 'operator',
   }
 }
 
@@ -200,7 +198,7 @@ export function createIncidentActions(board: BoardMutationContext) {
                 op => op.id !== operationId && op.crew.some((m) => m.personnelId === p.id)
               )
               if (!stillAssigned) {
-                return { ...p, status: "available" as PersonStatus }
+                return { ...p, status: "available" }
               }
             }
             return p
@@ -576,7 +574,7 @@ export function createIncidentActions(board: BoardMutationContext) {
           const stillAssigned = operations.some(op => op.id !== operationId && op.crew.some((m) => m.personnelId === personnelId))
           if (!stillAssigned) {
             setPersonnel((people) =>
-              people.map((p) => (p.id === person.id ? { ...p, status: "available" as PersonStatus } : p))
+              people.map((p) => (p.id === person.id ? { ...p, status: "available" } : p))
             )
           }
         }
@@ -588,7 +586,7 @@ export function createIncidentActions(board: BoardMutationContext) {
           const stillAssigned = operations.some(op => op.id !== operationId && op.materials.includes(materialId))
           if (!stillAssigned) {
             setMaterials((mats) =>
-              mats.map((m) => (m.id === material.id ? { ...m, status: "available" as Material["status"] } : m))
+              mats.map((m) => (m.id === material.id ? { ...m, status: "available" } : m))
             )
           }
         }

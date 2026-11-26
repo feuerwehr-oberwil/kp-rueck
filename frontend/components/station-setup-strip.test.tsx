@@ -8,12 +8,15 @@ import { screen } from '@testing-library/react'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 import { StationSetupStrip } from './station-setup-strip'
 
-const state = vi.hoisted(() => ({
-  auth: { isAdmin: true, user: { username: 'admin' } },
-  settings: {} as Record<string, string>,
-  personnel: [] as unknown[],
-  vehicles: [] as unknown[],
-}))
+const state = vi.hoisted(() => {
+  const settings: Record<string, string> = {}
+  return {
+    auth: { isAdmin: true, user: { username: 'admin' } },
+    settings,
+    personnel: [] as unknown[],
+    vehicles: [] as unknown[],
+  }
+})
 // The board's refresh after a settings save (no board under this test).
 vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => ({ refreshOperations: async () => true }) }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => state.auth }))

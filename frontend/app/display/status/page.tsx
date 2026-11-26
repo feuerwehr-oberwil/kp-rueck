@@ -12,7 +12,7 @@ import { ageLevel, columns, STATUS_ACCENT, WALL_COLUMN_HEADER_CLASS, WALL_TEXT_W
 import { IncidentTime } from "@/components/ui/incident-time"
 import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { CollapsibleSection } from "@/components/display/collapsible-section"
-import { type Priority, PRIORITY_EDGE_CLASSES } from "@/lib/priority"
+import { PRIORITY_EDGE_CLASSES } from "@/lib/priority"
 import { WallPriorityGlyph } from "@/components/display/wall-priority-glyph"
 import {
   RESOURCE_STATE_DOT_CLASSES,
@@ -827,7 +827,7 @@ function IncidentRow({ operation: op, onClick }: { operation: Operation; onClick
   const statusId = columns.find((c) => c.id === op.status)?.id || "incoming"
   const locationLabel = incidentLocationLabel(op)
   const statusLabel = tk(`columns.${statusId}`)
-  const priority = (op.priority ?? "low") as Priority
+  const priority = op.priority ?? "low"
   return (
     <div
       data-wall-item
@@ -916,7 +916,7 @@ function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person:
   const hasWhere = !!(p.isReko || p.isMagazin || (p.isDriver && p.driverVehicleName) || clickable || auftrag)
   return (
     <ResourceRow
-      onClick={clickable ? () => onOpenIncident(assignedTo!.operationId) : undefined}
+      onClick={clickable ? () => onOpenIncident(assignedTo.operationId) : undefined}
       // Reko counts as busy here: a Reko is an Auftrag, but it never sets status="assigned"
       mark={
         <span className={WALL_MARK_GUTTER} aria-hidden="true">
@@ -947,7 +947,7 @@ function PersonRow({ person: p, assignedTo, auftrag, onOpenIncident }: { person:
             </span>
           )}
           {clickable ? (
-            <span className={cn(WALL_DESTINATION, "text-muted-foreground")}>→ {assignedTo!.label}</span>
+            <span className={cn(WALL_DESTINATION, "text-muted-foreground")}>→ {assignedTo.label}</span>
           ) : auftrag ? (
             <AuftragDestination auftrag={auftrag} />
           ) : null}
@@ -975,7 +975,7 @@ function MaterialRow({ material: m, assignedTo, auftrag, onOpenIncident }: { mat
   return (
     <ResourceRow
       className={cn(isOutOfService && "opacity-70")}
-      onClick={clickable ? () => onOpenIncident(single!.operationId) : undefined}
+      onClick={clickable ? () => onOpenIncident(single.operationId) : undefined}
       // Verbrauchsmaterial stays green even while assigned — it is stocked, not
       // lent out. Broken beats both: a defective Fass is not "unlimited".
       mark={

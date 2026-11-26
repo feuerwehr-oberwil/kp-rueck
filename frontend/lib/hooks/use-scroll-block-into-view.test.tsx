@@ -39,8 +39,8 @@ describe('useScrollBlockIntoView', () => {
   it('scrolls again for a new trigger', async () => {
     const { scrollerRef, blockRef } = scene()
     const spy = vi.spyOn(blockRef.current, 'getBoundingClientRect')
-    const { rerender } = renderHook(({ trigger }) => useScrollBlockIntoView(scrollerRef, blockRef, trigger), {
-      initialProps: { trigger: {} as object },
+    const { rerender } = renderHook(({ trigger }: { trigger: object }) => useScrollBlockIntoView(scrollerRef, blockRef, trigger), {
+      initialProps: { trigger: {} },
     })
     await flushFrame()
     rerender({ trigger: {} })

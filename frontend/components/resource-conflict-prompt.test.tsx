@@ -3,13 +3,16 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
-const board = vi.hoisted(() => ({
-  resourceConflict: null as unknown,
-  resolveResourceConflict: vi.fn(),
-  cancelResourceConflict: vi.fn(),
-  operations: [] as unknown[],
-  personnel: [] as unknown[],
-}))
+const board = vi.hoisted(() => {
+  const resourceConflict: unknown = null
+  return {
+    resourceConflict,
+    resolveResourceConflict: vi.fn(),
+    cancelResourceConflict: vi.fn(),
+    operations: [] as unknown[],
+    personnel: [] as unknown[],
+  }
+})
 vi.mock('@/lib/contexts/operations-context', () => ({ useOperations: () => board }))
 vi.mock('@/lib/contexts/groups-context', () => ({ useGroups: () => ({ groups: [{ id: 'g-1', name: 'Route West' }] }) }))
 const queue = vi.hoisted(() => ({ plans: [] as { incident_group_id: string | null; incident_id: string | null }[] }))

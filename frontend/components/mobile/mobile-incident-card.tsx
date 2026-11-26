@@ -31,7 +31,7 @@ import { getIncidentRefParts, getIncidentTypeLabel } from "@/lib/incident-types"
 import { AddressText } from "@/components/kanban/address-text"
 import { cn } from "@/lib/utils"
 import { getOperationStatusLabel } from "@/lib/status-labels"
-import { type Priority, PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
+import { PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
 import { sameCrew, sameVehicles } from "@/lib/operation-equality"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import { metaFacts } from "@/lib/meta-line"
@@ -69,7 +69,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
   const tMobile = useTranslations("incidents.mobileCard")
   const tDetail = useTranslations("incidents.mobileDetail")
   const tLeader = useTranslations("kanban.leader")
-  const priority = (operation.priority || "low") as Priority
+  const priority = operation.priority || "low"
   const chevronClass = PRIORITY_ICON_CLASSES[priority]
 
   // The Schadenplatz-Rapport is due but nobody has filed it (drafts count as

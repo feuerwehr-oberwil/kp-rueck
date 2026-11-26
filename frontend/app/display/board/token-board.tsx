@@ -71,7 +71,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
   const crewShownAt = crewShownAtStop(operations, (op) => (op.groupId ? groups.find((g) => g.id === op.groupId) : undefined))
   // 2px accent rule instead of the pastel wash — same as the KP board and the
   // logged-in wall. `column.id` IS a status (see kanban-utils).
-  const accent = STATUS_ACCENT[column.id as keyof typeof STATUS_ACCENT]
+  const accent = STATUS_ACCENT[column.id]
 
   // Folded: the narrow rail that still carries the count and the overdue mark,
   // so a closed column never hides the thing that needed looking at.

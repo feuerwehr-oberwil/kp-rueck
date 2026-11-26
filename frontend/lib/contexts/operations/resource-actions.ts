@@ -7,8 +7,6 @@
 import { ApiError, apiClient } from "@/lib/api-client"
 import { assignFailureDescription } from "@/lib/assignment-refusal"
 import { getIncidentRefParts } from "@/lib/incident-types"
-import type { PersonStatus } from "../personnel-context"
-import type { Material } from "../materials-context"
 import { toast } from "sonner"
 import { translateOutsideReact } from "@/lib/i18n-messages"
 import { findRecentRemoval, recordRemoval } from "@/lib/recent-removals"
@@ -16,7 +14,7 @@ import { formatAgo } from "@/lib/duration"
 import { drivenElsewhere, type DrivenElsewhere } from "@/lib/driver-conflict"
 import { planNext } from "@/lib/planned-actions"
 import { isOpenReko, mergeOpenOrder, rekosOf } from "@/lib/reko-order"
-import type { Operation, OperationStatus, OperationsContextType } from "./types"
+import type { Operation, OperationsContextType } from "./types"
 import type { BoardMutationContext } from "./board-context"
 
 export function createResourceActions(board: BoardMutationContext) {
@@ -68,7 +66,7 @@ export function createResourceActions(board: BoardMutationContext) {
       !operations.some(op => op.id !== operationId && op.crew.some((m) => m.personnelId === personnelId))
     if (personnelShouldRevert) {
       setPersonnel((people) =>
-        people.map((p) => (p.id === person!.id ? { ...p, status: "available" as PersonStatus } : p))
+        people.map((p) => (p.id === person.id ? { ...p, status: "available" } : p))
       )
     }
 
@@ -172,7 +170,7 @@ export function createResourceActions(board: BoardMutationContext) {
       !operations.some(op => op.id !== operationId && op.materials.includes(materialId))
     if (materialShouldRevert) {
       setMaterials((mats) =>
-        mats.map((m) => (m.id === material!.id ? { ...m, status: "available" as Material["status"] } : m))
+        mats.map((m) => (m.id === material.id ? { ...m, status: "available" } : m))
       )
     }
 
@@ -265,7 +263,7 @@ export function createResourceActions(board: BoardMutationContext) {
       )
     )
     setPersonnel((people) =>
-      people.map((p) => (p.id === personId ? { ...p, status: "assigned" as PersonStatus } : p))
+      people.map((p) => (p.id === personId ? { ...p, status: "assigned" } : p))
     )
 
     if (isLoaded) {
@@ -291,7 +289,7 @@ export function createResourceActions(board: BoardMutationContext) {
           ops.map((op) => (op.id === operationId ? { ...op, crew: op.crew.filter((m) => m.personnelId !== personId) } : op))
         )
         setPersonnel((people) =>
-          people.map((p) => (p.id === personId ? { ...p, status: "available" as PersonStatus } : p))
+          people.map((p) => (p.id === personId ? { ...p, status: "available" } : p))
         )
         // The chip already snapped back — say why, or the operator assumes it stuck.
         toast.error(translateOutsideReact('notifications.operations.assignFailedFollowupTitle'), {
@@ -378,7 +376,7 @@ export function createResourceActions(board: BoardMutationContext) {
             if (!isOurs(op)) return op
             const back = { ...op, assignedReko: previous }
             if (shouldAutoMoveToReko) {
-              back.status = "incoming" as OperationStatus
+              back.status = "incoming"
               back.statusChangedAt = currentOp?.statusChangedAt ?? null
             }
             return back
@@ -448,7 +446,7 @@ export function createResourceActions(board: BoardMutationContext) {
     // Consumables stay "available" — they can be assigned to multiple incidents
     if (!isConsumable) {
       setMaterials((mats) =>
-        mats.map((m) => (m.id === materialId ? { ...m, status: "assigned" as Material["status"] } : m))
+        mats.map((m) => (m.id === materialId ? { ...m, status: "assigned" } : m))
       )
     }
 
@@ -478,7 +476,7 @@ export function createResourceActions(board: BoardMutationContext) {
           ops.map((op) => (op.id === operationId ? { ...op, materials: op.materials.filter(id => id !== materialId) } : op))
         )
         setMaterials((mats) =>
-          mats.map((m) => (m.id === materialId ? { ...m, status: "available" as Material["status"] } : m))
+          mats.map((m) => (m.id === materialId ? { ...m, status: "available" } : m))
         )
         return false
       } finally {

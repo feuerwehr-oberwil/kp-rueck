@@ -48,7 +48,7 @@ const reorderGroupStops = vi.hoisted(() => vi.fn())
 const removeStop = vi.hoisted(() => vi.fn())
 const unassignResource = vi.hoisted(() => vi.fn())
 const getGroupResources = vi.hoisted(() =>
-  vi.fn(() => ({ vehicles: [], personnel: [], materials: [] }) as GroupResources),
+  vi.fn((): GroupResources => ({ vehicles: [], personnel: [], materials: [] })),
 )
 const updateOperation = vi.hoisted(() => vi.fn())
 

@@ -44,13 +44,10 @@ vi.mock("@/lib/contexts/materials-context", () => ({
 }))
 // Mutable Auftrag state, re-seeded per test: most of this file runs on a
 // standalone incident (no group), the provenance-block tests below put one in.
-const groupsState = vi.hoisted(() => ({
-  groups: [] as unknown[],
-  resources: { vehicles: [], personnel: [], materials: [] } as {
-    vehicles: unknown[]
-    personnel: unknown[]
-    materials: unknown[]
-  },
+type GroupsState = { groups: unknown[]; resources: Record<"vehicles" | "personnel" | "materials", unknown[]> }
+const groupsState = vi.hoisted((): GroupsState => ({
+  groups: [],
+  resources: { vehicles: [], personnel: [], materials: [] },
 }))
 vi.mock("@/lib/contexts/groups-context", () => ({
   useGroups: () => ({
@@ -512,7 +509,7 @@ describe("OperationDetailContent", () => {
     await waitFor(() => expect(tab("Übersicht")).toHaveAttribute("aria-selected", "true"))
 
     // A caret with nothing to its right has no move to make, so → is free...
-    const meldung = screen.getByRole("textbox", { name: "Meldung" }) as HTMLTextAreaElement
+    const meldung = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Meldung" })
     meldung.focus()
     meldung.setSelectionRange(meldung.value.length, meldung.value.length)
     fireEvent.keyDown(meldung, { key: "ArrowRight" })
@@ -522,7 +519,7 @@ describe("OperationDetailContent", () => {
     // the field. This is the rule that keeps a form-heavy tab usable without
     // swallowing the shortcut everywhere.
     await user.click(tab("Übersicht"))
-    const meldungAgain = screen.getByRole("textbox", { name: "Meldung" }) as HTMLTextAreaElement
+    const meldungAgain = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Meldung" })
     meldungAgain.focus()
     meldungAgain.setSelectionRange(meldungAgain.value.length, meldungAgain.value.length)
     fireEvent.keyDown(meldungAgain, { key: "ArrowLeft" })

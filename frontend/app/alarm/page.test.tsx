@@ -56,7 +56,7 @@ async function renderForm() {
 /** Fill in the minimum and send it, leaving the receipt on screen. The minimum
  *  includes an Einsatzort — the form refuses to review without one. */
 async function sendAlarm(user: ReturnType<typeof userEvent.setup>, message: string) {
-  const ort = screen.getByLabelText('Ort') as HTMLInputElement
+  const ort = screen.getByLabelText<HTMLInputElement>('Ort')
   if (!ort.value) await user.type(ort, 'Hauptstrasse 12')
   await user.type(screen.getByLabelText(/Meldung/), message)
   await user.click(screen.getByRole('button', { name: 'Weiter' }))

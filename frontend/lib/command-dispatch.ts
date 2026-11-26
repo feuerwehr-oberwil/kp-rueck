@@ -341,7 +341,9 @@ export function targetKey(target: DispatchTarget): string {
       return `priority:${target.priority}`
     case "incident":
       return `incident:${target.incident.id}`
-    default:
+    case "person":
+    case "vehicle":
+    case "material":
       return `${target.kind}:${target.id}`
   }
 }
@@ -700,7 +702,7 @@ function plan(
         target,
         alreadyHere: target.incidentIds.includes(incident.id),
         elsewhere: target.incidentIds
-          .filter((id) => id !== incident!.id)
+          .filter((id) => id !== incident.id)
           .map((id) => numbers.get(id))
           .filter((n): n is number => typeof n === "number")
           .sort((a, b) => a - b),

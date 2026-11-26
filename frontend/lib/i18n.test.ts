@@ -14,7 +14,7 @@ function collectLeaves(obj: Messages, prefix = ''): Array<[string, string]> {
   return leaves
 }
 
-const deLeaves = collectLeaves(de as Messages)
+const deLeaves = collectLeaves(de)
 
 describe('messages/de.json', () => {
   it('has at least one message', () => {

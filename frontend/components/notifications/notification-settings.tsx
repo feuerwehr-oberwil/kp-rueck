@@ -97,7 +97,7 @@ export function NotificationSettingsCard() {
     key: K,
     value: NotificationSettings[K]
   ) => {
-    setSavingKey(key as string)
+    setSavingKey(key)
     try {
       await updateSettings({ ...settings, [key]: value })
       // Success toast is optional - removed to reduce noise
@@ -174,7 +174,7 @@ export function NotificationSettingsCard() {
           {(['live', 'training'] as const).map((scope) => (
             <TabsContent key={scope} value={scope}>
               {TIME_LIMIT_FIELDS.map(({ suffix, label }) => {
-                const key = `${scope}_${suffix}` as TimeLimitKey
+                const key: TimeLimitKey = `${scope}_${suffix}`
                 return (
                   <SettingRow key={key} label={t(label)} htmlFor={key}>
                     <Input
@@ -207,7 +207,7 @@ export function NotificationSettingsCard() {
               type="number"
               className="w-24"
               min={emptyIsZero ? 0 : undefined}
-              defaultValue={settings[key] as number}
+              defaultValue={settings[key]}
               onBlur={(e) => {
                 const raw = e.target.value.trim()
                 const val = emptyIsZero && raw === '' ? 0 : parseInt(raw)

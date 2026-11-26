@@ -155,6 +155,23 @@ export default [
     ignores: TESTS,
     rules: { "@typescript-eslint/no-non-null-assertion": "warn" },
   },
+  // Typed lint (sweep 25.11.2026, TS.4): the rules below read the types tsconfig.json gives, so
+  // every .ts/.tsx file is parsed through the TypeScript project service (about one tsc pass).
+  // A cast to the type a value already has hides the next real type change; a switch over a union
+  // must name every member, so a `default:` cannot silently absorb a new one. Ratcheted warnings.
+  // Where a generic infers its type FROM the cast (`vi.hoisted(() => ({ x: null as T | null }))`,
+  // `getByRole(…) as HTMLInputElement`), the cast rule calls the cast needless and its --fix narrows
+  // or breaks the type: annotate the factory's return type or pass the type argument instead.
+  {
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+      "@typescript-eslint/switch-exhaustiveness-check": ["warn", { considerDefaultExhaustiveForUnions: false }],
+    },
+  },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are
   // free), and base-map.tsx the one that renders react-map-gl's <Map>. Unit tests and the
   // Playwright tree (tests/) mock them freely. The same block holds the window-event door

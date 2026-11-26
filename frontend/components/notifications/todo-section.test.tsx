@@ -6,7 +6,7 @@ import type { Todo } from '@/lib/todos'
 import type { Notification } from '@/lib/types/notification'
 
 const completion = vi.hoisted(() => ({
-  readiness: 'ready' as string,
+  readiness: 'ready',
   requestCompletion: vi.fn(() => true),
   retryCompletionBoard: vi.fn(async () => {}),
 }))

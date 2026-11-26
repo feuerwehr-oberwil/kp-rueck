@@ -23,7 +23,7 @@ import type {
   ApiVehicle,
 } from "@/lib/api-client"
 import type { GroupResourceType, GroupResources, IncidentGroup } from "@/lib/types/groups"
-import type { Material, Operation, Person, PersonStatus } from "../operations-context"
+import type { Material, Operation, Person } from "../operations-context"
 import { apiIncidentGroupToGroup, apiIncidentToOperation, rekoDangerTypes } from "./mapping"
 
 /** What one board load fetched, as `loadData` hands it over. */
@@ -181,9 +181,9 @@ export function reconcileEvent(
     ops.forEach(op => op.vehicles.sort((a, b) => (vehicleOrder.get(a.vehicleId) ?? 0) - (vehicleOrder.get(b.vehicleId) ?? 0)))
   }
 
-  const eventScopedPersonnel = personnelList.map(person => ({
+  const eventScopedPersonnel = personnelList.map((person): Person => ({
     ...person,
-    status: assignedPersonIds.has(person.id) ? "assigned" as PersonStatus : "available" as PersonStatus,
+    status: assignedPersonIds.has(person.id) ? "assigned" : "available",
     isReko: rekoPersonnelIds.has(person.id),
     isDriver: driverPersonnelIds.has(person.id),
     driverVehicleId: driverPersonnelIds.get(person.id)?.vehicleId || undefined,
@@ -201,9 +201,9 @@ export function reconcileEvent(
   // draggable on the next load. `outOfService` is carried through untouched
   // by the spread and beats this field wherever the state is read (see
   // `materialResourceState`).
-  const eventScopedMaterials = materialsList.map(material => ({
+  const eventScopedMaterials = materialsList.map((material): Material => ({
     ...material,
-    status: assignedMaterialIds.has(material.id) ? "assigned" as Material["status"] : "available" as Material["status"]
+    status: assignedMaterialIds.has(material.id) ? "assigned" : "available"
   }))
 
   return { eventScopedPersonnel, eventScopedMaterials }

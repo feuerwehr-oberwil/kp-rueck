@@ -321,7 +321,7 @@ export const PrintView = forwardRef<HTMLDivElement, PrintViewProps>(
           return t("available")
         case "maintenance":
           return t("maintenance")
-        default:
+        case "unavailable":
           return t("unavailable")
       }
     }
