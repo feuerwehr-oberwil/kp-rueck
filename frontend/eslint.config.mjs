@@ -149,11 +149,11 @@ export default [
     rules: { "kp/no-literal-copy": "warn" },
   },
   // A `!` hides a null the type says is possible: narrow where the value is known (a guard, an
-  // early return, a prop that takes the non-null type). Ratcheted (eslint-ratchet.json).
+  // early return, a prop that takes the non-null type). None left in product code.
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
     ignores: TESTS,
-    rules: { "@typescript-eslint/no-non-null-assertion": "warn" },
+    rules: { "@typescript-eslint/no-non-null-assertion": "error" },
   },
   // Typed lint (sweep 25.11.2026, TS.4): the rules below read the types tsconfig.json gives, so
   // every .ts/.tsx file is parsed through the TypeScript project service (about one tsc pass).
