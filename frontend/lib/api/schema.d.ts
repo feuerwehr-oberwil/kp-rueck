@@ -6866,6 +6866,17 @@ export interface components {
             /** Consent */
             consent: string;
         };
+        /** CostSnapshotEntry */
+        CostSnapshotEntry: {
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** From */
+            from: string | null;
+            /** To */
+            to: string | null;
+        };
         /**
          * DangersAssessment
          * @description Structured danger checklist.
@@ -11929,9 +11940,7 @@ export interface components {
              */
             personnel_count_corrected?: boolean;
             /** Cost Snapshot Json */
-            cost_snapshot_json?: {
-                [key: string]: string | null;
-            }[] | null;
+            cost_snapshot_json?: components["schemas"]["CostSnapshotEntry"][] | null;
             /** Arrived At */
             arrived_at?: string | null;
             /** Created By Name */
