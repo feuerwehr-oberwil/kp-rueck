@@ -264,6 +264,22 @@ def test_one_gps_question_raised_on_both_sides_during_a_lead_change_is_asked_onc
     again = merge(both, both, both, event_id=EVENT, leader=STANDBY, takeover=TAKEOVER, now=NOW)
     assert again.to_leader == again.to_follower == []
 
+    # A round that copied the phone's question up but died before the shadow: the retry keeps
+    # the copy both hold, even against a leader's copy with the lower id.
+    first = asked("0-box")
+    assert first["id"] < phone["id"]
+    retry = merge(
+        {},
+        {key(first): first, key(phone): phone},
+        {key(phone): phone},
+        event_id=EVENT,
+        leader=STANDBY,
+        takeover=TAKEOVER,
+        now=NOW,
+    )
+    assert retry.merged[key(first)] is None and retry.merged[key(phone)] == phone
+    assert retry.to_leader == [Op("notifications", first["id"], None, first)] and retry.to_follower == []
+
 
 def test_bookkeeping_takes_the_later_value_and_never_clashes():
     base = _incident()

@@ -9,6 +9,7 @@ Tests notification evaluation, settings management, and notification lifecycle i
 - Dismissal functionality
 """
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
@@ -16,8 +17,8 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select, text, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.models import (
     Event,
@@ -49,6 +50,7 @@ from app.services.notification_service import (
     save_notification_settings,
 )
 from app.services.storage_usage import BYTES_PER_GB, StorageUsage
+from tests.conftest import wait_until_blocked
 
 # ============================================
 # Fixtures
@@ -1832,3 +1834,61 @@ async def test_a_standby_box_writes_no_bell_rows_into_an_ereignis_it_does_not_le
     )
     await db_session.flush()
     assert await shown() == ["field_message", "missing_location"]
+
+
+async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_standby_box(monkeypatch, test_engine):
+    """A hosted takeover the sync brings in mid-poll waits for the phase that is writing, and the
+    poll's next phase sees it and writes nothing. A fatigue row widened after the box lost the
+    lead would merge with the hosted dismissal and mark people acknowledged nobody saw."""
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
+    sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    event_id = uuid4()
+    async with sessions() as db:
+        await db.execute(text("CREATE SCHEMA IF NOT EXISTS standby"))
+        await db.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
+        db.add(Event(id=event_id, name="Offline geführt", training_flag=False))
+        await db.flush()
+        # Without a position, an Einsatz under way raises «missing_location» – a later-phase write.
+        db.add_all(
+            [
+                EventLead(event_id=event_id, holder="standby", since=datetime.now(UTC)),
+                Incident(
+                    title="Ohne Position", type="brandbekaempfung", priority="high", status="enroute", event_id=event_id
+                ),
+            ]
+        )
+        await db.execute(text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": event_id})
+        await db.commit()
+    try:
+        async with sessions() as fatigue, sessions() as polling, sessions() as syncing:
+            # Another board's poll is in the fatigue step: this poll stops there, lead in hand.
+            await fatigue.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"}
+            )
+            poll = asyncio.create_task(evaluate_notifications(polling, event_id))
+            await wait_until_blocked(sessions)
+            takeover = asyncio.create_task(
+                syncing.execute(update(EventLead).where(EventLead.event_id == event_id).values(holder="hosted"))
+            )
+            # Both tasks finish either way, so a failure is reported instead of hanging the cleanup.
+            try:
+                await wait_until_blocked(sessions, count=2)
+                takeover_waited = True
+            except AssertionError:
+                takeover_waited = False
+            await fatigue.rollback()
+            await asyncio.wait_for(takeover, timeout=10)
+            await syncing.commit()
+            shown = await asyncio.wait_for(poll, timeout=10)
+            await polling.commit()
+
+        assert takeover_waited, "the takeover did not wait for the poll's fatigue write"
+        assert shown == []
+        async with sessions() as db:
+            assert list(await db.scalars(select(Notification.type).where(Notification.event_id == event_id))) == []
+    finally:
+        async with sessions() as db:
+            await db.execute(delete(Incident).where(Incident.event_id == event_id))
+            await db.execute(delete(Event).where(Event.id == event_id))
+            await db.execute(text("DROP SCHEMA IF EXISTS standby CASCADE"))
+            await db.commit()

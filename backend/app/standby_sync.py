@@ -559,12 +559,17 @@ def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
     """One GPS question both systems raised in the seconds before their lead rows agreed.
 
     Each system keeps one open row per Ereignis, type and `params.key` (`create_gps_todo`), but
-    sees only its own, so both may ask. One stays: the row both already hold, else the leader's,
-    else the lower id. A copy is removed only while one side alone holds it: its delete carries
-    the row it expects, so a copy answered (dismissed) meanwhile is `changed`, and the next round
-    finds it dismissed and keeps it. A copy both hold already is never deleted – one side's delete
-    and the other's dismissal would make the next round take the deletion. Only open rows count.
+    sees only its own, so both may ask. A copy that both systems hold, or that is agreed (in the
+    shadow), is never deleted – one side's delete and the other's dismissal would make the next
+    round take the deletion – so it is the one that stays; else the leader's, else the lower id.
+    Every other copy is held by one side alone and is deleted there: its delete carries the row
+    it expects, so a copy answered (dismissed) meanwhile is `changed`, and the next round finds
+    it dismissed and keeps it. Only open rows count.
     """
+
+    def shared(key: Key) -> bool:
+        return key in base or (key in lead and key in other)
+
     asked: set[tuple[Any, ...]] = set()
     rows = sorted(
         (
@@ -576,11 +581,11 @@ def _ask_gps_once(plan: Plan, base: Rows, lead: Rows, other: Rows) -> None:
             and not r.get("dismissed")
             and (r.get("params") or {}).get("key")
         ),
-        key=lambda kr: (kr[0] not in base, kr[0] not in lead, kr[0][1]),
+        key=lambda kr: (not shared(kr[0]), kr[0] not in lead, kr[0][1]),
     )
     for key, row in rows:
         question = (row.get("event_id"), row["type"], row["params"]["key"])
-        if question in asked and key not in base and (key in lead) != (key in other):
+        if question in asked and not shared(key):
             _replace(plan, lead, other, key, None)
         asked.add(question)
 
