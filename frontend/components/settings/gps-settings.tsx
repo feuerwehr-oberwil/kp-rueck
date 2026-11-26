@@ -36,7 +36,7 @@ interface Props {
   setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
-  saving: string | null
+  isSaving: (key: string) => boolean
   /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
   savedAt: Record<string, Date>
 }
@@ -59,7 +59,7 @@ export function GpsSettingsCard({
   setSettings,
   updateSetting,
   isEditor,
-  saving,
+  isSaving,
   savedAt,
 }: Props) {
   const t = useTranslations("settings")
@@ -123,7 +123,7 @@ export function GpsSettingsCard({
 
   const renderNumber = (key: string, fallback: string) => {
     const value = settings[key] !== undefined ? settings[key] : fallback
-    const isCurrentlySaving = saving === key
+    const isCurrentlySaving = isSaving(key)
     return (
       <div>
         <Input
@@ -163,7 +163,7 @@ export function GpsSettingsCard({
           aria-label={t("gps.title")}
           checked={enabled}
           title={trackerMissing ?? undefined}
-          disabled={!isEditor || Boolean(trackerMissing) || saving === MASTER_KEY}
+          disabled={!isEditor || Boolean(trackerMissing) || isSaving(MASTER_KEY)}
           onCheckedChange={(v) => updateSetting(MASTER_KEY, v ? "true" : "false")}
         />
       }
@@ -186,7 +186,7 @@ export function GpsSettingsCard({
             <Switch
               id="gps-rule-arrival"
               checked={arrivalEnabled}
-              disabled={!isEditor || saving === ARRIVAL_KEY}
+              disabled={!isEditor || isSaving(ARRIVAL_KEY)}
               onCheckedChange={(v) => updateSetting(ARRIVAL_KEY, v ? "true" : "false")}
             />
           </SettingRow>
@@ -213,7 +213,7 @@ export function GpsSettingsCard({
               <Switch
                 id="gps-rule-arrival-silent"
                 checked={settings[ARRIVAL_SILENT_KEY] === "true"}
-                disabled={!isEditor || saving === ARRIVAL_SILENT_KEY}
+                disabled={!isEditor || isSaving(ARRIVAL_SILENT_KEY)}
                 onCheckedChange={(v) => updateSetting(ARRIVAL_SILENT_KEY, v ? "true" : "false")}
               />
             </SettingRow>
@@ -231,7 +231,7 @@ export function GpsSettingsCard({
               id="gps-rule-return"
               checked={settings[RETURN_KEY] === "true"}
               title={!stationConfigured ? t("gps.returnUnavailable") : undefined}
-              disabled={!isEditor || !stationConfigured || saving === RETURN_KEY}
+              disabled={!isEditor || !stationConfigured || isSaving(RETURN_KEY)}
               onCheckedChange={(v) => updateSetting(RETURN_KEY, v ? "true" : "false")}
             />
           </SettingRow>
@@ -303,7 +303,7 @@ export function GpsMapSettingsCard({
   setSettings,
   updateSetting,
   isEditor,
-  saving,
+  isSaving,
   savedAt,
 }: Props) {
   const t = useTranslations("settings")
@@ -345,14 +345,14 @@ export function GpsMapSettingsCard({
                 if (next !== value) setSettings((prev) => ({ ...prev, [GPS_STALE_SETTING]: next }))
                 if (next !== (serverSettings[GPS_STALE_SETTING] ?? fallback)) updateSetting(GPS_STALE_SETTING, next)
               }}
-              disabled={!isEditor || saving === GPS_STALE_SETTING}
+              disabled={!isEditor || isSaving(GPS_STALE_SETTING)}
             />
             <span className="text-sm text-muted-foreground">{t("gps.map.minutes")}</span>
           </span>
           <FormMessage id={formMessageId(STALE_FIELD_ID)}>
             {problem && t(`page.general.validation.${problem}`, { ...STALE_RANGE })}
           </FormMessage>
-          <SettingSaveLine saving={saving === GPS_STALE_SETTING} savedAt={savedAt[GPS_STALE_SETTING]} className="" />
+          <SettingSaveLine saving={isSaving(GPS_STALE_SETTING)} savedAt={savedAt[GPS_STALE_SETTING]} className="" />
         </div>
       </SettingRow>
     </SettingCard>

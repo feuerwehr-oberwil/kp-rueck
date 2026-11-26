@@ -32,7 +32,7 @@ interface Props {
   setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   updateSetting: (key: string, value: string) => void | Promise<void>;
   isEditor: boolean;
-  saving: string | null;
+  isSaving: (key: string) => boolean;
   /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
   savedAt: Record<string, Date>;
 }
@@ -43,7 +43,7 @@ export function AlarmDescriptionFilterSettings({
   setSettings,
   updateSetting,
   isEditor,
-  saving,
+  isSaving,
   savedAt,
 }: Props) {
   const t = useTranslations('settings.page.alarmIntake');
@@ -62,9 +62,9 @@ export function AlarmDescriptionFilterSettings({
             updateSetting(key, e.target.value);
           }
         }}
-        disabled={!isEditor || saving === key}
+        disabled={!isEditor || isSaving(key)}
       />
-      <SettingSaveLine saving={saving === key} savedAt={savedAt[key]} />
+      <SettingSaveLine saving={isSaving(key)} savedAt={savedAt[key]} />
     </SettingBlock>
   );
 

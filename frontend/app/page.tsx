@@ -246,7 +246,6 @@ export default function FireStationDashboard() {
     mobileOpenRequest,
     openIncidentDetail,
     handleOpenIncidentFromNotification,
-    scrollToCard,
     isDraggingOperationRef,
     handleCardClick,
     handleCardSelect,
@@ -421,17 +420,11 @@ export default function FireStationDashboard() {
   }, [operations])
 
   const resourceBindings = useResourceBindings({
-    operations,
-    getGroupResources,
-    groups,
-    scrollToCard,
-    setSearchQuery,
-    openIncidentDetail,
-    setActiveFooterSheet,
-    setAuftraegeFocusGroupId,
-    setBindingsPopover,
-    groupNames,
+    selection,
+    sheets,
     filteredOperations,
+    setSearchQuery,
+    setBindingsPopover,
   })
   const { collectPersonPlaces, followBinding, followPersonNow, handlePersonClick } = resourceBindings
   const {

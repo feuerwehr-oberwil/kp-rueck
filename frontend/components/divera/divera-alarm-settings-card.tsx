@@ -43,7 +43,7 @@ interface Props {
   setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>
   updateSetting: (key: string, value: string) => void | Promise<void>
   isEditor: boolean
-  saving: string | null
+  isSaving: (key: string) => boolean
   /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
   savedAt: Record<string, Date>
 }
@@ -54,7 +54,7 @@ export function DiveraAlarmSettingsCard({
   setSettings,
   updateSetting,
   isEditor,
-  saving,
+  isSaving,
   savedAt,
 }: Props) {
   const t = useTranslations("divera.alarmSettings")
@@ -168,7 +168,7 @@ export function DiveraAlarmSettingsCard({
           aria-label={t("cardTitle")}
           checked={enabled}
           title={blockedReason ?? (notConfigured ? t("notConfiguredHint") : undefined)}
-          disabled={Boolean(blockedReason) || notConfigured || !isEditor || saving === ENABLED_KEY}
+          disabled={Boolean(blockedReason) || notConfigured || !isEditor || isSaving(ENABLED_KEY)}
           onCheckedChange={(v) => updateSetting(ENABLED_KEY, v ? "true" : "false")}
         />
       }
@@ -192,7 +192,7 @@ export function DiveraAlarmSettingsCard({
         >
           {templateFields.map((field) => {
             const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback
-            const isCurrentlySaving = saving === field.key
+            const isCurrentlySaving = isSaving(field.key)
             return (
               <SettingBlock
                 key={field.key}

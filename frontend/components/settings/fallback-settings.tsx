@@ -38,7 +38,7 @@ export function FallbackSettings({
   // Schnappschuss nichts, egal was hier steht.
   const [printerConfigured, setPrinterConfigured] = useState(false);
   const [interval, setIntervalMin] = useState('15');
-  const { saving, savedAt, save: saveSetting } = useSettingSaver(t('fallback.saveFailed'));
+  const { isSaving, savedAt, save: saveSetting } = useSettingSaver(t('fallback.saveFailed'));
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export function FallbackSettings({
             checked={autoPrint}
             title={printerMissing ?? undefined}
             onCheckedChange={handleAutoPrintToggle}
-            disabled={!loaded || !printerConfigured || saving === 'fallback.auto_print_enabled'}
+            disabled={!loaded || !printerConfigured || isSaving('fallback.auto_print_enabled')}
           />
         </SettingRow>
 
@@ -122,10 +122,10 @@ export function FallbackSettings({
                 value={interval}
                 onChange={(e) => setIntervalMin(e.target.value)}
                 onBlur={(e) => handleIntervalBlur(e.target.value)}
-                disabled={saving === 'fallback.auto_print_interval_min'}
+                disabled={isSaving('fallback.auto_print_interval_min')}
               />
               <SettingSaveLine
-                saving={saving === 'fallback.auto_print_interval_min'}
+                saving={isSaving('fallback.auto_print_interval_min')}
                 savedAt={savedAt['fallback.auto_print_interval_min']}
               />
             </div>
