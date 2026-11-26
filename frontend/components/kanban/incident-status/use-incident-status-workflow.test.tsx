@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status-workflow"
+import { useIncidentStatusWorkflow } from "@/components/kanban/incident-status/use-incident-status-workflow"
 import type { Material, Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources } from "@/lib/types/groups"
 import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"

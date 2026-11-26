@@ -10,7 +10,7 @@ import type { GroupResourceType } from "@/lib/api-client"
 import type { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { planNext } from "@/lib/planned-actions"
-import type { IncidentStatusWorkflowController } from "@/components/kanban/incident-status-workflow"
+import type { IncidentStatusWorkflowController } from "@/components/kanban/incident-status/use-incident-status-workflow"
 import type { BoardCardActions } from "@/components/board/use-board-card-actions"
 
 /** The board's conflict-aware assigns – see `useBoardDrops`. */

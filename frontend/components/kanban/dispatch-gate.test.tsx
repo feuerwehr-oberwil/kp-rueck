@@ -2,11 +2,11 @@ import { useState } from "react"
 import { act, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
+import { IncidentStatusWorkflowDialogs } from "@/components/kanban/incident-status/incident-status-dialogs"
 import {
-  IncidentStatusWorkflowDialogs,
   useIncidentStatusWorkflow,
   type IncidentStatusWorkflowController,
-} from "@/components/kanban/incident-status-workflow"
+} from "@/components/kanban/incident-status/use-incident-status-workflow"
 import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
