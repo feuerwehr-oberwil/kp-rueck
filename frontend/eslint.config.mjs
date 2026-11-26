@@ -61,6 +61,8 @@ const MAP_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^(mapl
 const MAP_COMPONENT_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^react-map-gl(\\u002F.*)?$/]", message: MAP };
 
 export default [
+  // Generated from docs/openapi.json (`pnpm openapi:types`); lib/api/schema.test.ts holds it.
+  { ignores: ["lib/api/schema.d.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
