@@ -104,21 +104,6 @@ class TraccarClient:
             response.raise_for_status()
             return [TraccarDevice(**d) for d in response.json()]
 
-    async def get_positions(self) -> list[TraccarPosition]:
-        """Get current positions of all devices."""
-        if not self.is_configured:
-            return []
-
-        async with httpx.AsyncClient() as client:
-            cookies = await self._create_session(client)
-            response = await client.get(
-                f"{self.base_url}/api/positions",
-                cookies=cookies,
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            return [TraccarPosition(**p) for p in response.json()]
-
     async def get_position_history(
         self, device_id: int, from_time: datetime, to_time: datetime
     ) -> list[TraccarPosition]:

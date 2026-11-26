@@ -1,11 +1,11 @@
-"""Coordinate helpers for the weather layer: LV95 ⇄ WGS84 ⇄ Web Mercator, and point-in-polygon.
+"""Coordinate helpers for the weather layer: WGS84 → LV95, WGS84 ⇄ Web Mercator, and point-in-polygon.
 
 The radar grid is LV95 (EPSG:2056); the map is Web Mercator. pyproj would do this, but it is a
 40 MB dependency for one conversion. swisstopo's published approximation formulas
 («Näherungsformeln für die Transformation zwischen Schweizer Projektionskoordinaten und WGS84»)
 are accurate to about a metre inside Switzerland, and against the radar file's own corner
 coordinates – 300+ km outside the country – they still land within ~10 m of the 1 km grid
-(tests/test_services/test_weather_radar.py pins that). A radar pixel is 1000 m, so that is
+(tests/test_services/test_weather.py pins that). A radar pixel is 1000 m, so that is
 two orders of magnitude below anything the overlay can show.
 """
 
@@ -30,15 +30,6 @@ def wgs84_to_lv95(
     east = 2600072.37 + 211455.93 * lam - 10938.51 * lam * phi - 0.36 * lam * phi**2 - 44.54 * lam**3
     north = 1200147.07 + 308807.95 * phi + 3745.25 * lam**2 + 76.63 * phi**2 - 194.56 * lam**2 * phi + 119.79 * phi**3
     return east, north
-
-
-def lv95_to_wgs84(east: float, north: float) -> tuple[float, float]:
-    """swisstopo approximation, the inverse direction. LV95 metres in, (lat, lon) degrees out."""
-    y = (east - 2600000.0) / 1000000.0
-    x = (north - 1200000.0) / 1000000.0
-    lam = 2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x**2 - 0.0436 * y**3
-    phi = 16.9023892 + 3.238272 * x - 0.270978 * y**2 - 0.002528 * x**2 - 0.0447 * y**2 * x - 0.0140 * x**3
-    return phi * 100.0 / 36.0, lam * 100.0 / 36.0
 
 
 def lon_to_mercator_x(lon: float) -> float:

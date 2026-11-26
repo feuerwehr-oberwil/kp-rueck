@@ -290,17 +290,5 @@ def render_frame(grid: RadarGrid, oversample: float = 1.5) -> RenderedFrame:
     return RenderedFrame(time=grid.time, png=buffer.getvalue(), coordinates=plan.coordinates, wet_fraction=wet_fraction)
 
 
-def value_at(grid: RadarGrid, lat: float, lon: float) -> float | None:
-    """The rain rate of the cell a point lies in (None outside the domain / no data)."""
-    e, n = wgs84_to_lv95(np.array([lat]), np.array([lon]))
-    col = math.floor((float(e[0]) - grid.east0) / grid.xscale)
-    row = math.floor((grid.north0 - float(n[0])) / grid.yscale)
-    rows, cols = grid.values.shape
-    if not (0 <= row < rows and 0 <= col < cols):
-        return None
-    v = float(grid.values[row, col])
-    return None if math.isnan(v) else v
-
-
 def legend() -> list[dict[str, object]]:
     return [{"min_mm_h": step, "color": colour} for step, colour, _ in PRECIP_RAMP]
