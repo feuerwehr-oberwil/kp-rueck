@@ -25,6 +25,16 @@ change. Read the section you touch. The visual rules and their reasons are
   disable that must stay says why on its line (`-- reason`).
 - **API Integration**: Centralized API client in `lib/api-client.ts`. Collection routes need
   their trailing slash, or a write is lost to a 307: [`BACKEND.md`](BACKEND.md#api-endpoints).
+  - Wire types are aliases of the spec: `Out<'XResponse'>` / `In<'XCreate'>` from
+    `lib/api/wire.ts` over the generated `lib/api/schema.d.ts` (`just openapi`). Write a hand
+    type only where the backend answers an untyped dict, and narrow a `str` vocabulary beside
+    the reason.
+  - `request<T>` is for a route that answers JSON, `requestVoid` for a bodyless one (204). No
+    answer after the retries rejects with `NetworkError`, a read as well as a write – never
+    `undefined`.
+  - Socket events: `wsClient.on(name, listener)` takes the names in `WsEvents`
+    (`lib/websocket-client.ts`, the backend's `WsEvent`). In-tab window events:
+    `emitAppEvent` / `onAppEvent` (`lib/app-events.ts`). Board drags: `lib/board-drag.ts`.
 - **State Management**: React Context for global state (`lib/contexts/`, the board in `operations-context.tsx`)
 - **UI Components**: shadcn/ui components in `components/ui/`
 

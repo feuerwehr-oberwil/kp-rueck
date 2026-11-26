@@ -49,8 +49,8 @@ them before you ask for review.
 The DCO job needs a `Signed-off-by` line on every non-merge commit: commit with `git commit -s`.
 
 - `just ci-static` covers lint, format, types, the build and the shared files before a push.
-- A pytest fails when `docs/openapi.json` drifts from the code. Run `just openapi` after an API
-  change.
+- A pytest fails when `docs/openapi.json` drifts from the code, and a Vitest when
+  `frontend/lib/api/schema.d.ts` drifts from it. Run `just openapi` after an API change.
 - Visual baselines come from CI only. Accept one only for a deliberate visual change, in its
   own commit with the reason. **Never accept a baseline to turn the check green.**
 - **A correction becomes a check.** When the owner corrects a change and a lint rule

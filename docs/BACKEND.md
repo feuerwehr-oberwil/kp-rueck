@@ -50,7 +50,8 @@ Alarm intake: `/api/alarms` (POST) – provider-neutral webhook, any dispatch sy
 Integrations: `/api/integrations` (GET) – capability registry (which provider is configured per domain)
 
 Full docs: [`openapi.json`](openapi.json) – the committed contract. To regenerate it, run
-`just openapi` (a pytest fails when it drifts). Live Swagger UI while the backend runs:
+`just openapi` (a pytest fails when it drifts; it also regenerates the frontend's
+`lib/api/schema.d.ts`). Live Swagger UI while the backend runs:
 http://localhost:8000/docs
 
 **Integration seams** (provider-neutral, see [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)):
