@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { queryKeys } from "@/lib/query/keys"
+import { useReader } from "@/lib/query/reader"
 
 /**
  * "GPS-Simulation aktiv" indicator, shown ONLY on the map (rendered inside
@@ -27,10 +28,11 @@ import { queryKeys } from "@/lib/query/keys"
 export function GpsSimBanner() {
   const t = useTranslations("training.banner")
   const { isAuthenticated } = useAuth()
+  const reader = useReader()
   // Read again on every `gps_sim_status` (lib/query/socket-bridge.ts): the event says that
   // something changed, the read brings the drive details. A failed read shows no banner.
   const query = useQuery({
-    queryKey: queryKeys.gpsSimulations,
+    queryKey: queryKeys.gpsSimulations.for(reader),
     queryFn: () => apiClient.getGpsSimulations(),
     enabled: isAuthenticated,
   })

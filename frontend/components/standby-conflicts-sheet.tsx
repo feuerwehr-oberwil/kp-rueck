@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { apiClient } from '@/lib/api-client'
 import type { ApiStandbyConflict } from '@/lib/api/types'
 import { queryKeys } from '@/lib/query/keys'
+import { useReader } from '@/lib/query/reader'
 import { useAuth } from '@/lib/contexts/auth-context'
 import { useStandby } from '@/lib/contexts/standby-context'
 import { getOperationStatusLabel } from '@/lib/status-labels'
@@ -50,9 +51,10 @@ export function StandbyConflictsSheet({
   const t = useTranslations('standby.conflicts')
   const standby = useStandby()
   const { isEditor } = useAuth()
+  const reader = useReader()
   // Read each time the sheet opens.
   const conflicts = useQuery({
-    queryKey: queryKeys.standbyConflicts.of(eventId),
+    queryKey: queryKeys.standbyConflicts.of(reader, eventId),
     queryFn: () => apiClient.getStandbyConflicts(eventId),
     enabled: open,
   })

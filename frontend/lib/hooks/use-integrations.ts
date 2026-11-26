@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import type { ApiProviderCapability } from '@/lib/api/types'
 import { queryKeys } from '@/lib/query/keys'
+import { useReader } from '@/lib/query/reader'
 
 /**
  * Welcher Anbieter für einen Bereich eingerichtet ist – aus der Fähigkeiten-Registratur
@@ -23,8 +24,9 @@ export type IntegrationDomain = 'alarms' | 'alerting' | 'personnel' | 'vehicles'
 
 export function useIntegrationCapability(domain: IntegrationDomain): ApiProviderCapability | null {
   // Keine Antwort heisst «unbekannt», nicht «nicht eingerichtet» – siehe oben.
+  const reader = useReader()
   const query = useQuery({
-    queryKey: queryKeys.integrations,
+    queryKey: queryKeys.integrations.for(reader),
     queryFn: () => apiClient.getIntegrations(),
     staleTime: Infinity,
     select: (integrations) => integrations[domain],
