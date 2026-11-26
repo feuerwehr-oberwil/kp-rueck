@@ -8,7 +8,7 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), dismiss: vi.fn() }),
 }))
 
-import { apiClient, NetworkError } from './api-client'
+import { apiClient, NetworkError, onRestReachableChange } from './api-client'
 
 describe('apiClient network failures', () => {
   beforeEach(() => {
@@ -64,12 +64,17 @@ describe('apiClient network failures', () => {
       })
     const fetchMock = vi.fn().mockImplementation(async () => truncated())
     vi.stubGlobal('fetch', fetchMock)
+    // Headers whose body then breaks are not «back online»: no flicker of the outage state.
+    const seen: boolean[] = []
+    const unsubscribe = onRestReachableChange((reachable) => seen.push(reachable))
 
     const promise = apiClient.getIncidents('event-id')
     const assertion = expect(promise).rejects.toBeInstanceOf(NetworkError)
     await vi.runAllTimersAsync()
     await assertion
+    unsubscribe()
     expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(seen).not.toContain(true)
   })
 
   it('still resolves successful mutations with the response body', async () => {

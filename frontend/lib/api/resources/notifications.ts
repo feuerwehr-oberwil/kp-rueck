@@ -29,8 +29,9 @@ export class NotificationsApi {
     })
   }
 
+  /** Awaited by the bell's poll: one try, so a dead settings route never holds up the list. */
   async getNotificationSettings(): Promise<ApiNotificationSettings> {
-    return httpRequest<ApiNotificationSettings>('/api/notifications/settings/', { skipToast: true })
+    return httpRequest<ApiNotificationSettings>('/api/notifications/settings/', { skipToast: true, maxRetries: 0 })
   }
 
   async updateNotificationSettings(patch: ApiNotificationSettingsUpdate): Promise<ApiNotificationSettings> {

@@ -185,15 +185,18 @@ async function send<R>(endpoint: string, options: RequestOptions | undefined, re
           ...options?.headers,
         },
       })
-      // The server answered (any status): the connection works. Clears the
-      // outage toast/state the moment the first request gets through again.
-      markRestReachable()
       if (response.ok) {
         // Response metadata the parsed body can't carry (e.g. X-Total-Count, which tells
         // the board whether it is showing everything).
         options?.onHeaders?.(response.headers)
-        return await read(response)
+        const result = await read(response)
+        // A full answer: the connection works. Clears the outage toast/state the moment
+        // the first request gets through again – not on headers whose body then breaks.
+        markRestReachable()
+        return result
       }
+      // An error status is an answer too.
+      markRestReachable()
     } catch (error) {
       // Any TypeError out of `fetch()` or the body stream is a network-layer failure
       // (Chrome «Failed to fetch», Safari «Load failed», Firefox «NetworkError …» – never

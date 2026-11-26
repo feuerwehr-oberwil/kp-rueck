@@ -64,7 +64,7 @@ const APP_EVENTS = "Send and hear in-tab events through lib/app-events.ts (emitA
 const APP_EVENT_NAME = "/^(kp[:-]|driver-assignment-changed$)/";
 const WINDOW_EVENTS = [
   { selector: `CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name=/^(Custom)?Event$/] > Literal.arguments:first-child[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
-  { selector: "CallExpression[callee.property.name='dispatchEvent'] > NewExpression[callee.name='CustomEvent']", message: APP_EVENTS },
+  { selector: "CallExpression[callee.object.name='window'][callee.property.name='dispatchEvent'] > NewExpression[callee.name='CustomEvent']", message: APP_EVENTS },
   { selector: `CallExpression[callee.property.name=/^(add|remove)EventListener$/] > Literal[value=${APP_EVENT_NAME}]`, message: APP_EVENTS },
 ];
 // Sweep 25.11.2026 (TS.8): `.json()` and `JSON.parse` return `any`, and 25 of 30 sites let it
@@ -77,7 +77,7 @@ const JSON_PARSE = "CallExpression[callee.object.name='JSON'][callee.property.na
 const UNTYPED_PARSE = [
   // The result itself is the initialiser: `= await r.json()`, `= await r.json().catch(…)`,
   // `= JSON.parse(text)` – never a property read off it.
-  { call: JSON_BODY, allowed: [`${AS_UNKNOWN} > AwaitExpression > ${JSON_BODY}`, `${AS_UNKNOWN} > AwaitExpression > CallExpression > MemberExpression > ${JSON_BODY}`] },
+  { call: JSON_BODY, allowed: [`${AS_UNKNOWN} > AwaitExpression > ${JSON_BODY}`, `${AS_UNKNOWN} > AwaitExpression > CallExpression[callee.property.name='catch'] > MemberExpression > ${JSON_BODY}`] },
   { call: JSON_PARSE, allowed: [`${AS_UNKNOWN} > ${JSON_PARSE}`] },
 ].map(({ call, allowed }) => ({ selector: `${call}:not(${allowed.join(", ")})`, message: UNKNOWN_BODIES }));
 const MAP_COMPONENT_IMPORT_EXPRESSION = { selector: "ImportExpression[source.value=/^react-map-gl(\\u002F.*)?$/]", message: MAP };
