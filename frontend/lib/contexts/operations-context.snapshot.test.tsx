@@ -123,6 +123,9 @@ const FULL: ApiIncident = {
   pickup_requested_by: "p-crew",
   leader_name: "Leader of record",
   effective_leader_id: "p-record",
+  source_ref: null,
+  field_requests: [],
+  possible_duplicate_of_id: null,
 }
 
 /** The shape an older backend (or a bare row) sends: every optional absent. */
