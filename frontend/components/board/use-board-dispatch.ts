@@ -1,125 +1,83 @@
 "use client"
 
+import { useRef, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
 import { materialResourceState } from "@/lib/resource-status"
 import { toast } from "sonner"
 import { undoToast } from "@/lib/toast-undo"
-import { type Person, type Operation, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
-import { type GroupResourceType } from "@/lib/api-client"
-import { useOperationHandlers } from "@/lib/hooks/use-operation-handlers"
+import { useOperations, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { usePersonnel } from "@/lib/contexts/personnel-context"
+import { useMaterials } from "@/lib/contexts/materials-context"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { applyResourceDrop } from "@/lib/hooks/use-kanban-drag-drop"
 import type { BoardDropTarget } from "@/lib/board-drag"
 import { useCommandDispatch, type DispatchCommand } from "@/lib/hooks/use-command-dispatch"
 import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
 import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
 import { RESOURCES_TARGET } from "@/lib/detail-target"
-import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import { soleDestination, type ResourceBinding } from "@/lib/board-sidebar"
-import { type FooterSheet } from "@/components/board/board-footer"
-import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
-import type { Dispatch, SetStateAction, RefObject } from "react"
-import type { Released } from "@/lib/release-undo"
-import type { ApiVehicle } from "@/lib/api-client"
-import type { VehicleNeedingDriver } from "@/lib/contexts/operations-context"
-import type { SyncMessageType } from "@/lib/hooks/use-cross-window-sync"
+import { soleDestination } from "@/lib/board-sidebar"
+import type { useResourceBindings } from "./use-resource-bindings"
+import type { BoardDrops } from "./use-board-drops"
+import type { BoardLayout } from "./use-board-selection"
+import type { BoardSheets } from "./use-board-sheets"
 import { PRIORITY_LABEL_KEYS } from "./use-board-card-actions"
 
-export interface UseBoardDispatchInput {
-  removeReko: (operationId: string, expectedAssignmentId?: string) => void
-  operations: Operation[]
-  outOfServiceVehicleIds: Set<string>
-  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
-  materials: Material[]
-  removeCrew: (operationId: string, personnelId: string) => Promise<boolean>
-  removeMaterial: (operationId: string, materialId: string) => Promise<boolean>
-  removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
-  deleteOperation: (operationId: string) => Promise<void>
-  resourceConflict: { resourceType: "personnel" | "vehicle" | "material"; resourceId: string; resourceName: string; targetOperationId: string; targetOperationLabel?: string; conflicts: { operationId: string; operationLabel: string; }[]; customResolve?: (action: "move" | "plan") => Promise<void> | void; } | null
-  vehicleNeedingDriver: VehicleNeedingDriver | null
-  updateOperation: (operationId: string, updates: Partial<Operation>) => void
-  fleet: ApiVehicle[]
-  isAssignmentSettling: () => boolean
-  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
-  getGroupResources: (groupId: string) => GroupResources
-  groups: IncidentGroup[]
-  unassignGroupResource: (groupId: string, assignmentId: string) => Promise<boolean>
-  release: { releaseCrew: (operationId: string, personnelId: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleId: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
-  dispatchRef: RefObject<{ vocabulary: () => DispatchVocabulary; run: (command: DispatchCommand) => void; jump: (target: DispatchResource) => void; }>
-  personnel: Person[]
-  operationsRef: RefObject<Operation[]>
-  setPersonnelSearchQuery: Dispatch<SetStateAction<string>>
-  setMaterialSearchQuery: Dispatch<SetStateAction<string>>
-  selectedOperation: Operation | null
-  setShowRightSidebar: Dispatch<SetStateAction<boolean>>
-  setShowLeftSidebar: Dispatch<SetStateAction<boolean>>
-  openIncidentDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection, options?: { allowModal?: boolean; }) => void
-  setActiveFooterSheet: Dispatch<SetStateAction<FooterSheet | null>>
-  setAuftraegeFocusGroupId: Dispatch<SetStateAction<string | null>>
-  broadcast: (type: SyncMessageType, incidentId: string | null) => void
-  isDraggingOperationRef: RefObject<boolean>
-  assignVehicleToIncidentWithConflict: (vehicleId: string, vehicleName: string, operationId: string) => void
-  boardAssignPerson: (personId: string, personName: string, operationId: string) => void
-  boardAssignMaterial: (materialId: string, operationId: string) => void
-  boardAssignGroupResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => void
-  afterStatusMove: (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => void
+/** ⌘K's dispatch, read through a ref by the palette – see `useBoardDispatch`. */
+export type BoardDispatchRef = ReturnType<typeof useBoardDispatch>
+
+interface UseBoardDispatchInput {
+  drops: BoardDrops
   /** Asked before ⌘K moves a card – see `holdStatusMove` in incident-status-workflow. */
   holdStatusMove: (operationId: string, targetStatus: OperationStatus) => boolean
-  collectPersonBindings: (person: Person) => ResourceBinding[]
-  collectMaterialBindings: (material: Material) => ResourceBinding[]
-  followBinding: (binding: ResourceBinding) => void
+  resourceBindings: Pick<ReturnType<typeof useResourceBindings>, "collectPersonBindings" | "collectMaterialBindings" | "followBinding">
+  layout: Pick<BoardLayout, "setShowLeftSidebar" | "setShowRightSidebar">
+  sheets: Pick<BoardSheets, "setActiveFooterSheet" | "setAuftraegeFocusGroupId">
+  setPersonnelSearchQuery: Dispatch<SetStateAction<string>>
+  setMaterialSearchQuery: Dispatch<SetStateAction<string>>
 }
 
 /**
- * Type-to-dispatch (⌘K «14 tlf meier») and the card handlers that share its
- * plumbing: the dispatch vocabulary, the drop-path runner, jumping to a resource,
- * and the card update/remove/assign/delete/click handlers. Moved verbatim out of
- * app/page.tsx.
+ * Type-to-dispatch (⌘K «14 tlf meier»): the dispatch vocabulary, the drop-path
+ * runner and jumping to a resource. Reads the board contexts itself. Returns a
+ * ref that always holds this render's `{ vocabulary, run, jump }`, so the palette
+ * registration (`useBoardCommandHandlers`) need not re-run on every board change.
  */
-export function useBoardDispatch(input: UseBoardDispatchInput) {
+export function useBoardDispatch({
+  drops,
+  holdStatusMove,
+  resourceBindings,
+  layout,
+  sheets,
+  setPersonnelSearchQuery,
+  setMaterialSearchQuery,
+}: UseBoardDispatchInput) {
   const {
-    removeReko,
     operations,
     outOfServiceVehicleIds,
-    assignVehicleToOperation,
-    materials,
+    vehicles: fleet,
     removeCrew,
     removeMaterial,
     removeVehicle,
-    deleteOperation,
+    removeReko,
+    updateOperation,
     resourceConflict,
     vehicleNeedingDriver,
-    updateOperation,
-    fleet,
     isAssignmentSettling,
     assignRekoPersonToOperation,
-    getGroupResources,
-    groups,
-    unassignGroupResource,
-    release,
-    dispatchRef,
-    personnel,
-    operationsRef,
-    setPersonnelSearchQuery,
-    setMaterialSearchQuery,
-    selectedOperation,
-    setShowRightSidebar,
-    setShowLeftSidebar,
-    openIncidentDetail,
-    setActiveFooterSheet,
-    setAuftraegeFocusGroupId,
-    broadcast,
-    isDraggingOperationRef,
-    assignVehicleToIncidentWithConflict,
-    boardAssignPerson,
-    boardAssignMaterial,
-    boardAssignGroupResource,
-    afterStatusMove,
-    holdStatusMove,
-    collectPersonBindings,
-    collectMaterialBindings,
-    followBinding,
-  } = input
+  } = useOperations()
+  const { personnel } = usePersonnel()
+  const { materials } = useMaterials()
+  const { groups, getGroupResources, unassignResource: unassignGroupResource } = useGroups()
+  const release = useReleaseUndo()
+  // The run reads the board as it is when a step lands, not as it was at ↵.
+  const operationsRef = useRef(operations)
+  operationsRef.current = operations
+  const { boardAssignPerson, boardAssignMaterial, boardAssignGroupResource, assignVehicleToIncidentWithConflict, afterStatusMove } = drops
+  const { collectPersonBindings, collectMaterialBindings, followBinding } = resourceBindings
+  const { setShowLeftSidebar, setShowRightSidebar } = layout
+  const { setActiveFooterSheet, setAuftraegeFocusGroupId } = sheets
   const tCommon = useTranslations('kanban.common')
   // Column titles, for the toasts a keyboard mutation raises.
   const tColumns = useTranslations('kanban.columns')
@@ -282,7 +240,7 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
         group.assignments.some((assignment) => assignment.resourceType === "vehicle" && assignment.resourceId === target.id),
       )
       if (onIncident) {
-        followBinding({ key: `incident-${onIncident.id}`, kind: "incident", targetId: onIncident.id, label: "", detail: "", target: RESOURCES_TARGET })
+        followBinding({ kind: "incident", targetId: onIncident.id, target: RESOURCES_TARGET })
       } else if (onRoute) {
         setAuftraegeFocusGroupId(onRoute.id)
         setActiveFooterSheet('auftraege')
@@ -293,44 +251,14 @@ export function useBoardDispatch(input: UseBoardDispatchInput) {
     }
   }
 
-  dispatchRef.current = {
+  const dispatch = {
     vocabulary: dispatchVocabulary,
-    run: (command) => {
+    run: (command: DispatchCommand) => {
       void runDispatch(command)
     },
     jump: jumpFromPalette,
   }
-
-  // Use shared operation handlers hook
-  const { handleOperationUpdate, handleVehicleAssign, handleOperationDelete } = useOperationHandlers({
-    selectedOperation,
-    updateOperation,
-    assignVehicleToOperation,
-    deleteOperation,
-  })
-
-  // `tab`/`section` come from the card and say which BLOCK was clicked — the
-  // card routes into the detail rather than always landing on one tab. Both
-  // handlers just forward them; the card decides which of the two it calls
-  // (modal below the side-panel breakpoint, selection above it).
-  const handleCardClick = (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => {
-    // Don't open modal if we just finished dragging
-    if (isDraggingOperationRef.current) {
-      return
-    }
-    openIncidentDetail(operation.id, tab, section)
-    broadcast("incident:selected", operation.id)
-  }
-
-  const handleCardSelect = (operation: Operation, tab?: OperationDetailTab, section?: OperationDetailSection) => {
-    openIncidentDetail(operation.id, tab, section)
-  }
-
-  return {
-    handleVehicleAssign,
-    handleOperationDelete,
-    handleOperationUpdate,
-    handleCardClick,
-    handleCardSelect,
-  }
+  const dispatchRef = useRef(dispatch)
+  dispatchRef.current = dispatch
+  return dispatchRef
 }

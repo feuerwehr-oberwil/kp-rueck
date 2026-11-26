@@ -8,7 +8,7 @@
  * rendered cards already ARE the order, so they are what we walk.
  *
  * `[data-column]` and `[data-incident-id]` are the same hooks `scrollToCard`
- * uses in app/page.tsx; a folded column contributes no cards because it
+ * uses in components/board/use-board-selection.ts; a folded column contributes no cards because it
  * renders none, which is also the behaviour we want (arrows skip it).
  */
 

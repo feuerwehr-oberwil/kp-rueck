@@ -4,17 +4,15 @@ import { useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { undoToast } from "@/lib/toast-undo"
-import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
-import type { OperationsContextType } from "@/lib/contexts/operations/types"
+import { useOperations, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
+import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
+import type { IncidentStatusWorkflowController } from "@/components/kanban/incident-status-workflow"
 import { toMirrorStatus } from "@/components/map/route-stop-list"
-import type { GroupResourceType } from "@/lib/api-client"
-import { columns, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
-import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
+import { columns } from "@/lib/kanban-utils"
 import { useAssignmentConflicts } from "@/lib/hooks/use-assignment-conflicts"
 import { getIncidentLocationLabel, getIncidentTypeLabel } from "@/lib/incident-types"
-import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
-import type { RefObject } from "react"
-import type { Released } from "@/lib/release-undo"
 import { moveInList, type MoveTo } from "@/lib/move-in-list"
 import { takesAssignments } from "@/lib/assignable"
 
@@ -26,38 +24,18 @@ export const PRIORITY_LABEL_KEYS: Record<Operation["priority"], "priorityLow" | 
   high: "priorityHigh",
 }
 
-export interface UseBoardCardActionsInput {
-  requestResourceConflict: OperationsContextType["requestResourceConflict"]
-  operations: Operation[]
-  updateOperation: (operationId: string, updates: Partial<Operation>) => void
-  reorderColumn: (orderedIds: string[]) => void
-  removeVehicle: (operationId: string, vehicleId: string) => Promise<boolean>
-  assignVehicleToOperation: (vehicleId: string, vehicleName: string, operationId: string) => Promise<boolean>
-  groups: IncidentGroup[]
-  unassignGroupResource: (groupId: string, assignmentId: string) => Promise<boolean>
-  assignGroupResource: (groupId: string, resourceType: GroupResourceType, resourceId: string) => Promise<boolean>
-  getGroupResources: (groupId: string) => GroupResources
-  release: { releaseCrew: (operationId: string, personnelId: string) => Promise<boolean>; releaseMaterial: (operationId: string, materialId: string) => Promise<boolean>; releaseVehicle: (operationId: string, vehicleId: string) => Promise<boolean>; releaseStop: (groupId: string, incidentId: string) => Promise<boolean>; releaseRouteResource: (groupId: string, assignmentId: string) => Promise<boolean>; restore: (item: Released) => Promise<void>; }
-  expandColumnRef: RefObject<(id: string) => void>
-  vehicleTypes: { key: string; name: string; id: string; type: string; status: string; }[]
-  deleteOperation: (operationId: string) => Promise<void>
-  toggleDriverStay: (operationId: string, vehicleId: string) => void
-  /** Asked before a key moves a card – see `holdStatusMove` in incident-status-workflow. */
-  holdStatusMove: (operationId: string, targetStatus: OperationStatus) => boolean
-  triggerRekoCheck: (operationId: string, previousStatus?: OperationStatus) => void
-  promptMaterialDecision: (operationId: string, previousStatus?: OperationStatus) => void
-  triggerReturningVehicleCheck: (operationId: string, previousStatus?: OperationStatus) => void
-  triggerDisponiertDialog: (operationId: string, previousStatus?: OperationStatus) => void
-  requestStatusChange: (operationId: string, targetStatus: OperationStatus) => void
-}
+/** What the board does to a card – see `useBoardCardActions`. */
+export type BoardCardActions = ReturnType<typeof useBoardCardActions>
 
 /**
  * What the board does to a card: Auftrag stop status, column sort, transfer,
  * status moves left/right, vehicle toggle with the Doppelbelegung check,
  * priority, zu Fuss, driver stay, delete — plus the assignment-conflict
- * helpers they share. Moved verbatim out of app/page.tsx.
+ * helpers they share. Reads the board contexts itself; the page hands in only
+ * its status workflow (`useIncidentDialogs().statusWorkflow`), which asks before
+ * and after a move.
  */
-export function useBoardCardActions(input: UseBoardCardActionsInput) {
+export function useBoardCardActions(statusWorkflow: IncidentStatusWorkflowController) {
   const {
     requestResourceConflict,
     operations,
@@ -65,22 +43,25 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     reorderColumn,
     removeVehicle,
     assignVehicleToOperation,
-    groups,
-    unassignGroupResource,
-    assignGroupResource,
-    getGroupResources,
-    release,
-    expandColumnRef,
-    vehicleTypes,
     deleteOperation,
     toggleDriverStay,
+  } = useOperations()
+  const {
+    groups,
+    unassignResource: unassignGroupResource,
+    assignResource: assignGroupResource,
+    getGroupResources,
+  } = useGroups()
+  const release = useReleaseUndo()
+  const vehicleTypes = useVehicleShortcuts()
+  const {
     holdStatusMove,
     triggerRekoCheck,
     promptMaterialDecision,
     triggerReturningVehicleCheck,
     triggerDisponiertDialog,
     requestStatusChange,
-  } = input
+  } = statusWorkflow
   const tCommon = useTranslations('kanban.common')
   // Column titles, for the toasts a keyboard mutation raises.
   const tColumns = useTranslations('kanban.columns')
@@ -95,14 +76,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
     if (toMirrorStatus(operation) === newStatus) return
     requestStatusChange(operationId, newStatus)
   }, [operations, requestStatusChange])
-
-  // Which columns this screen has folded away. Seven columns do not fit on
-  // every command-post monitor, and the two that matter right now must not be
-  // behind a horizontal scrollbar. Per DEVICE, not per operator account: the
-  // fold answers «how wide is this monitor», which nobody wants inherited on
-  // the next machine — same hook, same reasoning as both wall boards.
-  const collapsedColumns = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
-  expandColumnRef.current = collapsedColumns.expand
 
   // One-shot column sort: persist the chosen column's order without turning off
   // manual drag-and-drop ordering afterwards.
@@ -320,7 +293,6 @@ export function useBoardCardActions(input: UseBoardCardActionsInput) {
 
   return {
     setRouteStopStatus,
-    collapsedColumns,
     handleColumnSort,
     moveInColumn,
     moveOperationRight,

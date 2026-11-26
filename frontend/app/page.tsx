@@ -7,26 +7,27 @@
  * anywhere wider `ProtectedRoute` sends it to `/display/board`. So the `isEditor` checks
  * below are constant-true on the desk and live on the phone – see the note in
  * `components/protected-route.tsx` for what actually enforces the role.
+ *
+ * The page owns the state only it shows (searches, open dialogs, sidebar views) and
+ * wires the board hooks in `components/board/`, which read the board contexts
+ * themselves: `useBoardSelection` (which card is open, and where), `useBoardSheets`,
+ * `useBoardCardActions`, `useBoardDrops`, `useBoardDispatch` (⌘K),
+ * `useBoardDialogActions` and `useBoardCommandHandlers` (palette + keys).
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useEffectEvent } from "@/lib/hooks/use-effect-event"
 import { useTranslations } from "next-intl"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import { LoadingStatus } from "@/components/ui/shell-loader"
-import { SearchInput } from "@/components/ui/search-input"
-import { EventClock } from "@/components/ui/event-clock"
-import { Plus, ChevronDown, CalendarDays, ChevronLeft, ChevronRight, PanelRight } from 'lucide-react'
-import { materialResourceState, summarizeMaterials } from "@/lib/resource-status"
-import { Kbd } from "@/components/ui/kbd"
+import { ChevronLeft, ChevronRight, PanelRight } from 'lucide-react'
+import { summarizeMaterials } from "@/lib/resource-status"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useBootGate } from "@/lib/boot-cover"
-import { TrainingBand, TrainingBadge } from "@/components/training-mode-chrome"
-import { PageNavigation } from "@/components/page-navigation"
+import { TrainingBand } from "@/components/training-mode-chrome"
 import { toast } from "sonner"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useOperations, type Material, type OperationStatus } from "@/lib/contexts/operations-context"
+import { useOperations } from "@/lib/contexts/operations-context"
 import { useGroups } from "@/lib/contexts/groups-context"
 import { useReleaseUndo } from "@/lib/hooks/use-release-undo"
 import { selectFiledRapports, selectOpenRapports } from "@/components/kanban/rapport-backlog-sheet"
@@ -34,71 +35,56 @@ import { selectMaterialOnSite } from "@/components/kanban/material-on-site-panel
 import { useMaterials } from "@/lib/contexts/materials-context"
 import { usePersonnel } from "@/lib/contexts/personnel-context"
 import { useEvent } from "@/lib/contexts/event-context"
-import { apiClient, type GroupResourceType } from "@/lib/api-client"
 import { useClosedStopGuard } from "@/lib/hooks/use-closed-stop-guard"
 import { useStationCapabilities } from "@/lib/hooks/use-station-capabilities"
 import { useVehicleShortcuts } from "@/lib/contexts/operations/use-vehicle-shortcuts"
 import { useNotifications } from "@/lib/contexts/notification-context"
-import { useKanbanDragDrop } from "@/lib/hooks/use-kanban-drag-drop"
-import type { DispatchCommand } from "@/lib/hooks/use-command-dispatch"
-import type { DispatchResource, DispatchVocabulary } from "@/lib/command-dispatch"
 import { useResourceFiltering } from "@/lib/hooks/use-resource-filtering"
 import { useDoubleBookedPersons } from "@/lib/hooks/use-double-booked-persons"
 import { usePersonEngagements } from "@/lib/hooks/use-person-engagements"
 import { usePersonPlaces } from "@/lib/hooks/use-person-matcher"
-import { useIncidentHighlightListener } from "@/lib/hooks/use-incident-highlight-listener"
-import type { IncidentHighlightOptions } from "@/lib/notification-highlight"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
-import { useGPrefixNavigation } from "@/lib/hooks/use-g-prefix-navigation"
-import { useKanbanShortcuts } from "@/lib/hooks/use-kanban-shortcuts"
-import { isDetailSection, isDetailTab, type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
 import { useCommandPaletteHint } from "@/lib/hooks/use-is-mac"
 import { usePrintBoard } from "@/lib/hooks/use-print-board"
+import { useCollapsedSections } from "@/lib/hooks/use-collapsed-sections"
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useStandby } from "@/lib/contexts/standby-context"
-import { useCommandPalette } from "@/lib/contexts/command-palette-context"
-import { columns } from "@/lib/kanban-utils"
-import { nextCardId, type BoardDirection } from "@/lib/board-keyboard-nav"
-import { getIncidentRefParts } from "@/lib/incident-types"
-import { planNext } from "@/lib/planned-actions"
+import { columns, BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS } from "@/lib/kanban-utils"
 import { DroppableColumn } from "@/components/kanban/droppable-column"
-import { BoardEdgeChipBar, useBoardEdgeOverflow } from "@/components/kanban/board-edge-chips"
+import { useBoardEdgeOverflow } from "@/components/kanban/board-edge-chips"
 import { useCardView } from "@/lib/card-view"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { useCrossWindowSync } from "@/lib/hooks/use-cross-window-sync"
 import { EventSelectionEmptyState } from "@/components/empty-states/event-selection-empty-state"
 import { BoardLoadErrorPanel } from "@/components/board-load-error"
 import { SidePanel } from "@/components/kanban/side-panel"
-import { SIDE_PANEL_BREAKPOINT } from "@/lib/layout-breakpoints"
-import { boardDetailSurface, isPhoneViewport } from "@/lib/incident-detail"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { filterIncidents } from "@/lib/incident-search"
-import { storeFieldNudgeConfirmation } from "@/components/kanban/field-status-nudge"
-import { MobileIncidentListView, type MobileOpenRequest } from "@/components/mobile/mobile-incident-list-view"
+import { MobileIncidentListView } from "@/components/mobile/mobile-incident-list-view"
 import { IncidentDialogs, useIncidentDialogs } from "@/components/kanban/incident-dialogs"
 import { cn } from "@/lib/utils"
 import { useBoardLayoutPrefs } from "@/lib/hooks/use-board-layout-prefs"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs, PERSONNEL_VIEW_KEY } from "@/lib/personnel-view"
 import { DEFAULT_MATERIAL_VIEW, isMaterialViewPrefs, MATERIAL_VIEW_KEY } from "@/lib/material-view"
-import { isNavigableBinding, soleDestination, type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
+import type { BindingsPopoverState } from "@/lib/board-sidebar"
 import { PersonnelSidebar } from "@/components/board/personnel-sidebar"
 import { MaterialSidebar } from "@/components/board/material-sidebar"
 import { SlideRail } from "@/components/ui/slide-rail"
 import { useResizableWidth } from "@/lib/hooks/use-resizable-width"
-import { BoardFooter, type FooterSheet } from "@/components/board/board-footer"
-import { toggleFigures } from "@/components/figures-dialog"
-import type { JournalComposeRequest } from "@/components/journal/journal-sheet"
+import { BoardFooter } from "@/components/board/board-footer"
+import { BoardHeader } from "@/components/board/board-header"
 import { BoardDialogs } from "@/components/board/board-dialogs"
 import { useBoardDialogActions } from "@/components/board/use-board-dialog-actions"
 import { useBoardDispatch } from "@/components/board/use-board-dispatch"
+import { useBoardDrops } from "@/components/board/use-board-drops"
+import { useBoardSelection } from "@/components/board/use-board-selection"
+import { useBoardSheets } from "@/components/board/use-board-sheets"
+import { useMaterialClicks } from "@/components/board/use-material-clicks"
 import { useResourceBindings } from "@/components/board/use-resource-bindings"
 import { useBoardChecklist } from "@/components/board/use-board-checklist"
 import { StationSetupStrip } from "@/components/station-setup-strip"
-import { usePrintAssignmentSlip } from "@/lib/hooks/use-print-assignment-slip"
-import type { IncidentCommand } from "@/lib/contexts/command-palette-context"
-import { useBoardCommandHandlers, type BoardCommands } from "@/components/board/use-board-command-handlers"
+import { useBoardCommandHandlers } from "@/components/board/use-board-command-handlers"
 import { useBoardCardActions } from "@/components/board/use-board-card-actions"
 import { onAppEvent } from "@/lib/app-events"
 
@@ -107,27 +93,12 @@ export default function FireStationDashboard() {
     operations,
     formatLocation,
     refreshOperations,
-    removeCrew,
-    removeMaterial,
-    removeVehicle,
     removeReko,
     updateOperation,
-    reorderColumn,
-    toggleDriverStay,
-    changeStatusToTop,
     setBoardDragging,
     createOperation,
     mergeOperationInto,
-    assignPersonToOperation,
-    assignRekoPersonToOperation,
-    assignMaterialToOperation,
     assignVehicleToOperation,
-    requestResourceConflict,
-    resourceConflict,
-    vehicleNeedingDriver,
-    isAssignmentSettling,
-    vehicles: fleet,
-    outOfServiceVehicleIds,
     deleteOperation,
     materialOnSite,
     isLoading,
@@ -137,27 +108,10 @@ export default function FireStationDashboard() {
   // The board's roster is "everybody checked in", so the Appell writing an
   // attendance row changes it — see `onAttendanceChange` on the modal below.
   const { personnel, refreshPersonnel } = usePersonnel()
-  const {
-    groups,
-    addStops: addStopsToGroup,
-    assignResource: assignGroupResource,
-    unassignResource: unassignGroupResource,
-    getGroupResources,
-  } = useGroups()
-  // The operator's own releases (card chips, detail panel, shortcut toggle) get
+  const { groups, getGroupResources } = useGroups()
+  // The operator's own releases (card chips, detail panel) get
   // «… freigegeben · Rückgängig»; internal releases keep the raw context functions.
   const release = useReleaseUndo()
-  // ⌘K type-to-dispatch, registered with the palette early and filled in below
-  // where the bindings and drop wrappers it needs exist (see «Type-to-dispatch»).
-  const dispatchRef = useRef<{
-    vocabulary: () => DispatchVocabulary
-    run: (command: DispatchCommand) => void
-    jump: (target: DispatchResource) => void
-  }>({ vocabulary: () => ({ incidents: [], persons: [], vehicles: [], materials: [] }), run: () => {}, jump: () => {} })
-
-  // The right-click actions and two views as commands (Ctrl K) – same early
-  // registration, filled in below once the dialogs and the checklist exist.
-  const boardCommandsRef = useRef<BoardCommands>({ incident: () => {}, openAttendance: () => {}, openChecklist: () => {} })
 
   // Attaching an already-closed incident as a stop is allowed, but never silent.
   const closedStopGuard = useClosedStopGuard(operations)
@@ -203,29 +157,17 @@ export default function FireStationDashboard() {
 
   // The depot with BOTH deployments folded in – Einsätze and Aufträge – so the
   // material sidebar, its counter and every drop read one frei/gebunden.
-  const { materials, materialGroups, setMaterialOutOfService } = useMaterials()
-  const { selectedEvent, isEventLoaded, events, setSelectedEvent } = useEvent()
-  // `isViewer` is the role itself; `isEditor` is also off on a standby-led Ereignis.
-  const { isEditor, isViewer } = useAuth()
+  const { materials, materialGroups } = useMaterials()
+  const { selectedEvent, isEventLoaded } = useEvent()
+  // `isEditor` is off for a viewer and on a standby-led Ereignis.
+  const { isEditor } = useAuth()
   // While a standby box leads the open Ereignis this board is look-only, but new things – an
   // Einsatz, a Verlauf line – may still be added (`StandbyProvider`).
   const { canAddNew } = useStandby()
   const canAdd = isEditor || canAddNew
-  const { toggleSidebar: toggleNotificationSidebar, registerNavigateHandler, registerFieldActionHandler, registerAssignHandler, closeSidebar: closeNotificationSidebar, settings: notificationSettings } = useNotifications()
   // «Personalermüdung (Std.)» — where the crew's time-on-duty figures turn amber.
-  const fatigueHours = notificationSettings.fatigue_hours
-  const { registerHandlers, clearHandlers } = useCommandPalette()
-  const searchParams = useSearchParams()
+  const fatigueHours = useNotifications().settings.fatigue_hours
   const router = useRouter()
-  const highlightParam = searchParams.get("highlight")
-  const openDetailParam = searchParams.get("detail") === "1"
-  // Which detail tab the deep link meant («Angekommen» clicked away from the
-  // board lands on Rapport, not Übersicht). Unknown values fall back to none.
-  const rawTabParam = searchParams.get("tab")
-  const tabParam = isDetailTab(rawTabParam) ? rawTabParam : undefined
-  // …and which block in it (`boardDetailHref`): only with a valid tab.
-  const rawSectionParam = searchParams.get("section")
-  const sectionParam = tabParam && isDetailSection(rawSectionParam) ? rawSectionParam : undefined
   const isMobile = useIsMobile()
   // The desktop board's horizontal scroller (`#kanban-main`) – state, not a ref, so the
   // edge chips in the header start watching once it mounts (it is desktop-only).
@@ -236,126 +178,6 @@ export default function FireStationDashboard() {
   const tDash = useTranslations('kanban.dashboard')
   const tSidePanel = useTranslations('kanban.sidePanel')
   const tPanels = useTranslations('panels')
-
-  // Ref for highlight timeout cleanup
-  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const spotlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Render-time mirrors for `scrollToCard`, which stays dependency-free: the
-  // operations list (to find the card's column) and the column expander
-  // (declared further down, next to the other board-layout state).
-  const operationsRef = useRef(operations)
-  operationsRef.current = operations
-  const expandColumnRef = useRef<(id: string) => void>(() => {})
-  // Same trick for `moveSelection`: it reads the current selection without
-  // taking a dependency on it, so the handler identity stays stable across the
-  // selection changes it is itself causing. Assigned next to the state below.
-  const selectedOperationIdRef = useRef<string | null>(null)
-  // Spotlight: for the first moment of a highlight the REST of the board steps
-  // back instead of the card shouting. It is a separate, shorter window than the
-  // highlight itself — the dim lifts, the accent ring stays for the remainder.
-  const [spotlightActive, setSpotlightActive] = useState(false)
-
-  // Scroll to and highlight a card by operation ID
-  /**
-   * Arrow-key movement between cards. Sets the same `selectedOperationId` a
-   * click sets, so every shortcut that acts on the selection works from the
-   * keyboard unchanged — that was the whole gap. Also moves DOM focus, because
-   * the card is the tab stop (roving tabindex in draggable-operation.tsx) and
-   * focus is what draws the ring.
-   *
-   * `block: 'nearest'` rather than `scrollToCard`: this is a step, not a jump
-   * to somewhere the operator was sent, so it must not spotlight the card or
-   * recentre the board under them.
-   */
-  const moveSelection = useCallback((direction: BoardDirection) => {
-    const next = nextCardId(selectedOperationIdRef.current, direction)
-    if (!next) return
-    setSelectedOperationId(next)
-    const card = document.querySelector<HTMLElement>(`[data-incident-id="${next}"]`)
-    card?.focus({ preventScroll: true })
-    card?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [])
-
-  const scrollToCard = useCallback((operationId: string) => {
-    // Unfold the card's column FIRST: a spotlight inside a folded column is a
-    // spotlight nobody sees — the card is not even in the DOM to scroll to.
-    // Refs, not deps: this callback stays stable while operations churn.
-    const op = operationsRef.current.find((candidate) => candidate.id === operationId)
-    if (op) expandColumnRef.current(op.status)
-
-    // Clear any existing highlight timeout
-    if (highlightTimeoutRef.current) {
-      clearTimeout(highlightTimeoutRef.current)
-    }
-    if (spotlightTimeoutRef.current) {
-      clearTimeout(spotlightTimeoutRef.current)
-    }
-
-    // Set highlight immediately
-    setHighlightedOperationId(operationId)
-    setSpotlightActive(true)
-
-    spotlightTimeoutRef.current = setTimeout(() => {
-      setSpotlightActive(false)
-    }, 1200)
-
-    // Clear highlight after 3 seconds
-    highlightTimeoutRef.current = setTimeout(() => {
-      setHighlightedOperationId(null)
-    }, 3000)
-
-    // Scroll after short delay for DOM readiness
-    setTimeout(() => {
-      const card = document.querySelector(`[data-incident-id="${operationId}"]`) as HTMLElement
-      if (!card) return
-
-      const mainContainer = document.getElementById('kanban-main')
-      const column = card.closest('[data-column]') as HTMLElement
-
-      if (mainContainer && column) {
-        const columnsContainer = mainContainer.querySelector('.flex.h-full') as HTMLElement
-        if (columnsContainer) {
-          // Calculate column position
-          let columnLeft = 0
-          const columns = columnsContainer.children
-          for (let i = 0; i < columns.length; i++) {
-            if (columns[i] === column) break
-            columnLeft += (columns[i] as HTMLElement).offsetWidth + 12 // 12px = gap-3
-          }
-
-          const columnWidth = column.offsetWidth
-          const containerWidth = mainContainer.clientWidth
-          const scrollLeft = columnLeft - (containerWidth / 2) + (columnWidth / 2)
-
-          // Centring is right until the column cannot be centred — the first and
-          // last columns clamp to an edge, and there the card ends up flush
-          // against it with its highlight ring half cut off. A gutter costs
-          // nothing when the column really is centred (the clamp never bites).
-          const EDGE_GUTTER = 16
-          const maxScroll = Math.max(0, mainContainer.scrollWidth - containerWidth)
-          const gutteredLeft = Math.min(
-            Math.max(scrollLeft, columnLeft + columnWidth + EDGE_GUTTER - containerWidth),
-            columnLeft - EDGE_GUTTER,
-          )
-
-          mainContainer.scrollTo({
-            // whole pixels, or where the board comes to rest depends on rounding
-            left: Math.round(Math.min(Math.max(0, gutteredLeft), maxScroll)),
-            behavior: 'smooth'
-          })
-        }
-      }
-
-      // Vertical scroll after horizontal completes
-      setTimeout(() => {
-        card.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        })
-      }, 300)
-    }, 100)
-  }, [])
 
   // The header clock ticks inside <EventClock/> now; this is only the mount flag
   // the rest of the board hangs SSR-sensitive rendering off.
@@ -373,18 +195,9 @@ export default function FireStationDashboard() {
   // the other list.
   const [personnelView, setPersonnelView] = usePersistedState(PERSONNEL_VIEW_KEY, DEFAULT_PERSONNEL_VIEW, isPersonnelViewPrefs)
   const [materialView, setMaterialView] = usePersistedState(MATERIAL_VIEW_KEY, DEFAULT_MATERIAL_VIEW, isMaterialViewPrefs)
-  const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
-  selectedOperationIdRef.current = selectedOperationId
-  const [detailModalOpen, setDetailModalOpen] = useState(false)
-  // Derive current operation from operations array to get real-time updates
-  const selectedOperation = useMemo(() => {
-    if (!selectedOperationId) return null
-    return operations.find(op => op.id === selectedOperationId) || null
-  }, [selectedOperationId, operations])
   const [newEmergencyModalOpen, setNewEmergencyModalOpen] = useState(false)
-  const [hoveredOperationId, setHoveredOperationId] = useState<string | null>(null)
-  const [highlightedOperationId, setHighlightedOperationId] = useState<string | null>(null)
   // Both sidebars and the detail panel, remembered per device.
+  const layout = useBoardLayoutPrefs(isMobile)
   const {
     sidePanelMode,
     setSidePanelMode,
@@ -392,7 +205,7 @@ export default function FireStationDashboard() {
     setShowLeftSidebar,
     showRightSidebar,
     setShowRightSidebar,
-  } = useBoardLayoutPrefs(isMobile)
+  } = layout
   // Both sidebars' widths are the operator's, dragged by their inner edge and remembered on this
   // device (owner pick 09.11.2026). 256 = the w-64 they always had, and also the floor: any
   // narrower and «Person suchen …» / «Material suchen …» no longer fit beside their key hint
@@ -411,85 +224,40 @@ export default function FireStationDashboard() {
     max: 384,
     side: 'left',
   })
-  // "Open the detail on THIS tab" — set by whoever pointed at one specific
-  // thing: a notification, the Rapport-Backlog, or a click on one BLOCK of a
-  // kanban card (its Reko part, its resource rows). A click on the card as a
-  // whole names no tab, clears this, and lands on the tab the operator was last
-  // working in. The nonce makes a repeat click a new event; the panel does not
-  // remount for an incident that is already selected.
-  const [openDetailOnTab, setOpenDetailOnTab] = useState<{ tab: OperationDetailTab; nonce: number; section?: OperationDetailSection } | null>(null)
+  // Which columns this screen has folded away. Seven columns do not fit on
+  // every command-post monitor, and the two that matter right now must not be
+  // behind a horizontal scrollbar. Per DEVICE, not per operator account: the
+  // fold answers «how wide is this monitor», which nobody wants inherited on
+  // the next machine — same hook, same reasoning as both wall boards.
+  const collapsedColumns = useCollapsedSections(BOARD_COLUMN_COLLAPSE_KEY, DEFAULT_COLLAPSED_COLUMN_IDS)
 
-  /** `section` narrows the landing further than the tab does — today only
-   *  Übersicht's Ressourcen block, which the panel has to scroll to. */
-  // The phone list's «open this sheet» request (see openIncidentDetail), with the tab the caller
-  // meant: the phone sheet has no tabs and scrolls to the matching block (lib/detail-target.ts).
-  const [mobileOpenRequest, setMobileOpenRequest] = useState<MobileOpenRequest | null>(null)
-  const openIncidentDetail = useCallback((
-    operationId: string,
-    tab?: OperationDetailTab,
-    section?: OperationDetailSection,
-    { allowModal = true }: { allowModal?: boolean } = {},
-  ) => {
-    setOpenDetailOnTab(tab ? { tab, nonce: Date.now(), section } : null)
-    setSelectedOperationId(operationId)
-    setHoveredOperationId(operationId)
-    // Narrow viewport: only a notification earns an overlay. A sidebar binding would bury the
-    // list the operator is working through, and its answer — «this device is on THAT card» — is
-    // the ring, not a modal. On a phone the overlay is the phone Einsatz sheet, never the
-    // desktop modal (lib/incident-detail.ts).
-    const surface = boardDetailSurface({
-      phone: isPhoneViewport(),
-      wide: typeof window !== 'undefined' && window.innerWidth >= SIDE_PANEL_BREAKPOINT,
-      allowModal,
-    })
-    if (surface === 'side-panel') {
-      setDetailModalOpen(false)
-      setSidePanelMode('detail')
-    } else if (surface === 'phone-sheet') {
-      setMobileOpenRequest({ incidentId: operationId, nonce: Date.now(), target: tab ? { tab, section } : undefined })
-    } else if (surface === 'modal') {
-      setDetailModalOpen(true)
-    }
-    // `setSidePanelMode` comes from `usePersistedState`; it is the plain
-    // `useState` setter and therefore stable, but eslint cannot see that.
-  }, [setSidePanelMode])
-
-  const handleOpenIncidentFromNotification = useCallback((incidentId: string) => {
-    if (operations.some((operation) => operation.id === incidentId)) openIncidentDetail(incidentId)
-  }, [openIncidentDetail, operations])
-
-  // Anything that points at a card — a notification row, a device or person
-  // binding in the sidebar — scrolls to it, rings it AND opens its detail. A ring
-  // on its own was half an answer: the operator clicked the thing in order to
-  // look at it, then had to open the detail by hand. On the desktop that always
-  // means the side panel beside the board; `allowModal` decides only what a
-  // narrow viewport does, and only a notification may take over the screen
-  // (see notification-highlight.ts). A caller that named a tab lands on it;
-  // one that did not gets the tab that card was last left on.
-  useIncidentHighlightListener(
-    useCallback(
-      (incidentId: string, { tab, section, allowModal }: IncidentHighlightOptions) => {
-        scrollToCard(incidentId)
-        openIncidentDetail(incidentId, tab, section, { allowModal })
-      },
-      [scrollToCard, openIncidentDetail],
-    ),
-  )
+  const selection = useBoardSelection({ layout, expandColumn: collapsedColumns.expand })
+  const {
+    selectedOperationId,
+    setSelectedOperationId,
+    selectedOperation,
+    hoveredOperationId,
+    setHoveredOperationId,
+    highlightedOperationId,
+    spotlightActive,
+    detailModalOpen,
+    setDetailModalOpen,
+    openDetailOnTab,
+    mobileOpenRequest,
+    openIncidentDetail,
+    handleOpenIncidentFromNotification,
+    scrollToCard,
+    isDraggingOperationRef,
+    handleCardClick,
+    handleCardSelect,
+    handleOperationUpdate,
+    handleVehicleAssign,
+    handleOperationDelete,
+  } = selection
 
   const vehicleTypes = useVehicleShortcuts()
-  // Single state for footer sheets - only one can be open at a time
-  // `'print'` is the one print/export sheet: thermal slip, A4 status print and
-  // per-event file export live in it together (`PrintHubSheet`).
-  const [activeFooterSheet, setActiveFooterSheet] = useState<FooterSheet | null>(null)
-  // «Eintrag in den Verlauf schreiben» (E): the journal opens with the caret in its line,
-  // linked to the selected card. A fresh `at` per request.
-  const [journalCompose, setJournalCompose] = useState<JournalComposeRequest | null>(null)
-  const writeJournal = useCallback((incidentId: string | null) => {
-    setActiveFooterSheet('journal')
-    setJournalCompose({ incidentId, at: Date.now() })
-  }, [])
-  // When the Aufträge sheet is opened from a board chip, expand/scroll to this group.
-  const [auftraegeFocusGroupId, setAuftraegeFocusGroupId] = useState<string | null>(null)
+  const sheets = useBoardSheets()
+  const { activeFooterSheet, setActiveFooterSheet, journalCompose, auftraegeFocusGroupId, setAuftraegeFocusGroupId } = sheets
   // Which sidebar row is currently showing its bindings, or null. One at a time
   // — the popover answers «wo ist die Person gerade?», and two answers at once
   // would be two questions.
@@ -499,30 +267,12 @@ export default function FireStationDashboard() {
   // Auftrags-Editor modal: the Auftrag being edited + an optional stop to centre on.
   const [routenEditorGroupId, setRoutenEditorGroupId] = useState<string | null>(null)
   const [routenEditorFocusIncidentId, setRoutenEditorFocusIncidentId] = useState<string | null>(null)
-  // "+ Stop" incident picker: the route existing incidents are added to as stops.
-  const [stopPickerGroupId, setStopPickerGroupId] = useState<string | null>(null)
-  const [checkInUrl, setCheckInUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  // The Appell. Not a ninth footer sheet and not a tab inside the shared QR body — it is
-  // opened from the check-in sheet's Anwesenheit row, and opening it closes that sheet.
-  const [attendanceOpen, setAttendanceOpen] = useState(false)
   /** Body of the Divera-Mitteilung the Checkliste asked to send; null = closed. */
   const [diveraMessageText, setDiveraMessageText] = useState<string | null>(null)
   /** The Checkliste's «Reko-Personen wählen» picker. Page-owned like the Divera
    *  dialog — a modal mounted inside the checklist popover dies with it. */
   const [rekoPickerOpen, setRekoPickerOpen] = useState(false)
 
-  // Auto-generate check-in QR code URL when no personnel are available – never for a viewer:
-  // the link is a credential (POST, CurrentEditor), and a viewer's phone shows no QR.
-  useEffect(() => {
-    if (isViewer || !selectedEvent || checkInUrl || isLoading) return
-    if (personnel.filter((p) => p.status === "available").length > 0) return
-    apiClient.generateCheckInLink(selectedEvent.id).then((response) => {
-      setCheckInUrl(`${window.location.origin}${response.link}`)
-    }).catch(() => {})
-  }, [isViewer, selectedEvent, personnel, checkInUrl, isLoading])
-
-  const gPrefix = useGPrefixNavigation(router, '/')
   const cmdHint = useCommandPaletteHint()
   // What the cards show. Per device (localStorage), not a station setting: one
   // workstation must be able to run Kompakt while the second screen runs Alles,
@@ -530,108 +280,11 @@ export default function FireStationDashboard() {
   // The store keeps one stable object per value, so `cardView` can go straight
   // into the memoised column/card tree without a useMemo wrapper here.
   const { view: cardView, preset: cardViewPreset, applyPreset: applyCardViewPreset, toggleKey: toggleCardViewKey } = useCardView()
-  // One global /feld link per Ereignis — the poster in the vehicle hall, not a
-  // link per incident or per vehicle (plan 25, decision 1).
 
   // The Einsatz dialogs this page shares with the Lagekarte (assignment, Auftrag
   // picker, transfer, Divera, the status gates) – see incident-dialogs.tsx.
   const dialogs = useIncidentDialogs()
   const statusWorkflow = dialogs.statusWorkflow
-  const {
-    requestStatusChange,
-    requestCompletion,
-    triggerDisponiertDialog,
-    triggerReturningVehicleCheck,
-    triggerRekoCheck,
-    holdStatusMove,
-    promptMaterialDecision,
-  } = statusWorkflow
-
-  // Cross-window sync (bidirectional)
-  const { broadcast } = useCrossWindowSync({
-    onMessage: (msg) => {
-      if (msg.type === "incident:selected" && msg.incidentId) {
-        setSelectedOperationId(msg.incidentId)
-        setHighlightedOperationId(msg.incidentId)
-      }
-    },
-  })
-
-  useEffect(() => {
-    const handleResize = () => {
-      // A phone has neither panel nor modal: its detail is the phone Einsatz sheet. Without this
-      // a resize (the iOS URL bar collapsing, a rotation) promoted a remembered side-panel
-      // detail into the desktop modal over the phone list.
-      if (!selectedOperationId || isPhoneViewport()) return
-      const usePanel = window.innerWidth >= SIDE_PANEL_BREAKPOINT
-      if (usePanel && detailModalOpen) {
-        setDetailModalOpen(false)
-        setSidePanelMode('detail')
-      } else if (!usePanel && sidePanelMode === 'detail' && !detailModalOpen) {
-        setDetailModalOpen(true)
-      }
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [detailModalOpen, selectedOperationId, sidePanelMode, setSidePanelMode])
-  // Anything that moves the open card, or moves the board around it, must not
-  // lose it: toggling a sidebar or the panel re-lays the board out, and
-  // «Status ändern» drops the card into a different column — often one that is
-  // scrolled off the right-hand edge. Bring it back. Quietly: no highlight, no
-  // spotlight. This is not «look here», it is «stay where you were».
-  const selectedStatus = selectedOperation?.status
-  useEffect(() => {
-    if (!selectedOperationId) return
-    const timer = setTimeout(() => {
-      document
-        .querySelector(`[data-incident-id="${selectedOperationId}"]`)
-        ?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" })
-    }, 220)
-    return () => clearTimeout(timer)
-  }, [sidePanelMode, showLeftSidebar, showRightSidebar, selectedOperationId, selectedStatus])
-
-  // Register notification click → scroll to card + open detail
-  // Small screens: open modal overlay. Large screens (≥1536px): select in side panel.
-  useEffect(() => {
-    registerNavigateHandler((incidentId, tab, section) => {
-      closeNotificationSidebar()
-      scrollToCard(incidentId)
-      // Open detail after scroll
-      setTimeout(() => {
-        const operation = operations.find(op => op.id === incidentId)
-        if (operation) {
-          // `tab` is what the notification was about (§18.27) — a rapport, a
-          // Meldung, an arrival all live on Rapport now, and landing on
-          // Übersicht made the operator hunt for the thing they were just told
-          // about. Same call on both screen sizes; the detail decides whether
-          // it renders as a modal or in the panel.
-          openIncidentDetail(incidentId, tab, section)
-        }
-      }, 200)
-    })
-    return () => registerNavigateHandler(null)
-  }, [registerNavigateHandler, closeNotificationSidebar, scrollToCard, operations, openIncidentDetail])
-
-  // «Angekommen» / «Einsatz beendet» answered straight from the bell, without
-  // finding the card first. It has to be the SAME move the card's own nudge
-  // makes, and for a while it was not: this one ran `requestCompletion`, i.e.
-  // the whole completion flow down to *Abgeschlossen*, while the nudge on the
-  // card moved to *Beendet / Rückfahrt* and stopped. Two buttons that ask the
-  // same question and answer it differently is worse than either answer — and
-  // the nudge's is the right one (see `field-status-nudge.tsx`): a crew that
-  // has packed up is not a Schadenplatz the KP has closed.
-  useEffect(() => {
-    if (!isEditor) return
-    registerFieldActionHandler((incidentId, kind) => {
-      storeFieldNudgeConfirmation(incidentId, kind)
-      changeStatusToTop(incidentId, kind === "complete" ? "returning" : "active")
-    })
-    return () => registerFieldActionHandler(null)
-  }, [isEditor, registerFieldActionHandler, changeStatusToTop])
-
-  // Reko assignment dialog state (context menu)
-  const [rekoAssignDialogOpen, setRekoAssignDialogOpen] = useState(false)
-  const [rekoAssignOperationId, setRekoAssignOperationId] = useState<string | null>(null)
 
   // Who drives what, for the whole board. One roster call here rather than one
   // per card; the cards render the driver next to the Funkrufname.
@@ -641,96 +294,17 @@ export default function FireStationDashboard() {
   const { printerEnabled, diveraEnabled, funkrufname } = useStationCapabilities()
   // Thermal board print; the print sheet closes once the job is queued – unless the operator
   // has moved on to another sheet meanwhile.
-  const closePrintSheet = useCallback(() => setActiveFooterSheet((prev) => (prev === 'print' ? null : prev)), [])
+  const closePrintSheet = useCallback(() => setActiveFooterSheet((prev) => (prev === 'print' ? null : prev)), [setActiveFooterSheet])
   const { print: handlePrintBoard, printing: isPrintingBoard } = usePrintBoard(selectedEvent?.id ?? null, closePrintSheet)
 
-  // QR-slip printing lives in the Links & QR sheet (and the Checkliste), which
-  // queue the job themselves — the page no longer owns a print handler for it.
-
-  // Use ref to track drag state more reliably
-  const isDraggingOperationRef = useRef(false)
-
+  const cardActions = useBoardCardActions(statusWorkflow)
   const {
     setRouteStopStatus,
-    collapsedColumns,
     handleColumnSort,
-    moveOperationRight,
-    moveOperationLeft,
     moveInColumn,
-    toggleVehicleAssignment,
-    setOperationPriority,
-    toggleZuFuss,
     handleToggleDriverStay,
     handleRequestDelete,
-    assignVehicleToGroupWithConflict,
-    groupsHolding,
-    releaseFromGroups,
-    assignVehicleToIncidentWithConflict,
-    askRouteConflict,
-  } = useBoardCardActions({
-    requestResourceConflict,
-    operations,
-    updateOperation,
-    reorderColumn,
-    removeVehicle,
-    assignVehicleToOperation,
-    groups,
-    unassignGroupResource,
-    assignGroupResource,
-    getGroupResources,
-    release,
-    expandColumnRef,
-    vehicleTypes,
-    deleteOperation,
-    toggleDriverStay,
-    holdStatusMove,
-    triggerRekoCheck,
-    promptMaterialDecision,
-    triggerReturningVehicleCheck,
-    triggerDisponiertDialog,
-    requestStatusChange,
-  })
-
-  useBoardCommandHandlers({
-    boardCommandsRef,
-    printerEnabled,
-    writeJournal,
-    fleet,
-    operations,
-    materials,
-    refreshOperations,
-    outOfServiceVehicleIds,
-    dispatchRef,
-    personnel,
-    isEditor,
-    toggleNotificationSidebar,
-    clearHandlers,
-    registerHandlers,
-    router,
-    scrollToCard,
-    selectedOperationId,
-    setNewEmergencyModalOpen,
-    setShowRightSidebar,
-    setSidePanelMode,
-    setShowLeftSidebar,
-    openIncidentDetail,
-    vehicleTypes,
-    setActiveFooterSheet,
-    setAuftraegeFocusGroupId,
-    moveOperationRight,
-    moveOperationLeft,
-    toggleVehicleAssignment,
-    setOperationPriority,
-    toggleZuFuss,
-    handleRequestDelete,
-  })
-
-  // Show empty state if no event is selected (removed automatic redirect)
-  // useEffect(() => {
-  //   if (isMounted && isEventLoaded && !selectedEvent) {
-  //     router.push('/events')
-  //   }
-  // }, [isMounted, isEventLoaded, selectedEvent, router])
+  } = cardActions
 
   const {
     checklistPopoverOpen,
@@ -757,276 +331,20 @@ export default function FireStationDashboard() {
     refreshOnMount()
   }, [])
 
-
-  // Scroll to and highlight operation when navigating with ?highlight= param.
-  // With `&detail=1` the card is also OPENED — that is the Karte page's
-  // «Details anzeigen» arriving here: the incident detail lives on the board,
-  // in the panel next to the columns, and a second copy of it over the map was
-  // a second place to keep in step.
-  useEffect(() => {
-    if (highlightParam) {
-      scrollToCard(highlightParam)
-      if (openDetailParam) openIncidentDetail(highlightParam, tabParam, sectionParam)
-      // Clear the URL param to prevent re-scroll on refresh
-      router.replace('/', { scroll: false })
-    }
-  }, [highlightParam, openDetailParam, tabParam, sectionParam, scrollToCard, openIncidentDetail, router])
-
-  useKanbanShortcuts(
-    {
-      readOnly: isViewer,
-      modalOpen:
-        detailModalOpen ||
-        newEmergencyModalOpen ||
-        dialogs.assignmentOpen ||
-        // Vehicle, Aufträge, Drucken, Links, Rapporte and Verlauf footers are non-modal
-        // on desktop: keep their toggle keys (F / A / D / T / O / J) able to close
-        // them again. Every other shortcut still stops at an open sheet — it is
-        // only the key that opened this one that stays live.
-        (!!activeFooterSheet &&
-          activeFooterSheet !== 'vehicles' &&
-          activeFooterSheet !== 'auftraege' &&
-          activeFooterSheet !== 'print' &&
-          activeFooterSheet !== 'links' &&
-          activeFooterSheet !== 'rapporte' &&
-          activeFooterSheet !== 'journal'),
-      hoveredOperationId,
-      selectedOperationId,
-      operations,
-      vehicleTypes,
-      gPrefix,
-    },
-    {
-      onToggleVehicle: (vehicle, opId) => {
-        // Recompute the target (route vs incident) from the operation — the
-        // hook's `isAssigned` reflects only incident-level vehicles, which are
-        // always empty on a grouped card.
-        const operation = operations.find((op) => op.id === opId)
-        if (operation) toggleVehicleAssignment(operation, vehicle)
-      },
-      // The only update a shortcut applies is the priority, and it toasts —
-      // see `setOperationPriority`.
-      onUpdateOperation: (opId, updates) => {
-        if (updates.priority) setOperationPriority(opId, updates.priority)
-        else updateOperation(opId, updates)
-      },
-      onMoveRight: moveOperationRight,
-      onMoveLeft: moveOperationLeft,
-      onMoveSelection: moveSelection,
-      onToggleZuFuss: toggleZuFuss,
-      onRefresh: refreshOperations,
-      onOpenDetail: (op) => {
-        openIncidentDetail(op.id)
-      },
-      onRequestDelete: (op) => handleRequestDelete(op.id),
-      onOpenNewEmergency: () => setNewEmergencyModalOpen(true),
-      onFocusSearch: () => document.getElementById('search-input')?.focus(),
-      onFocusPersonnel: () => {
-        setShowLeftSidebar(true)
-        setTimeout(() => document.getElementById('personnel-search-input')?.focus(), 50)
-      },
-      onFocusMaterial: () => {
-        setShowRightSidebar(true)
-        setTimeout(() => document.getElementById('material-search-input')?.focus(), 50)
-      },
-      onToggleVehicleFooter: () =>
-        setActiveFooterSheet((prev) => (prev === 'vehicles' ? null : 'vehicles')),
-      onToggleAuftraege: () =>
-        setActiveFooterSheet((prev) => {
-          if (prev === 'auftraege') return null
-          setAuftraegeFocusGroupId(null)
-          return 'auftraege'
-        }),
-      onToggleLeftSidebar: () => setShowLeftSidebar((prev) => !prev),
-      onToggleRightSidebar: () => setShowRightSidebar((prev) => !prev),
-      onToggleSidePanel: () =>
-        setSidePanelMode((prev) => (prev === 'collapsed' ? 'detail' : 'collapsed')),
-      onSidePanelDetail: () => setSidePanelMode('detail'),
-      onSidePanelMap: () => router.push(selectedOperationId ? `/map?highlight=${selectedOperationId}` : '/map'),
-      onTogglePrint: () => setActiveFooterSheet((prev) => (prev === 'print' ? null : 'print')),
-      onToggleLinks: () => setActiveFooterSheet((prev) => (prev === 'links' ? null : 'links')),
-      onToggleRapporte: () => setActiveFooterSheet((prev) => (prev === 'rapporte' ? null : 'rapporte')),
-      onToggleJournal: () => setActiveFooterSheet((prev) => (prev === 'journal' ? null : 'journal')),
-      onWriteJournal: canAdd && selectedEvent ? () => writeJournal(selectedOperationId ?? null) : undefined,
-      onToggleFigures: toggleFigures,
-      onToggleNotifications: toggleNotificationSidebar,
-    },
-  )
-
-  // The highlight timer is cleaned up by its own scrollToCard effect; nothing else to do here.
-  useEffect(() => {
-    return () => {
-      if (highlightTimeoutRef.current) {
-        clearTimeout(highlightTimeoutRef.current)
-      }
-      if (spotlightTimeoutRef.current) {
-        clearTimeout(spotlightTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // The board's conflict-aware assigns — what a DROP onto a card or an Auftrag
-  // calls. ⌘K's type-to-dispatch goes through the very same functions
-  // (`applyResourceDrop` below), so a typed «14 meier» asks exactly what
-  // dragging Meier onto Einsatz 14 asks.
-  //
-  // Person/Material onto an INCIDENT: if a route already holds them, ask the
-  // same Doppelbelegung question vehicles have always asked instead of
-  // refusing the drop outright.
-  /** An Einsatz as a «Danach vormerken» target, named the way the conflict prompt names it. */
-  const incidentTarget = (operationId: string) => {
-    const op = operations.find((o) => o.id === operationId)
-    return { kind: "incident" as const, id: operationId, label: op ? getIncidentRefParts(op).head : "" }
-  }
-
-  const boardAssignPerson = (personId: string, personName: string, operationId: string) => {
-    const holders = groupsHolding("personnel", personId)
-    if (holders.length === 0) {
-      assignPersonToOperation(personId, personName, operationId)
-      return
-    }
-    askRouteConflict({
-      resourceType: "personnel",
-      resourceId: personId,
-      resourceName: personName,
-      targetId: operationId,
-      conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-      releases: releaseFromGroups("personnel", personId, holders),
-      assign: () => assignPersonToOperation(personId, personName, operationId),
-      plan: () => planNext("personnel", personId, personName, incidentTarget(operationId)),
-    })
-  }
-
-  // A consumable never asks: several Einsätze and Aufträge draw from the same Bindemittel.
-  const isConsumable = (materialId: string) => materials.some((m) => m.id === materialId && m.consumable)
-
-  const boardAssignMaterial = (materialId: string, operationId: string) => {
-    const holders = isConsumable(materialId) ? [] : groupsHolding("material", materialId)
-    if (holders.length === 0) {
-      assignMaterialToOperation(materialId, operationId)
-      return
-    }
-    const name = materials.find((m) => m.id === materialId)?.name ?? materialId
-    askRouteConflict({
-      resourceType: "material",
-      resourceId: materialId,
-      resourceName: name,
-      targetId: operationId,
-      conflicts: holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-      releases: releaseFromGroups("material", materialId, holders),
-      assign: () => assignMaterialToOperation(materialId, operationId),
-      plan: () => planNext("material", materialId, name, incidentTarget(operationId)),
-    })
-  }
-
-  const boardAssignGroupResource = (groupId: string, resourceType: GroupResourceType, resourceId: string) => {
-    if (resourceType === "vehicle") {
-      void assignVehicleToGroupWithConflict(groupId, resourceId)
-      return
-    }
-    // Onto ANOTHER Auftrag: same question again, «bisher» being the route that
-    // holds them now. `exceptGroupId` keeps a drop onto the route a resource is
-    // already on from asking about itself.
-    if (resourceType === "material" && isConsumable(resourceId)) {
-      void assignGroupResource(groupId, resourceType, resourceId)
-      return
-    }
-    const holders = groupsHolding(resourceType, resourceId, groupId)
-    const name =
-      resourceType === "personnel"
-        ? personnel.find((p) => p.id === resourceId)?.name ?? resourceId
-        : materials.find((m) => m.id === resourceId)?.name ?? resourceId
-    // ALSO the Einsätze that hold it. A route conflict is not the only kind:
-    // dropping somebody who is crew on «Bahnhofstrasse 12» onto an Auftrag used
-    // to put them on both without a word, while the same drag with a vehicle
-    // asked — `assignVehicleToGroupWithConflict` has always collected both.
-    const incidentHolders =
-      resourceType === "personnel"
-        ? operations.filter((op) => op.crew.some((m) => m.personnelId === resourceId))
-        : operations.filter((op) => op.materials.includes(resourceId))
-    if (holders.length === 0 && incidentHolders.length === 0) {
-      void assignGroupResource(groupId, resourceType, resourceId)
-      return
-    }
-    askRouteConflict({
-      resourceType,
-      resourceId,
-      resourceName: name,
-      targetId: groupId,
-      conflicts: [
-        ...holders.map((group) => ({ operationId: group.id, operationLabel: group.name })),
-        ...incidentHolders.map((op) => ({ operationId: op.id, operationLabel: getIncidentRefParts(op).head })),
-      ],
-      releases: [
-        ...releaseFromGroups(resourceType, resourceId, holders),
-        ...incidentHolders.map((op) => () =>
-          resourceType === "personnel" ? removeCrew(op.id, resourceId) : removeMaterial(op.id, resourceId),
-        ),
-      ],
-      assign: () => assignGroupResource(groupId, resourceType, resourceId),
-      plan: () =>
-        planNext(resourceType, resourceId, name, {
-          kind: "group",
-          id: groupId,
-          label: groups.find((group) => group.id === groupId)?.name ?? "",
-        }),
-    })
-  }
-
-  // What a card arriving in a column asks — after a drag across, and after a
-  // typed «14 einsatz» (⌘K), which is the same move. «Reko abgeschlossen» without
-  // a report asks BEFORE the move instead (`holdStatusMove`).
-  const afterStatusMove = (operationId: string, newStatus: OperationStatus, previousStatus: OperationStatus) => {
-    if (newStatus === "enroute") triggerDisponiertDialog(operationId, previousStatus)
-    if (newStatus === "reko") triggerRekoCheck(operationId, previousStatus)
-    if (newStatus === "returning") triggerReturningVehicleCheck(operationId, previousStatus)
-    // Drag-to-ABGESCHLOSSEN already ran updateOperation(complete) inside the hook
-    // (which keeps materials). Just prompt the material decision here.
-    if (newStatus === "complete") promptMaterialDecision(operationId, previousStatus)
-  }
-
-  // Use shared drag-and-drop hook
-  useKanbanDragDrop({
+  const drops = useBoardDrops({
+    cardActions,
+    statusWorkflow,
+    closedStopGuard,
     isMounted,
-    canEdit: isEditor,
-    operations,
-    updateOperation,
-    reorderColumn,
-    assignPersonToOperation: boardAssignPerson,
-    assignRekoPersonToOperation,
-    assignMaterialToOperation: boardAssignMaterial,
-    assignVehicleToOperation: assignVehicleToIncidentWithConflict,
     onOperationDrop: (operationId) => {
       // Auto-select dropped card in side panel
       setSelectedOperationId(operationId)
       setHoveredOperationId(operationId)
     },
-    onStatusChange: afterStatusMove,
-    holdStatusChange: holdStatusMove,
-    // Aufträge (route) drop targets — see auftraege-sheet.tsx for the registered
-    // drop-target data contract (`group-row` / `group-stop`).
-    groups,
-    // Dragging a card onto an Auftrag goes through the same closed-incident
-    // confirmation as the stop picker — the drop is just another way to attach.
-    addStopsToGroup: (groupId, incidentIds) => {
-      closedStopGuard.guard(incidentIds, () => { void addStopsToGroup(groupId, incidentIds) })
-    },
-    assignGroupResource: boardAssignGroupResource,
   })
 
-  // Board Auftrag chips signal the page via a window event (no prop threading
-  // through the column/side-panel trees) to open the Aufträge sheet on that route.
-  useEffect(
-    () =>
-      onAppEvent('kp:open-auftraege', ({ groupId }) => {
-        setAuftraegeFocusGroupId(groupId)
-        setActiveFooterSheet('auftraege')
-      }),
-    [],
-  )
-
-  // Same channel for the Auftrags-Editor: a card's context menu opens its route
-  // directly, with that stop focused, instead of detouring through the sheet.
+  // A card's context menu opens its route in the Auftrags-Editor directly, with
+  // that stop focused, instead of detouring through the Aufträge sheet.
   useEffect(
     () =>
       onAppEvent('kp:open-routen-editor', ({ groupId, focusIncidentId }) => {
@@ -1102,14 +420,7 @@ export default function FireStationDashboard() {
     return bestCount > operations.length / 2 ? best : null
   }, [operations])
 
-  const {
-    collectPersonPlaces,
-    collectPersonBindings,
-    collectMaterialBindings,
-    followBinding,
-    followPersonNow,
-    handlePersonClick,
-  } = useResourceBindings({
+  const resourceBindings = useResourceBindings({
     operations,
     getGroupResources,
     groups,
@@ -1122,118 +433,22 @@ export default function FireStationDashboard() {
     groupNames,
     filteredOperations,
   })
-
-  /** Right-click on a sidebar row → the same `{ out_of_service }` PUT the
-   *  Materialverwaltung sends. Set or not set; no reason, no cause list. */
-  const handleToggleMaterialOutOfService = useCallback((material: Material, outOfService: boolean) => {
-    void setMaterialOutOfService(material.id, outOfService)
-  }, [setMaterialOutOfService])
-
-  /** The device row answers the same question the person row does, including
-   *  «nirgends» — a free device used to be a click into the void as well. Any
-   *  device drawn as its own row comes here, a module member too (by Typ, or
-   *  when its module is gone): the row is the popover's anchor. */
-  const handleMaterialClick = (material: Material) => {
-    const bindings = collectMaterialBindings(material)
-    const popover: BindingsPopoverState = { kind: "material", id: material.id, title: material.name, subtitle: material.category, bindings }
-    // A flagged device's question is «wieder einsatzbereit?», so its click always
-    // opens the popover that offers it – before a binding could jump away. Its
-    // dashed row is a `MaterialSidebarRow` even for a module member, so the
-    // popover has an anchor.
-    if (material.outOfService) {
-      setBindingsPopover(popover)
-      return
-    }
-    const only = soleDestination(bindings)
-    if (only) {
-      followBinding(only)
-      return
-    }
-    setBindingsPopover(popover)
-  }
-
-  /** A device inside a module block (MaterialGroupBlock) has no anchor for the
-   *  popover, so its click jumps to the first reachable binding rather than
-   *  opening a list nothing could position. */
-  const handleModuleMaterialClick = (material: Material) => {
-    const bindings = collectMaterialBindings(material)
-    const target = soleDestination(bindings) ?? bindings.find(isNavigableBinding)
-    if (target) followBinding(target)
-  }
-
-  /** The aggregate row answers for the WHOLE bundle: every taken unit's
-   *  bindings in one popover — «wo sind die anderen zwei Sauger?» must not
-   *  need three clicks through three identical rows. */
-  const handleAggregateMaterialClick = (units: Material[]) => {
-    // Units share targets — two Sägen on one Auftrag are ONE place, so the
-    // list carries each target once, with a ×n when several units are there.
-    const merged = new Map<string, { binding: ResourceBinding; count: number }>()
-    for (const binding of units.flatMap((unit) => collectMaterialBindings(unit))) {
-      const entry = merged.get(binding.key)
-      if (entry) entry.count += 1
-      else merged.set(binding.key, { binding, count: 1 })
-    }
-    const bindings = [...merged.values()].map(({ binding, count }) =>
-      count > 1 ? { ...binding, detail: tCommon('aggregateUnitCount', { count }) } : binding,
-    )
-    const free = units.filter((unit) => materialResourceState(unit) === 'available').length
-    setBindingsPopover({
-      kind: "material",
-      id: units[0].id,
-      title: units[0].name,
-      subtitle: `${units[0].category} · ${tCommon('aggregateCountTitle', { free, total: units.length })}`,
-      bindings,
-    })
-  }
-
+  const { collectPersonPlaces, followBinding, followPersonNow, handlePersonClick } = resourceBindings
   const {
-    handleVehicleAssign,
-    handleOperationDelete,
-    handleOperationUpdate,
-    handleCardClick,
-    handleCardSelect,
-  } = useBoardDispatch({
-    removeReko,
-    operations,
-    outOfServiceVehicleIds,
-    assignVehicleToOperation,
-    materials,
-    removeCrew,
-    removeMaterial,
-    removeVehicle,
-    deleteOperation,
-    resourceConflict,
-    vehicleNeedingDriver,
-    updateOperation,
-    fleet,
-    isAssignmentSettling,
-    assignRekoPersonToOperation,
-    getGroupResources,
-    groups,
-    unassignGroupResource,
-    release,
-    dispatchRef,
-    personnel,
-    operationsRef,
+    handleMaterialClick,
+    handleModuleMaterialClick,
+    handleAggregateMaterialClick,
+    handleToggleMaterialOutOfService,
+  } = useMaterialClicks({ resourceBindings, setBindingsPopover })
+
+  const dispatchRef = useBoardDispatch({
+    drops,
+    holdStatusMove: statusWorkflow.holdStatusMove,
+    resourceBindings,
+    layout,
+    sheets,
     setPersonnelSearchQuery,
     setMaterialSearchQuery,
-    selectedOperation,
-    setShowRightSidebar,
-    setShowLeftSidebar,
-    openIncidentDetail,
-    setActiveFooterSheet,
-    setAuftraegeFocusGroupId,
-    broadcast,
-    isDraggingOperationRef,
-    assignVehicleToIncidentWithConflict,
-    boardAssignPerson,
-    boardAssignMaterial,
-    boardAssignGroupResource,
-    afterStatusMove,
-    holdStatusMove,
-    collectPersonBindings,
-    collectMaterialBindings,
-    followBinding,
   })
 
   // Derived state for convenience
@@ -1269,7 +484,22 @@ export default function FireStationDashboard() {
     [materialOnSite, materials],
   )
 
+  const dialogActions = useBoardDialogActions({
+    openIncidentDetail,
+    sheets,
+    closedStopGuard,
+    openAssignment: dialogs.openAssignment,
+  })
   const {
+    stopPickerGroupId,
+    setStopPickerGroupId,
+    checkInUrl,
+    copied,
+    attendanceOpen,
+    setAttendanceOpen,
+    rekoAssignDialogOpen,
+    setRekoAssignDialogOpen,
+    rekoAssignOperationId,
     handleOpenRapport,
     openAttendance,
     assignmentLabelForPerson,
@@ -1280,48 +510,21 @@ export default function FireStationDashboard() {
     handleToggleNachbarhilfe,
     handleToggleAmWarten,
     handleToggleZuFuss,
-  } = useBoardDialogActions({
-    operations,
-    updateOperation,
-    refreshPersonnel,
-    addStopsToGroup,
-    closedStopGuard,
-    selectedEvent,
-    isEditor,
-    registerAssignHandler,
-    openIncidentDetail,
-    setActiveFooterSheet,
-    stopPickerGroupId,
-    openAssignment: dialogs.openAssignment,
-    checkInUrl,
-    setCopied,
-    setAttendanceOpen,
-    setRekoAssignDialogOpen,
-    setRekoAssignOperationId,
-  })
+  } = dialogActions
 
-  // What the commands run on the selected card: each entry is the handler its
-  // right-click row calls, so both ways stay one behaviour.
-  const { print: printAssignmentSlip } = usePrintAssignmentSlip()
-  boardCommandsRef.current = {
-    incident: (command, operationId) => {
-      const run: Record<IncidentCommand, () => void> = {
-        assignCrew: () => dialogs.openAssignment('crew', operationId),
-        assignVehicle: () => dialogs.openAssignment('vehicles', operationId),
-        assignMaterial: () => dialogs.openAssignment('materials', operationId),
-        assignReko: () => handleOpenRekoAssignDialog(operationId),
-        transfer: () => void dialogs.openTransfer(operationId),
-        distribute: () => dialogs.openAuftragPicker(operationId),
-        toggleAmWarten: () => handleToggleAmWarten(operationId),
-        toggleNachbarhilfe: () => handleToggleNachbarhilfe(operationId),
-        complete: () => requestCompletion(operationId),
-        print: () => void printAssignmentSlip(operationId),
-      }
-      run[command]()
-    },
-    openAttendance,
+  useBoardCommandHandlers({
+    selection,
+    layout,
+    sheets,
+    cardActions,
+    dialogs,
+    dialogActions,
+    dispatchRef,
     openChecklist: () => handleChecklistOpenChange(true),
-  }
+    newEmergencyModalOpen,
+    setNewEmergencyModalOpen,
+    printerEnabled,
+  })
 
   // Don't render drag and drop until client-side to avoid hydration errors.
   // Inside ProtectedRoute like every other branch, so all three share ONE ProtectedRoute at
@@ -1357,89 +560,14 @@ export default function FireStationDashboard() {
             the board 3px below it, and never competes with a card's priority
             colour. */}
         {selectedEvent?.training_flag && <TrainingBand />}
-        {/* Top header is desktop-only — on mobile everything routes through the
-            bottom navbar (event switching lives in its "Mehr" sheet). */}
-        <header className="hidden md:flex items-center justify-between gap-4 border-b border-border bg-header px-4 md:px-6 py-2 min-h-14">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {/* Event title doubles as an event switcher: switch events or create a
-                new one without first hunting through the user menu → Ereignisse. */}
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 min-w-0 -ml-2 rounded-lg px-2 py-1 hover:bg-secondary/60 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-                <h1 className={`text-xl md:text-2xl font-bold tracking-tight truncate ${selectedEvent ? "" : "text-muted-foreground"}`}>
-                  {selectedEvent ? selectedEvent.name : tDash('noEventSelected')}
-                </h1>
-                {/* Warning-coloured, always visible: the wall display, /alarm and
-                    the mobile navigation all say «Übung» in this colour, and the
-                    loudest signal must not sit where nobody types. */}
-                {selectedEvent?.training_flag && <TrainingBadge label={tDash('training')} />}
-                <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuLabel>{tDash('switchEvent')}</DropdownMenuLabel>
-                {events
-                  .filter((e) => !e.archived_at && e.id !== selectedEvent?.id)
-                  .sort((a, b) => b.last_activity_at.getTime() - a.last_activity_at.getTime())
-                  .slice(0, 6)
-                  .map((event) => (
-                    <DropdownMenuItem
-                      key={event.id}
-                      onClick={() => setSelectedEvent(event)}
-                      className="cursor-pointer"
-                    >
-                      <span className="truncate">{event.name}</span>
-                      {event.training_flag && (
-                        <TrainingBadge label={tDash('training')} className="ml-auto" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/events?action=create")} className="cursor-pointer">
-                  <Plus className="mr-2 h-4 w-4" />
-                  {tDash('newEvent')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/events")} className="cursor-pointer">
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  {tDash('allEvents')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {/* Columns entirely out of view (UX-DESKTOP-07): named here, in the bar's empty
-                middle, instead of over the board – left ones after the Ereignis, right ones
-                before the search. A click scrolls there. Gone when every column shows. */}
-            {!isMobile && isLoaded && !boardNeverLoaded && (
-              <BoardEdgeChipBar
-                left={boardEdge.left}
-                right={boardEdge.right}
-                columns={columns}
-                operations={filteredOperations}
-                onShow={boardEdge.scrollToColumn}
-              />
-            )}
-          </div>
-
-          {/* Desktop Navigation */}
-          {!isMobile && (
-            <div className="flex items-center gap-4">
-              <SearchInput
-                id="search-input"
-                placeholder={tCommon('search')}
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                // narrower below lg: at 768px the header (with the Alarmeingang icon) ran 20px over
-                className="w-56 lg:w-72"
-                hint={<Kbd>S</Kbd>}
-              />
-
-              <EventClock />
-
-              <PageNavigation
-                currentPage="kanban"
-                hasSelectedEvent={!!selectedEvent}
-                selectedIncidentId={selectedOperationId}
-              />
-            </div>
-          )}
-        </header>
+        <BoardHeader
+          isMobile={isMobile}
+          boardEdge={boardEdge}
+          filteredOperations={filteredOperations}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedOperationId={selectedOperationId}
+        />
         {/* What a freshly claimed station still has to set up – admin only, gone once done. */}
         <StationSetupStrip className="mx-4 mt-3 hidden shrink-0 md:block md:mx-6" />
 
@@ -1573,7 +701,7 @@ export default function FireStationDashboard() {
                       onToggleNachbarhilfe={handleToggleNachbarhilfe}
                       onToggleAmWarten={handleToggleAmWarten}
                       onToggleZuFuss={handleToggleZuFuss}
-                      onRequestComplete={isEditor ? requestCompletion : undefined}
+                      onRequestComplete={isEditor ? statusWorkflow.requestCompletion : undefined}
                       onRequestDelete={isEditor ? handleRequestDelete : undefined}
                       onMoveInColumn={isEditor ? moveInColumn : undefined}
                       onTransfer={isEditor ? dialogs.openTransfer : undefined}

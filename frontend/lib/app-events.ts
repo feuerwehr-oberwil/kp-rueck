@@ -12,7 +12,7 @@ import type { IncidentHighlightOptions } from './notification-highlight'
 export interface AppEvents {
   /** A cookie-authenticated request answered 401 (`lib/api/http.ts` → auth context). */
   'kp:session-expired': void
-  /** Open the Aufträge sheet on this route (board chips → `app/page.tsx`). */
+  /** Open the Aufträge sheet on this route (board chips → `components/board/use-board-sheets.ts`). */
   'kp:open-auftraege': { groupId: string }
   /** Open the Auftrags-Editor on this route, optionally with one stop focused. */
   'kp:open-routen-editor': { groupId: string; focusIncidentId?: string }
