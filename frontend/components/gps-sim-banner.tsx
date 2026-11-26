@@ -1,12 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { Satellite } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { apiClient, type ApiGpsSimDrive } from "@/lib/api-client"
-import { wsClient } from "@/lib/websocket-client"
+import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/contexts/auth-context"
+import { queryKeys } from "@/lib/query/keys"
 
 /**
  * "GPS-Simulation aktiv" indicator, shown ONLY on the map (rendered inside
@@ -27,30 +27,14 @@ import { useAuth } from "@/lib/contexts/auth-context"
 export function GpsSimBanner() {
   const t = useTranslations("training.banner")
   const { isAuthenticated } = useAuth()
-  const [drives, setDrives] = useState<ApiGpsSimDrive[]>([])
-
-  const refresh = useCallback(async () => {
-    try {
-      setDrives(await apiClient.getGpsSimulations())
-    } catch {
-      setDrives([])
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isAuthenticated) return
-    refresh()
-    const unsubscribe = wsClient.on(
-      "gps_sim_status",
-      (payload) => {
-        // The WS payload is the authoritative "something changed" signal —
-        // refetch for full drive details (progress etc. not in the event).
-        if (payload.drives.length === 0) setDrives([])
-        else refresh()
-      },
-    )
-    return () => unsubscribe()
-  }, [isAuthenticated, refresh])
+  // Read again on every `gps_sim_status` (lib/query/socket-bridge.ts): the event says that
+  // something changed, the read brings the drive details. A failed read shows no banner.
+  const query = useQuery({
+    queryKey: queryKeys.gpsSimulations,
+    queryFn: () => apiClient.getGpsSimulations(),
+    enabled: isAuthenticated,
+  })
+  const drives = query.isError ? [] : (query.data ?? [])
 
   if (!isAuthenticated || drives.length === 0) return null
 

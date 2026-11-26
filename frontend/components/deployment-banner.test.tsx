@@ -11,10 +11,8 @@ vi.mock('@/lib/api-client', () => ({
 }))
 
 import { DeploymentBanner } from '@/components/deployment-banner'
-import { resetDeploymentCache } from '@/lib/hooks/use-deployment'
 
 beforeEach(() => {
-  resetDeploymentCache()
   mocks.getDeployment.mockReset()
 })
 

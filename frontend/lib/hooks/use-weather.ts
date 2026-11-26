@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
-import { serverClockOffset, type ApiWeather } from "@/lib/weather"
+import { queryKeys } from "@/lib/query/keys"
+import { serverClockOffset } from "@/lib/weather"
 
 /** The backend polls the feeds every 5/10 minutes; asking it every minute keeps the board at
  *  most a minute behind it, for a few hundred bytes. */
@@ -18,43 +20,24 @@ const CLOCK_MS = 30_000
  * `now` is the BACKEND's time (device clock + the offset measured on every answer, see
  * `serverClockOffset`), so a device with a wrong clock judges staleness like the server does.
  *
- * Polling stops for good once the backend answers `enabled: false` (WEATHER_ENABLED=false):
- * that is deployment configuration, it does not change while the page is open.
- * `active: false` (token mode without a token, tests) fetches nothing.
+ * Polls also in a hidden tab (a wall's map). Polling stops for good once the backend answers
+ * `enabled: false` (WEATHER_ENABLED=false): that is deployment configuration, it does not
+ * change while the page is open. `active: false` (token mode without a token, tests) fetches
+ * nothing.
  */
 export function useWeather({ active = true, viewerToken }: { active?: boolean; viewerToken?: string } = {}) {
-  const [weather, setWeather] = useState<ApiWeather | null>(null)
-  const [offset, setOffset] = useState(0)
+  const query = useQuery({
+    queryKey: queryKeys.weather.of(viewerToken),
+    queryFn: () => apiClient.getWeather(viewerToken),
+    enabled: active,
+    refetchInterval: (q) => (q.state.data?.enabled === false ? false : POLL_MS),
+    refetchIntervalInBackground: true,
+  })
+  const weather = query.data ?? null
+  const receivedAt = query.dataUpdatedAt
+  const offset = weather ? serverClockOffset(weather.generated_at, receivedAt) : 0
+
   const [deviceNow, setDeviceNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    if (!active) return
-    let cancelled = false
-    let poll: ReturnType<typeof setInterval> | null = null
-    const load = async () => {
-      try {
-        const next = await apiClient.getWeather(viewerToken)
-        if (cancelled) return
-        const receivedAt = Date.now()
-        setWeather(next)
-        setOffset(serverClockOffset(next.generated_at, receivedAt))
-        setDeviceNow(receivedAt)
-        if (!next.enabled && poll) {
-          clearInterval(poll)
-          poll = null
-        }
-      } catch {
-        // Keep the last answer: it carries its own timestamps and goes «veraltet» by itself.
-      }
-    }
-    poll = setInterval(load, POLL_MS)
-    load()
-    return () => {
-      cancelled = true
-      if (poll) clearInterval(poll)
-    }
-  }, [active, viewerToken])
-
   const enabled = weather?.enabled === true
   useEffect(() => {
     if (!active || !enabled) return
@@ -62,5 +45,5 @@ export function useWeather({ active = true, viewerToken }: { active?: boolean; v
     return () => clearInterval(tick)
   }, [active, enabled])
 
-  return { weather: active ? weather : null, now: deviceNow + offset }
+  return { weather: active ? weather : null, now: Math.max(deviceNow, receivedAt) + offset }
 }
