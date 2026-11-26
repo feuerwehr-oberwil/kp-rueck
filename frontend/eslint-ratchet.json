@@ -2,6 +2,8 @@
   "$comment": "Allowed ESLint WARNINGS and eslint-disable SUPPRESSIONS per rule – checked by scripts/lint-ratchet.mjs (`pnpm lint`). Numbers only go down: `pnpm lint --tighten` lowers them after a fix; never raise one to make a new warning or disable pass. An exhaustive-deps finding is a behaviour decision (adding the dependency re-runs the effect): «the latest X without re-running» is useEffectEvent, and a disable that stays says why on its own line (`// eslint-disable-next-line <rule> -- why`).",
   "warnings": {
     "@typescript-eslint/no-non-null-assertion": 50,
+    "@typescript-eslint/no-unnecessary-type-assertion": 12,
+    "@typescript-eslint/switch-exhaustiveness-check": 5,
     "kp/disable-reason": 2,
     "kp/no-literal-copy": 26,
     "kp/no-raw-effect": 329,
