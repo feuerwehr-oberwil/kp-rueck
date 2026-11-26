@@ -32,13 +32,6 @@ export interface StatusWriteGuard {
 }
 export type VehicleType = string | null
 
-/** Payload of an `assignment_update` with `action: 'driver_stay'`. */
-export interface DriverStayPayload {
-  id?: string
-  incident_id?: string
-  driver_stay?: boolean
-}
-
 export interface RekoSummary {
   /** «Einsatz relevant?» as filed – null when it was not answered (old or crew data): never
    *  read as «Nein», «Kein Einsatz nötig» comes only from an explicit false (pass 5, S5). */

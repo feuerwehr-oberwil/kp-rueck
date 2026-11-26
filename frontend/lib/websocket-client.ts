@@ -1,10 +1,20 @@
 /**
- * WebSocket client for real-time updates
+ * WebSocket client for real-time updates: one socket per tab (`wsClient`), refcounted by its
+ * consumers, and `on(event, listener)` typed by `WsEvents`.
  */
 
 import { io, Socket } from 'socket.io-client'
 import { fetchWsToken } from './auth-client'
 import { getWsUrl } from './env'
+import type {
+  ApiAssignment,
+  ApiAutogenState,
+  ApiDiveraEmergency,
+  ApiRegieState,
+  ApiVehiclePosition,
+  ApiVehicleTrail,
+} from './api/types'
+import type { PrintJobEvent } from './print-job-tracker'
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -20,18 +30,78 @@ const debug = (...args: unknown[]) => {
   if (WS_DEBUG) console.log(...args)
 }
 
-export interface WebSocketUpdate<T = unknown> {
-  // 'driver_stay' is a targeted assignment toggle that clients apply surgically
-  // (no full reload), unlike structural create/update/delete events.
-  action: 'create' | 'update' | 'delete' | 'driver_stay'
+/** A CRUD broadcast (`broadcast_*_update` in backend/app/websocket_manager.py): what
+ *  happened and the row it happened to. Most listeners only reload; the row is `unknown`
+ *  where nobody reads it. */
+export interface WsUpdate<A extends string, T = unknown> {
+  action: A
   data: T
 }
+
+/** The flat messages (`broadcast_message`) carry their own name as `type`. */
+type WsMessage<K extends string, T> = { type: K } & T
+
+/**
+ * Every event the backend sends with what it carries – the same names as `WsEvent` in
+ * backend/app/websocket_manager.py, and the actions its call sites pass. `on()` takes
+ * only these names, so a typo or a renamed event is a tsc error, not a dead listener.
+ */
+export interface WsEvents {
+  incident_update: WsUpdate<'create' | 'update' | 'delete' | 'refresh' | 'reorder'>
+  group_update: WsUpdate<'create' | 'update' | 'delete' | 'refresh' | 'reorder' | 'stops_reorder'>
+  personnel_update: WsUpdate<'create' | 'update' | 'delete' | 'refresh' | 'checkin' | 'sync'>
+  vehicle_update: WsUpdate<'create' | 'update' | 'delete'>
+  material_update: WsUpdate<'create' | 'update' | 'delete'>
+  /** `driver_stay` is a targeted toggle a board applies surgically (no full reload);
+   *  `leader` (an Einsatzleiter change) and the rest reload. */
+  assignment_update:
+    | WsUpdate<'driver_stay' | 'leader', ApiAssignment>
+    | WsUpdate<'create' | 'delete' | 'refresh' | 'merge' | 'unmerge'>
+  planned_assignment_update: { event_id: string }
+  special_function_update: WsUpdate<'assign' | 'unassign'>
+  reko_update: WsUpdate<'arrived' | 'submit' | 'update', { incident_id: string }>
+  notification_update: WsUpdate<'create' | 'dismiss' | 'refresh'>
+  print_job_update: WsUpdate<'update', PrintJobEvent>
+  kp_message_update: WsUpdate<'created' | 'merged' | 'unmerged'>
+  journal_update: WsUpdate<'created'>
+  divera_responses_update: { event_ids: string[]; incident_ids: string[] }
+  vehicle_positions_update: { data: ApiVehiclePosition[] }
+  vehicle_trails_update: { data: ApiVehicleTrail[] }
+  assignments_transferred: WsMessage<'assignments_transferred', {
+    source_incident_id: string
+    target_incident_id: string
+    assignment_ids: string[]
+    count: number
+    event_id: string
+  }>
+  divera_emergency_received: WsMessage<'divera_emergency_received', {
+    emergency: ApiDiveraEmergency
+    auto_attached: boolean
+    source?: string
+  }>
+  gps_release_prompt: WsMessage<'gps_release_prompt', {
+    assignment_id: string
+    incident_id: string
+    vehicle_id: string
+    vehicle_name: string
+    incident_label: string
+  }>
+  gps_sim_status: WsMessage<'gps_sim_status', {
+    drives: { vehicle_id: string; vehicle_name: string; target_label: string; kind: string }[]
+  }>
+  training_regie: WsMessage<'training_regie', ApiRegieState>
+  training_autogen: WsMessage<'training_autogen', ApiAutogenState>
+}
+
+export type WsEventName = keyof WsEvents
+
+/** What the socket hands every handler: the payload, still unread. */
+type SocketHandler = (payload: unknown) => void
 
 class WebSocketClient {
   private socket: Socket | null = null
   private status: WebSocketStatus = 'disconnected'
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  private listeners: Map<string, Set<Function>> = new Map()
+  private listeners: Map<WsEventName, Set<SocketHandler>> = new Map()
   private statusListeners: Set<(status: WebSocketStatus) => void> = new Set()
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
@@ -112,10 +182,9 @@ class WebSocketClient {
     // 'connect' (the old behaviour) duplicated every listener per reconnect —
     // after N reconnects each update triggered N redundant full reloads on a
     // multi-hour wall-display session.
-    this.listeners.forEach((callbacks, event) => {
-      callbacks.forEach(callback => {
-        this.socket!.on(event, callback as (...args: unknown[]) => void)
-      })
+    const socket = this.socket
+    this.listeners.forEach((handlers, event) => {
+      handlers.forEach(handler => socket.on(event, handler))
     })
 
     this.updateStatus('connecting')
@@ -187,43 +256,30 @@ class WebSocketClient {
   }
 
   /**
-   * Subscribe to WebSocket events
+   * Listen for `event`; returns the unsubscribe (an effect's cleanup). The listener gets
+   * the payload `WsEvents` names for it.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  on(event: string, callback: Function) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set())
+  on<K extends WsEventName>(event: K, listener: (payload: WsEvents[K]) => void): () => void {
+    // The one place a socket payload meets its type: the backend sends WsEvents[K] for K.
+    const handler: SocketHandler = (payload) => listener(payload as WsEvents[K])
+    const name: WsEventName = event // socket.io's listener type cannot resolve a generic name
+    let handlers = this.listeners.get(name)
+    if (!handlers) {
+      handlers = new Set()
+      this.listeners.set(name, handlers)
     }
-    this.listeners.get(event)!.add(callback)
+    handlers.add(handler)
 
     // Attach to the live socket immediately (connected or not — socket.io
     // keeps handlers across reconnects). If no socket exists yet, connect()
     // attaches everything buffered in `listeners` when it creates one.
-    if (this.socket) {
-      this.socket.on(event, callback as (...args: unknown[]) => void)
-    }
+    this.socket?.on(name, handler)
 
-    // Return unsubscribe function
     return () => {
-      this.off(event, callback)
-    }
-  }
-
-  /**
-   * Unsubscribe from WebSocket events
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  off(event: string, callback: Function) {
-    const callbacks = this.listeners.get(event)
-    if (callbacks) {
-      callbacks.delete(callback)
-      if (callbacks.size === 0) {
-        this.listeners.delete(event)
-      }
-    }
-
-    if (this.socket) {
-      this.socket.off(event, callback as (...args: unknown[]) => void)
+      const current = this.listeners.get(name)
+      current?.delete(handler)
+      if (current?.size === 0) this.listeners.delete(name)
+      this.socket?.off(name, handler)
     }
   }
 

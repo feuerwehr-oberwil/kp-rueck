@@ -84,13 +84,13 @@ describe('wsClient reconnect behaviour', () => {
 
   it('attaches listeners registered before connect() exactly once', () => {
     const callback = vi.fn()
-    const unsubscribe = wsClient.on('driver_update', callback)
+    const unsubscribe = wsClient.on('vehicle_update', callback)
 
     wsClient.connect()
     fakeSocket.connected = true
     fire('connect')
 
-    fire('driver_update', { action: 'update', data: {} })
+    fire('vehicle_update', { action: 'update', data: {} })
     expect(callback).toHaveBeenCalledTimes(1)
 
     unsubscribe()

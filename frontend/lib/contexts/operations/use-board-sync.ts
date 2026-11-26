@@ -3,20 +3,20 @@
 import type { useEvent } from "../event-context"
 import type { useMaterialList, usePersonnelList } from "./use-resource-lists"
 import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction, type MutableRefObject } from "react"
-import { apiClient, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
+import { apiClient, type ApiAssignment, type ApiEventSpecialFunctionResponse, type ApiVehicle } from "@/lib/api-client"
 import { setGlobalHomeCity } from "@/lib/utils"
 import { RANK_ABBREVIATIONS_KEY, setGlobalRankAbbreviations } from "@/lib/roster-order"
 import { rememberStationName } from "@/lib/station-name"
 import { isValidUUID } from "@/lib/utils/validation"
 import type { Person } from "../personnel-context"
 import type { Material } from "../materials-context"
-import { wsClient, type WebSocketUpdate, type WebSocketStatus } from "@/lib/websocket-client"
+import { wsClient, type WebSocketStatus } from "@/lib/websocket-client"
 import { topLoading } from "@/components/ui/top-loading-bar"
 import { decideCooldownClearAction, decidePollTickAction, decideRemoteUpdateAction, shouldStartPollingOnMount } from "@/lib/sync-cooldown"
 import { ReloadScheduler } from "@/lib/reload-scheduler"
 import { toMaterialOnSite } from "./mapping"
 import { buildEventState } from "./reconcile"
-import type { Operation, OperationsContextType, DriverStayPayload } from "./types"
+import type { Operation, OperationsContextType } from "./types"
 
 /**
  * `next`, unless it says exactly what `prev` says – then `prev`. The fleet and
@@ -465,14 +465,13 @@ export function useBoardSync(input: BoardSyncInput) {
     // sender (it already applied the value optimistically).
     // A board load already in flight read the assignments BEFORE this toggle: the epoch
     // bump drops its snapshot and replays a fresh load, or it would turn the flag back.
-    const applyDriverStayUpdate = (data: DriverStayPayload) => {
-      if (!data?.id || !data?.incident_id) return
+    const applyDriverStayUpdate = (data: ApiAssignment) => {
       mutationEpochRef.current++
       setOperations((ops) =>
         ops.map((op) => {
           if (op.id !== data.incident_id) return op
           if (!op.vehicles.some((v) => v.assignmentId === data.id)) return op
-          const driverStay = data.driver_stay ?? false
+          const driverStay = data.driver_stay
           return { ...op, vehicles: op.vehicles.map((v) => (v.assignmentId === data.id ? { ...v, driverStay } : v)) }
         })
       )
@@ -486,8 +485,8 @@ export function useBoardSync(input: BoardSyncInput) {
     // both read them off this load, and nothing else would bring another
     // client's change in.
     const unsubscribeSpecialFunctionUpdate = wsClient.on('special_function_update', handleRemoteUpdate)
-    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update: WebSocketUpdate<DriverStayPayload>) => {
-      if (update?.action === 'driver_stay') {
+    const unsubscribeAssignmentUpdate = wsClient.on('assignment_update', (update) => {
+      if (update.action === 'driver_stay') {
         applyDriverStayUpdate(update.data)
         return
       }

@@ -162,8 +162,8 @@ function startListening() {
   wsClient.connect()
   const offAlarm = wsClient.on('divera_emergency_received', () => void reloadAlarmPool())
   // An attach (here, on another board, or the server's auto-attach) creates an incident.
-  const offIncident = wsClient.on('incident_update', (data: { action?: string } | undefined) => {
-    if (data?.action === 'create') void reloadAlarmPool()
+  const offIncident = wsClient.on('incident_update', (update) => {
+    if (update.action === 'create') void reloadAlarmPool()
   })
   // Sent on every attach, merge and re-attach – a merge from another window makes no new card.
   // Rückmeldungen send it too; a burst of them folds into one more fetch (above).

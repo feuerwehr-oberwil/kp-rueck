@@ -38,8 +38,8 @@ export function useDiveraResponses(eventId: string | null, enabled: boolean): Ap
 
   useEffect(() => {
     if (!active || !eventId) return
-    const offResponses = wsClient.on("divera_responses_update", (message: { event_ids?: string[] } | undefined) => {
-      if (!message?.event_ids || message.event_ids.includes(eventId)) void load()
+    const offResponses = wsClient.on("divera_responses_update", (message) => {
+      if (message.event_ids.includes(eventId)) void load()
     })
     // A check-in or check-out changes who is still «anrückend» (`attended`).
     const offPersonnel = wsClient.on("personnel_update", () => void load())

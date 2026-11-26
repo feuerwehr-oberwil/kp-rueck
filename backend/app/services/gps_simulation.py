@@ -289,8 +289,8 @@ class GpsSimulation:
 
         try:
             await broadcast_message(
+                "gps_sim_status",
                 {
-                    "type": "gps_sim_status",
                     "drives": [
                         {
                             "vehicle_id": str(d.vehicle_id),
@@ -300,7 +300,7 @@ class GpsSimulation:
                         }
                         for d in self._drives.values()
                     ],
-                }
+                },
             )
         except Exception as e:  # never break position flow over a status broadcast
             logger.debug("GPS simulation status broadcast failed: %s", e)

@@ -191,7 +191,7 @@ function AlarmInboxPanel({ isMobile }: { isMobile: boolean }) {
   // While the Alarmeingang is open a new alarm is also said and sounded – what the page did.
   useEffect(
     () =>
-      wsClient.on('divera_emergency_received', (data: { emergency: ApiDiveraEmergency; auto_attached?: boolean }) => {
+      wsClient.on('divera_emergency_received', (data) => {
         const { emergency } = data
         // Neutral, not a success: an incoming alarm is news, not something that went well.
         toast(

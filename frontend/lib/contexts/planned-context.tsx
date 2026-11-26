@@ -91,8 +91,8 @@ export function PlannedProvider({ children }: { children: ReactNode }) {
         void load()
       }, 25)
     }
-    const off = ["planned_assignment_update", "assignment_update", "incident_update", "group_update"].map((event) =>
-      wsClient.on(event, schedule),
+    const off = (["planned_assignment_update", "assignment_update", "incident_update", "group_update"] as const).map(
+      (event) => wsClient.on(event, schedule),
     )
     off.push(onAppEvent("kp:planned-changed", schedule))
     return () => {

@@ -42,10 +42,10 @@ export function GpsSimBanner() {
     refresh()
     const unsubscribe = wsClient.on(
       "gps_sim_status",
-      (payload: { drives?: Array<{ vehicle_name: string }> }) => {
+      (payload) => {
         // The WS payload is the authoritative "something changed" signal —
         // refetch for full drive details (progress etc. not in the event).
-        if (payload?.drives && payload.drives.length === 0) setDrives([])
+        if (payload.drives.length === 0) setDrives([])
         else refresh()
       },
     )
