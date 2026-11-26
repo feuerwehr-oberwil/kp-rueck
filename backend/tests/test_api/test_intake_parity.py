@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event, Incident, User
 from app.schemas.alarms import RESERVED_ALARM_SOURCES
-from app.services.tokens import generate_alarm_token
+from app.services.tokens import generate_link_token
 
 # The same alarm, worded once. The public form takes the lean payload; the board
 # adds `event_id` (the token carries it) and says so with `source`.
@@ -107,7 +107,7 @@ class TestIntakeParity:
         self, client: AsyncClient, db_session: AsyncSession, test_event: Event
     ):
         """The field door first — the schema change must not move the phone's row."""
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(f"/api/intake/alarm?token={token}", json=ALARM)
 
         assert response.status_code == 201
@@ -130,7 +130,7 @@ class TestIntakeParity:
         # writes visible here, and an expired `User` would then lazy-load its own
         # id from a sync context.
         editor_id = test_editor.id
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         field = await client.post(f"/api/intake/alarm?token={token}", json=ALARM)
         assert field.status_code == 201
 

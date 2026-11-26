@@ -14,27 +14,25 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
-from app.middleware.audit import AuditMiddleware, _inflight_audit_tasks, _log_api_request
+from app.middleware.audit import AuditMiddleware, _dispatch, _inflight_audit_tasks, _log_api_request
 from app.models import AuditLog, User
+from tests.conftest import route_audit_into
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
+async def client(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """Create an async test client with test database override."""
 
     async def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-
-    # Inject test db_session for middleware to use
-    app.state.test_db_session = db_session
+    route_audit_into(db_session, monkeypatch)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
-    delattr(app.state, "test_db_session")
 
 
 @pytest_asyncio.fixture
@@ -209,25 +207,10 @@ class TestAuditMiddleware:
         assert entry.user_id == test_editor_user.id
 
     @pytest.mark.asyncio
-    async def test_middleware_handles_logging_failure_gracefully(self, authenticated_client: AsyncClient):
-        """Middleware should not crash request if audit logging fails."""
-        # Mock log_action to raise exception
-        with patch("app.middleware.audit.log_action", side_effect=Exception("Database error")):
-            # Request should still succeed despite audit logging failure
-            response = await authenticated_client.get(f"/api/incidents/?event_id={uuid4()}")
-            assert response.status_code == 200  # Request still works
-
-    @pytest.mark.asyncio
-    async def test_middleware_logs_and_swallows_a_failed_audit_write_for_injected_session(
+    async def test_middleware_logs_and_swallows_a_failed_audit_write(
         self, authenticated_client: AsyncClient, test_event, caplog
     ):
-        """A failing audit write must not surface to the caller.
-
-        Complements (does not duplicate) `test_middleware_handles_logging_failure_gracefully`
-        above: that test issues a GET, and reads are no longer audited at all — it never
-        reaches `log_action`, so the synchronous (injected test-session) branch's own
-        `except Exception` is never actually hit. A POST is required to get there.
-        """
+        """A failing audit write must not surface to the caller. A POST: reads are not audited."""
         with (
             patch("app.middleware.audit.log_action", side_effect=Exception("boom")),
             caplog.at_level(logging.ERROR, logger="app.middleware.audit"),
@@ -267,10 +250,10 @@ class TestAuditMiddleware:
         assert calls == ["lifespan"]
 
 
-class TestLogApiRequestProductionPath:
-    """`_log_api_request`'s ``else`` branch (no injected test session): its own connection
-    pool via `audit_session_maker`, exercised directly rather than through a full request so
-    each failure mode can be forced independently. `audit_session_maker` is repointed at the
+class TestLogApiRequest:
+    """`_log_api_request`: its own connection pool via `audit_session_maker`, exercised
+    directly rather than through a full request so each failure mode can be forced
+    independently. `audit_session_maker` is repointed at the
     test database by the autouse `_bind_audit_logging_to_test_db` fixture, so the success
     case here still writes real, queryable rows — just not ones a per-test rollback undoes,
     since there is no surrounding test transaction on that pool. Each test therefore uses a
@@ -278,7 +261,7 @@ class TestLogApiRequestProductionPath:
     """
 
     @pytest.mark.asyncio
-    async def test_writes_through_audit_session_maker_when_no_session_is_injected(self, db_session: AsyncSession):
+    async def test_writes_through_audit_session_maker(self, db_session: AsyncSession):
         unique_path = f"/api/audit-unit-test/{uuid4()}"
 
         await _log_api_request(
@@ -286,7 +269,6 @@ class TestLogApiRequestProductionPath:
             path=unique_path,
             method="POST",
             duration_ms=12.5,
-            test_db_session=None,
         )
 
         result = await db_session.execute(
@@ -310,7 +292,6 @@ class TestLogApiRequestProductionPath:
                 path="/api/audit-unit-test/log-action-fails",
                 method="POST",
                 duration_ms=1.0,
-                test_db_session=None,
             )
 
         assert "Audit logging failed" in caplog.text
@@ -331,7 +312,6 @@ class TestLogApiRequestProductionPath:
                 path="/api/audit-unit-test/pool-timeout",
                 method="POST",
                 duration_ms=1.0,
-                test_db_session=None,
             )
 
         assert "Audit pool timeout" in caplog.text
@@ -352,16 +332,14 @@ class TestLogApiRequestProductionPath:
                 path="/api/audit-unit-test/session-error",
                 method="POST",
                 duration_ms=1.0,
-                test_db_session=None,
             )
 
         assert "Audit session error" in caplog.text
 
 
 class TestAuditMiddlewareFireAndForget:
-    """The real production path through `__call__`: no `app.state.test_db_session`
-    injected, so the middleware fires a background task instead of awaiting the write
-    inline — the whole point being that a slow audit write must never add latency to the
+    """The real production dispatch through `__call__`: the middleware fires a background
+    task instead of awaiting the write inline — the whole point being that a slow audit write must never add latency to the
     request itself."""
 
     @pytest.mark.asyncio
@@ -370,6 +348,7 @@ class TestAuditMiddlewareFireAndForget:
         client: AsyncClient,
         test_editor_user: User,
         test_engine: AsyncEngine,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         """Uses `/api/auth/login` rather than an authenticated mutation deliberately:
         `get_current_user` (and so `request.state.user`) never runs for it, so the audit
@@ -379,9 +358,12 @@ class TestAuditMiddlewareFireAndForget:
         the insert fails its `user_id` foreign key. Login sidesteps that without weakening
         what this test is actually about: that the fire-and-forget branch really writes.
         """
-        # The `client` fixture injects a test session by default; drop it so the
-        # middleware takes the `else` (production, background-task) branch instead.
-        app.state.test_db_session = None
+        # The `client` fixture routes audit writes into the test session, awaited; put the
+        # production dispatch and a pool of its own (on the test database) back.
+        monkeypatch.setattr("app.middleware.audit._dispatch", _dispatch)
+        monkeypatch.setattr(
+            "app.middleware.audit.audit_session_maker", async_sessionmaker(bind=test_engine, expire_on_commit=False)
+        )
 
         response = await client.post(
             "/api/auth/login",

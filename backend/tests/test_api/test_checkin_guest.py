@@ -18,7 +18,7 @@ from app.crud.personnel_checkin import DOOR_GUEST_TAG, DOOR_GUESTS_PER_EVENT
 from app.middleware.rate_limit import RateLimits, limiter
 from app.models import AuditLog, Event, EventAttendance, Personnel
 from app.services import share_links
-from app.services.tokens import generate_checkin_token, generate_link_token
+from app.services.tokens import generate_link_token
 
 URL = "/api/personnel/check-in/guest"
 
@@ -45,7 +45,7 @@ async def test_an_unknown_name_becomes_a_checked_in_guest_of_this_ereignis_only(
 ):
     tonight, other = two_events
     response = await client.post(
-        URL, params={"token": generate_checkin_token(tonight.id)}, json={"name": "  Gast   Peter "}
+        URL, params={"token": generate_link_token("checkin", tonight.id)}, json={"name": "  Gast   Peter "}
     )
     assert response.status_code == 200, response.text
     body = response.json()
@@ -62,11 +62,11 @@ async def test_an_unknown_name_becomes_a_checked_in_guest_of_this_ereignis_only(
 
     # Listed at tonight's door, invisible at the other Ereignis's.
     listed = (
-        await client.get("/api/personnel/check-in/list", params={"token": generate_checkin_token(tonight.id)})
+        await client.get("/api/personnel/check-in/list", params={"token": generate_link_token("checkin", tonight.id)})
     ).json()
     assert "Gast Peter" in [p["name"] for p in listed["personnel"]]
     elsewhere = (
-        await client.get("/api/personnel/check-in/list", params={"token": generate_checkin_token(other.id)})
+        await client.get("/api/personnel/check-in/list", params={"token": generate_link_token("checkin", other.id)})
     ).json()
     assert "Gast Peter" not in [p["name"] for p in elsewhere["personnel"]]
 
@@ -80,7 +80,7 @@ async def test_a_listed_name_checks_that_person_in_instead_of_making_a_second(
     roster = Personnel(id=uuid4(), name="Baumann Michael", status="available")
     db_session.add(roster)
     await db_session.commit()
-    token = generate_checkin_token(tonight.id)
+    token = generate_link_token("checkin", tonight.id)
 
     response = await client.post(URL, params={"token": token}, json={"name": "baumann  MICHAEL"})
     assert response.status_code == 200, response.text
@@ -103,7 +103,9 @@ async def test_a_guest_of_another_ereignis_is_not_a_match(
     db_session.add(Personnel(id=uuid4(), name="Gast Peter", status="available", guest_event_id=other.id))
     await db_session.commit()
 
-    response = await client.post(URL, params={"token": generate_checkin_token(tonight.id)}, json={"name": "Gast Peter"})
+    response = await client.post(
+        URL, params={"token": generate_link_token("checkin", tonight.id)}, json={"name": "Gast Peter"}
+    )
     assert response.status_code == 200, response.text
     guests = await _people_named(db_session, "Gast Peter")
     assert sorted(str(g.guest_event_id) for g in guests) == sorted([str(tonight.id), str(other.id)])
@@ -130,7 +132,9 @@ async def test_a_name_the_door_cannot_settle_sends_the_person_to_the_kp(
         )
     await db_session.commit()
 
-    response = await client.post(URL, params={"token": generate_checkin_token(tonight.id)}, json={"name": "Meier Alex"})
+    response = await client.post(
+        URL, params={"token": generate_link_token("checkin", tonight.id)}, json={"name": "Meier Alex"}
+    )
     assert response.status_code == 409
     assert response.json()["code"] == "checkin_guest_ask_kp"
     assert await db_session.scalar(select(func.count()).select_from(EventAttendance)) == 0
@@ -146,7 +150,9 @@ async def test_the_guest_ceiling_holds(client: AsyncClient, db_session: AsyncSes
     )
     await db_session.commit()
 
-    response = await client.post(URL, params={"token": generate_checkin_token(tonight.id)}, json={"name": "Gast Neu"})
+    response = await client.post(
+        URL, params={"token": generate_link_token("checkin", tonight.id)}, json={"name": "Gast Neu"}
+    )
     assert response.status_code == 409
     assert await _people_named(db_session, "Gast Neu") == []
 
@@ -160,7 +166,7 @@ async def test_the_guest_ceiling_holds(client: AsyncClient, db_session: AsyncSes
 )
 async def test_the_name_is_validated(client: AsyncClient, two_events: tuple[Event, Event], name: str):
     tonight, _ = two_events
-    response = await client.post(URL, params={"token": generate_checkin_token(tonight.id)}, json={"name": name})
+    response = await client.post(URL, params={"token": generate_link_token("checkin", tonight.id)}, json={"name": name})
     assert response.status_code == 422
 
 
@@ -170,8 +176,8 @@ async def test_only_a_live_checkin_token_opens_the_door(
     client: AsyncClient, editor_client: AsyncClient, db_session: AsyncSession, two_events: tuple[Event, Event]
 ):
     tonight, other = two_events
-    revoked = generate_checkin_token(tonight.id)
-    deleted_token = generate_checkin_token(other.id)
+    revoked = generate_link_token("checkin", tonight.id)
+    deleted_token = generate_link_token("checkin", other.id)
     await db_session.delete(other)
     assert await share_links.revoke(db_session, "checkin", tonight.id)
     await db_session.commit()
@@ -181,7 +187,7 @@ async def test_only_a_live_checkin_token_opens_the_door(
         "expired": generate_link_token("checkin", tonight.id, expires_hours=-1),
         "other kind": generate_link_token("viewer", tonight.id),
         "revoked": revoked,
-        "unknown Ereignis": generate_checkin_token(uuid4()),
+        "unknown Ereignis": generate_link_token("checkin", uuid4()),
         "deleted Ereignis": deleted_token,
     }
     for why, token in refused.items():
@@ -205,11 +211,11 @@ async def test_the_limit_is_per_link_not_per_address(client: AsyncClient, two_ev
     try:
         tonight, other = two_events
         per_link = int(RateLimits.CHECKIN_GUEST_PER_LINK.split("/")[0])
-        busy = {"token": generate_checkin_token(tonight.id)}
+        busy = {"token": generate_link_token("checkin", tonight.id)}
         for i in range(per_link):
             assert (await client.post(URL, params=busy, json={"name": f"Gast {i}"})).status_code == 200
         assert (await client.post(URL, params=busy, json={"name": "Gast zu viel"})).status_code == 429
-        calm = {"token": generate_checkin_token(other.id)}
+        calm = {"token": generate_link_token("checkin", other.id)}
         assert (await client.post(URL, params=calm, json={"name": "Gast Peter"})).status_code == 200
     finally:
         limiter.enabled = False

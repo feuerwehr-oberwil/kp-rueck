@@ -38,6 +38,11 @@ export interface MapSpot<T extends SpotIncident> {
   longitude: number
 }
 
+type Located<T extends SpotIncident> = T & { location_lat: number; location_lng: number }
+
+const isLocated = <T extends SpotIncident>(incident: T): incident is Located<T> =>
+  incident.location_lat !== null && incident.location_lng !== null
+
 /** The spot an incident's coordinates fall on. */
 export function spotKey(latitude: number, longitude: number): string {
   return `${latitude.toFixed(6)}:${longitude.toFixed(6)}`
@@ -54,9 +59,9 @@ const urgencyOf = (incident: SpotIncident) => ({
  * incidents without coordinates are left out (the map lists them in its «ohne Koordinaten» chip).
  */
 export function groupSpots<T extends SpotIncident>(incidents: readonly T[]): MapSpot<T>[] {
-  const byKey = new Map<string, T[]>()
+  const byKey = new Map<string, Located<T>[]>()
   for (const incident of incidents) {
-    if (incident.location_lat === null || incident.location_lng === null) continue
+    if (!isLocated(incident)) continue
     const key = spotKey(incident.location_lat, incident.location_lng)
     const members = byKey.get(key)
     if (members) members.push(incident)
@@ -68,7 +73,7 @@ export function groupSpots<T extends SpotIncident>(incidents: readonly T[]): Map
         (a.number ?? Number.MAX_SAFE_INTEGER) - (b.number ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id),
     )
     const lead = [...members].sort((a, b) => byUrgency(urgencyOf(a), urgencyOf(b)))[0]
-    return { key, incidents: sorted, lead, latitude: lead.location_lat!, longitude: lead.location_lng! }
+    return { key, incidents: sorted, lead, latitude: lead.location_lat, longitude: lead.location_lng }
   })
 }
 

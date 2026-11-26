@@ -62,14 +62,6 @@
     "incidentTruncation": {
       "message": "Es werden {shown} von {total} Einsätzen angezeigt – die Liste ist unvollständig."
     },
-    "copyButton": {
-      "copiedTitle": "Kopiert",
-      "copiedDescription": "Text wurde in die Zwischenablage kopiert.",
-      "errorTitle": "Fehler",
-      "errorDescription": "Text konnte nicht kopiert werden.",
-      "copied": "Kopiert",
-      "copy": "Kopieren"
-    },
     "emptyState": {
       "noHits": "Keine Treffer",
       "noHitsFor": "Keine Treffer für «{query}»",
@@ -975,7 +967,6 @@
       "undoGone": "Nicht mehr rückgängig – die Anwesenheit von {name} hat sich inzwischen geändert"
     },
     "assignmentDialog": {
-      "titleVehicles": "Fahrzeuge zuweisen",
       "titleDefault": "Ressourcen zuweisen",
       "titleCrewRoute": "Mannschaft zu Auftrag «{name}» zuweisen",
       "titleVehiclesRoute": "Fahrzeuge zu Auftrag «{name}» zuweisen",
@@ -1537,8 +1528,6 @@
       "releaseOnly": "Nur {vehicle} freigeben",
       "completeIncident": "Einsatz abschliessen",
       "completeFailed": "Nicht abgeschlossen – den Einsatz auf dem Board öffnen und dort abschliessen",
-      "openEvent": "Ereignis öffnen",
-      "openEventFailed": "Ereignis nicht geöffnet – erneut versuchen",
       "notOnBoard": "Einsatz nicht gefunden – im Board öffnen",
       "loadFailed": "Laden fehlgeschlagen – erneut versuchen",
       "retryLoad": "Erneut laden"
@@ -2633,8 +2622,6 @@
       "roleRequired": "Grad ist erforderlich",
       "callsignRequired": "Funkrufname ist erforderlich",
       "max40": "Maximal 40 Zeichen",
-      "max80": "Maximal 80 Zeichen",
-      "max120": "Maximal 120 Zeichen",
       "orderNumber": "Reihenfolge muss eine Zahl sein",
       "orderInt": "Reihenfolge muss eine ganze Zahl sein",
       "orderMin1": "Mindestens 1",
@@ -3089,7 +3076,7 @@
       "powerSupply": "Stromversorgung",
       "powerAvailable": "Vorhanden",
       "powerUnavailable": "Nicht vorhanden",
-      "powerEmergencyNeeded": "Notstrom benötigt",
+      "powerEmergencyNeeded": "Notstrom nötig",
       "photosCount": "Fotos ({count})",
       "photoAlt": "Reko-Foto {number}",
       "photoAltBy": "Reko-Foto {number} von {name}",
@@ -3465,14 +3452,6 @@
       "resourceMovedTitle": "{name} verschoben",
       "resourceMovedDescription": "Von {labels} freigegeben."
     },
-    "railway": {
-      "backOnlineTitle": "Railway ist wieder online",
-      "backOnlineDescription": "Lokale Änderungen zu Railway synchronisieren?",
-      "syncNowLabel": "Jetzt synchronisieren",
-      "syncing": "Wird zu Railway synchronisiert …",
-      "syncSuccess": "Erfolgreich zu Railway synchronisiert",
-      "syncFailed": "Nicht zu Railway synchronisiert"
-    },
     "rekoLinks": {
       "noRekoAssigned": "Keine Reko-Person zugewiesen",
       "directCopiedTitle": "Direkt-Link kopiert",
@@ -3725,7 +3704,6 @@
       "photo_demo_too_large": "Demo-Modus: Maximale Dateigrösse 1MB.",
       "photo_demo_limit": "Demo-Modus: Maximale Anzahl Fotos (15) erreicht.",
       "photo_invalid_extension": "Dieses Dateiformat wird nicht unterstützt. Erlaubt: {allowed}.",
-      "photo_invalid_type": "Diese Datei ist kein Bild.",
       "photo_invalid": "Das Bild ist beschädigt oder kann nicht gelesen werden.",
       "photo_too_large": "Datei zu gross – höchstens {max_mb} MB.",
       "photo_too_many_pixels": "Bild zu gross (Pixelmasse).",

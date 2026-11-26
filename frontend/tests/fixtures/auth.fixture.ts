@@ -1,7 +1,6 @@
 import { test as base, expect, Page } from '@playwright/test';
 import type { Cookie } from '@playwright/test';
 import { LoginPage } from '../pages/login.page';
-import { DashboardPage } from '../pages/dashboard.page';
 import { DEV_ADMIN_PASSWORD, DEV_ADMIN_USERNAME, DEV_VIEWER_PASSWORD, DEV_VIEWER_USERNAME } from '../constants';
 
 /**
@@ -13,7 +12,6 @@ type AuthFixtures = {
   authenticatedPage: Page;
   viewerPage: Page;
   loginPage: LoginPage;
-  dashboardPage: DashboardPage;
 };
 
 type AuthWorkerFixtures = {
@@ -107,14 +105,6 @@ export const test = base.extend<AuthFixtures, AuthWorkerFixtures>({
   loginPage: async ({ page }, use) => {
     const loginPage = new LoginPage(page);
     await use(loginPage);
-  },
-
-  /**
-   * Dashboard page object
-   */
-  dashboardPage: async ({ page }, use) => {
-    const dashboardPage = new DashboardPage(page);
-    await use(dashboardPage);
   },
 });
 

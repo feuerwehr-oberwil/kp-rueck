@@ -360,8 +360,10 @@ function MeldungenButton({
 }: TileProps & { count: number; todos?: { count: number; overdue: boolean } }) {
   const t = useTranslations('nav.mobileBottomNav')
   const tTodo = useTranslations('notifications.todo')
-  const loud = (todos?.count ?? 0) > 0
-  const shown = loud ? todos!.count : count
+  // The open to-dos, when there are any: the tile then shows them instead of the count.
+  const openTodos = todos && todos.count > 0 ? todos : null
+  const loud = openTodos !== null
+  const shown = openTodos ? openTodos.count : count
   return (
     <button
       ref={ref}
@@ -377,13 +379,13 @@ function MeldungenButton({
           <span
             aria-hidden
             data-testid="meldungen-badge"
-            data-todo={loud ? (todos!.overdue ? 'overdue' : 'open') : undefined}
+            data-todo={openTodos ? (openTodos.overdue ? 'overdue' : 'open') : undefined}
             className={cn(
               'absolute -top-1.5 left-3 flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-mono text-xs font-semibold',
               !loud && 'bg-foreground text-background',
               // Red is an edge and the text, never a fill (DESIGN.md «Colour roles»), as on the desk.
-              loud && !todos!.overdue && 'bg-warning text-foreground',
-              loud && todos!.overdue && 'bg-card text-destructive ring-2 ring-destructive motion-safe:animate-pulse',
+              openTodos && !openTodos.overdue && 'bg-warning text-foreground',
+              openTodos?.overdue && 'bg-card text-destructive ring-2 ring-destructive motion-safe:animate-pulse',
             )}
           >
             {badgeText(shown)}

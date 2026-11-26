@@ -102,7 +102,7 @@ export function AttachAlarmsDialog({ alarms, onClose, onAttached }: AttachAlarms
       ? { eventId: selectedEventId, lat: singleLat, lng: singleLng, address: single.address }
       : null
   const { candidates: duplicateCandidates, key: duplicateKey } = useDuplicateCandidates(duplicateLookup, (q) =>
-    apiClient.getDuplicateCandidates({ eventId: q.eventId!, lat: q.lat, lng: q.lng, address: q.address }),
+    apiClient.getDuplicateCandidates({ eventId: q.eventId, lat: q.lat, lng: q.lng, address: q.address }),
   )
   const shownDuplicates =
     duplicateKey !== null && duplicateKey !== dismissedDuplicateKey ? duplicateCandidates : []

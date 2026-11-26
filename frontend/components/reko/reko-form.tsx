@@ -45,16 +45,19 @@ function linkPhotoUrl(incidentId: string, token: string, filename: string): stri
 
 export default function RekoForm() {
   const params = useSearchParams()
+  const t = useTranslations('reko.form')
   const incidentId = params.get('incident_id')
   const token = params.get('token')
   const personnelId = params.get('personnel_id')
+  // A link without its incident or token is dead before it loads: the /alarm card.
+  if (!incidentId || !token) return <LinkInvalidCard title={t('invalidTitle')} description={t('invalidLink')} />
   return <FieldReport key={JSON.stringify([incidentId, token, personnelId])} incidentId={incidentId}
     token={token} personnelId={personnelId} returnTo={params.get('return_to')} />
 }
 
 function FieldReport({ incidentId, token, personnelId, returnTo }: {
-  incidentId: string | null
-  token: string | null
+  incidentId: string
+  token: string
   personnelId: string | null
   returnTo: string | null
 }) {
@@ -108,7 +111,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
    *  kommt nicht durch" (a fault) and "kein Netz" (a cellar, and normal). */
   const [online, setOnline] = useState(true)
   const [validationError, setValidationError] = useState<string | null>(null)
-  // A dead link (no token, or the server refused it) gets the /alarm card — one
+  // The server refused the link: the /alarm card (as for a link without a token) — one
   // message in the crew's words, not «Token» plus an «API Fehler» toast.
   const [linkInvalid, setLinkInvalid] = useState(false)
   // Constant until the backend returns the event's training_flag on the Reko form
@@ -157,7 +160,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   const HIGH_SEVERITY_SUMMARIES = t.raw('summaries.high') as string[]
 
   const handleMarkArrived = async () => {
-    if (!incidentId || !token || arrivedAt) return
+    if (arrivedAt) return
 
     setIsMarkingArrived(true)
     try {
@@ -236,12 +239,6 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   const loadForm = useEffectEvent(() => {
     let active = true
     async function init() {
-      if (!incidentId || !token) {
-        setLinkInvalid(true)
-        setIsLoading(false)
-        return
-      }
-
       try {
         // Load incident details and existing draft/report
         const data = await apiClient.getRekoForm(incidentId, token, personnelId)
@@ -388,7 +385,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   }
 
   async function saveDraft() {
-    if (!dirty || !changes || !syncedData || saving.current || isSubmittingRef.current || !incidentId || !token) return
+    if (!dirty || !changes || !syncedData || saving.current || isSubmittingRef.current) return
     const sent = sending(syncedData, changes)
     const answer = apiClient.saveRekoDraft(incidentId, token, changes)
     // A submit waiting on this save diffs against the form as sent – or, failed, as synced.
@@ -430,7 +427,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   // The "Einsatz relevant?" requirement lives in the shared field set, which
   // refuses to call this until it is answered — the same rule on both mounts.
   async function handleSubmit() {
-    if (!incidentId || !token || !syncedData || isSubmittingRef.current) return
+    if (!syncedData || isSubmittingRef.current) return
 
     // Set the ref synchronously so any in-flight auto-save closure bails out.
     isSubmittingRef.current = true
@@ -477,9 +474,9 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
   // The page's own photo viewer – no incident surface around it provides one. It loads each
   // photo through the link's door plus `view=full`, so every open is logged (`fullViewSrc`).
   const viewerPhotos = useMemo(() => ({
-    reko: incidentId && token ? formData.photos_json.map(filename => ({
+    reko: formData.photos_json.map(filename => ({
       group: 'reko' as const, filename, src: linkPhotoUrl(incidentId, token, filename), by: assignedPersonnelName, at: null,
-    })) : [],
+    })),
   }), [formData.photos_json, incidentId, token, assignedPersonnelName])
 
   if (isLoading) {
@@ -578,7 +575,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
             shell (header, arrival ping, dummy generator) is what differs;
             the fields must not. */}
         <RekoReportForm
-          incidentId={incidentId!}
+          incidentId={incidentId}
           value={formData}
           onChange={setFormData}
           mount="feld"
@@ -586,10 +583,10 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
           busy={isSaving}
           onSubmit={handleSubmit}
           photos={{
-            url: (filename) => linkPhotoUrl(incidentId!, token!, filename),
+            url: (filename) => linkPhotoUrl(incidentId, token, filename),
             upload: async (file, onProgress) =>
-              (await apiClient.uploadRekoPhoto(incidentId!, token!, file, onProgress)).filename,
-            remove: (filename) => apiClient.deleteRekoPhoto(incidentId!, token!, filename),
+              (await apiClient.uploadRekoPhoto(incidentId, token, file, onProgress)).filename,
+            remove: (filename) => apiClient.deleteRekoPhoto(incidentId, token, filename),
           }}
           /* «Ich bin vor Ort» sits beside the send in the footer until it is reported (owner
              pick, sign-off #387): the first thing a Reko does on site, where the thumb is. It

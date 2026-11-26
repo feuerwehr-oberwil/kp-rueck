@@ -30,7 +30,7 @@ from app.models import (
     Personnel,
     User,
 )
-from app.services.tokens import generate_checkin_token
+from app.services.tokens import generate_link_token
 
 PASSWORD = "testpassword1234"
 
@@ -74,7 +74,7 @@ async def crew(db_session: AsyncSession) -> list[Personnel]:
 
 @pytest_asyncio.fixture
 def parity_token(parity_event: Event) -> str:
-    return generate_checkin_token(parity_event.id)
+    return generate_link_token("checkin", parity_event.id)
 
 
 @pytest_asyncio.fixture
@@ -167,7 +167,7 @@ async def test_editor_check_in_writes_the_same_row_but_signed(
 ):
     """Byte-identical to a token-written row, except `checked_in_by_user_id`."""
     field_person, board_person = crew[0], crew[1]
-    token = generate_checkin_token(parity_event.id)
+    token = generate_link_token("checkin", parity_event.id)
 
     field = await editor_client.post(f"/api/personnel/check-in/{field_person.id}/in?token={token}")
     board = await editor_client.post(f"/api/personnel/check-in/{board_person.id}/in?event_id={parity_event.id}")
@@ -239,7 +239,7 @@ async def test_both_token_and_event_id_is_422(
     So "both" is refused rather than resolved in either direction — and nothing is
     written to *either* Ereignis while the ambiguity stands.
     """
-    foreign_token = generate_checkin_token(other_event.id)
+    foreign_token = generate_link_token("checkin", other_event.id)
     response = await editor_client.post(
         f"/api/personnel/check-in/{crew[0].id}/{leg}?token={foreign_token}&event_id={parity_event.id}"
     )
@@ -255,7 +255,7 @@ async def test_a_token_only_ever_writes_its_own_event(
     client: AsyncClient, db_session: AsyncSession, parity_event: Event, other_event: Event, crew: list[Personnel]
 ):
     """The token carries the event. There is no way to aim it somewhere else."""
-    token = generate_checkin_token(other_event.id)
+    token = generate_link_token("checkin", other_event.id)
     response = await client.post(f"/api/personnel/check-in/{crew[0].id}/in?token={token}")
     assert response.status_code == 200
 
@@ -318,7 +318,7 @@ async def test_unavailable_person_is_refused_from_both_channels(
 ):
     unavailable = crew[-1]
     assert unavailable.status == "unavailable"
-    token = generate_checkin_token(parity_event.id)
+    token = generate_link_token("checkin", parity_event.id)
 
     field = await editor_client.post(f"/api/personnel/check-in/{unavailable.id}/in?token={token}")
     board = await editor_client.post(f"/api/personnel/check-in/{unavailable.id}/in?event_id={parity_event.id}")
@@ -332,7 +332,7 @@ async def test_board_list_can_show_unavailable_people_the_phone_hides(
     editor_client: AsyncClient, parity_event: Event, crew: list[Personnel]
 ):
     """The board must not silently drop a name; it shows it disabled with the reason."""
-    token = generate_checkin_token(parity_event.id)
+    token = generate_link_token("checkin", parity_event.id)
 
     phone = await editor_client.get(f"/api/personnel/check-in/list?token={token}")
     board = await editor_client.get(f"/api/personnel/check-in/list?event_id={parity_event.id}&include_unavailable=true")
@@ -395,7 +395,7 @@ async def test_phone_still_blocks_check_out_of_an_assigned_person(
     editor_client: AsyncClient, parity_event: Event, assigned_person: Personnel
 ):
     """The phone cannot release an assignment, so a block is the only honest answer."""
-    token = generate_checkin_token(parity_event.id)
+    token = generate_link_token("checkin", parity_event.id)
     response = await editor_client.post(f"/api/personnel/check-in/{assigned_person.id}/out?token={token}")
     assert (response.status_code, response.json()["code"]) == (409, "person_still_assigned")
 
@@ -600,7 +600,7 @@ async def test_board_snapshot_marks_a_kp_checked_in_person(
     from app.crud.print_jobs import build_board_payload
 
     by_link, by_board = crew[0], crew[1]
-    token = generate_checkin_token(parity_event.id)
+    token = generate_link_token("checkin", parity_event.id)
     assert (await editor_client.post(f"/api/personnel/check-in/{by_link.id}/in?token={token}")).status_code == 200
     assert (
         await editor_client.post(f"/api/personnel/check-in/{by_board.id}/in?event_id={parity_event.id}")

@@ -10,7 +10,6 @@ export class LoginPage extends BasePage {
   readonly passwordInput: Locator;
   readonly loginButton: Locator;
   readonly errorMessage: Locator;
-  readonly loadingText: Locator;
   readonly passwordLoginToggle: Locator;
 
   constructor(page: Page) {
@@ -19,7 +18,6 @@ export class LoginPage extends BasePage {
     this.passwordInput = page.locator('input#password');
     this.loginButton = page.locator('button[type="submit"]');
     this.errorMessage = page.locator('.text-destructive');
-    this.loadingText = page.locator('text=Wird angemeldet …');
     // The password form is collapsed behind "Mit Passwort anmelden" when
     // Microsoft auth is enabled. Clicking the toggle expands it.
     this.passwordLoginToggle = page.locator('button', { hasText: /Mit Passwort anmelden/i });
@@ -63,22 +61,5 @@ export class LoginPage extends BasePage {
       (url) => !url.pathname.startsWith('/login'),
       { timeout: 10000 },
     );
-  }
-
-  /**
-   * Assert login error is displayed
-   */
-  async expectLoginError(message?: string) {
-    await this.errorMessage.waitFor({ state: 'visible' });
-    if (message) {
-      await this.expectText('.text-destructive', message);
-    }
-  }
-
-  /**
-   * Check if login button is disabled
-   */
-  async isLoginButtonDisabled(): Promise<boolean> {
-    return await this.loginButton.isDisabled();
   }
 }

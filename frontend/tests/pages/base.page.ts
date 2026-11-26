@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 /**
  * Base Page Object Model class
@@ -34,50 +34,5 @@ export class BasePage {
       path: `screenshots/${name}.png`,
       fullPage: true
     });
-  }
-
-  /**
-   * Click element and wait for optional selector
-   */
-  async clickAndWait(selector: string, waitFor?: string) {
-    await this.page.click(selector);
-    if (waitFor) {
-      await this.page.waitForSelector(waitFor);
-    }
-  }
-
-  /**
-   * Assert element is visible
-   */
-  async expectVisible(selector: string) {
-    await expect(this.page.locator(selector)).toBeVisible();
-  }
-
-  /**
-   * Assert element contains text
-   */
-  async expectText(selector: string, text: string) {
-    await expect(this.page.locator(selector)).toContainText(text);
-  }
-
-  /**
-   * Wait for notification to appear
-   */
-  async waitForNotification(message: string) {
-    await expect(
-      this.page.locator('[role="alert"]', { hasText: message })
-    ).toBeVisible({ timeout: 5000 });
-  }
-
-  /**
-   * Wait for toast notification
-   */
-  async waitForToast(message?: string) {
-    const toast = this.page.locator('[data-sonner-toast]');
-    if (message) {
-      await expect(toast.filter({ hasText: message })).toBeVisible({ timeout: 5000 });
-    } else {
-      await expect(toast).toBeVisible({ timeout: 5000 });
-    }
   }
 }

@@ -30,7 +30,6 @@ export class EventsPage extends BasePage {
   readonly deleteConfirmButton: Locator;
 
   // Page sections
-  readonly activeEventsSection: Locator;
   readonly archivedEventsSection: Locator;
 
   constructor(page: Page) {
@@ -60,7 +59,6 @@ export class EventsPage extends BasePage {
 
     // Page sections. Active events are simply the row list now; the archive is
     // a collapsed disclosure ("Archiv (N)") at the foot of it.
-    this.activeEventsSection = page.getByTestId('event-card').first();
     this.archivedEventsSection = page.getByRole('button', { name: /^Archiv \(\d+\)$/ });
   }
 
@@ -245,23 +243,5 @@ export class EventsPage extends BasePage {
   async hasTrainingFlag(name: string): Promise<boolean> {
     const card = this.eventCard(name);
     return await card.getByText('Übung', { exact: true }).isVisible().catch(() => false);
-  }
-
-  /**
-   * Get event incident count ("N Einsätze" / "1 Einsatz" on the row)
-   */
-  async getEventIncidentCount(name: string): Promise<number> {
-    const card = this.eventCard(name);
-    const countText = await card.locator('text=/\\d+ Einsätze?/').textContent();
-    if (!countText) return 0;
-    const match = countText.match(/(\d+) Einsätze?/);
-    return match ? parseInt(match[1], 10) : 0;
-  }
-
-  /**
-   * Wait for event to appear after creation
-   */
-  async waitForEventCreation(name: string) {
-    await expect(this.eventCard(name)).toBeVisible({ timeout: 10000 });
   }
 }

@@ -274,9 +274,3 @@ def test_duration_reads_like_the_board():
     assert texts.duration_de(60) == "1h 0'"
     assert texts.duration_de(24 * 60 + 10 * 60 + 12) == "1d 10h"
     assert texts.duration_de(-3) == "0'"
-
-
-def test_fatigue_message_stays_the_service_entry_point():
-    from app.services.notification_service import fatigue_message
-
-    assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4h im Einsatz: Müller Hans (5h)"

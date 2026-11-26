@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.crud import personnel_checkin as crud
 from app.models import AuditLog, Event, EventAttendance, Personnel
 from app.services import share_links
-from app.services.tokens import generate_checkin_token
+from app.services.tokens import generate_link_token
 
 
 async def _guest(engine: AsyncEngine, token: str, name: str) -> UUID:
@@ -42,7 +42,7 @@ async def test_a_crowd_typing_one_new_name_makes_one_guest_and_a_roster_name_one
         await setup.flush()
         setup.add(Personnel(id=roster_id, name="Baumann Michael", status="available"))
         await setup.commit()
-    token = generate_checkin_token(event_id)
+    token = generate_link_token("checkin", event_id)
 
     try:
         ids = await asyncio.gather(*(_guest(test_engine, token, "Gast Peter") for _ in range(5)))
@@ -101,7 +101,7 @@ async def test_a_write_through_the_link_holds_off_revoke_and_delete_but_not_the_
     async with AsyncSession(bind=test_engine, expire_on_commit=False) as setup:
         setup.add(Event(id=event_id, name="Sturm", training_flag=False))
         await setup.commit()
-    token = generate_checkin_token(event_id)
+    token = generate_link_token("checkin", event_id)
 
     async def revoke(session: AsyncSession) -> None:
         await share_links.revoke(session, "checkin", event_id)

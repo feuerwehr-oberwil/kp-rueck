@@ -31,6 +31,7 @@ from app.models import (
     User,
 )
 from app.schemas import NotificationSettings
+from app.services import notification_params as texts
 from app.services.notification_service import (
     NOTIFICATION_SETTINGS_KEY,
     _auto_resolve_stale_notifications,
@@ -43,7 +44,6 @@ from app.services.notification_service import (
     create_reko_notification,
     dismiss_notification,
     evaluate_notifications,
-    fatigue_message,
     get_notification_settings,
     save_notification_settings,
 )
@@ -587,13 +587,13 @@ class TestFatigueNotification:
         return list(result.scalars().all())
 
     def test_message_single_and_grouped(self):
-        assert fatigue_message([("Müller Hans", 5 * 60 + 10)], 4) == "Seit über 4h im Einsatz: Müller Hans (5h)"
+        assert texts.fatigue([("Müller Hans", 5 * 60 + 10)], 4)[0] == "Seit über 4h im Einsatz: Müller Hans (5h)"
         assert (
-            fatigue_message([("Müller Hans", 6 * 60), ("Meier Anna", 4 * 60 + 59)], 4)
+            texts.fatigue([("Müller Hans", 6 * 60), ("Meier Anna", 4 * 60 + 59)], 4)[0]
             == "2 Personen seit über 4h im Einsatz: Müller Hans (6h), Meier Anna (4h)"
         )
         many = [(f"P{i}", 300) for i in range(7)]
-        assert fatigue_message(many, 4).endswith("P4 (5h) und 2 weitere")
+        assert texts.fatigue(many, 4)[0].endswith("P4 (5h) und 2 weitere")
 
     @pytest.mark.asyncio
     async def test_measured_from_check_in_not_from_assignment(

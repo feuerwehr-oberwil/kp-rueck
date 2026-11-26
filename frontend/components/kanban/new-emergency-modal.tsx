@@ -297,7 +297,7 @@ export function NewEmergencyModal({
       }
     : null
   const { candidates, key: duplicateKey } = useDuplicateCandidates(lookup, (q) =>
-    apiClient.getDuplicateCandidates({ eventId: q.eventId!, lat: q.lat, lng: q.lng, address: q.address }),
+    apiClient.getDuplicateCandidates({ eventId: q.eventId, lat: q.lat, lng: q.lng, address: q.address }),
   )
   // «Trotzdem neu» answers for THIS address; typing another one asks again.
   const [dismissedKey, setDismissedKey] = useState<string | null>(null)

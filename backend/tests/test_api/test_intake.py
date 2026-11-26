@@ -11,9 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.intake import INTAKE_NOTE_PREFIX, INTAKE_RECEIPT_FORM_TYPE, append_reporter_note
 from app.models import Event, Incident, IncidentAssignment, StatusTransition, Vehicle
 from app.services.tokens import (
-    generate_alarm_token,
     generate_form_token,
-    generate_viewer_token,
+    generate_link_token,
     validate_form_token,
 )
 
@@ -38,7 +37,7 @@ CLOSED = "Der KP hat diese Meldung bereits übernommen. Änderungen bitte per Fu
 
 async def _phone_in(client: AsyncClient, event: Event, **overrides: object) -> tuple[str, str, str]:
     """Phone an alarm in and keep the receipt: `(intake token, incident id, receipt)`."""
-    token = generate_alarm_token(event.id)
+    token = generate_link_token("alarm", event.id)
     response = await client.post(f"/api/intake/alarm?token={token}", json={**VALID_ALARM, **overrides})
     assert response.status_code == 201, response.text
     body = response.json()
@@ -81,14 +80,14 @@ class TestContext:
     @pytest.mark.api
     async def test_wrong_token_type_rejected(self, client: AsyncClient, test_event: Event):
         # A viewer token must not unlock the intake context.
-        token = generate_viewer_token(test_event.id)
+        token = generate_link_token("viewer", test_event.id)
         response = await client.get(f"/api/intake/context?token={token}")
         assert response.status_code == 401
 
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_valid_token(self, client: AsyncClient, test_event: Event):
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.get(f"/api/intake/context?token={token}")
         assert response.status_code == 200
         event = response.json()["event"]
@@ -99,7 +98,7 @@ class TestContext:
     @pytest.mark.api
     async def test_unknown_event(self, client: AsyncClient):
         """A link of an Ereignis that no longer exists opens nothing."""
-        token = generate_alarm_token(uuid4())
+        token = generate_link_token("alarm", uuid4())
         response = await client.get(f"/api/intake/context?token={token}")
         assert response.status_code == 401
 
@@ -116,7 +115,7 @@ class TestCreateAlarm:
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_creates_intake_incident(self, client: AsyncClient, db_session: AsyncSession, test_event: Event):
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(f"/api/intake/alarm?token={token}", json=VALID_ALARM)
         assert response.status_code == 201
         new_id = response.json()["id"]
@@ -141,7 +140,7 @@ class TestCreateAlarm:
         `title` — which a card only shows when it has no address, i.e. never for
         an alarm the caller could name a street for.
         """
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(f"/api/intake/alarm?token={token}", json=VALID_ALARM)
         assert response.status_code == 201
 
@@ -153,7 +152,7 @@ class TestCreateAlarm:
     @pytest.mark.api
     async def test_overlong_notes_rejected(self, client: AsyncClient, test_event: Event):
         """Free text through a login-less door is capped, like the Meldung."""
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(
             f"/api/intake/alarm?token={token}",
             json={**VALID_ALARM, "internal_notes": "x" * 2001},
@@ -163,7 +162,7 @@ class TestCreateAlarm:
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_minimal_payload(self, client: AsyncClient, test_event: Event):
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(
             f"/api/intake/alarm?token={token}",
             json={"title": "Kurz", "type": "diverse_einsaetze", "priority": "low"},
@@ -173,7 +172,7 @@ class TestCreateAlarm:
     @pytest.mark.asyncio
     @pytest.mark.api
     async def test_empty_title_rejected(self, client: AsyncClient, test_event: Event):
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(
             f"/api/intake/alarm?token={token}",
             json={"title": "   ", "type": "brandbekaempfung", "priority": "high"},
@@ -185,7 +184,7 @@ class TestCreateAlarm:
     async def test_archived_event_rejected(self, client: AsyncClient, db_session: AsyncSession, test_event: Event):
         test_event.archived_at = datetime.now(UTC)
         await db_session.commit()
-        token = generate_alarm_token(test_event.id)
+        token = generate_link_token("alarm", test_event.id)
         response = await client.post(f"/api/intake/alarm?token={token}", json=VALID_ALARM)
         assert response.status_code == 404
 
@@ -336,7 +335,7 @@ class TestReceipt:
         )
         await db_session.commit()
 
-        response = await client.get(_receipt_url(incident_id, generate_alarm_token(test_event.id), receipt))
+        response = await client.get(_receipt_url(incident_id, generate_link_token("alarm", test_event.id), receipt))
 
         assert response.status_code == 200, response.text
         assert response.json()["vehicles"] == [test_vehicle.name]
@@ -450,7 +449,7 @@ class TestReceiptRefusalsDoNotProbeTheBoard:
         """Ask both doors about an incident, holding a well-formed receipt for it."""
         url = _receipt_url(
             incident_id,
-            generate_alarm_token(event.id),
+            generate_link_token("alarm", event.id),
             generate_form_token(incident_id, INTAKE_RECEIPT_FORM_TYPE),
         )
         read = await client.get(url)

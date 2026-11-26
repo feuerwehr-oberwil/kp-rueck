@@ -379,11 +379,6 @@ async def _check_leaving_alerts(db: AsyncSession, event_id: UUID) -> list[Notifi
     return notifications
 
 
-def fatigue_message(over: list[tuple[str, int]], fatigue_hours: int) -> str:
-    """The German sentence of the grouped time-on-duty notification (`notification_params.fatigue`)."""
-    return texts.fatigue(over, fatigue_hours)[0]
-
-
 def fatigue_subject_key(personnel_id: UUID, checked_in_at: datetime) -> str:
     """One person's shift, as the grouped fatigue row records it (`Notification.subject_keys`).
 

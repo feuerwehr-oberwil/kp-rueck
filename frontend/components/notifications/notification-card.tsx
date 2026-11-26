@@ -112,7 +112,8 @@ export function NotificationCard({
         ? t('severityWarning')
         : t('severityInfo')
 
-  const isClickable = !!notification.incident_id && !!onClickIncident
+  const incidentId = notification.incident_id
+  const isClickable = !!incidentId && !!onClickIncident
 
   // Same reading as the toast: what is asked, then where · who (lib/notification-format.ts).
   // Said in the operator's language from type + params; the German sentence is the fallback.
@@ -124,11 +125,9 @@ export function NotificationCard({
   // The move this notification is asking for, if it is still open. Nothing is
   // offered for a card that has already been moved — by a drag, by the nudge on
   // the card, or by this button a moment ago.
-  const operation = notification.incident_id
-    ? operations.find((op) => op.id === notification.incident_id)
-    : undefined
+  const operation = incidentId ? operations.find((op) => op.id === incidentId) : undefined
   const nudge = operation ? fieldNudgeForNotification(notification.type, operation) : null
-  const showAction = !!nudge && !!fieldAction && isEditor && !readOnly && !notification.dismissed
+  const showAction = !!incidentId && !!nudge && !!fieldAction && isEditor && !readOnly && !notification.dismissed
 
   return (
     <div
@@ -150,7 +149,7 @@ export function NotificationCard({
         if (dismissOnClick && !notification.dismissed && onDismiss) onDismiss(notification.id)
         // The bell is a pointer: open the tab the notification is ABOUT, not
         // the one the operator happens to have remembered (§18.27).
-        onClickIncident(notification.incident_id!, detailTabForNotification(notification.type))
+        onClickIncident(incidentId, detailTabForNotification(notification.type))
       }}
     >
       <div className="flex items-start gap-2.5">
@@ -179,7 +178,7 @@ export function NotificationCard({
               // The row itself opens the incident; this button answers instead.
               onClick={(event) => {
                 event.stopPropagation()
-                fieldAction!(notification.incident_id!, nudge!.kind)
+                fieldAction(incidentId, nudge.kind)
                 if (!notification.dismissed && onDismiss) onDismiss(notification.id)
               }}
             >

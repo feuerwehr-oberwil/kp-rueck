@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event, EventAttendance, Personnel
 from app.services import notification_service
-from app.services.tokens import generate_checkin_token
+from app.services.tokens import generate_link_token
 from tests.conftest import feld_device_token
 
 
@@ -54,7 +54,7 @@ async def _row(db: AsyncSession, event: Event, person: Personnel) -> EventAttend
 async def test_the_link_sets_a_plan_for_somebody_not_here_and_they_still_read_absent(
     client: AsyncClient, db_session: AsyncSession, plan_event: Event, person: Personnel
 ):
-    token = generate_checkin_token(plan_event.id)
+    token = generate_link_token("checkin", plan_event.id)
     response = await client.put(
         f"/api/personnel/check-in/{person.id}/plan?token={token}", json={"planned_from": _at(30)}
     )

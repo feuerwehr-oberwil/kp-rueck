@@ -145,22 +145,6 @@ async def test_the_generic_settings_endpoint_cannot_reach_the_consent_key(editor
     assert r.status_code == 404
 
 
-# --- The manual route is gone ---------------------------------------------------------
-
-
-async def test_the_manual_report_route_no_longer_exists(editor_client):
-    # It went with the ingest it fed. Pinned rather than merely deleted: a queued report with
-    # no destination is the one failure this package must never produce — the form would say
-    # «gesendet» and nothing would ever arrive — so a future re-add has to be deliberate.
-    #
-    # 404 or 405: a catch-all that claims the path for GET makes FastAPI report the POST as a
-    # wrong method rather than a missing one. Both mean the same thing here; asserting the
-    # pair keeps the test about the route being gone rather than about which one the router
-    # happens to pick.
-    r = await editor_client.post("/api/diag/report", json={"message": "kaputt"})
-    assert r.status_code == 404
-
-
 # --- Admin surface --------------------------------------------------------------------
 
 

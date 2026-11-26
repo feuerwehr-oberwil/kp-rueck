@@ -438,7 +438,7 @@ something you notice mid-event.
 
 Empty is no better than placeheld: if the three are ever blank – a hand-edited database, or a
 read-only display opened by token, which does not fetch settings at all – the map falls back to
-coordinates hard-coded in `frontend/components/map-view.tsx`, in Oberwil BL, the station this was
+coordinates hard-coded in `frontend/lib/map-view.ts` (`DEFAULT_CENTER_LATLNG`), in Oberwil BL, the station this was
 written for. Same problem, different wrong town. **Every station has to set these**; there is no
 default that is right for anybody but us.
 

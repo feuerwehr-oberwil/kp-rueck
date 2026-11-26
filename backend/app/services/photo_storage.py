@@ -10,14 +10,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
-# Optional MIME type detection for enhanced security
-try:
-    import magic
-
-    HAS_MAGIC = True
-except ImportError:
-    HAS_MAGIC = False
-
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 from sqlalchemy import func, select
@@ -118,9 +110,10 @@ class PhotoStorageService:
 
     def _validate_file_type(self, content: bytes, filename: str | None = None) -> None:
         """
-        Validate file type using both extension and MIME type magic bytes.
+        Validate an upload: the extension must be allowed and PIL must open and decode it.
 
-        Security: Prevents malicious files disguised with fake extensions.
+        The decode is the content check: a file with an image extension that is not an
+        image fails at ``Image.open`` or ``img.load()``.
         """
         # Check extension if filename provided
         if filename:
@@ -133,30 +126,6 @@ class PhotoStorageService:
                     # The configured list, not a hard-coded one: the sentence names what
                     # this station actually accepts («JPG, JPEG, PNG, WEBP»).
                     params={"allowed": ", ".join(e.lstrip(".").upper() for e in self.allowed_extensions)},
-                )
-
-        # Check actual file content using magic bytes if available
-        if HAS_MAGIC:
-            # Only the magic call is guarded. It used to be the whole block, including the
-            # raise — and since HTTPException IS an Exception, the `except` swallowed the
-            # very rejection this check exists to make: no file was ever turned away here.
-            try:
-                mime = magic.from_buffer(content, mime=True)
-            except Exception:  # libmagic missing/unhappy → fall back to the PIL check below
-                mime = None
-
-            allowed_mimes = {
-                "image/jpeg",
-                "image/jpg",
-                "image/png",
-                "image/webp",
-                "application/octet-stream",  # Some browsers send this for images
-            }
-            if mime and mime not in allowed_mimes:
-                raise CodedHTTPException(
-                    400,
-                    ErrorCode.PHOTO_INVALID_TYPE,
-                    f"Ungültiger Dateityp: {mime}. Nur Bilder sind erlaubt.",
                 )
 
         # Validate PIL can open the file (don't use verify() — it's overly strict

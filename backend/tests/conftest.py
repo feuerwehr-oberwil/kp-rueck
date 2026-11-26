@@ -3,7 +3,7 @@
 import asyncio
 import contextlib
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Coroutine
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -440,11 +440,10 @@ async def _bind_audit_logging_to_test_db(test_engine, monkeypatch):
     """Point the audit middleware's own session factory at the test database.
 
     `app/database.py` builds `audit_engine` from `settings.database_url` at import time — a
-    deliberately separate pool so audit writes can't exhaust the request pool. In tests the
-    middleware normally logs through the injected `app.state.test_db_session` and never
-    touches it, but any request that reaches the app WITHOUT the `client` fixture takes the
-    production branch and fires an audit task at whatever `DATABASE_URL` points at: on a
-    developer's machine, their live `kprueck` database.
+    deliberately separate pool so audit writes can't exhaust the request pool. A `client`
+    fixture routes the writes into the test session (`route_audit_into`), but any request
+    that reaches the app WITHOUT one fires its audit task at whatever `DATABASE_URL` points
+    at: on a developer's machine, their live `kprueck` database.
 
     Same reasoning as the blocklist fixture above, and autouse for the same reason — a test
     that forgets to ask would silently write somewhere else. Under `-n` it matters more:
@@ -454,6 +453,25 @@ async def _bind_audit_logging_to_test_db(test_engine, monkeypatch):
         "app.middleware.audit.audit_session_maker",
         async_sessionmaker(bind=test_engine, expire_on_commit=False),
     )
+
+
+def route_audit_into(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the audit middleware write into `db_session`'s transaction, awaited.
+
+    Each `client` fixture calls it. The row is then visible to the test at once and rolls back
+    with it, and its `user_id` can reference a user the test has not really committed. The
+    write itself is production's (`_log_api_request`); only the session and the waiting
+    differ. A test that needs the real fire-and-forget path uses its own client.
+    """
+
+    async def awaited(write: Coroutine[None, None, None]) -> None:
+        await write
+
+    monkeypatch.setattr(
+        "app.middleware.audit.audit_session_maker",
+        async_sessionmaker(bind=db_session.bind, expire_on_commit=False, join_transaction_mode="create_savepoint"),
+    )
+    monkeypatch.setattr("app.middleware.audit._dispatch", awaited)
 
 
 # What `test_engine` seeds once per session: the only rows that belong in the database
@@ -518,7 +536,7 @@ async def _bind_divera_send_record_to_test_db(db_session, monkeypatch):
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client with test database override.
 
     Every request shares `db_session`, with `get_db`'s rule: a route that raises rolls back
@@ -537,14 +555,12 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
             raise
 
     app.dependency_overrides[get_db] = override_get_db
-    # Inject session into app state so audit middleware uses same transaction
-    app.state.test_db_session = db_session
+    route_audit_into(db_session, monkeypatch)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
-    app.state.test_db_session = None
 
 
 @pytest_asyncio.fixture

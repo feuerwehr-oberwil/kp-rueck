@@ -17,7 +17,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Event, EventAttendance, EventSpecialFunction, IncidentGroup, IncidentGroupAssignment, Personnel
-from app.services.tokens import generate_checkin_token, generate_link_token
+from app.services.tokens import generate_link_token
 
 # ============================================
 # Fixtures
@@ -47,9 +47,7 @@ async def test_personnel(db_session: AsyncSession) -> list[Personnel]:
 @pytest_asyncio.fixture
 def valid_token(test_event: Event) -> str:
     """Generate a valid check-in token for the test event."""
-    from app.services.tokens import generate_checkin_token
-
-    return generate_checkin_token(test_event.id)
+    return generate_link_token("checkin", test_event.id)
 
 
 # ============================================
@@ -497,7 +495,7 @@ async def test_expired_token(client: AsyncClient, test_personnel):
 async def test_list_personnel_event_not_found(client: AsyncClient):
     """Test listing personnel for non-existent event."""
     # Generate a token for a non-existent event
-    token = generate_checkin_token(uuid4())
+    token = generate_link_token("checkin", uuid4())
     response = await client.get(f"/api/personnel/check-in/list?token={token}")
     assert response.status_code == 401
 

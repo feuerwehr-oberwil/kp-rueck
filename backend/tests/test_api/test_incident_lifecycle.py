@@ -22,6 +22,7 @@ from app.auth.security import hash_password
 from app.database import get_db
 from app.main import app
 from app.models import Material, Personnel, User, Vehicle
+from tests.conftest import route_audit_into
 
 # ============================================
 # Fixtures
@@ -29,23 +30,20 @@ from app.models import Material, Personnel, User, Vehicle
 
 
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncClient:
+async def client(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
     """Create an async test client with test database override."""
 
     async def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    # Route audit-middleware writes into the rolled-back test session.
-    # Without this they fire-and-forget into the shared test DB and pollute
-    # global-count assertions elsewhere (e.g. the audit-cleanup tests).
-    app.state.test_db_session = db_session
+    # Audit rows into the rolled-back test session, not the shared test DB.
+    route_audit_into(db_session, monkeypatch)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
     app.dependency_overrides.clear()
-    app.state.test_db_session = None
 
 
 @pytest_asyncio.fixture
