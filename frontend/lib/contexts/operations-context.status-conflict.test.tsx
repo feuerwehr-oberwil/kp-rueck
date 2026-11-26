@@ -27,7 +27,7 @@ const incident = (id: string, overrides: Partial<ApiIncident> = {}): ApiIncident
     ...overrides,
   }) as ApiIncident
 
-const authState = vi.hoisted(() => ({
+const authState = vi.hoisted((): { isAuthenticated: boolean; loading: boolean; user: { id: string } | null } => ({
   isAuthenticated: true,
   loading: false,
   user: { id: "user-a" },

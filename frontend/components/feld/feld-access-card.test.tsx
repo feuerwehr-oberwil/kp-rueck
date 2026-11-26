@@ -7,7 +7,7 @@ import { renderWithIntl } from '@/test-utils/render-with-intl'
 const getFeldAccess = vi.hoisted(() => vi.fn())
 const regenerateFeldCode = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/api-client', () => ({ apiClient: { getFeldAccess, regenerateFeldCode } }))
-const auth = vi.hoisted(() => ({ user: { id: 'editor-1' } }))
+const auth = vi.hoisted((): { user: { id: string } | null } => ({ user: { id: 'editor-1' } }))
 vi.mock('@/lib/contexts/auth-context', () => ({ useAuth: () => auth }))
 
 import { FeldAccessCard, prefetchFeldAccess } from '@/components/feld/feld-access-card'

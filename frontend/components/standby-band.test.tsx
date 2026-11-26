@@ -1,9 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithIntl } from '@/test-utils/render-with-intl'
 
-const mocks = vi.hoisted(() => ({
+type Mocks = {
+  getDeployment: Mock
+  getStandby: Mock
+  takeOverEvent: Mock
+  takeBackEvent: Mock
+  selectedEvent: { id: string; name: string } | null
+}
+const mocks = vi.hoisted((): Mocks => ({
   getDeployment: vi.fn(),
   getStandby: vi.fn(),
   takeOverEvent: vi.fn(),
