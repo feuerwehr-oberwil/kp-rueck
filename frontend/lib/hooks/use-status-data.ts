@@ -83,7 +83,7 @@ export function useStatusData() {
     const byStatus: Record<string, Operation[]> = {}
     columns.forEach((col) => { byStatus[col.id] = [] })
     operations.forEach((op) => {
-      const col = columns.find((c) => c.status.includes(op.status))
+      const col = columns.find((c) => c.id === op.status)
       if (col) byStatus[col.id].push(op)
     })
 

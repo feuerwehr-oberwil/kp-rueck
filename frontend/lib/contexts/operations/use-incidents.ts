@@ -35,7 +35,7 @@ export function useIncidents() {
       event_id: eventId,
       title: op.location,
       type: op.incidentType as ApiIncident['type'],
-      priority: op.priority as "low" | "medium" | "high",
+      priority: op.priority,
       location_address: op.location,
       location_display: op.locationDisplay ?? null,
       location_lat: op.coordinates?.[0] ?? null,

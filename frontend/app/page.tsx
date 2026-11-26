@@ -1556,7 +1556,7 @@ export default function FireStationDashboard() {
             ) : (
               <div className="flex h-full gap-3 animate-in fade-in duration-300">
                 {columns.map((column) => {
-                  const columnOps = filteredOperations.filter((op) => column.status.includes(op.status))
+                  const columnOps = filteredOperations.filter((op) => column.id === op.status)
                   return (
                     <DroppableColumn
                       key={column.id}

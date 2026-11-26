@@ -198,7 +198,7 @@ function BoardDisplay() {
     const grouped: Record<string, Operation[]> = {}
     columns.forEach((col) => { grouped[col.id] = [] })
     operations.forEach((op) => {
-      const column = columns.find((col) => col.status.includes(op.status))
+      const column = columns.find((col) => col.id === op.status)
       if (column) grouped[column.id].push(op)
     })
     return grouped
@@ -239,7 +239,7 @@ function BoardDisplay() {
         // The column's accent, worn as a 2px rule instead of the old pastel
         // wash — the same treatment the command-post board got. `column.id` IS
         // a status (see kanban-utils), so the lookup cannot miss.
-        const accent = STATUS_ACCENT[column.id as OperationStatus]
+        const accent = STATUS_ACCENT[column.id]
 
         // Folded: the narrow rail with the count, the overdue mark and the short name.
         if (isCollapsed) {

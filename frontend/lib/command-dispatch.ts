@@ -30,9 +30,10 @@
 
 import { takesAssignments } from "@/lib/assignable"
 import type { personMatchesQuery } from "./resource-status"
+import type { Priority } from "@/lib/priority"
 
 export type DispatchStatus = "incoming" | "reko" | "reko_done" | "enroute" | "active" | "returning" | "complete"
-export type DispatchPriority = "low" | "medium" | "high"
+export type DispatchPriority = Priority
 
 export interface DispatchIncident {
   id: string

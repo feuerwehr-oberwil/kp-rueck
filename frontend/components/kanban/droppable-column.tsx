@@ -9,7 +9,7 @@ import { type Operation, type Material } from "@/lib/contexts/operations-context
 import { DraggableOperation } from "./draggable-operation"
 import { type CardViewSettings } from "@/lib/card-view"
 import type { OperationDetailSection, OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
-import { COLUMN_HEADER_CLASS, STATUS_ACCENT, isOverdue } from "@/lib/kanban-utils"
+import { COLUMN_HEADER_CLASS, STATUS_ACCENT, isOverdue, type BoardColumn } from "@/lib/kanban-utils"
 import type { OperationStatus } from "@/lib/contexts/operations-context"
 import { getIncidentLocationLabel } from "@/lib/incident-types"
 import { cn } from "@/lib/utils"
@@ -28,14 +28,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import type { BoardDropTarget } from "@/lib/board-drag"
 
 interface DroppableColumnProps {
-  column: {
-    id: string
-    status: string[]
-    color: string
-    collapsible?: boolean
-  }
+  column: BoardColumn
   operations: Operation[]
   onRemoveCrew: (operationId: string, personnelId: string) => void
   onRemoveMaterial: (operationId: string, materialId: string) => void
@@ -213,7 +209,7 @@ export const DroppableColumn = memo(function DroppableColumn({
   // pastel wash: the hue still identifies the column at a glance, but stops
   // painting a seventh of the screen behind the cards. `column.id` IS a status
   // (see kanban-utils), so the lookup cannot miss.
-  const accent = STATUS_ACCENT[column.id as OperationStatus]
+  const accent = STATUS_ACCENT[column.id]
   /** What accepts a dropped card: the column body when the column is open, the
    *  folded strip when it is not. One ref for both — they are two different
    *  elements and only ever one of them is mounted, so a callback ref keeps the
@@ -314,7 +310,7 @@ export const DroppableColumn = memo(function DroppableColumn({
       canDrop: ({ source }) => {
         return source.data.type === "operation"
       },
-      getData: () => ({ type: "column", columnId: column.id }),
+      getData: () => ({ type: "column", columnId: column.id }) satisfies BoardDropTarget,
       onDragEnter: () => setIsOver(true),
       onDragLeave: () => setIsOver(false),
       onDrop: () => setIsOver(false),

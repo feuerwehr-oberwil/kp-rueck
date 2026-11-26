@@ -13,6 +13,7 @@ import type {
 import type { IncidentCoordinates } from "@/lib/coordinate-parser"
 import type { Person } from "../personnel-context"
 import type { Material, MaterialGroup } from "../materials-context"
+import type { Priority } from "@/lib/priority"
 
 export type PersonRole = string
 
@@ -86,7 +87,7 @@ export interface Operation {
   incidentType: string
   dispatchTime: Date
   crew: CrewMember[]
-  priority: "high" | "medium" | "low"
+  priority: Priority
   status: OperationStatus
   coordinates: IncidentCoordinates
   materials: string[]
