@@ -15230,7 +15230,7 @@
           "notifications"
         ],
         "summary": "Get Current Notifications",
-        "description": "Get all active notifications for the specified event.\n\nEvaluates all notification rules and returns active (non-dismissed) notifications.",
+        "description": "Get all active notifications for the specified event.\n\nEvaluates all notification rules and returns active (non-dismissed) notifications. A standby\nbox evaluates only in an Ereignis it leads; elsewhere it returns the mirrored rows as they are.",
         "operationId": "get_current_notifications_api_notifications__get",
         "parameters": [
           {

@@ -30,8 +30,8 @@ side effects fire, and are attributed to a clearly-named system actor user
 (``gps-automation``) so the audit / Excel export shows "automatic (GPS)" vs operator
 actions. Also active in training events (so the rules can be exercised in Übungen);
 disabled only in demo mode. On a standby mirror it acts only in the Ereignisse that box
-has taken offline and leads (``_leads``), and never silently – the ``gps-automation`` actor is
-created on the hosted board, not on the box. The hosted board leaves those Ereignisse alone.
+has taken offline and leads (``event_lead.system_leads``), and never silently – the
+``gps-automation`` actor is created on the hosted board, not on the box. The hosted board leaves those Ereignisse alone.
 
 Debounce counters are kept in module-level memory and reset on any gap (missing/stale
 fix) so spotty GPS coverage can never accumulate a false positive.
@@ -45,7 +45,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import column, select, table
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings as app_settings
@@ -53,7 +53,6 @@ from ..crud import incidents as incidents_crud
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import (
     Event,
-    EventLead,
     Incident,
     IncidentAssignment,
     IncidentGroup,
@@ -64,6 +63,7 @@ from ..models import (
 from ..traccar import VehiclePosition
 from ..utils.failure_latch import FailureLatch
 from ..websocket_manager import broadcast_incident_update, broadcast_message
+from .event_lead import system_leads
 from .settings import (
     GEOFENCE_RADIUS_METERS,
     GPS_AUTOMATION_ENABLED,
@@ -351,25 +351,6 @@ def _suppressed_arrival_keys(
     return suppressed
 
 
-# app/standby.py's list of Ereignisse a standby box has taken offline.
-_DETACHED_EVENTS = table("detached_events", column("event_id"), schema="standby")
-
-
-async def _leads(db: AsyncSession) -> Callable[[uuid.UUID], bool]:
-    """Whether this box's automation may write in an Ereignis: only where it leads.
-
-    An Ereignis a standby box took offline is synced both ways (app/standby_sync.py), and
-    ``event_leads`` says which side works on it. The side that does not lead stays quiet, or
-    both would raise the same prompt. A standby box leads only Ereignisse it also took out of
-    the mirror stream (``standby.detached_events``); the hosted board leads all others.
-    """
-    led_by_box = set(await db.scalars(select(EventLead.event_id).where(EventLead.holder == "standby")))
-    if deployment_role() != ROLE_STANDBY:
-        return lambda event_id: event_id not in led_by_box
-    mine = led_by_box & set(await db.scalars(select(_DETACHED_EVENTS.c.event_id)))
-    return lambda event_id: event_id in mine
-
-
 async def _group_vehicle_targets(db: AsyncSession) -> list[dict[str, Any]]:
     """Expand active route-level (Auftrag) vehicle assignments into arrival targets.
 
@@ -542,7 +523,7 @@ async def _run_tick(db: AsyncSession, vehicle_positions: list[VehiclePosition]) 
 
     # Every Ereignis's assignments make a vehicle busy for Rule C; Rules A and B act only where
     # this box leads.
-    leads = await _leads(db)
+    leads = await system_leads(db)
     busy_vehicle_ids = {t["vehicle_id"] for t in targets}
     targets = [t for t in targets if leads(t["event_id"])]
 
@@ -742,7 +723,7 @@ async def _fire_unassigned_return_notification(
     """Create the "vehicle back home" info notification, attributed to the event
     of its most recent released assignment (that's whose dispatchers care). The bell
     also leaves «zurück im Magazin» in that incident's Chronik, once per assignment.
-    Nothing when this box does not lead that event (``_leads``)."""
+    Nothing when this box does not lead that event (``event_lead.system_leads``)."""
     row = (
         await db.execute(
             select(Incident.id, Incident.event_id, IncidentAssignment.id)

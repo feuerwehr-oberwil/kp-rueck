@@ -16,12 +16,13 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     Event,
     EventAttendance,
+    EventLead,
     Incident,
     IncidentAssignment,
     Material,
@@ -1786,3 +1787,48 @@ async def test_a_deleted_incident_does_not_raise_shortage_alerts(
         )
         == []
     )
+
+
+async def test_a_standby_box_writes_no_bell_rows_into_an_ereignis_it_does_not_lead(
+    monkeypatch, db_session, notif_event, notif_user
+):
+    """A mirrored Ereignis is the hosted board's: the box shows the rows replication brought and
+    writes none of its own (a row only the box has is never on the hosted board). Once the box
+    leads it (taken out of the stream, its lead row), the rules run as on the hosted board."""
+    monkeypatch.setenv("DEPLOYMENT_ROLE", "standby")
+    # Only the table the lead check reads – app/standby.py's install_guards does more.
+    await db_session.execute(text("CREATE SCHEMA IF NOT EXISTS standby"))
+    await db_session.execute(text("CREATE TABLE IF NOT EXISTS standby.detached_events (event_id uuid PRIMARY KEY)"))
+    mirrored = Notification(type="field_message", severity="info", message="Trupp meldet", event_id=notif_event.id)
+    # Without a position, an Einsatz under way raises «missing_location».
+    db_session.add_all(
+        [
+            mirrored,
+            Incident(
+                title="Ohne Position",
+                type="brandbekaempfung",
+                priority="high",
+                status="enroute",
+                event_id=notif_event.id,
+                created_by=notif_user.id,
+            ),
+        ]
+    )
+    await db_session.flush()
+
+    async def shown() -> list[str]:
+        return sorted(n.type for n in await evaluate_notifications(db_session, notif_event.id))
+
+    async def stored() -> list[str]:
+        rows = await db_session.scalars(select(Notification.type).where(Notification.event_id == notif_event.id))
+        return sorted(rows)
+
+    assert await shown() == ["field_message"]
+    assert await stored() == ["field_message"]
+
+    db_session.add(EventLead(event_id=notif_event.id, holder="standby", since=datetime.now(UTC)))
+    await db_session.execute(
+        text("INSERT INTO standby.detached_events (event_id) VALUES (:id)"), {"id": notif_event.id}
+    )
+    await db_session.flush()
+    assert await shown() == ["field_message", "missing_location"]

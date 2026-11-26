@@ -5318,7 +5318,8 @@ export interface paths {
          * Get Current Notifications
          * @description Get all active notifications for the specified event.
          *
-         *     Evaluates all notification rules and returns active (non-dismissed) notifications.
+         *     Evaluates all notification rules and returns active (non-dismissed) notifications. A standby
+         *     box evaluates only in an Ereignis it leads; elsewhere it returns the mirrored rows as they are.
          */
         get: operations["get_current_notifications_api_notifications__get"];
         put?: never;
