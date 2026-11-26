@@ -18,15 +18,15 @@ import { usePolling } from '@/lib/hooks/use-polling'
  * One person's `/feld` list: the newest answer whole, its load state, and the local folds into it.
  *
  * The page calls it before the door (`useFeldDoor`), whose `onForget` calls `reset`. So `load`
- * takes the token as an argument and does not forget the device itself: it resolves the answer,
- * `'signedOut'` on a 401 (the page then forgets the device), or null (superseded, skipped or
- * failed – the band and the list say a failure).
+ * takes the token, and the page's own steps as handlers: `onAnswer` with the newest answer and
+ * `onSignedOut` on a 401. Both run inside the load, before it ends, and only while it is still
+ * the newest one.
  *
  *   const list = useFeldLoad()
- *   const outcome = await list.load(personnelId, token, { silent: true })
+ *   await list.load(personnelId, token, { silent: true, onAnswer, onSignedOut })
  */
 export function useFeldLoad() {
-  /** The newest assignments answer for this person, whole – everything below that comes from
+  /** The newest assignments answer for this person, whole – everything the page shows from
    *  the list is read off it, and a local fold (a field report, a check-in) writes into it. */
   const [feld, setFeld] = useState<ApiFeldAssignmentsResponse | null>(null)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
@@ -82,10 +82,14 @@ export function useFeldLoad() {
   const load = useCallback(async (
     personnelId: string,
     activeToken: string,
-    options?: { silent?: boolean },
-  ): Promise<ApiFeldAssignmentsResponse | 'signedOut' | null> => {
-    const silent = options?.silent === true
-    if (silent && loadInFlight.current !== null) return null
+    options: {
+      silent?: boolean
+      onAnswer: (data: ApiFeldAssignmentsResponse) => void
+      onSignedOut: () => void
+    },
+  ) => {
+    const silent = options.silent === true
+    if (silent && loadInFlight.current !== null) return
     lastLoad.current = { personnelId, token: activeToken }
     const generation = ++loadGeneration.current
     loadInFlight.current = generation
@@ -93,7 +97,7 @@ export function useFeldLoad() {
     if (!silent) setLoadingAssignments(true)
     try {
       const data = await apiClient.getFeldAssignments(personnelId, activeToken)
-      if (superseded()) return null
+      if (superseded()) return
       setFeld(data)
       setSyncedAt(new Date())
       setSyncFailed(false)
@@ -116,14 +120,17 @@ export function useFeldLoad() {
       } else {
         setMaterials([])
       }
-      return data
+      options.onAnswer(data)
     } catch (err) {
       console.error('Failed to load field assignments:', err)
-      if (superseded()) return null
+      if (superseded()) return
       // 401 means this device was logged out from the board ("alle Geräte
       // abmelden"). The credential is gone, so the honest move is back to the
       // code — not an empty list that looks like "you have nothing to do".
-      if (err instanceof ApiError && err.status === 401) return 'signedOut'
+      if (err instanceof ApiError && err.status === 401) {
+        options.onSignedOut()
+        return
+      }
       // A 403 is the server saying this list is not ours to see — the one
       // failure a stale list must NOT survive. Everything else keeps its rows
       // on a silent poll, because a cellar losing one request must not blank
@@ -133,13 +140,12 @@ export function useFeldLoad() {
         // The request skips the transport's toast (the band speaks for an outage), so the
         // server's reason is said here.
         toast.error(err.message)
-        return null
+        return
       }
       // Any other failure keeps the rows, silent or not, and says so: the band shows the last
       // good time, and with nothing loaded yet the list says it could not load (never «kein
       // Auftrag»). An offline GET lands here too (`NetworkError`).
       setSyncFailed(true)
-      return null
     } finally {
       // Only the newest load ends the loading state: an older one settling first would show
       // an empty list before any answer was taken.

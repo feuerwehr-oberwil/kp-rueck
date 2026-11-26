@@ -252,27 +252,27 @@ function FeldSurface() {
   ) => {
     const activeToken = options?.token ?? token
     if (!activeToken) return
-    const outcome = await load(personnelId, activeToken, options)
-    if (outcome === 'signedOut') {
-      forgetDevice()
-      return
-    }
-    if (!outcome) return
-    // A device coming back from its cookie has no picker to have chosen from,
-    // so the person is restored from the response it was going to fetch
-    // anyway — one round trip, not two, and no picker for somebody who has
-    // already said who they are. The /reko name cookie rides along, so a
-    // bound-link or cookie-restored device still signs its Reko form.
-    writeFeldName(outcome.personnel_name)
-    setSelectedPerson(prev => prev ?? {
-      personnel_id: outcome.personnel_id,
-      name: outcome.personnel_name,
-      kennung: null,
-      role: outcome.personnel_role,
-      checked_in: outcome.checked_in,
-      incident_count: outcome.assignments.length,
-      open_count: outcome.assignments.filter(a => a.is_active_assignment).length,
-      missing_rapport_count: outcome.assignments.filter(owesRapport).length,
+    await load(personnelId, activeToken, {
+      silent: options?.silent,
+      // A device coming back from its cookie has no picker to have chosen from,
+      // so the person is restored from the response it was going to fetch
+      // anyway — one round trip, not two, and no picker for somebody who has
+      // already said who they are. The /reko name cookie rides along, so a
+      // bound-link or cookie-restored device still signs its Reko form.
+      onAnswer: data => {
+        writeFeldName(data.personnel_name)
+        setSelectedPerson(prev => prev ?? {
+          personnel_id: data.personnel_id,
+          name: data.personnel_name,
+          kennung: null,
+          role: data.personnel_role,
+          checked_in: data.checked_in,
+          incident_count: data.assignments.length,
+          open_count: data.assignments.filter(a => a.is_active_assignment).length,
+          missing_rapport_count: data.assignments.filter(owesRapport).length,
+        })
+      },
+      onSignedOut: forgetDevice,
     })
   }, [token, load, forgetDevice])
 
@@ -673,16 +673,15 @@ function FeldSurface() {
         {/* Not here yet: the one thing worth a full-width button, because it is
             what somebody arriving does before anything else exists for them. */}
         {/* Not after a failed first load: «nicht anwesend» would be a guess, nothing was loaded. */}
-        {!checkedIn && !(syncFailed && !syncedAt) && (
-          <FeldCheckIn
-            personnelId={selectedPerson?.personnel_id}
-            token={token}
-            planFrom={planFrom}
-            planUntil={planUntil}
-            onCheckedIn={markCheckedIn}
-            onPlannedFrom={setPlannedFrom}
-          />
-        )}
+        <FeldCheckIn
+          visible={!checkedIn && !(syncFailed && !syncedAt)}
+          personnelId={selectedPerson?.personnel_id}
+          token={token}
+          planFrom={planFrom}
+          planUntil={planUntil}
+          onCheckedIn={markCheckedIn}
+          onPlannedFrom={setPlannedFrom}
+        />
 
         {/* The Magazin's inventory, when the Materialwart has nothing else on:
             then it IS their page, and it opens the screen. Somebody who is also

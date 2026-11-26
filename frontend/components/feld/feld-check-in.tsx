@@ -13,10 +13,12 @@ import { formatTime } from '@/lib/format-time'
 
 /**
  * «Noch nicht da»: the individual half of the roll call (decision 10) at the top of the /feld
- * list – «Ich bin da» and «Ich komme um …». The page shows it while the person is not checked
- * in and folds what it writes back into its list (`onCheckedIn`, `onPlannedFrom`).
+ * list – «Ich bin da» and «Ich komme um …». `visible` while the person is not checked in; the
+ * page keeps it mounted either way, so a check-in still out stays «busy» across a hide and show.
+ * What it writes is folded back into the page's list (`onCheckedIn`, `onPlannedFrom`).
  */
 export function FeldCheckIn({
+  visible,
   personnelId,
   token,
   planFrom,
@@ -24,6 +26,7 @@ export function FeldCheckIn({
   onCheckedIn,
   onPlannedFrom,
 }: {
+  visible: boolean
   personnelId: string | undefined
   token: string | null
   planFrom: string | null
@@ -82,6 +85,7 @@ export function FeldCheckIn({
     />
   )
 
+  if (!visible) return null
   return (
     <section className="rounded-xl bg-secondary/60 p-4">
       <p className="mb-3 text-base font-semibold">{t('attendance.notHereTitle')}</p>
