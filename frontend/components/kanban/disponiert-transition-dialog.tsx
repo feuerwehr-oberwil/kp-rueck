@@ -64,6 +64,7 @@ export function DisponierTransitionDialog({
 }: DisponiertTransitionDialogProps) {
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
+  const tWhatsapp = useTranslations('notifications.whatsapp')
   const trackPrint = usePrintJobToast()
   const { groups, recordAnnouncement } = useGroups()
   const { operations, changeStatusToTop, requestVehicleDriver } = useOperations()
@@ -186,7 +187,13 @@ export function DisponierTransitionDialog({
       template: whatsappIncident,
       personText,
     })
-    await copyToClipboard(message)
+    try {
+      await copyToClipboard(message)
+    } catch (error) {
+      console.error('Failed to copy WhatsApp message:', error)
+      toast.error(tWhatsapp('copyFailedTitle'), { description: tWhatsapp('copyFailedDescription') })
+      return
+    }
     setWhatsappCopied(true)
     toast.success(t('disponiert.whatsappCopied'))
     setTimeout(() => setWhatsappCopied(false), 2000)
@@ -325,7 +332,7 @@ export function DisponierTransitionDialog({
             <Button
               variant="outline"
               className="justify-start gap-2"
-              onClick={handleCopyWhatsApp}
+              onClick={() => void handleCopyWhatsApp()}
             >
               {whatsappCopied ? (
                 <Check className="h-4 w-4 text-success" />
@@ -339,7 +346,7 @@ export function DisponierTransitionDialog({
               <Button
                 variant="outline"
                 className="justify-start gap-2"
-                onClick={handlePrint}
+                onClick={() => void handlePrint()}
                 disabled={isPrinting}
               >
                 <Printer className="h-4 w-4" />

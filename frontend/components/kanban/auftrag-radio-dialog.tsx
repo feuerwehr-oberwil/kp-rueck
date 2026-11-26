@@ -83,7 +83,12 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
 
   const handleCopy = async () => {
     if (!radio) return
-    await copyToClipboard(segmentsToText(radio.segments))
+    try {
+      await copyToClipboard(segmentsToText(radio.segments))
+    } catch {
+      toast.error(t("common.copyFailed"))
+      return
+    }
     setCopied(true)
     toast.success(tAuftraege("repeatRadioCopied"))
     setTimeout(() => setCopied(false), 2000)
@@ -122,7 +127,7 @@ export function AuftragRadioDialog({ open, onOpenChange, group, funkrufname }: A
 
           <div className="flex flex-col gap-2">
             {radio && (
-              <Button variant="outline" className="justify-start gap-2" onClick={handleCopy}>
+              <Button variant="outline" className="justify-start gap-2" onClick={() => void handleCopy()}>
                 {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 {tAuftraege("repeatRadioCopy")}
               </Button>
