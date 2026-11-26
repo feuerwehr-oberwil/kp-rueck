@@ -88,7 +88,6 @@ async def test_unconfigured_client_is_a_quiet_noop(monkeypatch: pytest.MonkeyPat
 
     now = datetime.now(UTC)
     assert await client.get_devices() == []
-    assert await client.get_positions() == []
     assert await client.get_position_history(1, now, now) == []
     assert await client.get_vehicle_positions() == []
 
@@ -174,34 +173,6 @@ async def test_get_vehicle_positions_converts_knots_and_drops_orphans(monkeypatc
     assert result[0].speed == pytest.approx(10.0 * 1.852)
 
 
-async def test_get_positions_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    client = _configured_client(monkeypatch)
-    now_iso = datetime.now(UTC).isoformat()
-    payload = [
-        {
-            "id": 1,
-            "deviceId": 1,
-            "latitude": 47.5,
-            "longitude": 7.5,
-            "deviceTime": now_iso,
-            "serverTime": now_iso,
-            "fixTime": now_iso,
-        }
-    ]
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if (resp := _session_ok(request)) is not None:
-            return resp
-        if request.url.path.endswith("/api/positions"):
-            return httpx.Response(200, json=payload)
-        raise AssertionError(f"unexpected request to {request.url}")
-
-    _mock_transport(monkeypatch, handler)
-
-    result = await client.get_positions()
-    assert result == [TraccarPosition(**payload[0])]
-
-
 async def test_get_vehicle_positions_empty_payload(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _configured_client(monkeypatch)
 
@@ -230,6 +201,8 @@ async def test_non_200_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> 
     def handler(request: httpx.Request) -> httpx.Response:
         if (resp := _session_ok(request)) is not None:
             return resp
+        if request.url.path.endswith("/api/devices"):
+            return httpx.Response(200, json=[])
         if request.url.path.endswith("/api/positions"):
             return httpx.Response(503, text="Service Unavailable")
         raise AssertionError(f"unexpected request to {request.url}")
@@ -237,7 +210,7 @@ async def test_non_200_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> 
     _mock_transport(monkeypatch, handler)
 
     with pytest.raises(httpx.HTTPStatusError):
-        await client.get_positions()
+        await client.get_vehicle_positions()
 
 
 async def test_timeout_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -246,6 +219,8 @@ async def test_timeout_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> 
     def handler(request: httpx.Request) -> httpx.Response:
         if (resp := _session_ok(request)) is not None:
             return resp
+        if request.url.path.endswith("/api/devices"):
+            return httpx.Response(200, json=[])
         if request.url.path.endswith("/api/positions"):
             raise httpx.ReadTimeout("Traccar did not answer in time", request=request)
         raise AssertionError(f"unexpected request to {request.url}")
@@ -253,7 +228,7 @@ async def test_timeout_from_upstream_raises(monkeypatch: pytest.MonkeyPatch) -> 
     _mock_transport(monkeypatch, handler)
 
     with pytest.raises(httpx.ReadTimeout):
-        await client.get_positions()
+        await client.get_vehicle_positions()
 
 
 async def test_get_position_history_sends_device_and_time_range(monkeypatch: pytest.MonkeyPatch) -> None:

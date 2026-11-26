@@ -27,7 +27,6 @@ from app.services.weather import radar, warnings
 from app.services.weather.geo import (
     lat_to_mercator_y,
     lon_to_mercator_x,
-    lv95_to_wgs84,
     point_in_ring,
     wgs84_to_lv95,
 )
@@ -46,6 +45,19 @@ OBERWIL = (47.514, 7.556)
 # Inside the Luzern-Alpnach warning polygon of the MeteoAlarm fixture.
 ALPNACH = (46.9907, 8.3158)
 FIXTURE_FRAME_TIME = datetime(2026, 10, 8, 17, 0, tzinfo=UTC)
+
+
+def lv95_to_wgs84(east: float, north: float) -> tuple[float, float]:
+    """swisstopo's inverse approximation, LV95 metres in, (lat, lon) degrees out.
+
+    The app only projects WGS84 → LV95; this independent inverse is the tests' oracle for where
+    a radar cell must land on the map.
+    """
+    y = (east - 2600000.0) / 1000000.0
+    x = (north - 1200000.0) / 1000000.0
+    lam = 2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x**2 - 0.0436 * y**3
+    phi = 16.9023892 + 3.238272 * x - 0.270978 * y**2 - 0.002528 * x**2 - 0.0447 * y**2 * x - 0.0140 * x**3
+    return phi * 100.0 / 36.0, lam * 100.0 / 36.0
 
 
 def _json(name: str) -> dict:
@@ -135,7 +147,9 @@ def test_each_radar_cell_lands_where_it_is_on_the_map(grid: radar.RadarGrid, fra
 
 def test_dry_and_no_data_are_transparent(grid: radar.RadarGrid, frame: radar.RenderedFrame):
     image = Image.open(io.BytesIO(frame.png)).convert("RGBA")
-    assert radar.value_at(grid, *OBERWIL) == 0.0  # dry at 17:00
+    east, north = wgs84_to_lv95(np.array([OBERWIL[0]]), np.array([OBERWIL[1]]))
+    row, col = int((grid.north0 - north[0]) // grid.yscale), int((east[0] - grid.east0) // grid.xscale)
+    assert grid.values[row, col] == 0.0  # Oberwil is dry at 17:00
     x, y = _pixel_of(frame, image.size, *OBERWIL)
     assert image.getpixel((x, y))[3] == 0
     # Outside the radar domain altogether (the Bay of Biscay corner of the output rectangle).

@@ -132,6 +132,10 @@ export function useStationSettings({
       toast.error(t('page.toasts.editorsOnly'));
       return;
     }
+    // The key's input is disabled while it saves, and a focused input that turns disabled
+    // gets a blur of its own (the HTML focus fixup). That blur still sees the old
+    // `serverSettings` and would send the same value twice.
+    if (saving === key) return;
     setSaving(key);
     try {
       await apiClient.updateSetting(key, value);

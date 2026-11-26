@@ -20,9 +20,6 @@ DEFAULT_PRINT_JOB_TTL_SECONDS  # unused variable (app/crud/print_jobs.py:84)
 reset_for_tests  # unused function (app/auth/setup_token.py:132)
 TRAINING_AREA_BOUNDS  # unused variable (app/seeds/training.py, read by tests)
 reset_storage_usage_cache  # unused function (app/services/storage_usage.py:136)
-lv95_to_wgs84  # unused function (app/services/weather/geo.py:35)
-value_at  # unused function (app/services/weather/radar.py:293)
-_.get_positions  # unused method (app/traccar.py:107)
 
 # Mapped tables: the ORM and Alembic need the class even when no code reads it.
 RekoReportFolded  # unused class (app/models.py:1393)
