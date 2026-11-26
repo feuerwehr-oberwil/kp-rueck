@@ -1,49 +1,40 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useMemo, type Dispatch, type SetStateAction } from "react"
 import { useTranslations } from "next-intl"
-import { type Person, type Operation, type Material } from "@/lib/contexts/operations-context"
-import { type OperationDetailSection, type OperationDetailTab } from "@/lib/hooks/use-operation-detail-shortcuts"
+import { useOperations, type Person, type Operation, type Material } from "@/lib/contexts/operations-context"
+import { useGroups } from "@/lib/contexts/groups-context"
 import { getIncidentRefLabel } from "@/lib/incident-types"
 import { type BindingsPopoverState, type ResourceBinding } from "@/lib/board-sidebar"
 import { REKO_TARGET, RESOURCES_TARGET, type PersonNowLink } from "@/lib/detail-target"
-import { type FooterSheet } from "@/components/board/board-footer"
-import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
-import type { Dispatch, SetStateAction } from "react"
+import type { BoardSelection } from "./use-board-selection"
+import type { BoardSheets } from "./use-board-sheets"
 
+/** Only the page's own state: the contexts are read inside `useResourceBindings`. */
 export interface UseResourceBindingsInput {
-  operations: Operation[]
-  getGroupResources: (groupId: string) => GroupResources
-  groups: IncidentGroup[]
-  scrollToCard: (operationId: string) => void
-  setSearchQuery: Dispatch<SetStateAction<string>>
-  openIncidentDetail: (operationId: string, tab?: OperationDetailTab, section?: OperationDetailSection, options?: { allowModal?: boolean; }) => void
-  setActiveFooterSheet: Dispatch<SetStateAction<FooterSheet | null>>
-  setAuftraegeFocusGroupId: Dispatch<SetStateAction<string | null>>
-  setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
-  groupNames: Map<string, string>
+  selection: Pick<BoardSelection, "scrollToCard" | "openIncidentDetail">
+  sheets: Pick<BoardSheets, "setActiveFooterSheet" | "setAuftraegeFocusGroupId">
+  /** The board search's result: a binding to a card it hides clears the search first. */
   filteredOperations: Operation[]
+  setSearchQuery: Dispatch<SetStateAction<string>>
+  setBindingsPopover: Dispatch<SetStateAction<BindingsPopoverState | null>>
 }
 
 /**
  * Where a person or a unit of material is held (incident, Auftrag, special
- * function) and following one of those bindings from the sidebar. Moved verbatim
- * out of app/page.tsx.
+ * function) and following one of those bindings from the sidebar. Reads the
+ * operations and groups contexts itself; app/page.tsx passes its own state.
  */
-export function useResourceBindings(input: UseResourceBindingsInput) {
-  const {
-    operations,
-    getGroupResources,
-    groups,
-    scrollToCard,
-    setSearchQuery,
-    openIncidentDetail,
-    setActiveFooterSheet,
-    setAuftraegeFocusGroupId,
-    setBindingsPopover,
-    groupNames,
-    filteredOperations,
-  } = input
+export function useResourceBindings({
+  selection: { scrollToCard, openIncidentDetail },
+  sheets: { setActiveFooterSheet, setAuftraegeFocusGroupId },
+  filteredOperations,
+  setSearchQuery,
+  setBindingsPopover,
+}: UseResourceBindingsInput) {
+  const { operations } = useOperations()
+  const { groups, getGroupResources } = useGroups()
+  const groupNames = useMemo(() => new Map(groups.map((group) => [group.id, group.name])), [groups])
   const tCommon = useTranslations('kanban.common')
   const tPopover = useTranslations('kanban.personPopover')
   const tLeader = useTranslations('kanban.leader')
