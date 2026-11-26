@@ -1569,7 +1569,13 @@ export function OperationDetailContent({
                 {t('common.reko')}
               </span>
               {assignedRekoPersonnel ? (
-                <span className="min-w-0 flex-1 truncate text-sm">
+                // `title`: the whole value when the wider gutter (with an Auftrag) cuts it short
+                <span
+                  className="min-w-0 flex-1 truncate text-sm"
+                  title={operation.rekoArrivedAt
+                    ? `${assignedRekoPersonnel.name} · ${t('card.onSiteSince', { time: formatClockTime(operation.rekoArrivedAt) })}`
+                    : assignedRekoPersonnel.name}
+                >
                   <PersonName name={assignedRekoPersonnel.name} personnelId={assignedRekoPersonnel.id} />
                   {operation.rekoArrivedAt && (
                     <span className="text-muted-foreground">
