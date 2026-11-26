@@ -3,8 +3,8 @@
   "warnings": {
     "@typescript-eslint/no-floating-promises": 80,
     "@typescript-eslint/no-misused-promises": 179,
-    "@typescript-eslint/no-non-null-assertion": 50,
-    "@typescript-eslint/no-unnecessary-type-assertion": 12,
+    "@typescript-eslint/no-non-null-assertion": 49,
+    "@typescript-eslint/no-unnecessary-type-assertion": 11,
     "@typescript-eslint/switch-exhaustiveness-check": 5,
     "kp/disable-reason": 2,
     "kp/no-effect-read": 66,
