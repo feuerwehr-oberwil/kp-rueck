@@ -418,6 +418,9 @@ async def bulk_attach_emergencies(
     # expire loaded objects, and a lazy reload from async code is a MissingGreenlet.
     event_is_training = event.training_flag
     rolled_back = False
+    # All alarms before the first card (lock order, crud/locking.py): a card takes the
+    # Ereignis' numbering lock, and a single attach of one of them waits for it.
+    await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids)
 
     for emergency_id in request_data.emergency_ids:
         title: str | None = None
