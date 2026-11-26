@@ -128,11 +128,6 @@ GPS-TEST-PROTOCOL.md
 # portabel. (check-logins.sh liest Login-Ereignisse inkl. Benutzernamen und IP-Adressen.)
 /check-logins.sh
 
-# Help screenshots are GENERATED (frontend/tests/capture-help-screenshots.spec.ts) and are not
-# committed. The previous batch was 3.4 MB of PNGs that NO page referenced, shipped in every
-# frontend image, showing a UI two design-system refactors out of date. Regenerate when the
-# help page actually renders them, and commit only what it uses.
-frontend/public/help/images/
 # MapLibre's worker, copied from node_modules before dev/build (frontend/scripts/copy-maplibre-worker.mjs)
 frontend/public/maplibre/
 
