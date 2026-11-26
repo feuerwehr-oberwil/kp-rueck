@@ -19,6 +19,8 @@ const IMPORTS = [
   { group: ["lucide-react"], importNamePattern: "^(Lucide)?Loader", message: SPINNER },
   { group: ["date-fns", "date-fns/*"], message: "Durations go through lib/duration.ts, dates through lib/date-locale.ts – docs/FRONTEND.md › Durations." },
 ];
+const CAUGHT_MESSAGE =
+  "Tell a caught error by its class, not its text: ApiError.isConflictError / .status, NetworkError.isNetworkError.";
 const SYNTAX = [
   // The App Router runs on the React Next vendors, which has no `useEffectEvent` yet:
   // the import type-checks and passes Vitest, then crashes the page. See the hook's file.
@@ -37,6 +39,13 @@ const SYNTAX = [
     selector: "JSXOpeningElement[name.name=/^AlertDialog(Action|Cancel)$/] CallExpression[callee.name='buttonVariants']",
     message: "Set `variant` on AlertDialogAction / AlertDialogCancel – buttonVariants() in className keeps the base variant's dark: classes.",
   },
+  // Sweep 25.11.2026: catches read `message.includes('409' | 'fetch' | German text)`. The text is
+  // the browser's or the catalogue's (Safari says «Load failed», fr has its own words), so those
+  // branches never ran. The error classes say what happened (lib/api/types/common.ts).
+  ...["CatchClause", "CallExpression[callee.property.name='catch'] > :function"].map((scope) => ({
+    selector: `${scope} CallExpression[callee.object.property.name='message'][callee.property.name=/^(includes|startsWith|endsWith|match|indexOf)$/]`,
+    message: CAUGHT_MESSAGE,
+  })),
 ];
 // Every map goes through components/map/base-map.tsx: its `isolate` wrapper keeps markers and
 // controls below the page's overlays, and it sets MapLibre's worker URL (docs/FRONTEND.md › Maps).

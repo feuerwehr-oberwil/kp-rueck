@@ -238,8 +238,9 @@ export interface OperationsContextType {
    * never during the initial blank-before-fetch window. */
   isLoaded: boolean
   /**
-   * The board has never arrived: a load failed and no load has ever got
-   * through (`loadError` set, `lastSyncAt` null). `isLoaded` is true then too,
+   * The board has never arrived: a load failed and no snapshot of this Ereignis
+   * was ever on screen (a partial one counts: it painted the cards, though it does
+   * not move `lastSyncAt`). `isLoaded` is true then too,
    * so without this an unreachable server painted empty columns, «0» counts and
    * «Niemand anwesend» — an empty Ereignis. Empty states must check this
    * before they say «nothing».

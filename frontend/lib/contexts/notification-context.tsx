@@ -337,7 +337,8 @@ export function NotificationProvider({
       }
     } catch (error) {
       console.error('[Notifications] Error fetching notifications:', error)
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      // fetch() rejects with a TypeError only when the request never got an answer.
+      if (error instanceof TypeError) {
         console.error('[Notifications] This is likely a CORS or network error. Check:')
         console.error('  1. Backend is running on', getApiUrl())
         console.error('  2. CORS allows credentials')

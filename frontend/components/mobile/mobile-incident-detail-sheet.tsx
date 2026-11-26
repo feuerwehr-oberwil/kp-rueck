@@ -54,6 +54,139 @@ import RekoReportSection from "@/components/reko/reko-report-section"
 import { PhotoViewerProvider } from "@/components/photos/photo-viewer"
 import { getIncidentRefParts } from "@/lib/incident-types"
 import { PersonName } from "@/components/person-name"
+import { ResourceSourceBlock } from "@/components/kanban/route-resource-sections"
+import { useGroups } from "@/lib/contexts/groups-context"
+import { cn } from "@/lib/utils"
+
+/** One resource of a phone section – the incident's own or its Auftrag's, in one shape. */
+interface PhoneVehicle { key: string; vehicleId: string; name: string; callsign?: string | null; driverStay?: boolean }
+interface PhoneCrewMember { personnelId: string; name: string; isLeader: boolean }
+interface PhoneMaterial { key: string; name: string }
+
+/**
+ * Fahrzeuge, Mannschaft and Material of the phone sheet. Each section opens with the desk
+ * detail's caps label (`DetailGroupHeading`: type-label, 14px muted glyph, 8px to the chips) –
+ * «FAHRZEUGE · 1» like «KRÄFTE · 4»; the title-case 14/500 heads read as one more item (hill
+ * climb r19). 16px between sections. Drawn once per source (the stop, its Auftrag).
+ */
+function PhoneResourceSections({
+  vehicles,
+  crew,
+  materials,
+  zuFuss,
+  vehicleDrivers,
+  className,
+}: {
+  vehicles: PhoneVehicle[]
+  crew: PhoneCrewMember[]
+  materials: PhoneMaterial[]
+  zuFuss: boolean
+  vehicleDrivers: ReturnType<typeof useVehicleDrivers>
+  className?: string
+}) {
+  const t = useTranslations('incidents')
+  const tKanban = useTranslations('kanban')
+  return (
+    <div className={cn("space-y-4", className)}>
+      {/* Vehicles */}
+      <div>
+        <DetailGroupHeading icon={<Truck className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.vehicles', { count: vehicles.length })}</DetailGroupHeading>
+        {/* «Zu Fuss» is a deliberate state, not an absence: a crew that
+            walked to the address has to read as such here, exactly as it
+            does on the board and on the wall. Without it the sheet said
+            «Keine Fahrzeuge zugewiesen» — the opposite of the truth. So
+            the empty line is gated on BOTH facts, and the chip leads the
+            row, in the same order as the board. */}
+        {zuFuss || vehicles.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {zuFuss && (
+              <RemovableChip variant="secondary" className="text-sm max-w-full font-normal">
+                <Footprints className="flex-shrink-0" />
+                <span>{tKanban('common.zuFuss')}</span>
+              </RemovableChip>
+            )}
+            {vehicles.map(({ key, vehicleId, name: vehicleName, callsign, driverStay }) => {
+              const driver = vehicleDrivers.get(vehicleId)
+              return (
+                <div key={key} className="flex max-w-full flex-col items-start gap-1.5">
+                  <RemovableChip
+                    variant="secondary"
+                    className="text-sm max-w-full font-normal"
+                    title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
+                  >
+                    <span>
+                      {vehicleLabel({ name: vehicleName, callsign })}
+                      {driver && (
+                        <span className="text-muted-foreground">
+                          {" "}(<PersonName name={driver.name} personnelId={driver.personnelId} />)
+                        </span>
+                      )}
+                    </span>
+                  </RemovableChip>
+                  {/* Whether the driver stays with the vehicle — the same
+                      state the board and the wall carry per chip. The
+                      phone shows the state only; the toggle is a control
+                      and stays on the board. Its own caption line under
+                      the chip, as on /feld: squeezed in beside vehicle +
+                      driver it read as part of the name (hill climb r12).
+                      6px under the chip and 22px tall (12/16 + 3px), so it
+                      reads as its own line and not as the chip's shadow (r18).
+                      On the vehicle chip's own surface (`bg-secondary`), not the
+                      glyph's darker ink tint: two greys stacked read as two
+                      kinds of thing (r22). */}
+                  <DriverStayGlyph
+                    stays={driverStay}
+                    size="caption"
+                    className="bg-secondary px-1.5 py-[3px] text-secondary-foreground"
+                  />
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('mobileDetail.noVehicles')}</p>
+        )}
+      </div>
+
+      {/* Crew */}
+      <div>
+        <DetailGroupHeading icon={<Users className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.crew', { count: crew.length })}</DetailGroupHeading>
+        {crew.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {/* EL first (decision 23): the phone is a viewing surface, and
+                a wrapped badge row is exactly where a name gets lost.
+                The «EL» mark rides along — sorting alone only helps if
+                you already know the list is sorted. */}
+            {sortCrewByLeader(crew, (member) => member.isLeader).map(({ personnelId, name: member, isLeader }) => (
+              <RemovableChip key={personnelId} variant="secondary" className="text-sm max-w-full font-normal">
+                <LeaderBadge isLeader={isLeader} />
+                <span><PersonName name={member} personnelId={personnelId} display={member.trim() || tKanban('common.unknownResource')} /></span>
+              </RemovableChip>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('mobileDetail.noCrew')}</p>
+        )}
+      </div>
+
+      {/* Materials */}
+      <div>
+        <DetailGroupHeading icon={<Package className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.materials', { count: materials.length })}</DetailGroupHeading>
+        {materials.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {materials.map(({ key, name }) => (
+              <RemovableChip key={key} variant="secondary" className="text-sm max-w-full font-normal">
+                <span>{name}</span>
+              </RemovableChip>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('mobileDetail.noMaterials')}</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 interface MobileIncidentDetailSheetProps {
   operation: Operation | null
@@ -84,6 +217,7 @@ export function MobileIncidentDetailSheet({
   const tKanban = useTranslations('kanban')
   const { selectedEvent } = useEvent()
   const vehicleDrivers = useVehicleDrivers(selectedEvent?.id ?? null, open)
+  const { groups, getGroupResources } = useGroups()
   // The detail button that opened the sheet (`data-detail-opener`, on the phone card and the
   // Lagekarte row), read when the sheet takes the focus: a controlled sheet has no Radix trigger
   // to give it back to on close. Only that button: a field focused earlier would pop the keyboard.
@@ -125,6 +259,10 @@ export function MobileIncidentDetailSheet({
   const priority = operation.priority || "low"
   const notes = operation.notes?.trim()
   const contact = operation.contact?.trim()
+  const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
+  const routeResources = auftrag ? getGroupResources(auftrag.id) : null
+  const hasOwnResources =
+    operation.zuFuss || operation.vehicles.length > 0 || operation.crew.length > 0 || operation.materials.length > 0
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -257,103 +395,43 @@ export function MobileIncidentDetailSheet({
               label (`DetailGroupHeading`: type-label, 14px muted glyph, 8px to the
               chips) – «FAHRZEUGE · 1» like «KRÄFTE · 4»; the title-case 14/500
               heads read as one more item (hill climb r19). 16px between sections. */}
-          <div ref={resourcesRef} className="space-y-4">
-            {/* Vehicles */}
-            <div>
-              <DetailGroupHeading icon={<Truck className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.vehicles', { count: operation.vehicles.length })}</DetailGroupHeading>
-              {/* «Zu Fuss» is a deliberate state, not an absence: a crew that
-                  walked to the address has to read as such here, exactly as it
-                  does on the board and on the wall. Without it the sheet said
-                  «Keine Fahrzeuge zugewiesen» — the opposite of the truth. So
-                  the empty line is gated on BOTH facts, and the chip leads the
-                  row, in the same order as the board. */}
-              {operation.zuFuss || operation.vehicles.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {operation.zuFuss && (
-                    <RemovableChip variant="secondary" className="text-sm max-w-full font-normal">
-                      <Footprints className="flex-shrink-0" />
-                      <span>{tKanban('common.zuFuss')}</span>
-                    </RemovableChip>
-                  )}
-                  {operation.vehicles.map(({ vehicleId, name: vehicleName, callsign, driverStay }) => {
-                    const driver = vehicleDrivers.get(vehicleId)
-                    return (
-                      <div key={vehicleId} className="flex max-w-full flex-col items-start gap-1.5">
-                        <RemovableChip
-                          variant="secondary"
-                          className="text-sm max-w-full font-normal"
-                          title={callsign ? tKanban('common.funkrufname', { callsign }) : undefined}
-                        >
-                          <span>
-                            {vehicleLabel({ name: vehicleName, callsign })}
-                            {driver && (
-                              <span className="text-muted-foreground">
-                                {" "}(<PersonName name={driver.name} personnelId={driver.personnelId} />)
-                              </span>
-                            )}
-                          </span>
-                        </RemovableChip>
-                        {/* Whether the driver stays with the vehicle — the same
-                            state the board and the wall carry per chip. The
-                            phone shows the state only; the toggle is a control
-                            and stays on the board. Its own caption line under
-                            the chip, as on /feld: squeezed in beside vehicle +
-                            driver it read as part of the name (hill climb r12).
-                            6px under the chip and 22px tall (12/16 + 3px), so it
-                            reads as its own line and not as the chip's shadow (r18).
-                            On the vehicle chip's own surface (`bg-secondary`), not the
-                            glyph's darker ink tint: two greys stacked read as two
-                            kinds of thing (r22). */}
-                        <DriverStayGlyph
-                          stays={driverStay}
-                          size="caption"
-                          className="bg-secondary px-1.5 py-[3px] text-secondary-foreground"
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('mobileDetail.noVehicles')}</p>
-              )}
-            </div>
-
-            {/* Crew */}
-            <div>
-              <DetailGroupHeading icon={<Users className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.crew', { count: operation.crew.length })}</DetailGroupHeading>
-              {operation.crew.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {/* EL first (decision 23): the phone is a viewing surface, and
-                      a wrapped badge row is exactly where a name gets lost.
-                      The «EL» mark rides along — sorting alone only helps if
-                      you already know the list is sorted. */}
-                  {sortCrewByLeader(operation.crew, operation.leaderId).map(({ personnelId, name: member }) => (
-                    <RemovableChip key={personnelId} variant="secondary" className="text-sm max-w-full font-normal">
-                      <LeaderBadge isLeader={operation.leaderId === personnelId} />
-                      <span><PersonName name={member} personnelId={personnelId} display={member.trim() || tKanban('common.unknownResource')} /></span>
-                    </RemovableChip>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('mobileDetail.noCrew')}</p>
-              )}
-            </div>
-
-            {/* Materials */}
-            <div>
-              <DetailGroupHeading icon={<Package className="h-3.5 w-3.5 shrink-0" />}>{t('mobileDetail.materials', { count: operation.materials.length })}</DetailGroupHeading>
-              {operation.materials.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {operation.materials.map((matId) => (
-                    <RemovableChip key={matId} variant="secondary" className="text-sm max-w-full font-normal">
-                      <span>{materials.find(m => m.id === matId)?.name || matId}</span>
-                    </RemovableChip>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('mobileDetail.noMaterials')}</p>
-              )}
-            </div>
+          {/* Assigned Resources, grouped by WHERE THEY COME FROM as in the desk detail
+              (`ResourceSourceBlock`): a route stop's crew and vehicles are its Auftrag's and
+              ride on to the next stop; the stop's own block follows only when it has any. */}
+          <div ref={resourcesRef}>
+            {auftrag && routeResources && (
+              <ResourceSourceBlock
+                variant="route"
+                title={tKanban('detail.sourceAuftrag', { name: auftrag.name })}
+                hint={tKanban('detail.sourceAuftragHint')}
+                accentColor={auftrag.color}
+              >
+                <PhoneResourceSections
+                  className="mt-2"
+                  vehicles={routeResources.vehicles.map((v) => ({ key: v.assignmentId, vehicleId: v.resourceId, name: v.name, callsign: v.callsign, driverStay: v.driverStay }))}
+                  crew={routeResources.personnel.map((p) => ({ personnelId: p.resourceId, name: p.name, isLeader: Boolean(p.isLeader) }))}
+                  materials={routeResources.materials.map((m) => ({ key: m.assignmentId, name: m.name }))}
+                  zuFuss={false}
+                  vehicleDrivers={vehicleDrivers}
+                />
+              </ResourceSourceBlock>
+            )}
+            {(!auftrag || hasOwnResources) && (
+              <ResourceSourceBlock
+                variant="incident"
+                title={auftrag ? tKanban('detail.sourceIncident') : undefined}
+                hint={auftrag ? tKanban('detail.sourceIncidentHint') : undefined}
+              >
+                <PhoneResourceSections
+                  className={auftrag ? 'mt-2' : undefined}
+                  vehicles={operation.vehicles.map((v) => ({ key: v.vehicleId, ...v }))}
+                  crew={operation.crew.map((c) => ({ personnelId: c.personnelId, name: c.name, isLeader: operation.leaderId === c.personnelId }))}
+                  materials={operation.materials.map((id) => ({ key: id, name: materials.find((m) => m.id === id)?.name || id }))}
+                  zuFuss={operation.zuFuss}
+                  vehicleDrivers={vehicleDrivers}
+                />
+              </ResourceSourceBlock>
+            )}
           </div>
 
           <Separator />

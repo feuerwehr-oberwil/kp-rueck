@@ -6,7 +6,7 @@
  * Rich on purpose (sweep 27 §P5b.8, image #21): the phone is a *viewing*
  * surface, an event rarely has many Einsätze, and every fact that used to hide
  * behind a tap — who leads, what was reported, who and what is out there,
- * whether the driver comes back, what the Reko saw — is exactly what somebody
+ * whether the driver comes back, which Auftrag it is a stop of, what the Reko saw — is exactly what somebody
  * glancing at their phone wants without the tap. The detail sheet stays the
  * place for editing; this card answers the questions.
  */
@@ -34,6 +34,9 @@ import { getOperationStatusLabel } from "@/lib/status-labels"
 import { type Priority, PRIORITY_CARD_CLASSES, PRIORITY_ICON_CLASSES } from "@/lib/priority"
 import { sameCrew, sameVehicles } from "@/lib/operation-equality"
 import { sortCrewByLeader } from "@/lib/crew-order"
+import { metaFacts } from "@/lib/meta-line"
+import { auftragStopPosition } from "@/components/display/incident-card"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 
 interface MobileIncidentCardProps {
   operation: Operation
@@ -42,6 +45,9 @@ interface MobileIncidentCardProps {
   /** Live vehicle id → driver name map — the LIST fetches it once
    *  (`useVehicleDrivers`) rather than every card asking the API itself. */
   vehicleDrivers?: VehicleDrivers
+  /** The Auftrag this Einsatz is a stop of, with the resources it owns. One object per
+   *  Auftrag from the list (it builds them once), so the memo below compares it by identity. */
+  auftrag?: { group: IncidentGroup; resources: GroupResources }
 }
 
 /** `label | value` line of the card's fact block — same reading the incident
@@ -57,7 +63,7 @@ function FactRow({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDrivers }: MobileIncidentCardProps) {
+function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDrivers, auftrag }: MobileIncidentCardProps) {
   const t = useTranslations("incidents.card")
   const tCard = useTranslations("kanban.card")
   const tMobile = useTranslations("incidents.mobileCard")
@@ -77,6 +83,19 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
     })
 
   const rekoText = operation.rekoSummary?.summaryText?.trim()
+  // A route stop holds no crew or vehicles itself: the Auftrag does. The desk card's Auftrag
+  // line, word for word – «Stopp 1 von 4 · Pio · 3 Pers · 1 Gerät».
+  const auftragFacts = auftrag
+    ? [
+        tCard("auftragStopLine", {
+          pos: auftragStopPosition(auftrag.group, operation.id, operation.groupPosition),
+          total: auftrag.group.stopIds.length,
+        }),
+        auftrag.resources.vehicles.map((v) => v.name).join(", "),
+        auftrag.resources.personnel.length ? tCard("auftragPersSummary", { count: auftrag.resources.personnel.length }) : "",
+        auftrag.resources.materials.length ? tCard("auftragMatSummary", { count: auftrag.resources.materials.length }) : "",
+      ]
+    : []
 
   return (
     <Card
@@ -243,7 +262,7 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
       {/* The fact block (image #21): Meldung, Mannschaft, Fahrzeuge (with
           driver and the stays/returns word), Reko. Rows without a value
           disappear, so a fresh card stays two lines tall. */}
-      {(operation.notes.trim() || operation.crew.length > 0 || operation.vehicles.length > 0 || rekoText) && (
+      {(operation.notes.trim() || operation.crew.length > 0 || operation.vehicles.length > 0 || auftrag || rekoText) && (
         <div className="mt-2 grid grid-cols-[minmax(4.5rem,auto)_minmax(0,1fr)] gap-x-2 gap-y-1 border-t border-border/50 pt-2 text-xs leading-snug">
           {operation.notes.trim() && (
             <FactRow label={tMobile("meldung")}>
@@ -284,6 +303,18 @@ function MobileIncidentCardBase({ operation, onClick, formatLocation, vehicleDri
               </div>
             </FactRow>
           )}
+          {auftrag && (
+            <FactRow label={tMobile("auftrag")}>
+              <p className="flex min-w-0 items-center gap-1.5">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: auftrag.group.color ?? "var(--muted-foreground)" }}
+                />
+                <span className="min-w-0 break-words font-medium">{auftrag.group.name}</span>
+              </p>
+              <p className="break-words tabular-nums text-muted-foreground">{metaFacts(auftragFacts)}</p>
+            </FactRow>
+          )}
           {rekoText && (
             <FactRow label={tMobile("reko")}>
               <p className="line-clamp-2 whitespace-pre-wrap">{rekoText}</p>
@@ -303,6 +334,8 @@ export const MobileIncidentCard = memo(MobileIncidentCardBase, (prevProps, nextP
     // The hook hands out a NEW Map only when a driver actually changed, so
     // reference equality is the honest comparison here.
     prevProps.vehicleDrivers === nextProps.vehicleDrivers &&
+    prevProps.auftrag === nextProps.auftrag &&
+    prev.groupPosition === next.groupPosition &&
     prev.id === next.id &&
     prev.number === next.number &&
     prev.status === next.status &&

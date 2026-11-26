@@ -14,7 +14,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '@/test-utils/render-with-intl'
-import type { ApiFeldAssignment, ApiFeldPersonnel } from '@/lib/api/types'
+import type { ApiFeldAssignment, ApiFeldMaterialItem, ApiFeldPersonnel } from '@/lib/api/types'
 import { ApiError } from '@/lib/api/types/common'
 
 const searchParams = vi.hoisted(() => new URLSearchParams())
@@ -780,7 +780,7 @@ describe('/feld without a connection', () => {
 
   it('no poll starts while a load is still out – on a slow link each would supersede the last', async () => {
     getFeldAssignments.mockResolvedValueOnce(answer).mockReturnValueOnce(new Promise(() => {}))
-    vi.useFakeTimers({ toFake: ['setInterval'] })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
     try {
       renderWithIntl(<FeldPage />)
       await screen.findByText('Hauptstrasse 1')
@@ -1160,6 +1160,30 @@ describe('/feld for a Magazin person who also has own work', () => {
 
     // Nothing of their own to do: the inventory IS the page, so it stands open.
     expect(await screen.findByText('Tauchpumpe')).toBeInTheDocument()
+  })
+
+  it('reads the inventory one at a time, and a slow answer still lands after newer list loads', async () => {
+    withOwnWork([])
+    let answerSlow: (value: { materials: Partial<ApiFeldMaterialItem>[] }) => void = () => {}
+    getFeldMaterial.mockReturnValueOnce(new Promise((resolve) => { answerSlow = resolve }))
+    renderWithIntl(<FeldPage />)
+    await waitFor(() => expect(getFeldMaterial).toHaveBeenCalledTimes(1))
+
+    // The list reloads twice while the inventory is still out: no second inventory read.
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledTimes(2))
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(getFeldAssignments).toHaveBeenCalledTimes(3))
+    expect(getFeldMaterial).toHaveBeenCalledTimes(1)
+
+    await act(async () =>
+      answerSlow({ materials: [{ material_id: 'm-3', name: 'Stromerzeuger', state: 'in', at: null, home_location: 'Magazin' }] }),
+    )
+    expect(await screen.findByText('Stromerzeuger')).toBeInTheDocument()
   })
 })
 

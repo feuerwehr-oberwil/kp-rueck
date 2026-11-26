@@ -1561,6 +1561,7 @@
       "crew": "Mannschaft",
       "vehicles": "Fahrzeuge",
       "reko": "Reko",
+      "auftrag": "Auftrag",
       "openDetail": "Details anzeigen: {incident}"
     },
     "mobileDetail": {

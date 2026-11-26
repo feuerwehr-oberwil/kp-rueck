@@ -70,6 +70,8 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
 
   // The roster and the depot: state of this provider, filled by the board load.
   const eventId = selectedEvent?.id ?? null
+  const selectedEventIdRef = useRef(eventId)
+  selectedEventIdRef.current = eventId
   const { personnel, setPersonnel, refreshPersonnel } = usePersonnelList(eventId)
   const { materials, setMaterials, materialGroups, refreshMaterials, setMaterialOutOfService } = useMaterialList(
     eventId,
@@ -189,6 +191,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // Load, live updates, polling fallback and sync freshness — ./operations/use-board-sync.
   const {
     homeCity,
+    boardNeverLoaded,
     lastSyncAt,
     loadError,
     liveSince,
@@ -253,6 +256,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     setResourceConflict,
     setVehicleNeedingDriver,
     operationsRef,
+    selectedEventIdRef,
     recentRemovalsRef,
     criticalUpdateInProgress,
     mutationEpochRef,
@@ -357,8 +361,6 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       deleteOperation: stable("deleteOperation"),
     }
   }, [])
-
-  const boardNeverLoaded = loadError !== null && lastSyncAt === null
 
   const value = useMemo<OperationsContextType>(
     () => ({

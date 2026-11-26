@@ -26,6 +26,8 @@ export interface BoardMutationContext {
   setResourceConflict: Dispatch<SetStateAction<OperationsContextType["resourceConflict"]>>
   setVehicleNeedingDriver: Dispatch<SetStateAction<VehicleNeedingDriver | null>>
   operationsRef: MutableRefObject<Operation[]>
+  /** The Ereignis selected now – for an answer that lands after a switch. */
+  selectedEventIdRef: MutableRefObject<string | null>
   recentRemovalsRef: MutableRefObject<RecentRemovals>
   criticalUpdateInProgress: MutableRefObject<boolean>
   mutationEpochRef: MutableRefObject<number>
