@@ -60,8 +60,8 @@ export interface StationSettings {
   serverSettings: Record<string, string>;
   loading: boolean;
   error: string | null;
-  /** The key whose PATCH is in flight. */
-  saving: string | null;
+  /** Whether this key's PATCH is in flight – per key, so one save does not free another's input. */
+  isSaving: (key: string) => boolean;
   /** When the server last confirmed each key in this visit – what «Synchronisiert – hh:mm» reads. */
   savedAt: Record<string, Date>;
   /** Per-key validation failures of `StationSettingsForm`. Kept here, not in the
@@ -94,7 +94,7 @@ export function useStationSettings({
   const [serverSettings, setServerSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<string | null>(null);
+  const { isSaving, whileSaving } = useSavingKeys();
   const [savedAt, setSavedAt] = useState<Record<string, Date>>({});
   // Per-key validation failures for the ranged settings (the station coordinates).
   // A rejected value stays in the input so the operator can fix the typo instead of
@@ -135,21 +135,20 @@ export function useStationSettings({
     // The key's input is disabled while it saves, and a focused input that turns disabled
     // gets a blur of its own (the HTML focus fixup). That blur still sees the old
     // `serverSettings` and would send the same value twice.
-    if (saving === key) return;
-    setSaving(key);
-    try {
-      await apiClient.updateSetting(key, value);
-      setSettings((prev) => ({ ...prev, [key]: value }));
-      setServerSettings((prev) => ({ ...prev, [key]: value }));
-      setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
-      void refreshOperations();
-      onSaved?.(key, value);
-    } catch (err) {
-      console.error(`Failed to update setting ${key}:`, err);
-      toast.error(t('common.saveError'));
-    } finally {
-      setSaving(null);
-    }
+    if (isSaving(key)) return;
+    await whileSaving(key, async () => {
+      try {
+        await apiClient.updateSetting(key, value);
+        setSettings((prev) => ({ ...prev, [key]: value }));
+        setServerSettings((prev) => ({ ...prev, [key]: value }));
+        setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
+        void refreshOperations();
+        onSaved?.(key, value);
+      } catch (err) {
+        console.error(`Failed to update setting ${key}:`, err);
+        toast.error(t('common.saveError'));
+      }
+    });
   };
 
   return {
@@ -158,7 +157,7 @@ export function useStationSettings({
     serverSettings,
     loading,
     error,
-    saving,
+    isSaving,
     savedAt,
     settingErrors,
     setSettingErrors,
@@ -168,29 +167,55 @@ export function useStationSettings({
 }
 
 /**
+ * The settings keys whose PATCH is in flight. `whileSaving(key, run)` marks the key until
+ * `run` settles; `isSaving(key)` asks. Per key: with one shared flag, the first of two saves
+ * to finish re-enabled the other key's input while its PATCH was still out. Counted, because
+ * several inputs can save one key (the rank abbreviations).
+ */
+function useSavingKeys() {
+  const [pending, setPending] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const isSaving = (key: string) => pending.has(key);
+  const count = (key: string, by: 1 | -1) =>
+    setPending((prev) => {
+      const next = new Map(prev);
+      const n = (prev.get(key) ?? 0) + by;
+      if (n > 0) next.set(key, n);
+      else next.delete(key);
+      return next;
+    });
+  const whileSaving = async <T,>(key: string, run: () => Promise<T>): Promise<T> => {
+    count(key, 1);
+    try {
+      return await run();
+    } finally {
+      count(key, -1);
+    }
+  };
+  return { isSaving, whileSaving };
+}
+
+/**
  * The save path of a settings card that keeps its own few settings instead of the whole
- * `useStationSettings` store: which key is in flight, when the server confirmed each key
+ * `useStationSettings` store: which keys are in flight, when the server confirmed each key
  * (for `SettingSaveLine`), and `failedMessage` as a toast when it refused. `save` answers
  * whether it went through, so the caller can roll its optimistic state back.
  */
 export function useSettingSaver(failedMessage: string) {
-  const [saving, setSaving] = useState<string | null>(null);
+  const { isSaving, whileSaving } = useSavingKeys();
   const [savedAt, setSavedAt] = useState<Record<string, Date>>({});
-  const save = async (key: string, value: string): Promise<boolean> => {
-    setSaving(key);
-    try {
-      await apiClient.updateSetting(key, value);
-      setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
-      return true;
-    } catch (err) {
-      console.error(`Failed to update setting ${key}:`, err);
-      toast.error(failedMessage);
-      return false;
-    } finally {
-      setSaving(null);
-    }
-  };
-  return { saving, savedAt, save };
+  const save = (key: string, value: string): Promise<boolean> =>
+    whileSaving(key, async () => {
+      try {
+        await apiClient.updateSetting(key, value);
+        setSavedAt((prev) => ({ ...prev, [key]: new Date() }));
+        return true;
+      } catch (err) {
+        console.error(`Failed to update setting ${key}:`, err);
+        toast.error(failedMessage);
+        return false;
+      }
+    });
+  return { isSaving, savedAt, save };
 }
 
 /**
@@ -262,11 +287,11 @@ export function StationSettingsForm({
   extras?: Partial<Record<string, SettingRowExtra>>;
 }) {
   const t = useTranslations('settings');
-  const { settings, setSettings, serverSettings, saving, savedAt, settingErrors, setSettingErrors, updateSetting } = store;
+  const { settings, setSettings, serverSettings, isSaving, savedAt, settingErrors, setSettingErrors, updateSetting } = store;
 
   const renderSettingInput = (config: SettingConfig) => {
     const value = settings[config.key] || '';
-    const isCurrentlySaving = saving === config.key;
+    const isCurrentlySaving = isSaving(config.key);
 
     // Boolean without options → render as Switch
     if (config.type === 'boolean' && !config.options) {
@@ -385,14 +410,14 @@ export function StationSettingsForm({
         // A switch keeps the right edge; its line stands beside it, so the row does not
         // grow and shrink with every click.
         <div className="ml-auto flex items-center justify-end gap-2">
-          <SettingSaveLine saving={saving === config.key} savedAt={savedAt[config.key]} className="" />
+          <SettingSaveLine saving={isSaving(config.key)} savedAt={savedAt[config.key]} className="" />
           {renderSettingInput(config)}
         </div>
       ) : (
         // Everything with a field fills the column – one edge down the whole card.
         <div className="w-full min-w-0">
           {renderSettingInput(config)}
-          <SettingSaveLine saving={saving === config.key} savedAt={savedAt[config.key]} />
+          <SettingSaveLine saving={isSaving(config.key)} savedAt={savedAt[config.key]} />
         </div>
       )}
     </SettingRow>

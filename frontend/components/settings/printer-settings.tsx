@@ -42,7 +42,7 @@ export function PrinterSettings() {
   // (`canEdit: true`): the section is editor-only and the page sits behind
   // `ProtectedRoute`, so a viewer never gets here – and the PATCH is refused
   // server-side anyway. A confirmed save re-reads the printer status.
-  const { settings, setSettings, serverSettings, loading, saving, savedAt, updateSetting } = useStationSettings({
+  const { settings, setSettings, serverSettings, loading, isSaving, savedAt, updateSetting } = useStationSettings({
     enabled: true,
     canEdit: true,
     onSaved: () => {
@@ -251,7 +251,7 @@ export function PrinterSettings() {
             onCheckedChange={(checked) =>
               updateSetting('printer.enabled', checked ? 'true' : 'false')
             }
-            disabled={saving === 'printer.enabled'}
+            disabled={isSaving('printer.enabled')}
           />
         </SettingRow>
 
@@ -270,9 +270,9 @@ export function PrinterSettings() {
                   updateSetting('printer.ip', e.target.value);
                 }
               }}
-              disabled={saving === 'printer.ip'}
+              disabled={isSaving('printer.ip')}
             />
-            <SettingSaveLine saving={saving === 'printer.ip'} savedAt={savedAt['printer.ip']} />
+            <SettingSaveLine saving={isSaving('printer.ip')} savedAt={savedAt['printer.ip']} />
           </div>
         </SettingRow>
 
@@ -294,9 +294,9 @@ export function PrinterSettings() {
                   updateSetting('printer.port', e.target.value);
                 }
               }}
-              disabled={saving === 'printer.port'}
+              disabled={isSaving('printer.port')}
             />
-            <SettingSaveLine saving={saving === 'printer.port'} savedAt={savedAt['printer.port']} />
+            <SettingSaveLine saving={isSaving('printer.port')} savedAt={savedAt['printer.port']} />
           </div>
         </SettingRow>
 
@@ -323,7 +323,7 @@ export function PrinterSettings() {
             onCheckedChange={(checked) =>
               updateSetting('printer.auto_anfahrt', checked ? 'true' : 'false')
             }
-            disabled={!printerConfigured || saving === 'printer.auto_anfahrt'}
+            disabled={!printerConfigured || isSaving('printer.auto_anfahrt')}
           />
         </SettingRow>
 

@@ -350,7 +350,7 @@ export default function SettingsPage() {
   // The station's key/value settings, shared by every section that edits keys.
   // Called after the audit hook so the settings fetch keeps its place among the effects.
   const stationSettings = useStationSettings({ enabled: isAuthenticated, canEdit: isEditor });
-  const { settings, setSettings, serverSettings, loading, error, saving, savedAt, updateSetting } = stationSettings;
+  const { settings, setSettings, serverSettings, loading, error, isSaving, savedAt, updateSetting } = stationSettings;
 
   // Navigate to section
   const navigateToSection = (sectionId: SectionId) => {
@@ -550,7 +550,7 @@ export default function SettingsPage() {
             >
               {whatsappFields.map((field) => {
                 const value = settings[field.key] !== undefined ? settings[field.key] : field.fallback;
-                const isCurrentlySaving = saving === field.key;
+                const isCurrentlySaving = isSaving(field.key);
                 return (
                   <SettingBlock
                     key={field.key}
@@ -591,7 +591,7 @@ export default function SettingsPage() {
               const key = WHATSAPP_INCIDENT_TEMPLATE_KEY;
               const fallback = DEFAULT_WHATSAPP_INCIDENT_TEMPLATE;
               const value = settings[key] !== undefined ? settings[key] : fallback;
-              const isCurrentlySaving = saving === key;
+              const isCurrentlySaving = isSaving(key);
               return (
                 <SettingCard
                   title={t('page.alerting.incidentTemplateTitle')}
@@ -650,7 +650,7 @@ export default function SettingsPage() {
               setSettings={setSettings}
               updateSetting={updateSetting}
               isEditor={isEditor}
-              saving={saving}
+              isSaving={isSaving}
               savedAt={savedAt}
             />
             </DemoLock>
@@ -673,7 +673,7 @@ export default function SettingsPage() {
               setSettings={setSettings}
               updateSetting={updateSetting}
               isEditor={isEditor}
-              saving={saving}
+              isSaving={isSaving}
               savedAt={savedAt}
             />
             {/* The credential the dispatch provider signs POST /api/alarms with –
@@ -698,7 +698,7 @@ export default function SettingsPage() {
                 { key: FELD_DRIVER_MESSAGE_CHIPS_KEY, fallback: DEFAULT_FELD_DRIVER_MESSAGE_CHIPS, label: t('page.alarmIntake.feldDriverChipsLabel') },
               ] as const).map(({ key, fallback, label }) => {
                 const value = settings[key] !== undefined ? settings[key] : fallback;
-                const isCurrentlySaving = saving === key;
+                const isCurrentlySaving = isSaving(key);
                 return (
                   <SettingBlock
                     key={key}
@@ -769,7 +769,7 @@ export default function SettingsPage() {
                 setSettings={setSettings}
                 updateSetting={updateSetting}
                 isEditor={isEditor}
-                saving={saving}
+                isSaving={isSaving}
                 savedAt={savedAt}
               />
             </DemoLock>
@@ -780,7 +780,7 @@ export default function SettingsPage() {
                 setSettings={setSettings}
                 updateSetting={updateSetting}
                 isEditor={isEditor}
-                saving={saving}
+                isSaving={isSaving}
                 savedAt={savedAt}
               />
             </DemoLock>
