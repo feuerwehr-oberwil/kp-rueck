@@ -459,17 +459,28 @@ version does not have. That includes "just to see if it builds".
   **per environment**, and a change in the dashboard sticks – including a mistaken one. What
   they are:
 
-  | | Production (and the demo) | Staging |
-  | --- | --- | --- |
-  | Builder | Dockerfile | Dockerfile |
-  | Start command | backend `./start.sh` · frontend `node server.js` | same |
-  | Healthcheck path · timeout | backend `/health` · frontend `/` · both `300` | same |
-  | Restart policy | `ALWAYS` | `ON_FAILURE` |
-  | App sleeping | off | **on** |
-  | Replicas | `1` | `1` |
+  | | Production | Public demo | Staging |
+  | --- | --- | --- | --- |
+  | Builder | Dockerfile | Dockerfile | Dockerfile |
+  | Start command | backend `./start.sh` · frontend `node server.js` | same | same |
+  | Healthcheck path · timeout | backend `/health` · frontend `/` · both `300` | same | same |
+  | Restart policy | `ALWAYS` | `ON_FAILURE` | `ON_FAILURE` |
+  | App sleeping | off | **on** (frontend, backend, Postgres) | **on** |
+  | Replicas | `1` | `1` | `1` |
 
   Set staging's two differences in the staging environment's service settings, and read them
   back in production afterwards – the same rule as the branch below.
+
+- **The public demo sleeps when nobody uses it** (project `kp-rueck-demo`, since 2026-11). Railway
+  puts a service to sleep 5–10 minutes after its last outbound packet and wakes it on the next
+  request, private network included – a cold boot of 10–30 s. So in `DEMO_MODE` the backend
+  sends nothing while no board is connected: no heartbeat, no Divera or roster polls, no hourly
+  sweeps, and the weather, notification, telemetry and demo-position jobs skip their ticks
+  (`backend/app/demo_activity.py`, the `demo` column of `backend/app/background/jobs.py`). A
+  hidden demo tab drops its socket after 10 minutes. Every boot resets the demo, so each wake is
+  a fresh demo. Visitors come in through `kp-rueck.ch/demo/`, which polls the frontend's
+  `/ready` and opens `/login` once frontend, backend and database answer. Do not point an
+  uptime monitor or `HEALTHCHECK_PING_URL` at the demo: either keeps it awake around the clock.
 
 - **The deploy branch is per environment – but only the dashboard can set it.** Two
   environments of the same project can genuinely watch different branches (verified: staging on

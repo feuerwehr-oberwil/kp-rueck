@@ -5,7 +5,8 @@ after its nominal time); warnings every 10 minutes. Both run once right at start
 booted board has weather within seconds, not after the first interval.
 
 Fail-open like the heartbeat: WEATHER_ENABLED=false → nothing is scheduled; a failed round is
-recorded in the source's status and swallowed. The board never waits on any of it.
+recorded in the source's status and swallowed. The board never waits on any of it. On an unused
+demo both polls skip their round, so it can sleep (app/demo_activity.py).
 """
 
 from datetime import UTC, datetime
@@ -16,6 +17,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.database import async_session_maker
+from app.demo_activity import demo_idle
 from app.logging_config import get_logger
 from app.services.settings import get_station_coordinates
 from app.services.weather.service import WARNINGS_INTERVAL_MINUTES, weather_service
@@ -24,10 +26,14 @@ logger = get_logger(__name__)
 
 
 async def poll_radar() -> None:
+    if demo_idle():
+        return
     await weather_service.poll_radar()
 
 
 async def poll_warnings() -> None:
+    if demo_idle():
+        return
     station: tuple[float, float] | None = None
     try:
         async with async_session_maker() as db:

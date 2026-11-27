@@ -2,7 +2,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![CI](https://github.com/feuerwehr-oberwil/kp-rueck/actions/workflows/ci.yml/badge.svg)](https://github.com/feuerwehr-oberwil/kp-rueck/actions/workflows/ci.yml)
-[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://demo.kp-rueck.ch)
+[![Live Demo](https://img.shields.io/badge/Demo-live-brightgreen)](https://kp-rueck.ch/demo/)
 
 **Tactical operations board for the rear command post (KP Rück).** KP Rück replaces the
 physical magnet board used to track personnel, vehicles, materials, and incidents during an
@@ -26,9 +26,10 @@ It is not a dispatch centre: it takes alarms in, it does not replace the system 
 
 ## Try the demo
 
-**[Try the live demo](https://demo.kp-rueck.ch)** – no account needed, just pick a
-role and go. The demo seeds a realistic board and resets on a schedule; each visitor gets an
-isolated training sandbox.
+**[Try the live demo](https://kp-rueck.ch/demo/)** – no account needed, just pick a
+role and go. The demo seeds a realistic board and resets on every start; each visitor gets an
+isolated training sandbox. It sleeps when nobody uses it, so the first visit may take 10–30
+seconds while it wakes.
 
 ## Why KP Rück
 

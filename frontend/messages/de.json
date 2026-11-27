@@ -17,7 +17,7 @@
         "intro": "Dies ist eine öffentliche Demo mit erfundenen Daten. Du kannst das Einsatz-Dashboard frei ausprobieren.",
         "sharedTitle": "Gemeinsam genutzte Demo",
         "sharedDescription": "Beim Start wird für dich eine Übungslage angelegt. Sie ist jedoch nicht privat: Andere Besucher können sie finden, ansehen und bearbeiten. Bitte verändere oder lösche nur Einträge, die du selbst erstellt hast.",
-        "resetDescription": "Die Demo wird täglich um 00:00 Uhr zurückgesetzt. Dabei werden alle Änderungen gelöscht.",
+        "resetDescription": "Die Demo schläft, wenn niemand sie nutzt, und startet danach frisch – spätestens um 00:00 Uhr wird sie zurückgesetzt. Dabei werden alle Änderungen gelöscht.",
         "canTitle": "Das kannst du ausprobieren",
         "canIncidents": "Einsätze erfassen, priorisieren und durch die Einsatzphasen bewegen",
         "canResources": "Personal, Fahrzeuge und Material disponieren",

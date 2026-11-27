@@ -6,7 +6,8 @@
     "repo": "https://github.com/feuerwehr-oberwil/kp-rueck",
     "license": "https://www.gnu.org/licenses/agpl-3.0.html",
     "screenshot": "shots/board.jpg",
-    "demo": "https://demo.kp-rueck.ch/login",
+    "demo": "https://kp-rueck.ch/demo/",
+    "demoApp": "https://demo.kp-rueck.ch/",
     "inLanguage": ["de", "fr"],
     "suite": {
       "id": "https://kp-front.ch/#kp-suite",

@@ -1,8 +1,9 @@
 """Which background jobs run where (app/background/jobs.py).
 
 A job that writes into the mirrored tables must never run on a standby box: its write is
-overwritten by the replication, or stops it with a duplicate key. These sets are the gate,
-spelled out – a new job, or a changed row, changes them on purpose.
+overwritten by the replication, or stops it with a duplicate key. And the public demo sleeps
+when nobody uses it, so it runs only jobs that go quiet then. These sets are the gate, spelled
+out – a new job, or a changed row, changes them on purpose.
 """
 
 from unittest.mock import AsyncMock
@@ -12,16 +13,16 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.background.jobs import Job, lifespan_jobs, start_jobs, stop_jobs
 
-EVERYWHERE = {
+#: Memory only, or idle while nobody is connected (app/demo_activity.py).
+DEMO_SAFE = {
     "scheduler",
     "telemetry_flush",
-    "heartbeat",
     "weather",
     "websocket_cleanup",
     "traccar_poller",
-    "token_blocklist_cleanup",
     "login_throttle_cleanup",
 }
+EVERYWHERE = DEMO_SAFE | {"heartbeat", "token_blocklist_cleanup"}
 
 
 def _running(*, standby: bool, demo: bool) -> set[str]:
@@ -47,15 +48,10 @@ def test_the_hosted_board_runs_every_job_but_the_mirror_watch_and_the_demo_reset
     }
 
 
-def test_the_demo_resets_nightly_and_generates_nothing_unattended():
-    assert _running(standby=False, demo=True) == EVERYWHERE | {
-        "divera_retention",
-        "roster_snapshot",
-        "audit_cleanup",
-        "demo_reset",
-        "divera_poller",
-        "notification_watch",
-    }
+def test_the_demo_runs_only_jobs_that_let_it_sleep_and_generates_nothing_unattended():
+    # No heartbeat, no hourly DELETEs, no external polls: each one would keep the demo and
+    # its database awake around the clock. The reset empties the tables they would sweep.
+    assert _running(standby=False, demo=True) == DEMO_SAFE | {"demo_reset", "notification_watch"}
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@
 
 ## Official resources
 
-- Public demo: https://demo.kp-rueck.ch/
+- Public demo: https://kp-rueck.ch/demo/ (wakes the demo, which sleeps when unused, then opens https://demo.kp-rueck.ch/login)
 - Source code: https://github.com/feuerwehr-oberwil/kp-rueck
 - Setup guide: https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md
 - Changelog: https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/CHANGELOG.md

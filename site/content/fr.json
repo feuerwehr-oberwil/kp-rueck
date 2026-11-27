@@ -47,6 +47,22 @@
     "home": "Vers l’accueil",
     "demo": "Ouvrir la démo"
   },
+  "wake": {
+    "pageTitle": "Démarrage de la démo – KP Rück",
+    "title": "La démo démarre…",
+    "ready": "Prête – la démo s’ouvre…",
+    "steps": [
+      "Le serveur démarre",
+      "La base de données se réveille",
+      "Préparation de la situation de démo"
+    ],
+    "note": "La démo se met en veille quand personne ne l’utilise. Le démarrage prend en général 10 à 30 secondes.",
+    "failTitle": "La démo ne démarre pas pour l’instant",
+    "failText": "Elle n’a pas répondu après 90 secondes. Un deuxième essai suffit en général.",
+    "retry": "Réessayer",
+    "direct": "Ouvrir directement la démo",
+    "noscript": "La démo se met en veille quand personne ne l’utilise. Le premier accès peut prendre jusqu’à 30 secondes."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Suisse",
     "h1": "Le tableau d’intervention du poste de commandement.",
@@ -290,7 +306,7 @@
       },
       {
         "q": "Comment commencer ?",
-        "a": "Par la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode\n          exercice est proprement séparé du cas réel. Si cela convient, le\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guide d’installation</a> accompagne la mise en place et l’exploitation.\n          Nous répondons volontiers aux questions générales ; les données et l’exploitation restent\n          sous la responsabilité de chaque corps."
+        "a": "Par la <a href=\"https://kp-rueck.ch/fr/demo/\" target=\"_blank\" rel=\"noopener\">démo</a>,\n          sans compte – choisir un rôle et commencer. Ensuite, l’essayer à un exercice ; le mode\n          exercice est proprement séparé du cas réel. Si cela convient, le\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guide d’installation</a> accompagne la mise en place et l’exploitation.\n          Nous répondons volontiers aux questions générales ; les données et l’exploitation restent\n          sous la responsabilité de chaque corps."
       }
     ]
   },

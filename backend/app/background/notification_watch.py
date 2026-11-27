@@ -8,6 +8,8 @@ fetch. This loop runs the same evaluation once a minute for every open Ereignis 
 list changed, sends the `notification_update` the boards already reload on.
 
 Not on a standby box: the evaluation writes rows, and a mirror's rows come from the hosted board.
+On an unused demo the tick is skipped, so it can sleep (app/demo_activity.py); a board that
+connects fetches the list itself.
 """
 
 import asyncio
@@ -18,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..database import async_session_maker
+from ..demo_activity import demo_idle
 from ..logging_config import get_logger
 from ..models import Event
 from ..services import notification_service
@@ -68,6 +71,8 @@ async def evaluate_open_events(session_maker: async_sessionmaker[AsyncSession] |
 async def _watch() -> None:
     while True:
         await asyncio.sleep(INTERVAL_SECONDS)
+        if demo_idle():
+            continue
         try:
             await evaluate_open_events()
         except Exception:  # a failed tick must never end the loop

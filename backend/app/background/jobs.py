@@ -9,7 +9,13 @@ shutdown. Each row says where its job runs:
 - ``demo``: on the public demo (``DEMO_MODE``).
 
 ``"also"`` runs there as well, ``"skip"`` not there, ``"only"`` only there. A new job is one
-row here – and one line in tests/test_background/test_jobs.py, which pins the standby set.
+row here – and one line in tests/test_background/test_jobs.py, which pins the standby and the
+demo set.
+
+The demo sleeps when nobody uses it (Railway Serverless: no outbound packet for 5–10 min). So a
+job that runs there reads Postgres or calls out only while somebody is there – it checks
+``demo_idle()`` (app/demo_activity.py) – or it touches memory only. Anything else keeps the demo
+and its database awake around the clock.
 
 The interval jobs share one APScheduler (``scheduler`` row, first in, last out); each of their
 modules adds its jobs with ``schedule(scheduler)`` and logs when its config switches it off. The
@@ -107,17 +113,23 @@ def lifespan_jobs(scheduler: AsyncIOScheduler) -> tuple[Job, ...]:
             demo="also",
         ),
         # A no-op unless an admin opted in (app/telemetry/); scheduled always, so consent needs no restart.
+        # Idle on an unused demo.
         Job(name="telemetry_flush", start=on(telemetry_flush.schedule), standby="also", demo="also"),
-        # Dead-man's switch; nothing without HEALTHCHECK_PING_URL.
-        Job(name="heartbeat", start=on(heartbeat.schedule), standby="also", demo="also"),
-        # Divera Rückmeldungen are personal data: deleted 48 h after the alarm.
-        Job(name="divera_retention", start=on(divera_retention.schedule), standby="skip", demo="also"),
-        # Radar and official warnings for the map; nothing with WEATHER_ENABLED=false.
+        # Dead-man's switch; nothing without HEALTHCHECK_PING_URL. Not on the demo: it sleeps on
+        # purpose, and a ping every minute would keep it awake.
+        Job(name="heartbeat", start=on(heartbeat.schedule), standby="also", demo="skip"),
+        # Divera Rückmeldungen are personal data: deleted 48 h after the alarm. The demo has no
+        # Divera, and its reset empties the table anyway.
+        Job(name="divera_retention", start=on(divera_retention.schedule), standby="skip", demo="skip"),
+        # Radar and official warnings for the map; nothing with WEATHER_ENABLED=false. Idle on
+        # an unused demo.
         Job(name="weather", start=on(weather.schedule), standby="also", demo="also"),
-        # The station's published roster file; nothing without a source.
-        Job(name="roster_snapshot", start=on(roster_snapshot.schedule), standby="skip", demo="also"),
-        Job(name="audit_cleanup", start=on(audit_cleanup.schedule), standby="skip", demo="also"),
-        Job(name="demo_reset", start=on(demo_reset.schedule), standby="also", demo="only"),
+        # The station's published roster file; nothing without a source. The demo's roster is its seed.
+        Job(name="roster_snapshot", start=on(roster_snapshot.schedule), standby="skip", demo="skip"),
+        # The demo's reset empties the audit log (background/demo_reset.py).
+        Job(name="audit_cleanup", start=on(audit_cleanup.schedule), standby="skip", demo="skip"),
+        # A fresh demo on every boot, and at midnight while somebody uses it.
+        Job(name="demo_reset", start=lambda: demo_reset.start(scheduler), standby="also", demo="only"),
         Job(
             name="websocket_cleanup",
             start=ws_manager.start_cleanup_task,
@@ -126,16 +138,17 @@ def lifespan_jobs(scheduler: AsyncIOScheduler) -> tuple[Job, ...]:
             demo="also",
         ),
         # Alarms are polled (and auto-attached) whether or not a board is open; nothing
-        # without DIVERA_ACCESS_KEY.
+        # without DIVERA_ACCESS_KEY. Never on the public demo: its alarms are simulated.
         Job(
             name="divera_poller",
             start=start_divera_polling,
             stop=divera_poller.stop_polling,
             standby="skip",
-            demo="also",
+            demo="skip",
         ),
         # Positions for the map and the GPS automation, board open or not; nothing without
-        # Traccar, a GPS simulation or the demo's own positions.
+        # Traccar, a GPS simulation or the demo's own positions – those only while a board
+        # is connected (services/traccar_poller.py).
         Job(
             name="traccar_poller",
             start=traccar_poller.start_polling,
@@ -143,12 +156,14 @@ def lifespan_jobs(scheduler: AsyncIOScheduler) -> tuple[Job, ...]:
             standby="also",
             demo="also",
         ),
+        # Hourly DELETE of expired revocations. Not on the demo: every logout prunes them too,
+        # and the reset empties the table.
         Job(
             name="token_blocklist_cleanup",
             start=token_blocklist.start_cleanup_task,
             stop=token_blocklist.stop_cleanup_task,
             standby="also",
-            demo="also",
+            demo="skip",
         ),
         Job(
             name="login_throttle_cleanup",
@@ -182,7 +197,7 @@ def lifespan_jobs(scheduler: AsyncIOScheduler) -> tuple[Job, ...]:
             demo="skip",
         ),
         # A mirror's notification rows come from the hosted board; everywhere else the rules
-        # are evaluated on a clock.
+        # are evaluated on a clock – on the demo only while a board is connected.
         Job(
             name="notification_watch",
             start=notification_watch.start_notification_watch,

@@ -53,7 +53,7 @@ describe('DemoBanner', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('welcomes an authenticated visitor with shared-data and midnight reset guidance', async () => {
+  it('welcomes an authenticated visitor with shared-data and reset guidance', async () => {
     mocks.pathname = '/'
     mocks.isAuthenticated = true
 
@@ -61,7 +61,7 @@ describe('DemoBanner', () => {
 
     expect(await screen.findByRole('dialog', { name: 'Willkommen bei KP Rück' })).toBeInTheDocument()
     expect(screen.getByText(/Sie ist jedoch nicht privat/i)).toBeInTheDocument()
-    expect(screen.getByText(/täglich um 00:00 Uhr zurückgesetzt/i)).toBeInTheDocument()
+    expect(screen.getByText(/spätestens um 00:00 Uhr wird sie zurückgesetzt/i)).toBeInTheDocument()
   })
 
   it('stores dismissal so the welcome only appears once per browser', async () => {
