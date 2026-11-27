@@ -256,7 +256,19 @@ def _refuse_active_assignments(active_count: int, blockers: list[AssignmentBlock
     )
 
 
-@router.get("/import/template")
+@router.get(
+    "/import/template",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            }
+        }
+    },
+)
 async def download_import_template(
     current_user: CurrentEditor,
 ) -> StreamingResponse:
@@ -434,7 +446,19 @@ async def execute_excel_import(
     }
 
 
-@router.get("/export/data")
+@router.get(
+    "/export/data",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            }
+        }
+    },
+)
 async def export_all_data(
     current_user: CurrentEditor,
     request: Request,

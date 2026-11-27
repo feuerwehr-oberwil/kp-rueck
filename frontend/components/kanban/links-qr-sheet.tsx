@@ -320,10 +320,11 @@ export function LinksQrSheet({
     )
   }
 
-  const enlargedQr = enlarged && urls[enlarged] && (
+  const enlargedUrl = enlarged ? urls[enlarged] : undefined
+  const enlargedQr = enlarged && enlargedUrl && (
     <>
       <div className="rounded-lg bg-white p-3">
-        <QRCodeSVG value={urls[enlarged]!} size={240} level="M" includeMargin={false} />
+        <QRCodeSVG value={enlargedUrl} size={240} level="M" includeMargin={false} />
       </div>
       {/* The Feld QR is useless on its own now — whoever scans it is
           asked for the code next, so it belongs on the same surface. */}

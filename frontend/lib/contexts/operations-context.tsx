@@ -18,7 +18,7 @@ import { createResourceActions } from "./operations/resource-actions"
 import { PersonNamingProvider } from "@/components/person-name"
 import { createIncidentActions } from "./operations/incident-actions"
 import { createGroupActions } from "./operations/group-actions"
-import { deriveAuftragState, withAuftragCrew } from "./operations/reconcile"
+import { deriveAuftragState, withAuftragCrew, withAuftragResources } from "./operations/reconcile"
 import type {
   BoardActions,
   BoardSyncStatus,
@@ -40,6 +40,7 @@ export type {
   OperationStatus,
   RekoSummary,
   Operation,
+  NewOperation,
   CrewMember,
   OperationVehicle,
   VehicleNeedingDriver,
@@ -363,6 +364,18 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     () => withAuftragCrew(personnel, auftragState.occupiedResourceIds.personnel),
     [personnel, auftragState],
   )
+  // Every surface reads a stop's route resources off the card (`Operation.auftragResources`),
+  // filled here and only here – the actions write the stored cards, this pass adds the routes.
+  // A route or roster change that leaves every card as it was keeps the list too, so the
+  // consumers keyed on `operations` do not rerun for nothing.
+  const projectedCards = useRef(new WeakMap<Operation, Operation>())
+  const lastOperationsOnBoard = useRef<Operation[]>([])
+  const operationsOnBoard = useMemo(() => {
+    const next = withAuftragResources(operations, groups, auftragState.resourcesByGroup, projectedCards.current)
+    const last = lastOperationsOnBoard.current
+    if (next.length !== last.length || next.some((card, i) => card !== last[i])) lastOperationsOnBoard.current = next
+    return lastOperationsOnBoard.current
+  }, [operations, groups, auftragState])
 
   // Prefer the server-computed labels (location_display) so first paint shows
   // the final string; the client formatter only covers addresses the server
@@ -386,8 +399,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
   // rendered for ANY reason. The actions close over this render's
   // state and are rebuilt each render, so consumers get stable wrappers that
   // always call the LATEST render's version (never a stale closure either).
-  const latestActionsRef = useRef<BoardActions | null>(null)
-  latestActionsRef.current = {
+  const latestActions: BoardActions = {
     removeCrew,
     removeMaterial,
     removeVehicle,
@@ -409,10 +421,12 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
     resolveResourceConflict,
     deleteOperation,
   }
+  const latestActionsRef = useRef(latestActions)
+  latestActionsRef.current = latestActions
   const stableActions = useMemo<BoardActions>(() => {
     const stable = <K extends keyof BoardActions>(key: K): BoardActions[K] =>
       ((...args: unknown[]) =>
-        (latestActionsRef.current![key] as (...a: unknown[]) => unknown)(...args)) as BoardActions[K]
+        (latestActionsRef.current[key] as (...a: unknown[]) => unknown)(...args)) as BoardActions[K]
     return {
       removeCrew: stable("removeCrew"),
       removeMaterial: stable("removeMaterial"),
@@ -446,7 +460,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setMaterials,
       materialGroups,
       setMaterialOutOfService,
-      operations,
+      operations: operationsOnBoard,
       homeCity,
       isLoading,
       isLoaded,
@@ -482,7 +496,7 @@ export function OperationsProvider({ children }: { children: ReactNode }) {
       setMaterials,
       materialGroups,
       setMaterialOutOfService,
-      operations,
+      operationsOnBoard,
       homeCity,
       isLoading,
       isLoaded,

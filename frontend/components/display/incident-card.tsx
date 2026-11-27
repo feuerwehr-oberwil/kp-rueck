@@ -59,7 +59,7 @@ import { LeaderBadge } from "@/components/kanban/leader-badge"
 import { PickupBadge } from "@/components/kanban/pickup-badge"
 import { type Operation } from "@/lib/contexts/operations-context"
 import { type Material, type MaterialGroup } from "@/lib/contexts/materials-context"
-import { type GroupResources, type IncidentGroup } from "@/lib/types/groups"
+import { type IncidentGroup } from "@/lib/types/groups"
 import { DEFAULT_CARD_VIEW, type CardViewSettings } from "@/lib/card-view"
 import { groupAssignedMaterials } from "@/lib/material-grouping"
 import { rapportApplies } from "@/lib/rapport-visibility"
@@ -185,8 +185,6 @@ export interface DisplayIncidentCardProps {
   /** The Auftrag this stop belongs to, resolved by the caller (the token board
    *  has no groups context). */
   auftrag?: IncidentGroup
-  /** The route's resources — a stop owns none of its own. */
-  auftragResources?: GroupResources | null
   /** Another card in this column already shows the Auftrag's crew: that stop's
    *  position (from `crewShownAtStop`). The crew chips fold into «Mannschaft wie
    *  Stopp n» on the stop line. */
@@ -205,7 +203,6 @@ export function DisplayIncidentCard({
   vehicleDrivers,
   doubleBookedCrewIds,
   auftrag,
-  auftragResources,
   crewShownAt,
   isHighlighted = false,
   isFlashing = false,
@@ -222,6 +219,8 @@ export function DisplayIncidentCard({
 
   const auftragTotal = auftrag ? auftrag.stopIds.length : 0
   const auftragStopPos = auftrag ? auftragStopPosition(auftrag, operation.id, operation.groupPosition) : 0
+  // The route's resources – a stop owns none of its own.
+  const { auftragResources } = operation
   const auftragCrew = auftragResources?.personnel ?? []
   // Only a crew that would be drawn can be «wie Stopp n».
   const auftragCrewFolded = crewShownAt !== undefined && auftragCrew.length > 0

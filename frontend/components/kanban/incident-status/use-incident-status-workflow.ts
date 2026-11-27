@@ -4,13 +4,29 @@ import { vehicleLabel } from "@/lib/vehicle-label"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { onStatusConflict } from "@/lib/status-conflict"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
-import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
+import type { IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop, isBackwardTransition, remainingRouteStops, startableNextStop } from "@/lib/kanban-utils"
-import { operationVehicleOnSite } from "@/lib/vehicle-on-site"
+import { vehicleOnSite } from "@/lib/vehicle-on-site"
 import { usePersonNaming } from "@/components/person-name"
 import { sortCrewByLeader } from "@/lib/crew-order"
 import type { CompletionRelease, GateBase, GateKind, OpenGate, ResourceCoverage, ResourceType } from "@/components/kanban/incident-status/gates"
 import { useCompletionMaterial } from "@/components/kanban/incident-status/use-completion-material"
+
+/** What a card lacks before it goes out: its own resources and its Auftrag's together. */
+function getMissingResources(operation: Operation): ResourceType[] {
+  const route = operation.auftragResources
+  const missing: ResourceType[] = []
+  if (operation.crew.length + (route?.personnel.length ?? 0) === 0) missing.push("crew")
+  if (!operation.zuFuss && operation.vehicles.length + (route?.vehicles.length ?? 0) === 0) missing.push("vehicles")
+  if (operation.materials.length + (route?.materials.length ?? 0) === 0) missing.push("materials")
+  return missing
+}
+
+/** Into «Rückfahrt» with no vehicle on site (`vehicleOnSite`: an own vehicle whose
+ *  driver «kehrt zurück» has already left), none on its route, not zu Fuss. */
+function lacksReturningVehicle(operation: Operation): boolean {
+  return !operation.zuFuss && vehicleOnSite(operation) === null
+}
 
 interface UseIncidentStatusWorkflowOptions {
   operations: Operation[]
@@ -19,7 +35,6 @@ interface UseIncidentStatusWorkflowOptions {
    *  own groupId, which lags a stop that was just added (findAuftragForStop). */
   groups: IncidentGroup[]
   changeStatusToTop: (operationId: string, status: OperationStatus, extraUpdates?: Partial<Operation>) => void
-  getGroupResources: (groupId: string) => GroupResources
   removeMaterial: (operationId: string, materialId: string) => unknown
   unassignGroupResource: (groupId: string, assignmentId: string) => unknown
 }
@@ -34,7 +49,6 @@ export function useIncidentStatusWorkflow({
   materials,
   groups,
   changeStatusToTop,
-  getGroupResources,
   removeMaterial,
   unassignGroupResource,
 }: UseIncidentStatusWorkflowOptions) {
@@ -105,21 +119,11 @@ export function useIncidentStatusWorkflow({
     [operations],
   )
 
-  const getMissingResources = useCallback((operation: Operation): ResourceType[] => {
-    const auftrag = findAuftragForStop(groups, operation)
-    const route = auftrag ? getGroupResources(auftrag.id) : null
-    const missing: ResourceType[] = []
-    if (operation.crew.length + (route?.personnel.length ?? 0) === 0) missing.push("crew")
-    if (!operation.zuFuss && operation.vehicles.length + (route?.vehicles.length ?? 0) === 0) missing.push("vehicles")
-    if (operation.materials.length + (route?.materials.length ?? 0) === 0) missing.push("materials")
-    return missing
-  }, [getGroupResources, groups])
-
   /** What the «Ressourcen fehlen» rows name: the Einsatz's own resources plus its Auftrag's,
    *  crew EL first. A material the store cannot name has `name: null`. */
   const getResourceCoverage = useCallback((operation: Operation): ResourceCoverage => {
     const auftrag = findAuftragForStop(groups, operation)
-    const route = auftrag ? getGroupResources(auftrag.id) : null
+    const route = operation.auftragResources
     const crew = [
       ...operation.crew.map((member) => ({
         personnelId: member.personnelId,
@@ -159,7 +163,7 @@ export function useIncidentStatusWorkflow({
         ...(route?.materials ?? []).map((material) => ({ id: material.resourceId, name: material.name })),
       ],
     }
-  }, [getGroupResources, groups, materials])
+  }, [groups, materials])
 
   /** The real dispatch path: the resource gate, then the Funkdurchsage dialog
    *  (which is also what RECORDS the Aufgebot on an Auftrag stop). */
@@ -172,7 +176,7 @@ export function useIncidentStatusWorkflow({
       setDisponiertRepeat(false)
       setDisponiertOperationId(operation.id)
     }
-  }, [getMissingResources, operationById])
+  }, [operationById])
 
   /**
    * An incident arrived in «Disponiert / Anfahrt» — from any of the three ways
@@ -196,19 +200,12 @@ export function useIncidentStatusWorkflow({
     openDispatchGate(base)
   }, [gateFor, openDispatchGate, operationById])
 
-  /** Into «Rückfahrt» with no vehicle on site (`vehicleOnSite`: an own vehicle whose
-   *  driver «kehrt zurück» has already left), none on its route, not zu Fuss. */
-  const lacksReturningVehicle = useCallback(
-    (operation: Operation) => !operation.zuFuss && operationVehicleOnSite(operation, groups, getGroupResources) === null,
-    [getGroupResources, groups],
-  )
-
   const triggerReturningVehicleCheck = useCallback((operationId: string, previousStatus?: OperationStatus) => {
     const operation = operationById(operationId)
     if (operation && lacksReturningVehicle(operation)) {
       setGate({ kind: "returningVehicle", ...gateFor(operationId, previousStatus ?? null) })
     }
-  }, [gateFor, lacksReturningVehicle, operationById])
+  }, [gateFor, operationById])
 
   /** Into «Reko» without a Reko person: the picker opens at once, no question first
    *  (owner pick 19.11.2026, #4 A). Backing out of it puts the card back. */
@@ -270,7 +267,7 @@ export function useIncidentStatusWorkflow({
     const routeSquad = auftrag && auftrag.stopIds.every(
       (stopId) => stopId === operation.id || (operations.find((o) => o.id === stopId)?.status ?? "complete") === "complete",
     )
-      ? getGroupResources(auftrag.id)
+      ? operation.auftragResources
       : null
     const release: CompletionRelease = {
       operationId: operation.id,
@@ -291,7 +288,7 @@ export function useIncidentStatusWorkflow({
     const asksAboutMaterial = routeContinuationFor(operation)
       ? false
       : auftrag
-        ? getGroupResources(auftrag.id).materials.length > 0
+        ? (operation.auftragResources?.materials.length ?? 0) > 0
         : operation.materials.length > 0
 
     // The third reason to open, and on a standard Auftrag the only one: the
@@ -311,7 +308,7 @@ export function useIncidentStatusWorkflow({
       kind: "materialDecision",
       release: release.crew.length > 0 || release.vehicles.length > 0 ? release : null,
     }
-  }, [getGroupResources, groups, operations, routeContinuationFor, personInline])
+  }, [groups, operations, routeContinuationFor, personInline])
 
   /** The completion gate after a move that was NOT held (see `holdStatusMove`, which
    *  asks the same `completionGateFor` first – so this opens nothing for those paths). */
@@ -355,7 +352,7 @@ export function useIncidentStatusWorkflow({
     if (operation.hasCompletedReko) return false
     setGate({ kind: "rekoReport", operationId, returnStatus: null, restoreAmWarten: false, held: true })
     return true
-  }, [completionGateFor, getMissingResources, operationById])
+  }, [completionGateFor, operationById])
 
   const requestStatusChange = useCallback((operationId: string, targetStatus: OperationStatus) => {
     const operation = operationById(operationId)
@@ -420,7 +417,7 @@ export function useIncidentStatusWorkflow({
       if (!operation || !lacksReturningVehicle(operation)) return
     }
     setGate(suspendedGate)
-  }, [lacksReturningVehicle, operationById, suspendedGate])
+  }, [operationById, suspendedGate])
 
   /**
    * Abbrechen (and Escape, and the overlay) on a `kind` gate: undo the move
@@ -483,8 +480,7 @@ export function useIncidentStatusWorkflow({
     held: Boolean(materialDecisionGate?.held),
     midRoute: completionContinuation !== null,
     groups,
-    getGroupResources,
-    materials,
+      materials,
     changeStatusToTop,
     removeMaterial,
     unassignGroupResource,

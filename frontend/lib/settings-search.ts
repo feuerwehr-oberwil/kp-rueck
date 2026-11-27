@@ -155,7 +155,8 @@ export function searchSettings(
   }
   return hits
     .sort((a, b) =>
-      (bestPerSection.get(a.section)! - bestPerSection.get(b.section)!) ||
+      // Every hit's section is in the map (the loop above), so the 0 is never used.
+      ((bestPerSection.get(a.section) ?? 0) - (bestPerSection.get(b.section) ?? 0)) ||
       a.section.localeCompare(b.section) ||
       (a.score - b.score),
     )

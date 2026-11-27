@@ -57,11 +57,13 @@ describe('RosterSnapshotStatus', () => {
             { display_name: 'Alt Ehemals', reason: 'inactive_in_snapshot' },
           ],
         },
-        lastGood: { generatedAt: '2026-10-08T04:00:00+00:00', count: 40, provider: 'wehr' },
+        lastGood: { generatedAt: '2026-10-08T04:00:00+00:00', count: 40, provider: 'wehr', sha256: 'ab12' },
         postponed: [{ display_name: 'Keller Urs', reason: 'absent_from_snapshot' }],
         via: 'index',
         index: {
           generatedAt: '2026-10-09T04:00:00+00:00',
+          provider: 'wehr',
+          sha256: 'cd34',
           files: [
             { kind: 'roster', schema: 'roster-snapshot/1', read: true, known: true },
             { kind: 'vehicles', schema: 'vehicles-snapshot/1', read: false, known: false },

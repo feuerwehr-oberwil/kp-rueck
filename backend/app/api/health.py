@@ -12,6 +12,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.pool import QueuePool
 
+from .. import schemas
 from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import audit_engine, engine, get_db
@@ -19,6 +20,7 @@ from ..environment import blocked_domains, deployment_role, deployment_role_labe
 from ..middleware.rate_limit import RateLimits, limiter
 from ..models import Event
 from ..websocket_manager import ws_manager
+from .integrations import DeploymentRole
 
 DEMO_SANDBOX_PREFIX = "Demo-Lage #"
 DEMO_SANDBOX_MAX = 30
@@ -96,7 +98,7 @@ def _component_error(component: str, exc: Exception) -> str:
     return type(exc).__name__
 
 
-@router.get("/health", response_model=None)
+@router.get("/health", response_model=schemas.HealthResponse)
 async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
     Simple health check endpoint for load balancers and external uptime monitoring.
@@ -119,7 +121,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
         ) from None
 
 
-@router.get("/health/detailed", response_model=None)
+@router.get("/health/detailed", response_model=schemas.DetailedHealthResponse)
 async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
     Detailed health check with component status.
@@ -195,8 +197,8 @@ async def detailed_health_check(db: AsyncSession = Depends(get_db)) -> dict[str,
     return health_status
 
 
-@router.get("/api/deployment", response_model=None)
-async def deployment_info() -> dict[str, Any]:
+@router.get("/api/deployment", response_model=DeploymentRole)
+async def deployment_info() -> DeploymentRole:
     """What this instance is allowed to do to the outside world (see app/environment.py).
 
     Unauthenticated on purpose. The band that says *Staging – Übungssystem* has to be on the
@@ -206,22 +208,20 @@ async def deployment_info() -> dict[str, Any]:
     The same answer is embedded in ``/api/integrations`` per domain; this is the small public
     version the frontend shell asks for on every page.
     """
-    return {
-        "role": deployment_role(),
-        "label": deployment_role_label(),
-        "blocked_domains": list(blocked_domains()),
-    }
+    return DeploymentRole(
+        role=deployment_role(), label=deployment_role_label(), blocked_domains=list(blocked_domains())
+    )
 
 
-@router.get("/api/demo/status", response_model=None)
-async def demo_status() -> dict[str, Any]:
+@router.get("/api/demo/status", response_model=schemas.DemoStatus)
+async def demo_status() -> schemas.DemoOff | schemas.DemoOn:
     """
     Get demo mode status and next reset time.
 
     Returns demo: false if not in demo mode.
     """
     if not settings.demo_mode:
-        return {"demo": False}
+        return schemas.DemoOff(demo=False)
 
     from ..background.demo_reset import get_next_reset_time
 
@@ -230,21 +230,21 @@ async def demo_status() -> dict[str, Any]:
 
     seconds_until_reset = max(0, int((next_reset - now).total_seconds())) if next_reset else 0
 
-    return {
-        "demo": True,
-        "next_reset": next_reset.isoformat() if next_reset else None,
-        "seconds_until_reset": seconds_until_reset,
-        "reset_interval_hours": settings.demo_reset_hours,
-    }
+    return schemas.DemoOn(
+        demo=True,
+        next_reset=next_reset.isoformat() if next_reset else None,
+        seconds_until_reset=seconds_until_reset,
+        reset_interval_hours=settings.demo_reset_hours,
+    )
 
 
-@router.post("/api/demo/sandbox", response_model=None)
+@router.post("/api/demo/sandbox", response_model=schemas.DemoSandboxResponse)
 @limiter.limit(RateLimits.DEMO_SANDBOX)
 async def create_demo_sandbox(
     request: Request,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> schemas.DemoSandboxResponse:
     """Create a fresh per-visitor sandbox event with the demo scenario.
 
     Each demo visitor gets their own board so simultaneous visitors don't
@@ -268,7 +268,7 @@ async def create_demo_sandbox(
     if sandbox_count >= DEMO_SANDBOX_MAX:
         oldest_result = await db.execute(select(Event).where(sandbox_filter).order_by(Event.created_at).limit(1))
         oldest = oldest_result.scalar_one()
-        return {"event_id": str(oldest.id), "name": oldest.name, "reused": True}
+        return schemas.DemoSandboxResponse(event_id=oldest.id, name=oldest.name, reused=True)
 
     from ..seeds.demo import seed_demo_event_content
 
@@ -280,14 +280,14 @@ async def create_demo_sandbox(
     await seed_demo_event_content(db, event)
 
     logger.info(f"Created demo sandbox event {event.id} ({event.name})")
-    return {"event_id": str(event.id), "name": event.name, "reused": False}
+    return schemas.DemoSandboxResponse(event_id=event.id, name=event.name, reused=False)
 
 
-@router.post("/api/demo/reset", response_model=None)
+@router.post("/api/demo/reset", response_model=schemas.DemoResetResponse)
 @limiter.limit(RateLimits.DEMO_RESET)
 async def demo_reset(
     request: Request, current_user: CurrentAdmin, db: Annotated[AsyncSession, Depends(get_db)]
-) -> dict[str, str]:
+) -> schemas.DemoResetResponse:
     """Manually trigger a demo reset. Only available in demo mode, admin only.
 
     Requires admin auth: every demo visitor shares the demo-editor account, so
@@ -307,4 +307,4 @@ async def demo_reset(
     except Exception as e:
         logger.exception("Demo reset failed")
         raise HTTPException(status_code=500, detail="Zurücksetzen fehlgeschlagen") from e
-    return {"status": "reset_complete"}
+    return schemas.DemoResetResponse(status="reset_complete")

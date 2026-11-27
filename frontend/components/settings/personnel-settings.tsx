@@ -287,13 +287,14 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
 
     personnel.forEach((person) => {
       const role = person.role || '';
-      if (!roleMap.has(role)) {
-        roleMap.set(role, {
-          sort_order: person.role_sort_order,
-          count: 0,
-        });
+      let current = roleMap.get(role);
+      if (!current) {
+        current = {
+        sort_order: person.role_sort_order,
+        count: 0,
+      };
+        roleMap.set(role, current);
       }
-      const current = roleMap.get(role)!;
       current.count++;
     });
 

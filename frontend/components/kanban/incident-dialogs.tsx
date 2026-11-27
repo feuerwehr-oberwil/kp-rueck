@@ -105,7 +105,7 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
   const { operations, isLoaded: operationsLoaded, boardNeverLoaded, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
-  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, getGroupResources, unassignResource } = useGroups()
+  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, unassignResource } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -114,7 +114,6 @@ export function useIncidentDialogs() {
     materials,
     groups,
     changeStatusToTop,
-    getGroupResources,
     removeMaterial,
     unassignGroupResource: unassignResource,
   })

@@ -80,20 +80,20 @@ export function groupMaterialsForAssignment(
   const ungrouped: Material[] = []
 
   // Collect materials by group
-  const groupMap = new Map<string, Material[]>()
+  const groupMap = new Map<string, { group: (typeof materialGroups)[number]; materials: Material[] }>()
   for (const m of sortedMaterials) {
     const groupId = m.groupId
     const group = groupId ? materialGroups.find(g => g.id === groupId) : null
     if (group) {
-      if (!groupMap.has(group.id)) groupMap.set(group.id, [])
-      groupMap.get(group.id)!.push(m)
+      const entry = groupMap.get(group.id)
+      if (entry) entry.materials.push(m)
+      else groupMap.set(group.id, { group, materials: [m] })
     } else {
       ungrouped.push(m)
     }
   }
 
-  for (const [groupId, mats] of groupMap) {
-    const group = materialGroups.find(g => g.id === groupId)!
+  for (const [groupId, { group, materials: mats }] of groupMap) {
     groups.push({ groupId, groupName: group.name, materials: mats })
   }
 

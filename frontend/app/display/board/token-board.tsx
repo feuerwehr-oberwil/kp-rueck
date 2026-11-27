@@ -18,7 +18,7 @@ import { CARD_VIEW_PRESETS } from '@/lib/card-view'
 import { filterIncidents } from '@/lib/incident-search'
 import { type Operation } from '@/lib/contexts/operations-context'
 import { type Material } from '@/lib/contexts/materials-context'
-import type { GroupResources, IncidentGroup } from '@/lib/types/groups'
+import type { IncidentGroup } from '@/lib/types/groups'
 import { PersonNamingProvider } from "@/components/person-name"
 import { useHistoryLevel } from '@/lib/hooks/use-history-level'
 import { DisplaySearchHits } from '@/components/display/display-search-hits'
@@ -55,12 +55,10 @@ function keepColumnInView(columnKey: string) {
  * every column including ABGESCHLOSSEN. The share link used to draw its own header (a subtitle line
  * instead of the pill) and hang «Abgeschlossen» off a separate dashed strip.
  */
-function TokenColumn({ column, operations, groups, groupResources, materials, collapsed, onToggle, onIncidentClick }: {
+function TokenColumn({ column, operations, groups, materials, collapsed, onToggle, onIncidentClick }: {
   column: typeof columns[number]
   operations: Operation[]
   groups: IncidentGroup[]
-  /** groupId → the route's resolved resources, shared by all of its stops. */
-  groupResources: Map<string, GroupResources>
   materials: Material[]
   collapsed: boolean
   onToggle: () => void
@@ -106,7 +104,6 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
               cardView={CARD_VIEW_PRESETS.alles}
               materials={materials}
               auftrag={auftrag}
-              auftragResources={auftrag ? groupResources.get(auftrag.id) ?? null : null}
               crewShownAt={crewShownAt.get(operation.id)}
               onClick={() => onIncidentClick(operation.id)}
             />
@@ -118,7 +115,7 @@ function TokenColumn({ column, operations, groups, groupResources, materials, co
 }
 
 export function TokenBoard({ token }: { token: string }) {
-  const { payload, data: situation, groups: detailGroups } = useViewerSituation()
+  const { data: situation, groups: detailGroups } = useViewerSituation()
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null)
   // EVERY column folds, ABGESCHLOSSEN included and closed to start with —
   // the same one mechanism the logged-in display board uses, rather than the
@@ -154,39 +151,6 @@ export function TokenBoard({ token }: { token: string }) {
       })
     return grouped
   }, [situation, matchingIds])
-
-  // Route-owned resources, resolved to names. The Auftrag rows in the share
-  // payload carry raw resource ids and the payload already carries the roster,
-  // the fleet and the Material — so this costs no extra request, and it is the
-  // only way a stop can say who is standing at its address (the stop itself owns
-  // nothing). Unresolvable ids are skipped rather than printed as UUIDs; the
-  // roster is checked-in-only, same rule the incident crew mapping follows.
-  const groupResources = useMemo(() => {
-    const resolved = new Map<string, GroupResources>()
-    const nameById = new Map<string, string>()
-    for (const person of payload.personnel) nameById.set(String(person.id), person.name)
-    const callsignById = new Map<string, string>()
-    for (const vehicle of payload.vehicles) {
-      nameById.set(String(vehicle.id), vehicle.name)
-      if (vehicle.radio_call_sign) callsignById.set(String(vehicle.id), vehicle.radio_call_sign)
-    }
-    for (const material of payload.materials) nameById.set(String(material.id), material.name)
-    for (const group of payload.groups ?? []) {
-      const resources: GroupResources = { vehicles: [], personnel: [], materials: [] }
-      for (const assignment of group.assignments ?? []) {
-        if (assignment.unassigned_at) continue
-        const resourceId = String(assignment.resource_id)
-        const name = nameById.get(resourceId)
-        if (!name) continue
-        const item = { assignmentId: String(assignment.id), resourceId, name }
-        if (assignment.resource_type === 'vehicle') resources.vehicles.push({ ...item, callsign: callsignById.get(resourceId) ?? null, driverStay: assignment.driver_stay })
-        else if (assignment.resource_type === 'personnel') resources.personnel.push({ ...item, isLeader: assignment.is_leader })
-        else resources.materials.push(item)
-      }
-      resolved.set(String(group.id), resources)
-    }
-    return resolved
-  }, [payload])
 
   // Folding a column shoves every column after it sideways, and ABGESCHLOSSEN
   // sits at the far right: opening it used to widen something outside the
@@ -234,7 +198,6 @@ export function TokenBoard({ token }: { token: string }) {
               column={column}
               operations={operationsByColumn[column.id] || []}
               groups={detailGroups}
-              groupResources={groupResources}
               materials={situation.materials}
               collapsed={collapsedColumns.isCollapsed(column.id)}
               onToggle={() => {
@@ -253,7 +216,6 @@ export function TokenBoard({ token }: { token: string }) {
         onOpenChange={(open) => { if (!open) closeDetail() }}
         materialsOverride={situation.materials}
         groupsOverride={detailGroups}
-        groupResourcesOverride={groupResources}
         // The Reko photos are the one thing in the dialog that is fetched rather
         // than read out of the payload, so they need the link's own credential.
         viewerToken={token}

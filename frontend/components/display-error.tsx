@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
@@ -34,10 +34,9 @@ export default function DisplayError({ error }: { error: Error & { digest?: stri
   const t = useTranslations('errors.displayError')
   // Read once, at mount: the value is bumped immediately below, and the
   // countdown must not shift under the operator as it ticks.
-  const attemptRef = useRef<number>(null!)
-  attemptRef.current ??= readRetryAttempts()
+  const [attempt] = useState(readRetryAttempts)
 
-  const delayMs = retryDelayFor(attemptRef.current)
+  const delayMs = retryDelayFor(attempt)
   const [secondsLeft, setSecondsLeft] = useState(() => Math.round(delayMs / 1000))
 
   useEffect(() => {
@@ -45,7 +44,7 @@ export default function DisplayError({ error }: { error: Error & { digest?: stri
   }, [error])
 
   useEffect(() => {
-    writeRetryAttempts(attemptRef.current + 1)
+    writeRetryAttempts(attempt + 1)
 
     const tick = setInterval(() => {
       setSecondsLeft(prev => (prev > 0 ? prev - 1 : 0))
@@ -56,7 +55,7 @@ export default function DisplayError({ error }: { error: Error & { digest?: stri
       clearInterval(tick)
       clearTimeout(reload)
     }
-  }, [delayMs])
+  }, [attempt, delayMs])
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center bg-background p-4">

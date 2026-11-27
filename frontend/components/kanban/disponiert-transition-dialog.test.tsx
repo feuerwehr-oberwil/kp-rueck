@@ -17,9 +17,8 @@ vi.mock("@/lib/contexts/event-context", () => ({ useEvent: () => ({ selectedEven
 vi.mock("@/lib/hooks/use-vehicle-drivers", () => ({ useVehicleDriverState: () => ({ drivers: new Map(), loaded: true }) }))
 const recordAnnouncement = vi.hoisted(() => vi.fn())
 const groups = [{ id: "g", name: "Testauftrag", stopIds: ["first", "second"], lastAnnounced: null }]
-const resources = { personnel: [], vehicles: [], materials: [] }
 vi.mock("@/lib/contexts/groups-context", () => ({
-  useGroups: () => ({ groups, getGroupResources: () => resources, recordAnnouncement }),
+  useGroups: () => ({ groups, recordAnnouncement }),
 }))
 vi.mock("@/lib/contexts/operations-context", () => ({ useOperations: () => ({ operations: stops }) }))
 
@@ -31,6 +30,7 @@ function stop(id: string, index: number): Operation {
     status: index === 0 ? "enroute" : "incoming",
     groupId: "g",
     groupPosition: index,
+    auftragResources: { personnel: [], vehicles: [], materials: [] },
   })
 }
 const stops = ["first", "second"].map(stop)

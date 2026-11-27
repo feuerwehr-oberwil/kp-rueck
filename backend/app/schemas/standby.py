@@ -17,8 +17,12 @@ __all__ = [
     "StandbyConflicts",
     "StandbyDetached",
     "StandbyLead",
+    "StandbyPhotoRef",
+    "StandbyPhotoWritten",
+    "StandbyPhotosMissing",
     "StandbyResolved",
     "StandbyStatus",
+    "StandbySyncApplied",
     "SystemSide",
 ]
 
@@ -99,3 +103,28 @@ class StandbyResolved(BaseModel):
 
     resolved: UUID
     choice: Literal["kept", "other", "both"]
+
+
+# --- the box -> hosted sync (internal: include_in_schema=False, the box's own client) -----
+
+
+class StandbySyncApplied(BaseModel):
+    """One result per op of a sync round, in order (`app/standby_sync.apply_ops`)."""
+
+    results: list[str]
+
+
+class StandbyPhotoRef(BaseModel):
+    incident_id: UUID
+    name: str
+
+
+class StandbyPhotosMissing(BaseModel):
+    """The box's photos this board does not have yet."""
+
+    missing: list[StandbyPhotoRef]
+
+
+class StandbyPhotoWritten(BaseModel):
+    #: False when the photo was already there (it is left alone).
+    written: bool

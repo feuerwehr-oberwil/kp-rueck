@@ -41,6 +41,13 @@ from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, client_ip_and_source, limiter
 from ..models import TelemetryOutbox
+from ..schemas.system import (
+    ClientAddressResponse,
+    DiagnosticsExport,
+    InstallIdResult,
+    TelemetryConsentResult,
+    TelemetryStatus,
+)
 from ..telemetry import consent as consent_mod
 from ..telemetry import outbox, recent, scrub
 from ..telemetry.envelope import build_event
@@ -141,7 +148,7 @@ async def report_client_error(payload: ClientError, request: Request, db: AsyncS
         logger.debug("telemetry: could not queue client error", exc_info=True)
 
 
-@router.get("/export")
+@router.get("/export", response_model=DiagnosticsExport, response_model_exclude_unset=True)
 async def export_diagnostics(
     request: Request,
     current_user: CurrentUser,
@@ -189,7 +196,7 @@ class ConsentUpdate(BaseModel):
     consent: str = Field(max_length=16)
 
 
-@router.get("/telemetry")
+@router.get("/telemetry", response_model=TelemetryStatus)
 async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Everything the admin screen needs to answer "what is this instance sending".
 
@@ -228,7 +235,7 @@ async def telemetry_status(current_user: CurrentAdmin, db: AsyncSession = Depend
     }
 
 
-@router.put("/telemetry/consent")
+@router.put("/telemetry/consent", response_model=TelemetryConsentResult)
 async def update_consent(
     body: ConsentUpdate, current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -243,14 +250,14 @@ async def update_consent(
     return {"consent": value, "discarded": discarded}
 
 
-@router.post("/telemetry/install-id")
+@router.post("/telemetry/install-id", response_model=InstallIdResult)
 async def rotate_install_id(current_user: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Mint a fresh install id, cutting the link to everything sent so far."""
     new_id = await consent_mod.regenerate_install_id(db)
     return {"installId": new_id}
 
 
-@router.get("/client-address")
+@router.get("/client-address", response_model=ClientAddressResponse)
 async def client_address(request: Request, current_user: CurrentAdmin) -> dict[str, Any]:
     """Which address the backend takes for the caller, and where it read it – admin only.
 

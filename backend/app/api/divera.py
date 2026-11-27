@@ -3,7 +3,7 @@
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID, uuid4
 
 import httpx
@@ -99,14 +99,14 @@ def _upstream_error(e: Exception) -> str:
 # poller and attach endpoints share one source.
 
 
-@router.post("/webhook", status_code=status.HTTP_200_OK, response_model=None)
+@router.post("/webhook", status_code=status.HTTP_200_OK, response_model=schemas.DiveraWebhookAck)
 @limiter.limit(RateLimits.WEBHOOK)
 async def receive_divera_webhook(
     payload: schemas.DiveraWebhookPayload,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
-) -> dict[str, str | None]:
+) -> schemas.DiveraWebhookStored | schemas.DiveraWebhookDuplicate:
     """
     Receive Divera 24/7 webhook and store emergency.
 
@@ -127,7 +127,7 @@ async def receive_divera_webhook(
         existing = await divera_crud.get_divera_emergency_by_divera_id(db, payload.id)
         if existing:
             logger.info(f"Duplicate Divera webhook ignored: ID {payload.id}")
-            return {"status": "ok", "message": "Duplicate emergency ignored"}
+            return schemas.DiveraWebhookDuplicate(status="ok", message="Duplicate emergency ignored")
 
         # Create new emergency
         emergency = await divera_crud.create_divera_emergency(db, payload)
@@ -148,12 +148,12 @@ async def receive_divera_webhook(
             auto_attached=incident is not None,
         )
 
-        return {
-            "status": "ok",
-            "message": "Emergency stored successfully",
-            "emergency_id": str(emergency.id),
-            "auto_attached_incident_id": str(incident.id) if incident else None,
-        }
+        return schemas.DiveraWebhookStored(
+            status="ok",
+            message="Emergency stored successfully",
+            emergency_id=emergency.id,
+            auto_attached_incident_id=incident.id if incident else None,
+        )
 
     except IntegrityError:
         # A concurrent delivery of the same alarm raced past the dedupe check above and won
@@ -163,7 +163,7 @@ async def receive_divera_webhook(
         await db.rollback()
         if await divera_crud.get_divera_emergency_by_divera_id(db, payload.id):
             logger.info("Concurrent Divera webhook ignored: ID %s", payload.id)
-            return {"status": "ok", "message": "Duplicate emergency ignored"}
+            return schemas.DiveraWebhookDuplicate(status="ok", message="Duplicate emergency ignored")
         logger.exception("Divera webhook hit an integrity error with no winner to ack: ID %s", payload.id)
         raise CodedHTTPException(status.HTTP_409_CONFLICT, ErrorCode.ALARM_EXISTS, ErrorMessages.ALARM_EXISTS) from None
     except Exception as e:
@@ -1119,10 +1119,10 @@ async def get_event_divera_responses(
     return await _responses_summary(db, emergencies, event_id)
 
 
-@router.get("/polling/status", response_model=None)
+@router.get("/polling/status", response_model=schemas.DiveraPollingStatus)
 async def get_polling_status(
     current_user: CurrentUser,
-) -> dict[str, Any]:
+) -> schemas.DiveraPollingStatus:
     """
     Get Divera polling status.
 
@@ -1132,4 +1132,4 @@ async def get_polling_status(
     - Last poll time
     - Poll and error counts
     """
-    return divera_poller.stats
+    return schemas.DiveraPollingStatus.model_validate(divera_poller.stats)

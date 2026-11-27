@@ -65,7 +65,7 @@ export function DisponierTransitionDialog({
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
   const trackPrint = usePrintJobToast()
-  const { groups, getGroupResources, recordAnnouncement } = useGroups()
+  const { groups, recordAnnouncement } = useGroups()
   const { operations, changeStatusToTop, requestVehicleDriver } = useOperations()
   const { text: personText } = usePersonNaming()
   // Driver names weren't reaching the message before (the prop was never passed),
@@ -86,7 +86,7 @@ export function DisponierTransitionDialog({
   // them. Resolve the route's resources + stop position so both the Funkdurchsage
   // and the WhatsApp message reflect what's actually assigned.
   const auftrag = findAuftragForStop(groups, operation)
-  const groupRes = auftrag ? getGroupResources(auftrag.id) : null
+  const groupRes = operation?.auftragResources ?? null
   const addressPlaceholder = t('disponiert.addressPlaceholder')
 
   const radio = useMemo(() => {
@@ -182,7 +182,6 @@ export function DisponierTransitionDialog({
       materials,
       // Only a loaded map may say «ohne Fahrer»; before that nothing is known.
       vehicleDrivers: driversKnown ? effectiveVehicleDrivers : undefined,
-      groupResources: groupRes,
       auftrag: auftragCtx,
       template: whatsappIncident,
       personText,

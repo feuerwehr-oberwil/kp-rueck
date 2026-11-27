@@ -79,7 +79,7 @@ function BoardDisplay() {
   // The top bar's search, same predicate the command-post board filters with —
   // an address, a name, a Fahrzeug or a Material, across every column at once.
   const { query } = useDisplaySearch()
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
   // The wall always shows the WHOLE card, and deliberately does not follow the
   // operator's «Ansicht».
   //
@@ -324,7 +324,6 @@ function BoardDisplay() {
                     vehicleDrivers={vehicleDrivers}
                     doubleBookedCrewIds={doubleBookedPersons.ids}
                     auftrag={auftrag}
-                    auftragResources={auftrag ? getGroupResources(auftrag.id) : null}
                     crewShownAt={crewShownAt.get(op.id)}
                     isHighlighted={highlightedId === op.id}
                     isFlashing={flashIds.has(op.id)}

@@ -654,7 +654,7 @@ async def _record_photo_change(
     await reko_history.record_changes(db, report, before, author)
 
 
-@router.post("/{incident_id}/photos", response_model=None)
+@router.post("/{incident_id}/photos", response_model=schemas.RekoPhotoUploaded)
 @limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_photo(
     request: Request,
@@ -716,7 +716,7 @@ async def upload_photo(
     return {"filename": filename}
 
 
-@router.delete("/{incident_id}/photos/{filename}", response_model=None)
+@router.delete("/{incident_id}/photos/{filename}", response_model=schemas.RekoPhotoDeleted)
 async def delete_photo(
     request: Request,
     incident_id: uuid.UUID,
@@ -1128,7 +1128,7 @@ async def unassign_reko_personnel(
 @router.post(
     "/transfer-rekos",
     status_code=status.HTTP_200_OK,
-    response_model=None,
+    response_model=schemas.RekoTransferResult,
 )
 async def transfer_reko_assignments(
     request: Request,

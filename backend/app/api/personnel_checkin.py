@@ -466,7 +466,7 @@ async def check_out_all(
     return checked_out
 
 
-@router.get("/stats", response_model=dict)
+@router.get("/stats", response_model=schemas.CheckInStats)
 async def get_checkin_stats(
     request: Request,
     token: str | None = Query(default=None, description="Access token from the check-in link"),

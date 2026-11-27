@@ -27,6 +27,7 @@ export function makeOperation(overrides: Partial<Operation> = {}): Operation {
     zuFuss: false,
     groupId: null,
     groupPosition: 0,
+    auftragResources: null,
     statusChangedAt: null,
     hasCompletedReko: false,
     rekoArrivedAt: null,

@@ -44,12 +44,13 @@ async function convertToJpeg(file: File): Promise<File> {
   // Try createImageBitmap first (more reliable for HEIC on iOS)
   // Falls back to <img> element if not available
   let bitmap: ImageBitmap | null = null
-  let imgElement: HTMLImageElement | null = null
+  let image: ImageBitmap | HTMLImageElement
   let imgWidth: number
   let imgHeight: number
 
   try {
     bitmap = await createImageBitmap(file)
+    image = bitmap
     imgWidth = bitmap.width
     imgHeight = bitmap.height
   } catch {
@@ -69,7 +70,7 @@ async function convertToJpeg(file: File): Promise<File> {
     })
     imgWidth = result.width
     imgHeight = result.height
-    imgElement = result.img
+    image = result.img
   }
 
   // Never upscale: a small picture stays its own size.
@@ -82,12 +83,8 @@ async function convertToJpeg(file: File): Promise<File> {
     throw new Error(translateOutsideReact('reko.photoUpload.canvasUnavailable'))
   }
 
-  if (bitmap) {
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-    bitmap.close()
-  } else {
-    ctx.drawImage(imgElement!, 0, 0, canvas.width, canvas.height)
-  }
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+  bitmap?.close()
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(

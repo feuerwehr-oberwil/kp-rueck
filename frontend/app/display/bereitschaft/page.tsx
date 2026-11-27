@@ -123,15 +123,18 @@ function StandbyBoard({
               <Empty>{t("vehiclesEmpty")}</Empty>
             ) : (
               <ul className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
-                {vehicleStatus.map((vehicle) => (
-                  <li key={vehicle.id}>
-                    <VehicleTile
-                      vehicle={vehicle}
-                      auftrag={auftragByVehicleId.get(vehicle.id)}
-                      onOpen={vehicle.assignedOperation ? () => setSelectedId(vehicle.assignedOperation!.id) : undefined}
-                    />
-                  </li>
-                ))}
+                {vehicleStatus.map((vehicle) => {
+                  const operationId = vehicle.assignedOperation?.id
+                  return (
+                    <li key={vehicle.id}>
+                      <VehicleTile
+                        vehicle={vehicle}
+                        auftrag={auftragByVehicleId.get(vehicle.id)}
+                        onOpen={operationId ? () => setSelectedId(operationId) : undefined}
+                      />
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </section>

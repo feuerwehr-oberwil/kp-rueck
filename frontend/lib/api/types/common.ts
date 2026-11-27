@@ -2,7 +2,7 @@
  * Shared / cross-domain API types.
  */
 
-import type { In, Out } from '../wire'
+import type { In, Out, Sparse } from '../wire'
 import { translateOutsideReact } from "@/lib/i18n-messages"
 
 /**
@@ -84,43 +84,11 @@ export type ApiStandbyConflicts = Out<'StandbyConflicts'>
 export type ApiKnownProvider = Out<'KnownProvider'>
 
 /** The last roster-snapshot run (GET /api/integrations/roster-snapshot; backend
- *  `roster_snapshot_ingest.status_json` plus the attempt/success stamps). Every field optional:
- *  a station that never ran one has `status: null`. */
-export interface ApiRosterSnapshotStatus {
-  held?: boolean
-  unchanged?: boolean
-  stale?: boolean
-  activeBefore?: number
-  deactivationLimit?: number | null
-  pendingDeactivations?: number
-  /** deactivations waiting because the person is checked in / assigned on an open Ereignis */
-  postponed?: Array<{ display_name: string; reason: string }>
-  unmatchedTotal?: number
-  lastAttempt?: string | null
-  lastSuccess?: string | null
-  lastError?: string | null
-  lastGood?: { generatedAt: string; count: number; provider: string } | null
-  /** how the roster was found: through the station index, or ROSTER_SNAPSHOT_SOURCE directly */
-  via?: 'index' | 'direct'
-  /** the station index of that run (backend `station_index.summary`) */
-  index?: {
-    generatedAt: string
-    files: Array<{ kind: string; schema: string; read: boolean; known: boolean }>
-  } | null
-  outcome?: {
-    refused?: string | null
-    created?: number
-    updated?: number
-    deactivated?: number
-    unmatched?: Array<{ display_name: string; reason: string }>
-    unknown_ranks?: string[]
-  } | null
-}
+ *  `schemas/integrations.py`). A stored document, served key for key: a key an older or a
+ *  refused run did not write is absent (`Sparse`). */
+export type ApiRosterSnapshotStatus = Sparse<'RosterSnapshotStatus'>
 
-export interface ApiRosterSnapshot {
-  configured: boolean
-  intervalMinutes: number
-  maxDeactivatePct: number
+export type ApiRosterSnapshot = Omit<Out<'RosterSnapshotResponse'>, 'status'> & {
   status: ApiRosterSnapshotStatus | null
 }
 

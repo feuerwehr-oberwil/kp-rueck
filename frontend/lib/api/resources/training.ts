@@ -9,6 +9,7 @@ import { request as httpRequest } from '../http'
 import type {
   ApiAutogenState,
   ApiGpsSimDrive,
+  ApiGpsSimStopped,
   ApiRegieState,
   ApiRegieStepKey,
   ApiRegieTempo,
@@ -162,8 +163,8 @@ export class TrainingApi {
     return httpRequest<ApiGpsSimDrive[]>('/api/training/gps-sim/')
   }
 
-  async stopGpsSimulation(vehicleId?: string): Promise<{ stopped: number }> {
-    return httpRequest<{ stopped: number }>('/api/training/gps-sim/stop', {
+  async stopGpsSimulation(vehicleId?: string): Promise<ApiGpsSimStopped> {
+    return httpRequest<ApiGpsSimStopped>('/api/training/gps-sim/stop', {
       method: 'POST',
       body: JSON.stringify({ vehicle_id: vehicleId ?? null }),
     })

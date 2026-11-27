@@ -215,7 +215,7 @@ export function MobileIncidentDetailSheet({
   // so the phone and the board name the same thing the same way.
   const tKanban = useTranslations('kanban')
   const vehicleDrivers = useVehicleDrivers()
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
   // The detail button that opened the sheet (`data-detail-opener`, on the phone card and the
   // Lagekarte row), read when the sheet takes the focus: a controlled sheet has no Radix trigger
   // to give it back to on close. Only that button: a field focused earlier would pop the keyboard.
@@ -258,7 +258,7 @@ export function MobileIncidentDetailSheet({
   const notes = operation.notes?.trim()
   const contact = operation.contact?.trim()
   const auftrag = operation.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const routeResources = auftrag ? getGroupResources(auftrag.id) : null
+  const routeResources = operation.auftragResources
   const hasOwnResources =
     operation.zuFuss || operation.vehicles.length > 0 || operation.crew.length > 0 || operation.materials.length > 0
 

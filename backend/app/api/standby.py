@@ -201,7 +201,7 @@ class SyncIn(BaseModel):
     pending: int = 0
 
 
-@router.post("/sync", response_model=None, include_in_schema=False)
+@router.post("/sync", response_model=schemas.StandbySyncApplied, include_in_schema=False)
 @limiter.limit(RateLimits.STANDBY_SYNC)
 async def apply_from_box(
     request: Request,
@@ -209,7 +209,7 @@ async def apply_from_box(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
-) -> dict[str, Any]:
+) -> schemas.StandbySyncApplied:
     """The box's sync round writes here (app/standby_sync.py): ops for one Ereignis, one result each.
 
     Only rows of that Ereignis, and only of an Ereignis the box has taken over at some point.
@@ -228,39 +228,34 @@ async def apply_from_box(
     _contact[body.event_id] = (datetime.now(UTC), body.pending)
     if any(r == "ok" for r in results) and ops:
         _refresh(background_tasks)
-    return {"results": results}
+    return schemas.StandbySyncApplied(results=results)
 
 
-class PhotoRef(BaseModel):
-    incident_id: uuid.UUID
-    name: str
-
-
-@router.post("/photos/missing", response_model=None, include_in_schema=False)
+@router.post("/photos/missing", response_model=schemas.StandbyPhotosMissing, include_in_schema=False)
 @limiter.limit(RateLimits.STANDBY_SYNC)
 async def photos_missing(
     request: Request,
-    photos: Annotated[list[PhotoRef], Body(embed=True)],
+    photos: Annotated[list[schemas.StandbyPhotoRef], Body(embed=True)],
     authorization: Annotated[str | None, Header()] = None,
-) -> dict[str, Any]:
+) -> schemas.StandbyPhotosMissing:
     """Which of the box's photos this board does not have yet."""
     _require_box(authorization)
 
-    def missing() -> list[dict[str, Any]]:
+    def missing() -> list[schemas.StandbyPhotoRef]:
         out = []
         for ref in photos:
             try:
                 if photo_storage.get_photo_path(ref.incident_id, ref.name) is None:
-                    out.append(ref.model_dump(mode="json"))
+                    out.append(ref)
             except HTTPException:
                 continue  # not a photo name; never asked for again
         return out
 
     # One stat per photo – off the event loop, the list is the box's whole Ereignis.
-    return {"missing": await asyncio.to_thread(missing)}
+    return schemas.StandbyPhotosMissing(missing=await asyncio.to_thread(missing))
 
 
-@router.put("/photos/{incident_id}/{name}", response_model=None, include_in_schema=False)
+@router.put("/photos/{incident_id}/{name}", response_model=schemas.StandbyPhotoWritten, include_in_schema=False)
 @limiter.limit(RateLimits.STANDBY_SYNC)
 async def photo_from_box(
     incident_id: uuid.UUID,
@@ -268,7 +263,7 @@ async def photo_from_box(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
-) -> dict[str, Any]:
+) -> schemas.StandbyPhotoWritten:
     """A photo taken on the box, for an Einsatz of an Ereignis the box took over."""
     _require_box(authorization)
     conn = await _driver(db)
@@ -279,7 +274,9 @@ async def photo_from_box(
     if not led:
         raise HTTPException(status_code=404, detail="Einsatz nicht gefunden.")
     content = await request.body()
-    return {"written": await asyncio.to_thread(photo_storage.store_synced_photo, incident_id, name, content)}
+    return schemas.StandbyPhotoWritten(
+        written=await asyncio.to_thread(photo_storage.store_synced_photo, incident_id, name, content)
+    )
 
 
 # --- conflicts (both) --------------------------------------------------------------------------

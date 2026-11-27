@@ -11,14 +11,10 @@ import type { Material } from '@/lib/contexts/operations-context'
 
 vi.mock('@/lib/contexts/event-context', () => ({ useEvent: () => ({ selectedEvent: null }) }))
 vi.mock('@/lib/hooks/use-vehicle-drivers', () => ({ useVehicleDrivers: () => new Map() }))
-// One Auftrag at most, with the resources it owns; empty unless a test sets it.
-type Route = { groups: { id: string; name: string; color: string | null }[]; resources: import('@/lib/types/groups').GroupResources }
-const route = vi.hoisted((): Route => ({
-  groups: [],
-  resources: { vehicles: [], personnel: [], materials: [] },
-}))
+// One Auftrag at most; empty unless a test sets it. What it owns rides on the card.
+const route = vi.hoisted(() => ({ groups: [] as { id: string; name: string; color: string | null }[] }))
 vi.mock('@/lib/contexts/groups-context', () => ({
-  useGroups: () => ({ groups: route.groups, getGroupResources: () => route.resources }),
+  useGroups: () => ({ groups: route.groups }),
 }))
 const sheet = vi.hoisted(() => ({ pending: new Set<string>(), scrolls: [] as { ready?: boolean }[] }))
 vi.mock('@/components/reko/reko-report-section', async () => {
@@ -178,7 +174,7 @@ describe('closing the sheet', () => {
 describe('the phone Einsatz sheet on a stop of an Auftrag', () => {
   it('names the crew and vehicles the Auftrag owns, under its name', () => {
     route.groups = [{ id: 'g-1', name: 'Sturmholz Oberwil', color: '#0e6680' }]
-    route.resources = {
+    const auftragResources = {
       vehicles: [{ assignmentId: 'ga-1', resourceId: 'v-1', name: 'TLF', callsign: null, driverStay: false }],
       personnel: [{ assignmentId: 'ga-2', resourceId: 'p-1', name: 'Moser Lea', isLeader: true }],
       materials: [],
@@ -186,7 +182,7 @@ describe('the phone Einsatz sheet on a stop of an Auftrag', () => {
     try {
       renderWithIntl(
         <MobileIncidentDetailSheet
-          operation={{ ...OPERATION, groupId: 'g-1' }}
+          operation={{ ...OPERATION, groupId: 'g-1', auftragResources }}
           open
           onOpenChange={vi.fn()}
           materials={[] as Material[]}

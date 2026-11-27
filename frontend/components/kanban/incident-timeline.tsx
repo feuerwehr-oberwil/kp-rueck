@@ -106,7 +106,8 @@ function TimelineRow({
     event.event_type === "journal" ||
     event.event_type === "reko_change"
   // A merged report can be split off again for as long as the merge stands.
-  const splittable = event.event_type === "merge" && event.merge_active && event.merged_incident_id && onUnmerge
+  const mergedIncidentId = event.event_type === "merge" && event.merge_active ? event.merged_incident_id : null
+  const splittable = mergedIncidentId && onUnmerge
   // A move the operator confirmed after «Gerade geändert» – the board it came from was stale.
   const stale = event.event_type === "status_change" && Boolean(event.seen_status)
   return (
@@ -131,7 +132,7 @@ function TimelineRow({
               onClick={async () => {
                 setSplitting(true)
                 try {
-                  await onUnmerge(event.merged_incident_id!)
+                  await onUnmerge(mergedIncidentId)
                 } finally {
                   setSplitting(false)
                 }

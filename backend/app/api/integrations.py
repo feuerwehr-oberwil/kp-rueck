@@ -10,9 +10,10 @@ Built-in fallbacks (manual intake form, generic alarm webhook) are always
 available and deliberately NOT listed as providers.
 """
 
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import get_db
 from ..environment import blocked_domains, blocked_reason, deployment_role, deployment_role_label
+from ..schemas.integrations import RosterSnapshotResponse, RosterSnapshotStatus
 from ..services import alerting
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
@@ -205,19 +207,23 @@ async def get_integrations(current_user: CurrentUser) -> IntegrationsResponse:
     return integrations()
 
 
-@router.get("/roster-snapshot")
-async def get_roster_snapshot_status(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@router.get("/roster-snapshot", response_model=RosterSnapshotResponse)
+async def get_roster_snapshot_status(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> JSONResponse:
     """The last roster-snapshot run: outcome report, held/stale flags, the last good file.
 
-    ``configured`` is false and ``status`` null on a station that never set a source."""
+    ``configured`` is false and ``status`` null on a station that never set a source. The
+    status is the stored document as stored – a JSONResponse, so no model coerces or refuses
+    a key an older run wrote; the response_model documents it (see `schemas/integrations.py`)."""
     from ..services import roster_snapshot_sync
 
-    return {
-        "configured": roster_snapshot_sync.configured(),
-        "intervalMinutes": settings.roster_snapshot_interval_minutes,
-        "maxDeactivatePct": settings.roster_snapshot_max_deactivate_pct,
-        "status": await roster_snapshot_sync.read_status(db),
-    }
+    return JSONResponse(
+        {
+            "configured": roster_snapshot_sync.configured(),
+            "intervalMinutes": settings.roster_snapshot_interval_minutes,
+            "maxDeactivatePct": settings.roster_snapshot_max_deactivate_pct,
+            "status": await roster_snapshot_sync.read_status(db),
+        }
+    )
 
 
 class RosterSnapshotSyncBody(BaseModel):
@@ -226,14 +232,15 @@ class RosterSnapshotSyncBody(BaseModel):
     force: bool = False
 
 
-@router.post("/roster-snapshot/sync")
+@router.post("/roster-snapshot/sync", response_model=RosterSnapshotStatus)
 async def sync_roster_snapshot(
     current_user: CurrentAdmin,
     body: RosterSnapshotSyncBody | None = None,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> JSONResponse:
     """Read the roster snapshot now. A refused or held run is a 200 carrying the reason — the
-    report is the answer; only «no source configured» is an error."""
+    report is the answer; only «no source configured» is an error. The stored report, as stored
+    (a refused run carries the previous report's keys forward), like the GET above."""
     from ..services import roster_snapshot_sync
 
     if not roster_snapshot_sync.configured():
@@ -241,4 +248,6 @@ async def sync_roster_snapshot(
             status_code=503,
             detail="Keine Personenstamm-Quelle eingerichtet (STATION_INDEX_SOURCE oder ROSTER_SNAPSHOT_SOURCE)",
         )
-    return await roster_snapshot_sync.run(db, trigger="manual", force=(body or RosterSnapshotSyncBody()).force)
+    return JSONResponse(
+        await roster_snapshot_sync.run(db, trigger="manual", force=(body or RosterSnapshotSyncBody()).force)
+    )

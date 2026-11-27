@@ -150,8 +150,11 @@ export function DispatchPreview({
   let body: ReactNode
   let action: ReactNode
   if (plan.kind === "dispatch") {
-    const statusOrPriority = tokens.filter(
-      (token) => token.state === "match" && (token.target?.kind === "status" || token.target?.kind === "priority"),
+    // A matched status or priority word, with the target it named.
+    const statusOrPriority = tokens.flatMap((token) =>
+      token.state === "match" && (token.target?.kind === "status" || token.target?.kind === "priority")
+        ? [{ start: token.start, target: token.target }]
+        : [],
     )
     body = (
       <>
@@ -161,7 +164,7 @@ export function DispatchPreview({
           <ResourceChip key={`${entry.target.kind}-${entry.target.id}`} planned={entry} resource={entry.target} />
         ))}
         {statusOrPriority.map((token) => (
-          <TargetChip key={`${token.start}`} target={token.target!} />
+          <TargetChip key={`${token.start}`} target={token.target} />
         ))}
       </>
     )
