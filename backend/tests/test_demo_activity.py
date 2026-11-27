@@ -5,6 +5,7 @@ Postgres or calls out on the demo asks `demo_idle()` first – a wrong answer he
 all day, or stops the work a connected visitor is looking at.
 """
 
+import asyncio
 import time
 from unittest.mock import AsyncMock, patch
 
@@ -77,3 +78,33 @@ async def test_a_boot_resets_the_demo_before_it_serves_then_schedules_midnight()
         await demo_reset.start(scheduler)
     reset.assert_awaited_once()
     schedule.assert_called_once_with(scheduler)
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("demo")
+async def test_on_an_idle_demo_the_timed_jobs_touch_neither_database_nor_network(monkeypatch: pytest.MonkeyPatch):
+    from app.background import notification_watch, telemetry_flush, weather
+
+    reached: list[str] = []
+
+    def forbidden(*_args, **_kwargs):
+        reached.append("called")  # recorded: the notification loop swallows what it raises
+        raise AssertionError("an idle demo reached the database or the network")
+
+    monkeypatch.setattr(telemetry_flush, "async_session_maker", forbidden)
+    monkeypatch.setattr(weather, "async_session_maker", forbidden)
+    monkeypatch.setattr(weather.weather_service, "poll_radar", forbidden)
+    monkeypatch.setattr(weather.weather_service, "poll_warnings", forbidden)
+    monkeypatch.setattr(notification_watch, "evaluate_open_events", forbidden)
+    monkeypatch.setattr(demo_reset, "reset_demo", forbidden)
+
+    assert await telemetry_flush.flush_outbox() == 0
+    await weather.poll_radar()
+    await weather.poll_warnings()
+    await demo_reset.scheduled_demo_reset()
+    # The notification loop: one turn with a zero interval, then stop it.
+    monkeypatch.setattr(notification_watch, "INTERVAL_SECONDS", 0)
+    notification_watch.start_notification_watch()
+    await asyncio.sleep(0.05)
+    await notification_watch.stop_notification_watch()
+    assert reached == []
