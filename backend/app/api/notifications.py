@@ -43,7 +43,8 @@ async def dismiss_notification(
 
     Dismissal is global – it hides the notification for everyone on the board and marks a
     Feld request as seen – so it is a write, not a viewer's personal preference. With the
-    `version` the bell showed, a row rewritten since is refused (409 `notification_changed`).
+    `version` the bell showed, a row whose version changed since is refused (409
+    `notification_changed`); a rewrite that keeps the version (the hourly «5h → 6h») is not.
     """
     notification = await notification_service.dismiss_notification(
         db, notification_id, current_user.id, expected_version=body.version if body else None

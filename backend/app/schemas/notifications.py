@@ -81,8 +81,9 @@ class NotificationResponse(BaseModel):
 class NotificationDismiss(BaseModel):
     """`POST /notifications/{id}/dismiss`: the `version` the bell showed.
 
-    A row rewritten since (a fatigue warning that names somebody new) is refused with 409
-    `notification_changed`. Without a version (an older client, a field request whose bell row
+    A row whose version changed since (a fatigue warning that names somebody new) is refused
+    with 409 `notification_changed`; a rewrite that keeps the version (the hourly «5h → 6h»)
+    is not. Without a version (an older client, a field request whose bell row
     is not loaded) the dismissal is unconditional.
     """
 
