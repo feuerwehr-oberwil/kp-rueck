@@ -126,7 +126,7 @@
         "intro": "Ceci est une démo publique avec des données inventées. Tu peux essayer librement le tableau d’intervention.",
         "sharedTitle": "Démo partagée",
         "sharedDescription": "Une situation d’exercice est créée pour toi au démarrage. Elle n’est cependant pas privée : d’autres visiteurs peuvent la trouver, la consulter et la modifier. Ne modifie et ne supprime que les entrées que tu as créées toi-même.",
-        "resetDescription": "La démo est réinitialisée chaque jour à 00h00. Toutes les modifications sont alors supprimées.",
+        "resetDescription": "La démo se met en veille quand personne ne l’utilise et redémarre ensuite à neuf – elle est réinitialisée au plus tard à 00h00. Toutes les modifications sont alors supprimées.",
         "canTitle": "Ce que tu peux essayer",
         "canIncidents": "Saisir des interventions, les prioriser et les faire avancer dans les phases d’engagement",
         "canResources": "Engager du personnel, des véhicules et du matériel",

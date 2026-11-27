@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import type { ApiDemoOn } from '@/lib/api/types'
 import { useAuth } from '@/lib/contexts/auth-context'
+import { useHiddenRelease } from '@/lib/hooks/use-hidden-release'
+import { wsClient } from '@/lib/websocket-client'
 import { Button } from '@/components/ui/button'
 import { ShellLoader } from '@/components/ui/shell-loader'
 import {
@@ -20,6 +22,11 @@ import { Check, Info, Users } from 'lucide-react'
 
 const DEMO_WELCOME_KEY = 'kp-rueck.demo-welcome.v1'
 const WELCOME_EXCLUDED_ROUTES = ['/login', '/auth', '/reko', '/alarm', '/check-in', '/feld']
+// The demo sleeps when nobody uses it (Railway Serverless, backend/app/demo_activity.py). A
+// hidden tab's socket would keep it awake as long as the browser keeps the tab, so after this
+// long hidden the tab lets go of it. Back in front it reloads: the demo may have slept since,
+// and every wake resets it.
+const DEMO_HIDDEN_RELEASE_MS = 10 * 60_000
 
 
 export function DemoBanner() {
@@ -73,6 +80,13 @@ export function DemoBanner() {
       stop()
     }
   }, [fetchStatus])
+
+  useHiddenRelease({
+    enabled: demoStatus !== null,
+    afterMs: DEMO_HIDDEN_RELEASE_MS,
+    release: () => wsClient.forceDisconnect(),
+    onReturn: () => window.location.reload(),
+  })
 
   // Client-side countdown
   useEffect(() => {
