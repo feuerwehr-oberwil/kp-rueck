@@ -18,6 +18,7 @@ from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import events as events_crud
 from ..crud import group_assignments as ga_crud
 from ..crud import groups as crud
+from ..crud.locking import lock_ereignis
 from ..crud.manual_order import OrderChangedError
 from ..crud.planned_assignments import ResourceBusyError
 from ..database import get_db
@@ -54,6 +55,7 @@ async def create_group(
     current_user: CurrentEditor,
 ) -> schemas.IncidentGroupResponse:
     """Create a new Auftrag (editor only). Verifies the event exists."""
+    await lock_ereignis(db, group.event_id)  # before the check: a delete cannot slip in before the INSERT
     event = await events_crud.get_event_by_id(db, group.event_id)
     if not event:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.EVENT_NOT_FOUND)

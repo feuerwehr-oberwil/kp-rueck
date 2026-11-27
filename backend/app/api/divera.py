@@ -412,7 +412,9 @@ async def bulk_attach_emergencies(
 
     Returns list of created Incidents.
     """
-    # Verify event exists
+    # Every alarm and its Ereignis, and the target, before the first card and before the
+    # target is checked (docs/BACKEND.md «Row locks»).
+    await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids, onto=[request_data.event_id])
     event = await events_crud.get_event_by_id(db, request_data.event_id)
     if not event:
         raise CodedHTTPException(status.HTTP_404_NOT_FOUND, ErrorCode.EVENT_NOT_FOUND, ErrorMessages.EVENT_NOT_FOUND)
@@ -423,8 +425,6 @@ async def bulk_attach_emergencies(
     # expire loaded objects, and a lazy reload from async code is a MissingGreenlet.
     event_is_training = event.training_flag
     rolled_back = False
-    # Every alarm and its Ereignis before the first card (docs/BACKEND.md «Row locks»).
-    await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids, onto=[request_data.event_id])
 
     for emergency_id in request_data.emergency_ids:
         title: str | None = None

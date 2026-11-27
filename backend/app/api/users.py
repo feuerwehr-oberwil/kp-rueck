@@ -139,9 +139,12 @@ async def update_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    # FOR NO KEY UPDATE: the audit row of an admin editing this one key-shares it meanwhile.
-    result = await db.execute(select(User).where(User.id == user_id).with_for_update(key_share=True))
-    user = result.scalar_one_or_none()
+    # The editing admin's row with it, by id (crud/locking.py rule 2): a rename changes a key, and
+    # the audit row key-shares the admin – two admins renaming each other waited for each other.
+    rows = await db.scalars(
+        select(User).where(User.id.in_([user_id, current_user.id])).order_by(User.id).with_for_update()
+    )
+    user = next((row for row in rows if row.id == user_id), None)
 
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)

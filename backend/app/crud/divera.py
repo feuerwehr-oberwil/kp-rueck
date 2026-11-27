@@ -4,12 +4,31 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, func, select, update
+from sqlalchemy import ColumnElement, Select, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
 from ..utils.error_codes import DomainError, ErrorCode
 from .locking import lock_ereignis
+
+
+def auto_attach_target() -> Select[tuple[UUID]]:
+    """The Ereignis a fresh real alarm is attached to on arrival: the newest open, real one with
+    auto-attach on (``services.alarm_attach.try_auto_attach``)."""
+    return (
+        select(models.Event.id)
+        .where(models.Event.auto_attach_divera.is_(True))
+        .where(models.Event.training_flag.is_(False))
+        .where(models.Event.archived_at.is_(None))
+        .order_by(models.Event.created_at.desc())
+        .limit(1)
+    )
+
+
+async def lock_auto_attach_target(db: AsyncSession) -> None:
+    """Lock the Ereignis a new alarm may be attached to before its row exists (rule 1): its
+    unique (source, source_id) entry is what the standby sync's copy of it waits for."""
+    await lock_ereignis(db, await db.scalar(auto_attach_target()))
 
 
 async def create_divera_emergency(
@@ -29,6 +48,7 @@ async def create_divera_emergency(
     Raises:
         IntegrityError: If divera_id already exists (duplicate webhook)
     """
+    await lock_auto_attach_target(db)
     emergency = models.DiveraEmergency(
         divera_id=payload.id,
         divera_number=payload.number,
@@ -59,6 +79,7 @@ async def create_alarm_emergency(
     Raises:
         IntegrityError: If (source, source_id) already exists (concurrent redelivery)
     """
+    await lock_auto_attach_target(db)
     emergency = models.DiveraEmergency(
         divera_id=None,
         divera_number=alarm.number,
@@ -144,17 +165,25 @@ async def lock_divera_emergencies(
 
     ⚠️ The locks end at the first commit, so card and link must land in the SAME commit.
     """
-    ids = sorted(set(emergency_ids))
+    ids, onto = sorted(set(emergency_ids)), list(onto)
     belongs = select(models.DiveraEmergency.id, ereignis_of_alarm()).where(models.DiveraEmergency.id.in_(ids))
     for _ in range(_MAX_ALARM_LOCK_ATTEMPTS):
         seen = dict((await db.execute(belongs)).tuples().all())
         savepoint = await db.begin_nested()
         await lock_ereignis(db, *onto, *seen.values())
+        held = {event_id for event_id in (*onto, *seen.values()) if event_id is not None}
         locked = {
             emergency.id: emergency
             for emergency in await db.scalars(
                 select(models.DiveraEmergency)
                 .where(models.DiveraEmergency.id.in_(ids))
+                # Not one moved to an Ereignis this transaction does not hold: that is a retry.
+                .where(
+                    or_(
+                        models.DiveraEmergency.attached_to_event_id.is_(None),
+                        models.DiveraEmergency.attached_to_event_id.in_(held),
+                    )
+                )
                 .order_by(models.DiveraEmergency.id)
                 .with_for_update()
                 .execution_options(populate_existing=True)

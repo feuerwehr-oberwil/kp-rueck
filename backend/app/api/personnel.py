@@ -144,17 +144,19 @@ async def update_role_sort_orders(
     """
     # Every row it writes first, by id (crud/locking.py rule 2): two sorts in opposite order
     # would each hold one category and wait for the other's.
-    await db.execute(
-        select(Personnel.id)
-        .where(Personnel.role.in_([c.category for c in sort_update.categories]))
-        .order_by(Personnel.id)
-        .with_for_update()
+    locked = list(
+        await db.scalars(
+            select(Personnel.id)
+            .where(Personnel.role.in_([c.category for c in sort_update.categories]))
+            .order_by(Personnel.id)
+            .with_for_update()
+        )
     )
-    # Update sort order for each role category
+    # Update sort order for each role category – only the rows locked above
     for category_update in sort_update.categories:
         await db.execute(
             update(Personnel)
-            .where(Personnel.role == category_update.category)
+            .where(Personnel.id.in_(locked), Personnel.role == category_update.category)
             .values(role_sort_order=category_update.sort_order)
         )
 

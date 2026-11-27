@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..config import settings
+from ..crud.locking import lock_every_ereignis
 from ..database import get_db
 from ..services.audit import log_action
 from ..services.excel_import_export import (
@@ -273,6 +274,10 @@ async def download_import_template(
     )
 
 
+async def _nothing_more() -> None:
+    """``lock_every_ereignis`` with no row of its own to lock."""
+
+
 @router.post(
     "/import/preview",
     response_model=schemas.ExcelImportPreview,
@@ -381,6 +386,10 @@ async def execute_excel_import(
     # import with `append`. Historical (already released) assignments are not a reason to
     # block – they are history, and the export/import cycle is what a station uses to fix
     # a roster between operations.
+    # A `replace` writes rows of every Ereignis (the cascades of the deletes): their locks first
+    # (crud/locking.py rule 1), so no assignment lands between this check and the deletes.
+    if import_mode == "replace":
+        await lock_every_ereignis(db, _nothing_more)
     impact = await count_deletion_impact(db, import_mode)
 
     # The file's own problem before the board's: a workbook missing a sheet is fixed in

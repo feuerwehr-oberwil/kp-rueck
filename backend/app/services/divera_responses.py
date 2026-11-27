@@ -413,13 +413,17 @@ async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str
     # Their Ereignisse, then the rows by id (crud/locking.py). An alarm attached elsewhere
     # between the two is not written: its next poll writes it, under its Ereignis lock.
     locked = await divera_crud.lock_ereignisse_of_alarms(db, polled)
+    mine = or_(
+        models.DiveraEmergency.attached_to_event_id.is_(None), models.DiveraEmergency.attached_to_event_id.in_(locked)
+    )
     result = await db.execute(
         select(models.DiveraEmergency)
-        .where(polled)
+        .where(polled, mine)
         .order_by(models.DiveraEmergency.id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
+    # Postgres checks `mine` again on the locked row; the filter is for the rows it skipped.
     alarms = [
         emergency
         for emergency in result.scalars().all()
