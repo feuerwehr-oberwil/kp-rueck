@@ -13,7 +13,6 @@ from .. import schemas
 from ..auth.dependencies import CurrentAdmin
 from ..auth.security import hash_password_async
 from ..config import settings
-from ..crud.locking import lock_every_ereignis
 from ..database import get_db
 from ..models import User
 from ..services.audit import log_action
@@ -139,16 +138,8 @@ async def update_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    # The target FOR UPDATE (a rename changes a key) and the editing admin FOR KEY SHARE (what
-    # the audit row takes anyway), by id (crud/locking.py rule 2): two admins editing each
-    # other, or one resetting the other's password, then queue instead of deadlocking.
-    user: User | None = None
-    for row_id in sorted({user_id, current_user.id}):
-        mine = select(User).where(User.id == row_id)
-        if row_id == user_id:
-            user = await db.scalar(mine.with_for_update())
-        else:
-            await db.execute(mine.with_for_update(read=True, key_share=True))
+    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
+    user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)
@@ -265,13 +256,8 @@ async def delete_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    # A permanent delete clears the user's name from rows of any Ereignis (Reko, cards …):
-    # every Ereignis lock first (crud/locking.py rule 1). A deactivation writes the user only.
-    locked = select(User).where(User.id == user_id)
-    if permanent:
-        user = await lock_every_ereignis(db, lambda: db.scalar(locked.with_for_update()))
-    else:
-        user = await db.scalar(locked.with_for_update(key_share=True))
+    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
+    user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)

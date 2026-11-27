@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from sqlalchemy import or_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -221,20 +221,11 @@ async def update_location_sort_orders(
     This endpoint allows reordering how materials are grouped by location.
     All materials with the same location will get the same sort_order value.
     """
-    # Every row it writes first, by id (crud/locking.py rule 2): a sort in request order met an
-    # incident delete locking the same materials sorted.
-    locked = list(
-        await db.scalars(
-            select(Material.id)
-            .where(Material.location.in_([c.category for c in sort_update.categories]))
-            .order_by(Material.id)
-            .with_for_update()
-        )
-    )
+    # Update sort order for each location category
     for category_update in sort_update.categories:
         await db.execute(
             update(Material)
-            .where(Material.id.in_(locked), Material.location == category_update.category)
+            .where(Material.location == category_update.category)
             .values(location_sort_order=category_update.sort_order)
         )
 
@@ -306,13 +297,6 @@ async def update_material_group(
 
     # Update group membership if material_ids provided
     if group_update.material_ids is not None:
-        # Every row it writes first, by id (crud/locking.py rule 2), like a category sort.
-        await db.execute(
-            select(Material.id)
-            .where(or_(Material.group_id == group_id, Material.id.in_(group_update.material_ids)))
-            .order_by(Material.id)
-            .with_for_update()
-        )
         # Remove all current members
         await db.execute(update(Material).where(Material.group_id == group_id).values(group_id=None))
         # Add new members
@@ -338,8 +322,7 @@ async def delete_material_group(
     if not db_group:
         raise HTTPException(status_code=404, detail=ErrorMessages.MATERIAL_GROUP_NOT_FOUND)
 
-    # Unlink all materials first – their rows by id (crud/locking.py rule 2)
-    await db.execute(select(Material.id).where(Material.group_id == group_id).order_by(Material.id).with_for_update())
+    # Unlink all materials first
     await db.execute(update(Material).where(Material.group_id == group_id).values(group_id=None))
 
     await db.delete(db_group)
