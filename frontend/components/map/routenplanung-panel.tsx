@@ -56,7 +56,7 @@ const EMPTY_CHANGED: Set<string> = new Set()
 interface RoutenplanungPanelProps {
   groups: IncidentGroup[]
   groupId: string | null
-  onGroupIdChange: (id: string | null) => void
+  onGroupIdChange: (id: string) => void
   /** Create a new Auftrag and select it (page wraps useGroups().createGroup). */
   onCreateGroup: (name: string, color: string) => Promise<void>
   /** Map click-to-add toggle — page reads this to wire the map onClick. */

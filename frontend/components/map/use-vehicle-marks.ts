@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import type { ApiVehicle, ApiVehiclePosition } from "@/lib/api-client"
-import type { MapIncident } from "@/lib/map-incident"
+import { shortAddressOf, type MapIncident } from "@/lib/map-incident"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import { GPS_STALE_SETTING, clusterVehicles, estimatePillWidth, parseStaleMinutes, pillFace } from "@/lib/map-vehicles"
 import { normalizeVehicleName } from "@/lib/vehicle-positions"
@@ -9,7 +9,6 @@ import { haversineKm } from "@/lib/utils/route-geo"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useVehiclePositions } from "@/lib/hooks/use-vehicle-positions"
 import { pillTexts } from "./vehicle-marker"
-import { shortAddressOf } from "./incident-marker"
 import type { PlacedPill } from "./use-vehicle-placement"
 
 /**
