@@ -26,9 +26,12 @@ export class NotificationsApi {
     })
   }
 
-  async dismissNotification(id: string): Promise<void> {
+  /** `version`: the one the bell showed – a row rewritten since is a 409 `notification_changed`. */
+  async dismissNotification(id: string, version?: string): Promise<void> {
+    const body: In<'NotificationDismiss'> = { version }
     return requestVoid(`/api/notifications/${encodeURIComponent(id)}/dismiss`, {
       method: 'POST',
+      body: JSON.stringify(body),
       ...QUIET,
     })
   }
