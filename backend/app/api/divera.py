@@ -414,7 +414,7 @@ async def bulk_attach_emergencies(
     """
     # Every alarm and its Ereignis, and the target, before the first card and before the
     # target is checked (docs/BACKEND.md «Row locks»).
-    await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids, onto=[request_data.event_id])
+    prelocked = await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids, onto=[request_data.event_id])
     event = await events_crud.get_event_by_id(db, request_data.event_id)
     if not event:
         raise CodedHTTPException(status.HTTP_404_NOT_FOUND, ErrorCode.EVENT_NOT_FOUND, ErrorMessages.EVENT_NOT_FOUND)
@@ -434,7 +434,13 @@ async def bulk_attach_emergencies(
             # last, so nothing may fail after it in here.
             async with db.begin_nested():
                 # Locked like the single attach — see crud.divera.lock_divera_emergency
-                emergency = await divera_crud.lock_divera_emergency(db, emergency_id, onto=[request_data.event_id])
+                # Only an alarm locked above: one that appears later may sit on an Ereignis
+                # this transaction does not hold, and waiting for it now would be out of order.
+                emergency = (
+                    await divera_crud.lock_divera_emergency(db, emergency_id, onto=[request_data.event_id])
+                    if emergency_id in prelocked
+                    else None
+                )
                 if not emergency:
                     errors.append("Ein Alarm wurde nicht gefunden")
                     continue

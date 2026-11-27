@@ -239,20 +239,20 @@ async def assign_resource(
     if exclusive:
         await ensure_not_busy(db, resource, resource_type, event_id=incident.event_id, incident_id=incident_id)
 
-    # Use FOR UPDATE to lock rows and prevent race conditions
-    # This ensures that if two concurrent requests try to assign the same
-    # resource, only one will succeed - the other will wait for the lock
-    # and then see the newly created assignment.
+    # This card's active rows of the resource, locked: a second assign of the same resource
+    # waits and then sees the first one's row. Only this card's – a row on another Ereignis is
+    # that Ereignis's to lock (crud/locking.py rule 1); the resource lock above serialises the rest.
     existing = await db.execute(
         select(IncidentAssignment)
         .where(
             and_(
+                IncidentAssignment.incident_id == incident_id,
                 IncidentAssignment.resource_type == resource_type,
                 IncidentAssignment.resource_id == resource_id,
                 IncidentAssignment.unassigned_at.is_(None),  # Active assignment
             )
         )
-        .with_for_update()  # Row-level locking for transaction isolation
+        .with_for_update()
     )
     existing_assignments = existing.scalars().all()
 

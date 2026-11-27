@@ -95,6 +95,11 @@ async def lock_ereignis(db: AsyncSession, *event_ids: uuid.UUID | None) -> None:
         held.setdefault(key, db.sync_session.get_nested_transaction() or db.sync_session.get_transaction())  # type: ignore[arg-type]
 
 
+def holds_ereignis(db: AsyncSession, event_id: uuid.UUID) -> bool:
+    """Whether this transaction holds the Ereignis lock of ``event_id`` already."""
+    return ereignis_lock_keys([event_id])[0] in db.info.get(_HELD, {})
+
+
 def _within(transaction: SessionTransaction | None, ended: SessionTransaction) -> bool:
     """Whether ``transaction`` is ``ended`` or a savepoint inside it."""
     while transaction is not None:
@@ -351,6 +356,14 @@ async def lock_resource_for_delete(
     claims, the ``ON DELETE SET NULL`` references of cards and reports (``lock_every_ereignis``).
     """
     return await lock_every_ereignis(db, lambda: lock_resource(db, resource_type, resource_id))
+
+
+async def lock_every_resource(db: AsyncSession) -> None:
+    """Rule 2 for a writer of the whole roster (an Excel ``replace``): every material, person and
+    vehicle row, by (resource_type, id). Every assignment and check-in takes its resource's row,
+    so none lands meanwhile – not even in an Ereignis created after ``lock_every_ereignis``."""
+    for model in (Material, Personnel, Vehicle):  # the order of "material" < "personnel" < "vehicle"
+        await db.execute(select(model.id).order_by(model.id).with_for_update())
 
 
 async def lock_every_ereignis[T](db: AsyncSession, lock_row: Callable[[], Awaitable[T]]) -> T:

@@ -144,14 +144,10 @@ async def update_role_sort_orders(
     """
     # Every row it writes first, by id (crud/locking.py rule 2): two sorts in opposite order
     # would each hold one category and wait for the other's.
-    locked = list(
-        await db.scalars(
-            select(Personnel.id)
-            .where(Personnel.role.in_([c.category for c in sort_update.categories]))
-            .order_by(Personnel.id)
-            .with_for_update()
-        )
-    )
+    in_categories = Personnel.role.in_([c.category for c in sort_update.categories])
+    # A guest is deleted with its Ereignis: their Ereignisse first (rule 1).
+    await lock_ereignis(db, *await db.scalars(select(Personnel.guest_event_id).where(in_categories).distinct()))
+    locked = list(await db.scalars(select(Personnel.id).where(in_categories).order_by(Personnel.id).with_for_update()))
     # Update sort order for each role category – only the rows locked above
     for category_update in sort_update.categories:
         await db.execute(
