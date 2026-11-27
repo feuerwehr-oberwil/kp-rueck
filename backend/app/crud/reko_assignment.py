@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import EventSpecialFunction, Incident, IncidentAssignment, Personnel, RekoReport, User
 from .assignments import unassign_resource
-from .locking import lock_resource
+from .locking import ereignisse_of_incidents, lock_ereignis, lock_resource
 from .manual_order import OrderChangedError, plan_manual_order
 
 
@@ -335,8 +335,9 @@ async def unassign_reko_personnel_from_incident(
     Returns:
         True if unassignment was successful, False otherwise
     """
-    # The incident first, like every release (crud/locking.py step 2), so the row read
+    # The incident first, like every release (after its Ereignis, crud/locking.py), so the row read
     # below stays what it is until this transaction ends.
+    await lock_ereignis(db, *await ereignisse_of_incidents(db, [incident_id]))
     await db.execute(select(Incident.id).where(Incident.id == incident_id).with_for_update())
     query = select(IncidentAssignment).where(
         IncidentAssignment.incident_id == incident_id,
@@ -474,7 +475,7 @@ async def get_available_reko_personnel_for_incident(
 # assignment rows (`IncidentAssignment.reko_position`), not on an Auftrag: a Reko person is
 # a person, not a route.
 #
-# Lock: the person's row (step 3 of `crud/locking.py`). Every writer of a Reko row for a
+# Lock: the person's row (rule 2 of `crud/locking.py`). Every writer of a Reko row for a
 # person – assign-reko, the handover, this reorder – holds it while it reads and writes
 # their positions, so a new Reko always takes the next free number and a reorder never
 # races one. The rows themselves are leaves under that lock.
@@ -549,6 +550,7 @@ async def reorder_reko_assignments(
         LookupError: the person does not exist or holds no Reko function in this Ereignis.
         OrderChangedError: the list is not ``expected_ids`` any more.
     """
+    await lock_ereignis(db, event_id)
     if await lock_resource(db, "personnel", personnel_id) is None:
         raise LookupError(f"personnel {personnel_id} does not exist")
     is_reko = await db.scalar(

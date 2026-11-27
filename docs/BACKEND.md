@@ -34,12 +34,15 @@ Five rules in [`FRONTEND.md`](FRONTEND.md) bind backend code too. Read the one y
   Send anything that a board or another session reacts to after the commit: `after_commit(db, …)`
   or a background task. Every other explicit commit has a comment beside it that says why. The
   rule lives above `get_db` in `backend/app/database.py`.
-- **Row locks in one order**: Aufträge (by id) → Einsätze (by id) → the resource row → the
-  Ereignis row (`update_event_activity`, last). Alarm rows (by id) come before all of them: a
-  bulk attach locks every alarm before its first card. The helpers and the reasoning are in
-  `backend/app/crud/locking.py`. A new writer that locks must use the
-  helpers, or it deadlocks against completion/reorder. New assignments go through
-  `ensure_assignable`.
+- **Row locks**: two rules, the reasons in `backend/app/crud/locking.py`.
+  1. A transaction that writes any row of an Ereignis (cards, Aufträge, crews, alarms, bell
+     entries, field requests, Reko, …) first takes the lock of every Ereignis it will touch,
+     all at once, sorted: `lock_ereignis`. A write request gets the Ereignisse its path, query or
+     link names (`lock_request_ereignisse`, app-wide), and the row helpers in `locking.py` take
+     them before their rows; a writer that finds its Ereignis in the body or in rows takes it
+     itself. `tests/ereignis_lock_check.py` fails a test request that skips it.
+  2. Rows of no Ereignis come after: pool alarms by id, then resources by (type, id),
+     `lock_resources`. New assignments go through `ensure_assignable`.
 
 
 ## API endpoints

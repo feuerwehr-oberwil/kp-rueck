@@ -2966,8 +2966,8 @@ export interface paths {
          *     already listed at this Ereignis checks that person in instead of making a second one;
          *     a name the door cannot settle (two people of that name, somebody unavailable, the
          *     Ereignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a
-         *     looser per-address backstop. The link is checked under a share lock on the Ereignis row
-         *     (`share_links.event_of(lock=True)`), so a revoke or a delete cannot slip in before the write.
+         *     looser per-address backstop. The write holds the Ereignis lock (`crud.locking.lock_ereignis`),
+         *     so a revoke or a delete cannot slip in between the link's check and the write.
          */
         post: operations["check_in_guest_api_personnel_check_in_guest_post"];
         delete?: never;
@@ -5344,7 +5344,8 @@ export interface paths {
          * @description Mark notification as dismissed (Editor only).
          *
          *     Dismissal is global – it hides the notification for everyone on the board and marks a
-         *     Feld request as seen – so it is a write, not a viewer's personal preference.
+         *     Feld request as seen – so it is a write, not a viewer's personal preference. With the
+         *     `version` the bell showed, a row rewritten since is refused (409 `notification_changed`).
          */
         post: operations["dismiss_notification_api_notifications__notification_id__dismiss_post"];
         delete?: never;
@@ -10147,6 +10148,18 @@ export interface components {
             authorization_url: string;
         };
         /**
+         * NotificationDismiss
+         * @description `POST /notifications/{id}/dismiss`: the `version` the bell showed.
+         *
+         *     A row rewritten since (a fatigue warning that names somebody new) is refused with 409
+         *     `notification_changed`. Without a version (an older client, a field request whose bell row
+         *     is not loaded) the dismissal is unconditional.
+         */
+        NotificationDismiss: {
+            /** Version */
+            version?: string | null;
+        };
+        /**
          * NotificationResponse
          * @description Notification response schema.
          */
@@ -10179,6 +10192,8 @@ export interface components {
             dismissed_at?: string | null;
             /** Dismissed By */
             dismissed_by?: string | null;
+            /** Version */
+            version: string;
         };
         /**
          * NotificationSettings
@@ -21669,7 +21684,11 @@ export interface operations {
                 access_token?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NotificationDismiss"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {

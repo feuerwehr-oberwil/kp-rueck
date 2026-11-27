@@ -40,12 +40,14 @@ from typing import Any, Literal
 from uuid import UUID
 
 import httpx
-from sqlalchemy import null, or_, select, update
+from sqlalchemy import and_, null, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models
 from ..config import settings
+from ..crud import divera as divera_crud
 from ..crud import external_identities as identities_crud
+from ..crud.locking import lock_ereignis
 from .settings import DIVERA_RESPONSE_CLASSIFICATION, read
 
 logger = logging.getLogger(__name__)
@@ -407,10 +409,13 @@ async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str
     if not parsed_alarms:
         return set(), set()
     cutoff = _now() - RETENTION
+    polled = models.DiveraEmergency.divera_id.in_(list(parsed_alarms.keys()))
+    locked = await divera_crud.lock_ereignisse_of_alarms(db, polled)
     result = await db.execute(
         select(models.DiveraEmergency, models.Event.archived_at)
         .outerjoin(models.Event, models.Event.id == models.DiveraEmergency.attached_to_event_id)
-        .where(models.DiveraEmergency.divera_id.in_(list(parsed_alarms.keys())))
+        .where(polled, or_(divera_crud.ereignis_of_alarm().is_(None), divera_crud.ereignis_of_alarm().in_(locked)))
+        .execution_options(populate_existing=True)
     )
     rows = [
         emergency
@@ -446,17 +451,22 @@ async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str
 
 
 async def purge_expired(db: AsyncSession) -> int:
-    """Delete stored answers past the retention window or on an archived Ereignis. Returns rows."""
+    """Delete stored answers past the retention window or on an archived Ereignis. Returns rows.
+
+    Under the locks of the alarms' Ereignisse; one attached elsewhere meanwhile waits for the
+    next run. The caller commits."""
     archived = select(models.Event.id).where(models.Event.archived_at.is_not(None))
+    expired = and_(
+        models.DiveraEmergency.responses_json.is_not(None),
+        or_(
+            models.DiveraEmergency.received_at < _now() - RETENTION,
+            models.DiveraEmergency.attached_to_event_id.in_(archived),
+        ),
+    )
+    locked = await divera_crud.lock_ereignisse_of_alarms(db, expired)
     result = await db.execute(
         update(models.DiveraEmergency)
-        .where(
-            models.DiveraEmergency.responses_json.is_not(None),
-            or_(
-                models.DiveraEmergency.received_at < _now() - RETENTION,
-                models.DiveraEmergency.attached_to_event_id.in_(archived),
-            ),
-        )
+        .where(expired, or_(divera_crud.ereignis_of_alarm().is_(None), divera_crud.ereignis_of_alarm().in_(locked)))
         .values(responses_json=null(), responses_updated_at=None)
         .execution_options(synchronize_session=False)
     )
@@ -465,6 +475,7 @@ async def purge_expired(db: AsyncSession) -> int:
 
 async def purge_event(db: AsyncSession, event_id: UUID) -> None:
     """Delete the stored answers of one Ereignis (it was archived). The caller commits."""
+    await lock_ereignis(db, event_id)
     await db.execute(
         update(models.DiveraEmergency)
         .where(models.DiveraEmergency.attached_to_event_id == event_id)

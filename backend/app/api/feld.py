@@ -102,7 +102,8 @@ async def require_feld_claims(
     """Step 1: the token must be a valid, unexpired `feld` token.
 
     Validate stored grants even on context/picker/exchange endpoints. Revoked
-    credentials must not regain access through a weaker stage of the door.
+    credentials must not regain access through a weaker stage of the door. A write
+    has locked the token's Ereignis already (``crud.locking.lock_request_ereignisse``).
     """
     claims = validate_feld_token(token)
     if claims is None:

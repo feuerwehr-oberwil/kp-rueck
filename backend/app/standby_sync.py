@@ -40,6 +40,7 @@ from typing import Any
 
 import asyncpg
 
+from .ereignis_lock import LOCK_SQL, ereignis_lock_keys
 from .standby import SKIPPED_TABLES, event_links
 
 logger = logging.getLogger(__name__)
@@ -670,6 +671,13 @@ def _journal_line(event_id: str, incident_id: str | None, text: str, now: str) -
 # --- writing (both systems) ------------------------------------------------------------------
 
 
+async def lock_ereignis(conn: asyncpg.Connection, *event_ids: uuid.UUID | str | None) -> None:
+    """``crud.locking.lock_ereignis`` for a bare asyncpg connection (the sidecar, the box's
+    routes): the Ereignis locks, sorted, to the end of the transaction – before any other lock."""
+    for key in ereignis_lock_keys(event_ids):
+        await conn.execute(LOCK_SQL, key)
+
+
 class OpRefusedError(Exception):
     """An op that would write outside its Ereignis – never applied, on either system."""
 
@@ -689,7 +697,11 @@ async def apply_ops(
 
     Ops that fail on a missing key are retried until a pass gets nowhere, so parents may come
     after their children in the list.
+
+    It takes the Ereignis lock first (`lock_ereignis`): the caller's transaction must hold no
+    other lock yet, so every other writer of the Ereignis waits for the batch, or it for them.
     """
+    await lock_ereignis(conn, event_id)
     results: list[str] = ["refused"] * len(ops)
     todo = list(range(len(ops)))
     while todo:

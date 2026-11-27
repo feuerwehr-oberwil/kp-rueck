@@ -167,10 +167,10 @@ async def check_in_guest(
     already listed at this Ereignis checks that person in instead of making a second one;
     a name the door cannot settle (two people of that name, somebody unavailable, the
     Ereignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a
-    looser per-address backstop. The link is checked under a share lock on the Ereignis row
-    (`share_links.event_of(lock=True)`), so a revoke or a delete cannot slip in before the write.
+    looser per-address backstop. The write holds the Ereignis lock (`crud.locking.lock_ereignis`),
+    so a revoke or a delete cannot slip in between the link's check and the write.
     """
-    event_id = await share_links.event_of(db, "checkin", token, lock=True)
+    event_id = await share_links.event_of(db, "checkin", token)
     if not event_id:
         raise HTTPException(status_code=401, detail=ErrorMessages.LINK_INVALID)
 

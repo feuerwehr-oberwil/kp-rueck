@@ -9,14 +9,15 @@ from uuid import UUID
 
 # Helper subquery for assigned material IDs
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..crud.active_resources import active_resource_ids
+from ..crud.locking import lock_ereignis
 from ..database import after_commit
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
+from ..utils.error_codes import DomainError, ErrorCode
 from ..utils.failure_latch import FailureLatch
 
 # Same German status labels the printed Lageblatt and the PDF report use, so a warning in the
@@ -76,7 +77,10 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     hosted board's, whose rows replication brings – a row the box wrote there would exist only
     on the box. Each write phase holds the lead row (``_may_write``): a hosted takeover the sync
     brings in meanwhile waits for that phase's commit instead of meeting its stale writes.
+    Each takes the Ereignis lock first (``crud.locking.lock_ereignis``), so two boards' polls,
+    a dismissal and every other writer of the Ereignis take turns.
     """
+    await lock_ereignis(db, event_id)
     if not await _may_write(db, event_id):
         return await _stored_notifications(db, event_id)
 
@@ -105,7 +109,11 @@ async def evaluate_notifications(db: AsyncSession, event_id: UUID) -> list[Notif
     # than created per person (see `_sync_fatigue_notification`). It is a resource alert,
     # so switching those off resolves it like the others.
     await _sync_fatigue_notification(db, event_id, settings, enabled=settings.enabled_resource_alerts)
-    # That committed, and the lead lock went with it: take it again for the writes below.
+    # That committed, and the Ereignis and lead locks went with it: take them again for the
+    # writes below. An Ereignis deleted in between has nothing left to warn about.
+    await lock_ereignis(db, event_id)
+    if await db.scalar(select(Event.id).where(Event.id == event_id)) is None:
+        return []
     if not await _may_write(db, event_id):
         return await _stored_notifications(db, event_id)
 
@@ -434,16 +442,16 @@ async def _sync_fatigue_notification(
       before the grouping carry no keys and acknowledge nobody.
     - When nobody is past the threshold any more (checked out), it resolves itself.
 
-    Every board evaluates this on its own poll, so the whole read-decide-write runs under a
-    transaction-scoped advisory lock per Ereignis: two concurrent evaluations would
-    otherwise both find no open row and both insert one (two rows, two toasts).
+    Every board evaluates this on its own poll, so the whole read-decide-write runs under the
+    Ereignis lock (free when ``evaluate_notifications`` took it): two concurrent evaluations
+    would otherwise both find no open row and both insert one (two rows, two toasts).
 
     ``fatigue_hours`` <= 0 switches the check off. Returns the open notification, if any.
     """
-    await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"})
+    await lock_ereignis(db, event_id)
     try:
         notification = await _sync_fatigue_locked(db, event_id, settings, enabled=enabled)
-        await db.commit()  # releases the advisory lock early: every board's poll queues on it
+        await db.commit()  # releases the Ereignis lock early: every board's poll queues on it
     except Exception:
         await db.rollback()
         raise
@@ -900,10 +908,30 @@ async def _auto_resolve_stale_notifications(
         await db.flush()
 
 
-async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id: UUID) -> Notification | None:
-    """Dismiss a notification."""
-    result = await db.execute(select(Notification).where(Notification.id == notification_id))
+async def dismiss_notification(
+    db: AsyncSession, notification_id: UUID, user_id: UUID, *, expected_version: str | None = None
+) -> Notification | None:
+    """Dismiss a notification; ``None`` when there is none.
+
+    ``expected_version``: the ``Notification.version`` the operator saw. Compared under the
+    Ereignis lock (``crud.locking.lock_ereignis``), which a poll rewriting the row holds too, so
+    the dismissal sees the rewritten row. A mismatch raises ``DomainError`` (409
+    ``notification_changed``) and changes nothing: the operator must not acknowledge somebody
+    they were not shown. Without a version (an older client) the dismissal is unconditional.
+    """
+    event_id = await db.scalar(
+        select(func.coalesce(Notification.event_id, Incident.event_id))
+        .outerjoin(Incident, Incident.id == Notification.incident_id)
+        .where(Notification.id == notification_id)
+    )
+    await lock_ereignis(db, event_id)
+    result = await db.execute(
+        select(Notification).where(Notification.id == notification_id).execution_options(populate_existing=True)
+    )
     notification = result.scalar_one_or_none()
+
+    if notification and expected_version is not None and notification.version != expected_version:
+        raise DomainError(ErrorCode.NOTIFICATION_CHANGED, "Die Meldung hat sich inzwischen geändert. Bitte neu lesen.")
 
     if notification:
         now = datetime.now(UTC)
@@ -956,6 +984,7 @@ async def create_reko_notification(
     Returns:
         Created notification
     """
+    await lock_ereignis(db, event_id)  # rule 1: free when the caller holds it
     # Use the short address as primary identifier — same label as the card.
     location = location_display(incident_address, await get_home_city(db)) or incident_title
     message, params = texts.reko_submitted(
@@ -1009,6 +1038,7 @@ async def create_vehicle_returned_notification(
     it fires after the vehicle was seen away. The Auftrag fallback fires for a vehicle
     that never left too, so it stays a bell.
     """
+    await lock_ereignis(db, event_id)  # rule 1: free when the caller holds it
     message, params = texts.vehicle_returned(vehicle_name)
 
     recent = await db.execute(
@@ -1071,6 +1101,7 @@ async def create_gps_todo(
     One open row per ``key`` – the incident for an arrival, the assignment for a release – so GPS
     restarts and geofence flaps do not stack copies. Flushes; the caller commits.
     """
+    await lock_ereignis(db, event_id)  # rule 1: free when the caller holds it
     message, params = built
     open_row = await db.scalar(
         select(Notification.id)
@@ -1126,6 +1157,7 @@ async def create_field_notification(
     every one of these is a deliberate human tap, and swallowing a second one
     would swallow a second crew reporting from the same Schadenplatz.
     """
+    await lock_ereignis(db, event_id)  # rule 1: free when the caller holds it
     notification = Notification(
         type=notification_type,
         severity=severity,
@@ -1172,6 +1204,7 @@ async def create_reko_arrived_notification(
     Returns:
         Created notification
     """
+    await lock_ereignis(db, event_id)  # rule 1: free when the caller holds it
     # Use the short address as primary identifier, fall back to title
     location = location_display(incident_address, await get_home_city(db)) or incident_title
     message, params = texts.reko_arrived(location, arrived_by_name)

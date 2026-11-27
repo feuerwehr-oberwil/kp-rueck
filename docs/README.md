@@ -37,7 +37,7 @@ Every doc here describes shipped behaviour; one that drifts from the code is a b
 | [`DESIGN.md`](DESIGN.md) | **Design context for the UI**: who uses KP Rück and on what device, brand personality, colour roles, type and corners, the design principles. It opens with the must-follow UI rules, one line each. |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | **Working on the code**: the dev commands, the test layout and visual regression, environment and deployment facts (build-time `NEXT_PUBLIC_*`, prod vs dev compose, tiles), and how to cut a release. |
 | [`FRONTEND.md`](FRONTEND.md) | **Frontend conventions**: the Next.js/React facts that bite, server reads (TanStack Query + the socket bridge), phone layout (geometry, forms, lists, filters), the overflow scan, i18n, words, and the shared UI patterns (loading, toasts, notifications, «Synchronisiert», forms, dialogs, pickers, empty states, maps, search, undo, durations, route optimisation). |
-| [`BACKEND.md`](BACKEND.md) | **Backend conventions**: async sessions, the flush/commit rule, the row-lock order, the API routes and their trailing slash, the integration seams. |
+| [`BACKEND.md`](BACKEND.md) | **Backend conventions**: async sessions, the flush/commit rule, the row locks (Ereignis lock first), the API routes and their trailing slash, the integration seams. |
 | [`openapi.json`](openapi.json) | The committed OpenAPI contract – every route, request and response shape, readable without booting the stack. Regenerate with `just openapi`; a pytest fails when it drifts from the code. |
 
 ## Elsewhere in the repository

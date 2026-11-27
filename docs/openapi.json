@@ -8404,7 +8404,7 @@
           "personnel-checkin"
         ],
         "summary": "Check In Guest",
-        "description": "«‹Name› als Gast einchecken» – somebody at the door who is not on the list.\n\nThe link's door only (no editor twin on this route: the board adds a guest with\n`POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is\nalready listed at this Ereignis checks that person in instead of making a second one;\na name the door cannot settle (two people of that name, somebody unavailable, the\nEreignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a\nlooser per-address backstop. The link is checked under a share lock on the Ereignis row\n(`share_links.event_of(lock=True)`), so a revoke or a delete cannot slip in before the write.",
+        "description": "«‹Name› als Gast einchecken» – somebody at the door who is not on the list.\n\nThe link's door only (no editor twin on this route: the board adds a guest with\n`POST /api/personnel/` + `guest_event_id`, then checks them in). A name that is\nalready listed at this Ereignis checks that person in instead of making a second one;\na name the door cannot settle (two people of that name, somebody unavailable, the\nEreignis's guest limit) is a 409 `checkin_guest_ask_kp`. Rate-limited per link, with a\nlooser per-address backstop. The write holds the Ereignis lock (`crud.locking.lock_ereignis`),\nso a revoke or a delete cannot slip in between the link's check and the write.",
         "operationId": "check_in_guest_api_personnel_check_in_guest_post",
         "parameters": [
           {
@@ -15296,7 +15296,7 @@
           "notifications"
         ],
         "summary": "Dismiss Notification",
-        "description": "Mark notification as dismissed (Editor only).\n\nDismissal is global – it hides the notification for everyone on the board and marks a\nFeld request as seen – so it is a write, not a viewer's personal preference.",
+        "description": "Mark notification as dismissed (Editor only).\n\nDismissal is global – it hides the notification for everyone on the board and marks a\nFeld request as seen – so it is a write, not a viewer's personal preference. With the\n`version` the bell showed, a row rewritten since is refused (409 `notification_changed`).",
         "operationId": "dismiss_notification_api_notifications__notification_id__dismiss_post",
         "parameters": [
           {
@@ -15326,6 +15326,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/NotificationDismiss"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -26750,6 +26767,24 @@
         "title": "MicrosoftLoginStartResponse",
         "description": "The server-generated authorization URL; browser proof stays in an HttpOnly cookie."
       },
+      "NotificationDismiss": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "title": "NotificationDismiss",
+        "description": "`POST /notifications/{id}/dismiss`: the `version` the bell showed.\n\nA row rewritten since (a fatigue warning that names somebody new) is refused with 409\n`notification_changed`. Without a version (an older client, a field request whose bell row\nis not loaded) the dismissal is unconditional."
+      },
       "NotificationResponse": {
         "properties": {
           "id": {
@@ -26835,6 +26870,10 @@
               }
             ],
             "title": "Dismissed By"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
           }
         },
         "type": "object",
@@ -26844,7 +26883,8 @@
           "severity",
           "message",
           "created_at",
-          "dismissed"
+          "dismissed",
+          "version"
         ],
         "title": "NotificationResponse",
         "description": "Notification response schema."

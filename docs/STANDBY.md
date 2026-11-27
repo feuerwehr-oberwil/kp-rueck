@@ -68,7 +68,9 @@ alarms keep writing to it. When the two meet again, per row and field:
 - the bell, in the seconds after a takeover in which both systems still ask: a GPS question
   («Ist TLF angekommen?») both raised is asked once, and a «Lang im Einsatz» warning dismissed
   on one side acknowledges the people it named there – somebody the other side added to it
-  meanwhile is warned about again.
+  meanwhile is warned about again. On each system a dismissal also carries the version the bell
+  showed: a warning a poll or the sync rewrote since is refused («Die Meldung hat sich inzwischen
+  geändert») and shown again with its new names.
 - a clash is listed once per takeover: the same two values clashing again in a later outage are
   a new entry, not the one already decided.
 
@@ -140,7 +142,8 @@ from the box, and the box's work stays on the box.
 It reads through `kp_standby` (replication and `SELECT`, no write privilege on any table), and
 it writes only through `POST /api/standby/sync` with the key, which takes rows of one Ereignis
 at a time: the Ereignis's own tables (Einsätze, Aufträge, Mannschaft, Verlauf, Rapporte …),
-each row checked against the version the box last saw. Users, roster and settings are out of
+each row checked against the version the box last saw. A batch is one transaction under the
+Ereignis lock, like every other writer of that Ereignis on either system. Users, roster and settings are out of
 its reach. Which Ereignis is not: a takeover happens on the box, offline, and the hosted board
 learns of it from the box – so whoever holds the key can declare any Ereignis taken over and
 rewrite it. That is why it lives in the vault and in the two `.env`/Variables entries, nowhere

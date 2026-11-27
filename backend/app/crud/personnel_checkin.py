@@ -167,7 +167,7 @@ async def check_in_personnel(
         CheckOutChangedError: ``resume`` given, but the row is no longer that departure
             (somebody checked the person in, out again, or cleared them meanwhile).
     """
-    # The person's row lock (crud/locking.py step 3) orders this against a concurrent
+    # The person's row lock (crud/locking.py rule 2) orders this against a concurrent
     # check-out, so a resume compares against the departure that is really there.
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
@@ -294,7 +294,8 @@ async def check_in_guest(
 
     A transaction-scoped advisory lock per Ereignis serialises the look-up and the insert,
     so a double tap or two phones typing the same name make one guest, not two. It is taken
-    before any row lock and no other writer takes it, so the row-lock order is untouched.
+    after the Ereignis lock (``crud/locking.py`` rule 1) and before any row lock, and no other
+    writer takes it.
 
     Returns the person's attendance and whether a guest was created. One audit row either
     way (``check_in_guest``, no user: the link is anonymous).
@@ -376,7 +377,7 @@ async def check_out_personnel(
             bound (assigned or holding a function) with ``refuse_bound``.
         PersonStillBoundError: ``refuse_bound`` and the person is bound.
     """
-    # The person's row lock (crud/locking.py step 3): a new assignment and a new function
+    # The person's row lock (crud/locking.py rule 2): a new assignment and a new function
     # take it too, so what is read below cannot change before this check-out lands.
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()

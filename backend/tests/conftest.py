@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.auth.dependencies import get_current_user
 from app.auth.security import hash_password
 from app.database import AppSession, Base, get_db
+from app.ereignis_lock import ereignis_lock_key
 from app.main import app
 from app.middleware.audit import _inflight_audit_tasks
 from app.middleware.rate_limit import limiter
@@ -32,6 +33,7 @@ from app.models import (
 )
 from app.services.photo_storage import photo_storage
 from app.traccar import traccar_client
+from tests import ereignis_lock_check
 
 # bcrypt at the production cost (12) is ~250 ms of CPU per hash or check, by design. The
 # suite hashes a fixture password for every editor/admin login and checks it on every sign-in,
@@ -170,6 +172,31 @@ async def wait_until_blocked(sessions: async_sessionmaker[AsyncSession], count: 
                 return
             await asyncio.sleep(0.05)
     raise AssertionError("nothing ever waited for a lock")
+
+
+async def wait_for_ereignis_lock(sessions: async_sessionmaker[AsyncSession], event_id: UUID, count: int = 1) -> None:
+    """Until ``count`` other backends wait for the Ereignis lock of ``event_id`` itself
+    (``crud.locking.lock_ereignis``) – not for a row or any other lock.
+
+    For lock tests on committed sessions, like ``wait_until_blocked``: fails when nothing ever
+    queues for that key, so a writer that skips the lock turns the test red.
+    """
+    key = ereignis_lock_key(event_id)
+    async with sessions() as probe:
+        for _ in range(100):
+            waiting = await probe.scalar(
+                text(
+                    "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1"
+                    " AND classid::bigint = :high AND objid::bigint = :low"
+                    " AND database = (SELECT oid FROM pg_database WHERE datname = current_database())"
+                ),
+                {"high": (key >> 32) & 0xFFFFFFFF, "low": key & 0xFFFFFFFF},
+            )
+            await probe.rollback()
+            if waiting >= count:
+                return
+            await asyncio.sleep(0.05)
+    raise AssertionError(f"nothing ever waited for the Ereignis lock of {event_id}")
 
 
 # The database this worker actually runs against.
@@ -545,14 +572,19 @@ async def client(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> A
     session back would also expire every fixture object the test still holds.
     """
 
+    violations: list[str] = []
+
     async def override_get_db():
         request_tx = await db_session.begin_nested()
-        try:
-            yield db_session
-        except Exception:
-            # The savepoint, unless the route committed past it – then what it wrote since.
-            await (request_tx.rollback() if request_tx.is_active else db_session.rollback())
-            raise
+        with ereignis_lock_check.armed(db_session.sync_session) as found:
+            try:
+                yield db_session
+            except Exception:
+                # The savepoint, unless the route committed past it – then what it wrote since.
+                await (request_tx.rollback() if request_tx.is_active else db_session.rollback())
+                raise
+            finally:
+                violations.extend(found)
 
     app.dependency_overrides[get_db] = override_get_db
     route_audit_into(db_session, monkeypatch)
@@ -561,6 +593,7 @@ async def client(db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> A
         yield ac
 
     app.dependency_overrides.clear()
+    ereignis_lock_check.report(violations)
 
 
 @pytest_asyncio.fixture

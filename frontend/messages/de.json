@@ -3748,6 +3748,8 @@
       "person_still_assigned": "Die Person ist noch zugewiesen.",
       "incident_not_on_board": "Dieser Einsatz ist nicht mehr auf dem Board (gelöscht oder zusammengeführt).",
       "event_not_archived": "Das Ereignis muss vor dem Löschen archiviert werden.",
+      "ereignis_busy": "Ein anderes Ereignis wird gerade geändert. Bitte nochmals versuchen.",
+      "notification_changed": "Die Meldung hat sich inzwischen geändert. Bitte neu lesen.",
       "event_not_found": "Ereignis nicht gefunden",
       "demo_incident_limit": "Demo-Modus: Maximale Anzahl Einsätze ({max}) erreicht. Die Demo wird regelmässig zurückgesetzt.",
       "auftrag_not_found": "Auftrag nicht gefunden oder gelöscht",

@@ -10,8 +10,8 @@ Three callers keep their own policy:
   Ereignis itself, only real alarms on real Ereignisse, the system is the actor, and it never
   raises into the webhook.
 
-Each caller holds the alarm's row lock (``crud.divera.lock_divera_emergency``) and has decided
-that it may attach. What they share is ``attach``, once: the card from the alarm, flag or merge,
+Each caller holds the alarm's row lock and the locks of its Ereignisse
+(``crud.divera.lock_divera_emergency``) and has decided that it may attach. What they share is ``attach``, once: the card from the alarm, flag or merge,
 the link, and – after the commit – the board broadcasts, «Anrückend», and the end of every
 simulated GPS drive when the alarm is real.
 """
@@ -28,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models, schemas
 from ..crud import divera as divera_crud
 from ..crud import incidents as incidents_crud
-from ..crud.locking import lock_incident_numbering
 from ..database import after_commit, after_rollback
 from ..websocket_manager import broadcast_divera_responses_update, broadcast_incident_update
 from . import duplicates, incident_display
@@ -76,11 +75,8 @@ async def attach(
     if merge_into is None:
         # Nobody looked at a duplicate hint for this card (or it had not loaded before the
         # click): the card itself says so and offers the one-click merge. Looked up before the
-        # card exists and stored with its INSERT, so the flag's foreign key takes the other
-        # card's lock before create_incident writes the Ereignis row – a status update holds a
-        # card and then writes the Ereignis, and the reverse order could deadlock with it.
-        # Under the numbering lock, so a second alarm for the same place sees the first's card.
-        await lock_incident_numbering(db, event_id)
+        # card exists and stored with its INSERT. The caller holds the Ereignis lock, so a second
+        # alarm for the same place, attached at the same time, sees the first one's card.
         candidates = await duplicates.find_duplicate_candidates(
             db,
             event_id,
@@ -173,14 +169,6 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
 
 
 async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
-    # Row-locked like the manual attach (crud.divera.lock_divera_emergency): an operator who
-    # pulls the fresh alarm onto a board in the same instant must not get a second card.
-    # populate_existing refreshes `emergency` itself, so the check below sees the locked row.
-    if await divera_crud.lock_divera_emergency(db, emergency.id) is None:
-        return None
-    if emergency.is_training or emergency.attached_to_event_id is not None:
-        return None
-
     event_id = await db.scalar(
         select(models.Event.id)
         .where(models.Event.auto_attach_divera.is_(True))
@@ -190,6 +178,13 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
         .limit(1)
     )
     if event_id is None:
+        return None
+    # Row-locked like the manual attach (crud.divera.lock_divera_emergency), after the Ereignis it
+    # goes onto: an operator who pulls the fresh alarm onto a board in the same instant must not
+    # get a second card. populate_existing refreshes `emergency`, so the check sees the locked row.
+    if await divera_crud.lock_divera_emergency(db, emergency.id, onto=[event_id]) is None:
+        return None
+    if emergency.is_training or emergency.attached_to_event_id is not None:
         return None
     # The caller's commit stores card and link together – it is also what releases the row lock.
     return (await attach(db, emergency, event_id, actor=None)).incident

@@ -29,7 +29,7 @@ from app.services.tokens import generate_form_token
 async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatch, first, operation):
     """Pause the winning transaction, prove PostgreSQL blocks the other, then finish both."""
     sessions = async_sessionmaker(test_engine, expire_on_commit=False)
-    incident_id, unrelated_id, event_id, user_id = (uuid4() for _ in range(4))
+    incident_id, unrelated_id, event_id, other_event_id, user_id = (uuid4() for _ in range(5))
     original_token = generate_form_token(str(incident_id))
     draft_token = generate_form_token(str(incident_id))
     filename = f"{uuid4()}.jpg"
@@ -71,14 +71,16 @@ async def test_photo_copy_and_unlink_serialize(test_engine, tmp_path, monkeypatc
             [
                 User(id=user_id, username=f"race-{user_id}", password_hash="fixture-only", role="editor"),
                 Event(id=event_id, name="Photo concurrency fixture", training_flag=True),
+                # A card of another Ereignis: the winner's Ereignis lock must not hold it up.
+                Event(id=other_event_id, name="Photo concurrency neighbour", training_flag=True),
             ]
         )
         await db.commit()
-        for row_id in (incident_id, unrelated_id):
+        for row_id, row_event_id in ((incident_id, event_id), (unrelated_id, other_event_id)):
             db.add(
                 Incident(
                     id=row_id,
-                    event_id=event_id,
+                    event_id=row_event_id,
                     title="Photo concurrency fixture",
                     type="brandbekaempfung",
                     priority="medium",

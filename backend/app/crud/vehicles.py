@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import User, Vehicle
 from ..services.audit import calculate_changes, log_action
-from .locking import lock_resource
+from .locking import lock_resource, lock_resource_for_delete
 from .materials import (
     NO_USAGE,
     ArchiveRefused,
@@ -240,9 +240,9 @@ async def purge_vehicle(
     Auftrag. Training (and deleted) assignment rows of both kinds are removed along
     with it, and its `event_special_functions` rows (Fahrer) go by ON DELETE CASCADE.
     The audit_log entries stay, because they are the Protokoll and a purge is itself
-    an entry in it. Row-locked first, like the archive.
+    an entry in it. Row-locked first, after every Ereignis (``locking.lock_resource_for_delete``).
     """
-    vehicle = await lock_resource(db, "vehicle", vehicle_id)
+    vehicle = await lock_resource_for_delete(db, "vehicle", vehicle_id)
 
     if not vehicle:
         return PurgeOutcome(purged=False, refusal="not_found")

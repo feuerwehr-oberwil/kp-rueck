@@ -1,13 +1,12 @@
-"""The lock order of ``crud/locking.py``, checked with real overlapping transactions.
+"""Rule 1 of the row locks (docs/BACKEND.md «Row locks»), checked with real overlapping transactions.
 
-Auftrag before incident before resource: completing a stop used to lock the stop and
-then its Auftrag while a reorder locked them the other way round (audit 2026-10, F08),
-an archive did not lock the resource an assignment was being written for (F02),
-writers of several resources locked them in their own order, and a personnel delete
-wrote the incidents pointing at the person only after locking the person, and a /feld
-takeover inserted its Meldung (key-sharing the reporter) before locking their Auftrag.
-Independent, committed sessions (pattern from ``test_group_stop_undo_guard.py``) –
-only a genuine second transaction shows who waits for whom.
+Every writer of an Ereignis takes its lock first (``crud.locking.lock_ereignis``), so two writers
+of one Ereignis take turns: the second queues for the Ereignis lock (``wait_for_ereignis_lock``
+probes that key, not any lock) and goes on once the first commits. The tests near the end are the
+cycles the lock replaced – they deadlocked on main – and the interleavings #435 could not keep
+apart by ordering rows by hand. The ones on resource rows check rule 2. Independent, committed
+sessions (pattern from ``test_group_stop_undo_guard.py``): only a genuine second transaction
+shows who waits for whom.
 """
 
 import asyncio
@@ -17,17 +16,21 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
+import asyncpg
 import pytest
 import pytest_asyncio
 from fastapi import BackgroundTasks
 from sqlalchemy import delete, select, text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app import schemas
 from app.api import divera as divera_api
 from app.api import reko as reko_api
+from app.api import standby as standby_api
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
+from app.crud import events as events_crud
 from app.crud import feld as feld_crud
 from app.crud import group_assignments as group_assignments_crud
 from app.crud import groups as groups_crud
@@ -37,7 +40,7 @@ from app.crud import personnel as personnel_crud
 from app.crud import personnel_checkin as checkin_crud
 from app.crud import reko_assignment as reko_assignment_crud
 from app.crud.feld.melden import create_field_report
-from app.crud.locking import lock_groups, lock_incident_with_group, lock_resource
+from app.crud.locking import lock_groups, lock_incident, lock_incident_with_group, lock_resource
 from app.models import (
     AuditLog,
     AuftragTemplate,
@@ -45,15 +48,20 @@ from app.models import (
     DiveraEmergency,
     Event,
     EventSpecialFunction,
+    FieldRequest,
     Incident,
     IncidentAssignment,
     IncidentGroup,
     IncidentGroupAssignment,
     Material,
+    Notification,
     Personnel,
     User,
 )
-from tests.conftest import wait_until_blocked
+from app.services import duplicates, notification_service
+from app.services.notification_service import dismiss_notification
+from app.standby_sync import Op, apply_ops, event_tables, fetch_rows
+from tests.conftest import wait_for_ereignis_lock, wait_until_blocked
 
 
 def _request() -> MagicMock:
@@ -79,8 +87,17 @@ class Board:
 
 @pytest_asyncio.fixture
 async def board(test_engine: AsyncEngine) -> AsyncGenerator[Board]:
-    """One Auftrag with one stop, an ungrouped incident, two materials and a person – committed for real."""
-    sessions = async_sessionmaker(test_engine, expire_on_commit=False)
+    """One Auftrag with one stop, an ungrouped incident, two materials and a person – committed for real.
+
+    A lock wait gives up after 15 s: a writer that skips its Ereignis lock fails its probe, and
+    the transactions left waiting then fail too instead of hanging the clean-up.
+    """
+    patient = create_async_engine(
+        test_engine.url.render_as_string(hide_password=False),
+        poolclass=NullPool,
+        connect_args={"server_settings": {"lock_timeout": "15s"}},
+    )
+    sessions = async_sessionmaker(patient, expire_on_commit=False)
     user_id, event_id, group_id, stop_id, loose_id, material_id, second_material_id, person_id = (
         uuid4() for _ in range(8)
     )
@@ -131,19 +148,19 @@ async def board(test_engine: AsyncEngine) -> AsyncGenerator[Board]:
             await db.execute(delete(Event).where(Event.id == event_id))
             await db.execute(delete(User).where(User.id == user_id))
             await db.commit()
+        await patient.dispose()
 
 
 async def test_completing_a_stop_queues_behind_a_reorder_instead_of_deadlocking(board: Board):
     async with board.sessions() as reorder, board.sessions() as completion:
         # A reorder is under way: it holds the Auftrag and is about to write the stop.
-        await reorder.execute(select(IncidentGroup.id).where(IncidentGroup.id == board.group_id).with_for_update())
+        await lock_groups(reorder, [board.group_id])  # the reorder's first lock: its Ereignis, the Auftrag
         user = await completion.get(User, board.user_id)
         completing = asyncio.create_task(
             incidents_crud.update_incident_status(completion, board.stop_id, "complete", user, _request())
         )
-        await wait_until_blocked(board.sessions)
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
 
-        # Completion must be waiting for the Auftrag, not sitting on the stop.
         await asyncio.wait_for(groups_crud.reorder_group_stops(reorder, board.group_id, [board.stop_id]), timeout=5)
         await reorder.commit()
 
@@ -158,14 +175,14 @@ async def test_a_field_report_on_a_stop_queues_behind_a_reorder_instead_of_deadl
     # «Einsatz beendet» from the crew writes the stop, then moves it (which takes the
     # Auftrag); it used to write the stop before the Auftrag lock (Sol review A2, S3).
     async with board.sessions() as reorder, board.sessions() as reporting:
-        await reorder.execute(select(IncidentGroup.id).where(IncidentGroup.id == board.group_id).with_for_update())
+        await lock_groups(reorder, [board.group_id])  # the reorder's first lock: its Ereignis, the Auftrag
         stop = await reporting.get(Incident, board.stop_id)
         assert stop is not None
         actor = feld_crud.FieldActor(personnel_id=board.person_id, personnel_name="Muster Max")
         report = asyncio.create_task(
             feld_crud.record_field_complete(reporting, stop, actor=actor, at=datetime.now(UTC), request=_request())
         )
-        await wait_until_blocked(board.sessions)
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
 
         await asyncio.wait_for(groups_crud.reorder_group_stops(reorder, board.group_id, [board.stop_id]), timeout=5)
         await reorder.commit()
@@ -177,21 +194,21 @@ async def test_a_field_report_on_a_stop_queues_behind_a_reorder_instead_of_deadl
 async def test_a_stop_that_joins_an_auftrag_meanwhile_gets_that_auftrag_locked(board: Board):
     async with board.sessions() as mover, board.sessions() as locker, board.sessions() as probe:
         # Another request attaches the loose incident to the route and has not committed yet.
-        await mover.execute(select(IncidentGroup.id).where(IncidentGroup.id == board.group_id).with_for_update())
+        await lock_groups(mover, [board.group_id])
         loose = await mover.get(Incident, board.loose_id)
         assert loose is not None
         loose.group_id, loose.group_position = board.group_id, 1
         await mover.flush()
 
-        # Reads "no Auftrag", then queues for the incident behind the mover.
+        # Queues for the Ereignis behind the mover, then reads the stop's Auftrag.
         locking = asyncio.create_task(lock_incident_with_group(locker, board.loose_id))
-        await wait_until_blocked(board.sessions)
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
         await mover.commit()
         locked = await asyncio.wait_for(locking, timeout=10)
 
         assert locked is not None
         assert locked.group_id == board.group_id
-        # It started over and now holds the Auftrag it found the stop in.
+        # It holds the Auftrag it found the stop in.
         held = await probe.execute(
             text("SELECT 1 FROM incident_groups WHERE id = :id FOR UPDATE SKIP LOCKED"), {"id": board.group_id}
         )
@@ -274,7 +291,7 @@ async def test_transfer_and_a_standard_auftrag_lock_shared_resources_in_one_orde
             await db.commit()
 
 
-async def test_personnel_delete_locks_the_incidents_it_nulls_before_the_person(board: Board):
+async def test_personnel_delete_waits_for_the_ereignisse_it_writes_before_the_person(board: Board):
     async with board.sessions() as db:
         loose = await db.get(Incident, board.loose_id)
         assert loose is not None
@@ -287,9 +304,9 @@ async def test_personnel_delete_locks_the_incidents_it_nulls_before_the_person(b
         user = await deleting.get(User, board.user_id)
         assert user is not None
         deletion = asyncio.create_task(personnel_crud.delete_personnel(deleting, board.person_id, user, _request()))
-        await wait_until_blocked(board.sessions)
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
 
-        # The delete must be queued for the incident, not sitting on the person.
+        # The delete must be queued for the Ereignis, not sitting on the person.
         person = await asyncio.wait_for(lock_resource(assigning, "personnel", board.person_id), timeout=5)
         assert person is not None
         await assigning.commit()
@@ -326,13 +343,13 @@ async def test_an_exact_reko_release_waits_for_the_incident_lock(board: Board):
         db.add(row)
         await db.commit()
     async with board.sessions() as holder, board.sessions() as releasing:
-        await holder.execute(select(Incident.id).where(Incident.id == board.loose_id).with_for_update())
+        await lock_incident(holder, board.loose_id)
         release = asyncio.create_task(
             reko_assignment_crud.unassign_reko_personnel_from_incident(
                 releasing, board.loose_id, board.person_id, row.id
             )
         )
-        await wait_until_blocked(board.sessions)
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
         held = await holder.get(IncidentAssignment, row.id)
         assert held is not None
         held.unassigned_at = datetime.now(UTC)
@@ -512,52 +529,251 @@ async def test_a_reko_replacement_locks_the_incoming_person_with_the_crew_it_may
             await db.commit()
 
 
-async def test_a_bulk_attach_and_a_status_update_on_a_flagged_card_do_not_deadlock(board: Board):
-    # A status update holds its card, then writes the Ereignis row. A bulk attach wrote that row
-    # with its first card, and its second alarm then flags the held card as its duplicate (the
-    # flag's foreign key waits for the card): each waited for the other.
-    first_alarm, second_alarm = uuid4(), uuid4()
-    address = "Hauptstrasse 1, 4104 Oberwil"
+def _alarm(alarm_id: UUID, divera_id: int, title: str, address: str, **link: object) -> DiveraEmergency:
+    return DiveraEmergency(
+        id=alarm_id,
+        divera_id=divera_id,
+        title=title,
+        address=address,
+        received_at=datetime.now(UTC),
+        is_archived=False,
+        **link,
+    )
+
+
+async def _alarms(board: Board, *alarms: DiveraEmergency) -> list[UUID]:
+    """Commit pool alarms; the first one's address is the loose card's, so it is flagged as its duplicate."""
     async with board.sessions() as db:
         loose = await db.get(Incident, board.loose_id)
         assert loose is not None
-        loose.location_address = address
-        db.add_all(
-            [
-                DiveraEmergency(
-                    id=alarm_id,
-                    divera_id=divera_id,
-                    title=title,
-                    address=alarm_address,
-                    received_at=datetime.now(UTC),
-                    is_archived=False,
-                )
-                for alarm_id, divera_id, title, alarm_address in (
-                    (first_alarm, 910_001, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
-                    (second_alarm, 910_002, "Keller überflutet", address),
-                )
-            ]
-        )
+        loose.location_address = alarms[0].address
+        db.add_all(alarms)
         await db.commit()
+    return [alarm.id for alarm in alarms]
+
+
+async def _drop_alarms(board: Board, alarm_ids: list[UUID]) -> None:
+    async with board.sessions() as db:
+        await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_(alarm_ids)))
+        await db.commit()
+
+
+async def _archive(board: Board) -> None:
+    async with board.sessions() as db:
+        event = await db.get(Event, board.event_id)
+        assert event is not None
+        event.archived_at = datetime.now(UTC)
+        await db.commit()
+
+
+async def _raw(db: AsyncSession) -> asyncpg.Connection:
+    """The asyncpg connection under ``db``, outside a transaction – the box's sync opens its own."""
+    conn: asyncpg.Connection = (await (await db.connection()).get_raw_connection()).driver_connection
+    return conn
+
+
+async def _row(conn: asyncpg.Connection, board: Board, table: str, row_id: UUID) -> dict[str, object]:
+    """A row as the sync sees it – what an op names as ``expected``."""
+    tables = await event_tables(conn)
+    return (await fetch_rows(conn, tables[table], board.event_id))[0][(table, str(row_id))]
+
+
+# The three cycles the Ereignis lock replaces. Each ran into a deadlock (or a wrong dismissal,
+# tests/test_services/test_notification_service.py) on main.
+
+
+async def test_a_status_update_and_an_ereignis_delete_take_turns(board: Board):
+    # The status update held its card, then stamped the Ereignis row. The delete locked the
+    # Ereignis row first and reached the card in its cascade: each waited for the other.
+    await _archive(board)
+    async with board.sessions() as updating, board.sessions() as deleting:
+        await lock_incident_with_group(updating, board.loose_id)
+        user = await deleting.get(User, board.user_id)
+        deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
+
+        await asyncio.wait_for(events_crud.update_event_activity(updating, board.event_id), timeout=5)
+        await updating.commit()
+        assert await asyncio.wait_for(deletion, timeout=10) is True
+        await deleting.commit()
+
+
+async def test_a_merge_report_and_a_bulk_attach_that_flags_its_target_take_turns(board: Board):
+    # The merge-report locked its target, then took the numbering lock with its report's INSERT.
+    # A bulk attach held that lock from its first card and flagged (key-shared) the same target
+    # with its second: each waited for the other.
+    alarm_ids = await _alarms(
+        board,
+        _alarm(uuid4(), 910_031, "Keller überflutet", "Hauptstrasse 1, 4104 Oberwil"),
+        _alarm(uuid4(), 910_032, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+    )
     try:
-        async with board.sessions() as holder, board.sessions() as attaching, board.sessions() as moving:
-            # The bulk attach stops between its two alarms: the second one's row is taken.
-            await holder.execute(select(DiveraEmergency.id).where(DiveraEmergency.id == second_alarm).with_for_update())
+        async with board.sessions() as merging, board.sessions() as attaching:
+            target = await lock_incident(merging, board.loose_id)  # the merge-report's first lock
+            assert target is not None
             user = await attaching.get(User, board.user_id)
             assert user is not None
-            body = schemas.BulkAttachEmergenciesRequest(
-                event_id=board.event_id, emergency_ids=[first_alarm, second_alarm]
-            )
+            body = schemas.BulkAttachEmergenciesRequest(event_id=board.event_id, emergency_ids=alarm_ids[::-1])
             bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), attaching, user))
-            await wait_until_blocked(board.sessions)
+            await wait_for_ereignis_lock(board.sessions, board.event_id)
 
-            # The status update takes its card now, and writes the Ereignis row once the bulk goes on.
-            mover = await moving.get(User, board.user_id)
-            await lock_incident_with_group(moving, board.loose_id)
-            await holder.rollback()
-            moved = await asyncio.wait_for(
-                incidents_crud.update_incident_status(moving, board.loose_id, "enroute", mover, _request()), timeout=10
+            operator = await merging.get(User, board.user_id)
+            assert operator is not None
+            report = await incidents_crud.create_incident(
+                merging,
+                schemas.IncidentCreate(
+                    title="Nachbar meldet Wasser", type="elementarereignis", priority="medium", event_id=board.event_id
+                ),
+                operator,
+                _request(),
             )
+            await duplicates.merge_report(merging, report=report, target=target, user=operator, request=_request())
+            await merging.commit()
+            attached = await asyncio.wait_for(bulk, timeout=10)
+            await attaching.commit()
+
+        assert attached.errors == []
+        assert [card.possible_duplicate_of_id for card in attached.created] == [None, board.loose_id]
+    finally:
+        await _drop_alarms(board, alarm_ids)
+
+
+# Sol's round-7 interleavings of #435, which the gate design could not keep apart.
+
+
+async def test_a_box_batch_that_deletes_the_ereignis_and_an_archive_take_turns(board: Board):
+    # The batch deleted a higher-id alarm before its `events` delete; the archive locked a lower-id
+    # alarm and waited for the higher one; the batch then waited for the lower one in the delete.
+    low, high = sorted((uuid4(), uuid4()))
+    alarm_ids = await _alarms(
+        board,
+        *(
+            _alarm(
+                alarm_id,
+                divera_id,
+                "Wasser im Keller",
+                "Hauptstrasse 1, 4104 Oberwil",
+                attached_to_event_id=board.event_id,
+                responses_json={"answers": []},
+            )
+            for alarm_id, divera_id in ((low, 910_061), (high, 910_062))
+        ),
+    )
+    try:
+        async with board.sessions() as syncing, board.sessions() as archiving:
+            conn = await _raw(syncing)
+            tables = await event_tables(conn)
+            event, alarm = (
+                await _row(conn, board, "events", board.event_id),
+                await _row(conn, board, "divera_emergencies", high),
+            )
+            async with conn.transaction():  # the box's round: one transaction
+                assert await apply_ops(
+                    conn, tables, board.event_id, [Op("divera_emergencies", str(high), None, alarm)]
+                ) == ["ok"]
+                archive = asyncio.create_task(events_crud.archive_event(archiving, board.event_id))
+                await wait_for_ereignis_lock(board.sessions, board.event_id)
+                assert await apply_ops(
+                    conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)]
+                ) == ["ok"]
+            # The Ereignis is gone by the time the archive goes on: «not found», the route's 404.
+            assert await asyncio.wait_for(archive, timeout=10) is None
+            await archiving.rollback()
+    finally:
+        await _drop_alarms(board, alarm_ids)
+
+
+async def _meldung(board: Board, *, seen: bool) -> tuple[UUID, UUID]:
+    """A crew's Meldung on the loose card and its bell entry, committed."""
+    notification_id, request_id = uuid4(), uuid4()
+    async with board.sessions() as db:
+        db.add(
+            Notification(
+                id=notification_id,
+                type="field_message",
+                severity="info",
+                message="Wasser",
+                event_id=board.event_id,
+                incident_id=board.loose_id,
+            )
+        )
+        await db.flush()
+        db.add(
+            FieldRequest(
+                id=request_id,
+                incident_id=board.loose_id,
+                kind="message",
+                text="Wasser",
+                notification_id=notification_id,
+                seen_at=datetime.now(UTC) if seen else None,
+            )
+        )
+        await db.commit()
+    return notification_id, request_id
+
+
+async def test_dismissing_a_seen_meldung_and_completing_its_einsatz_take_turns(board: Board):
+    # The dismissal locked the seen request, then waited for its bell entry; completing the Einsatz
+    # locked the Einsatz, wrote the bell entry, then waited for the request at the audit flush.
+    notification_id, request_id = await _meldung(board, seen=True)
+    async with board.sessions() as db:
+        seen_at = await db.scalar(select(FieldRequest.seen_at).where(FieldRequest.id == request_id))
+    async with board.sessions(autoflush=False) as dismissing, board.sessions(autoflush=False) as completing:
+        assert await dismiss_notification(dismissing, notification_id, board.user_id) is not None
+        user = await completing.get(User, board.user_id)
+        completion = asyncio.create_task(
+            incidents_crud.update_incident_status(completing, board.loose_id, "complete", user, _request())
+        )
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
+        await dismissing.commit()
+        completed = await asyncio.wait_for(completion, timeout=10)
+        await completing.commit()
+
+    assert completed is not None and completed.status == "complete"
+    async with board.sessions() as db:
+        request = await db.get(FieldRequest, request_id)
+        assert request is not None
+        # Seen before: the dismissal left it alone, the completion closed it.
+        assert (request.seen_at, request.status) == (seen_at, "done")
+
+
+async def test_a_synced_bell_delete_and_a_dismissal_take_turns(board: Board):
+    # The dismissal locked the seen request and waited for its bell entry; the synced delete
+    # locked the entry, deleted it, and waited for the request when the key set notification_id NULL.
+    notification_id, _request_id = await _meldung(board, seen=True)
+    async with board.sessions() as syncing, board.sessions() as dismissing:
+        conn = await _raw(syncing)
+        tables = await event_tables(conn)
+        row = await _row(conn, board, "notifications", notification_id)
+        async with conn.transaction():
+            assert await apply_ops(
+                conn, tables, board.event_id, [Op("notifications", str(notification_id), None, row)]
+            ) == ["ok"]
+            dismissal = asyncio.create_task(dismiss_notification(dismissing, notification_id, board.user_id))
+            await wait_for_ereignis_lock(board.sessions, board.event_id)
+        assert await asyncio.wait_for(dismissal, timeout=10) is None
+        await dismissing.rollback()
+
+
+# The pairs #435 kept apart by hand, and their neighbours: the second writer queues for the
+# Ereignis lock, whatever it locks after it.
+
+
+async def test_a_bulk_attach_and_a_status_update_on_a_flagged_card_take_turns(board: Board):
+    alarm_ids = await _alarms(
+        board,
+        _alarm(uuid4(), 910_002, "Keller überflutet", "Hauptstrasse 1, 4104 Oberwil"),
+        _alarm(uuid4(), 910_001, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+    )
+    try:
+        async with board.sessions() as moving, board.sessions() as attaching:
+            mover = await moving.get(User, board.user_id)
+            moved = await incidents_crud.update_incident_status(moving, board.loose_id, "enroute", mover, _request())
+            user = await attaching.get(User, board.user_id)
+            assert user is not None
+            body = schemas.BulkAttachEmergenciesRequest(event_id=board.event_id, emergency_ids=alarm_ids[::-1])
+            bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), attaching, user))
+            await wait_for_ereignis_lock(board.sessions, board.event_id)
             await moving.commit()
             attached = await asyncio.wait_for(bulk, timeout=10)
             await attaching.commit()
@@ -566,58 +782,33 @@ async def test_a_bulk_attach_and_a_status_update_on_a_flagged_card_do_not_deadlo
         assert attached.errors == []
         assert [card.possible_duplicate_of_id for card in attached.created] == [None, board.loose_id]
     finally:
-        async with board.sessions() as db:
-            # The board fixture removes the cards; the alarms point at them.
-            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
-            await db.commit()
+        await _drop_alarms(board, alarm_ids)
 
 
-async def test_a_bulk_attach_and_a_single_attach_of_one_of_its_alarms_do_not_deadlock(board: Board):
-    # A single attach holds its alarm, then waits for the Ereignis' numbering lock. A bulk attach
-    # took that lock with its first card and then waited for the same alarm: each waited for the other.
+async def test_a_bulk_attach_and_a_single_attach_of_one_of_its_alarms_take_turns(board: Board):
     first_alarm, second_alarm = sorted((uuid4(), uuid4()))
-    async with board.sessions() as db:
-        db.add_all(
-            [
-                DiveraEmergency(
-                    id=alarm_id,
-                    divera_id=divera_id,
-                    title=title,
-                    address=address,
-                    received_at=datetime.now(UTC),
-                    is_archived=False,
-                )
-                for alarm_id, divera_id, title, address in (
-                    (first_alarm, 910_011, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
-                    (second_alarm, 910_012, "Baum auf Strasse", "Mühlemattstrasse 3, 4104 Oberwil"),
-                )
-            ]
-        )
-        await db.commit()
+    alarm_ids = await _alarms(
+        board,
+        _alarm(first_alarm, 910_011, "Wasser im Keller", "Bahnhofstrasse 9, 4104 Oberwil"),
+        _alarm(second_alarm, 910_012, "Baum auf Strasse", "Mühlemattstrasse 3, 4104 Oberwil"),
+    )
     try:
         async with board.sessions() as single, board.sessions() as bulk_db:
-            # The single attach has its alarm (the second of the bulk's) and is about to go on.
-            await single.execute(select(DiveraEmergency.id).where(DiveraEmergency.id == second_alarm).with_for_update())
-            user = await bulk_db.get(User, board.user_id)
             operator = await single.get(User, board.user_id)
-            assert user is not None and operator is not None
-            body = schemas.BulkAttachEmergenciesRequest(
-                event_id=board.event_id, emergency_ids=[first_alarm, second_alarm]
+            assert operator is not None
+            card = await divera_api.attach_emergency_to_event(
+                second_alarm,
+                schemas.AttachEmergencyRequest(event_id=board.event_id),
+                _request(),
+                MagicMock(),
+                single,
+                operator,
             )
+            user = await bulk_db.get(User, board.user_id)
+            assert user is not None
+            body = schemas.BulkAttachEmergenciesRequest(event_id=board.event_id, emergency_ids=alarm_ids)
             bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), bulk_db, user))
-            await wait_until_blocked(board.sessions)
-
-            card = await asyncio.wait_for(
-                divera_api.attach_emergency_to_event(
-                    second_alarm,
-                    schemas.AttachEmergencyRequest(event_id=board.event_id),
-                    _request(),
-                    MagicMock(),
-                    single,
-                    operator,
-                ),
-                timeout=10,
-            )
+            await wait_for_ereignis_lock(board.sessions, board.event_id)
             await single.commit()
             attached = await asyncio.wait_for(bulk, timeout=10)
             await bulk_db.commit()
@@ -626,6 +817,49 @@ async def test_a_bulk_attach_and_a_single_attach_of_one_of_its_alarms_do_not_dea
         assert attached.errors == ["«Baum auf Strasse»: Alarm ist diesem Ereignis bereits zugeordnet"]
         assert [created.title for created in attached.created] == ["Wasser im Keller"]
     finally:
-        async with board.sessions() as db:
-            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.id.in_([first_alarm, second_alarm])))
-            await db.commit()
+        await _drop_alarms(board, alarm_ids)
+
+
+async def test_a_card_reorder_and_an_ereignis_delete_take_turns(board: Board):
+    await _archive(board)
+    async with board.sessions(autoflush=False) as reordering, board.sessions() as deleting:
+        await incidents_crud.reorder_incidents(reordering, board.event_id, sorted((board.stop_id, board.loose_id)))
+        user = await deleting.get(User, board.user_id)
+        deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
+        await reordering.commit()
+        assert await asyncio.wait_for(deletion, timeout=10) is True
+        await deleting.commit()
+
+
+async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_take_turns(board: Board):
+    await _archive(board)
+    async with board.sessions() as deleting, board.sessions() as syncing:
+        conn = await standby_api._driver(syncing)  # inside the request's transaction, as the route runs it
+        tables = await event_tables(conn)
+        event = await _row(conn, board, "events", board.event_id)
+        user = await deleting.get(User, board.user_id)
+        assert await events_crud.delete_event(deleting, board.event_id, user, _request()) is True
+        batch = asyncio.create_task(
+            apply_ops(conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)])
+        )
+        await wait_for_ereignis_lock(board.sessions, board.event_id)
+        await deleting.commit()
+        assert await asyncio.wait_for(batch, timeout=10) == ["ok"]  # nothing left to delete
+        await syncing.commit()
+
+
+async def test_a_synced_ereignis_delete_and_a_bell_poll_take_turns(board: Board):
+    async with board.sessions() as syncing, board.sessions(autoflush=False) as polling:
+        conn = await _raw(syncing)
+        tables = await event_tables(conn)
+        event = await _row(conn, board, "events", board.event_id)
+        async with conn.transaction():
+            assert await apply_ops(conn, tables, board.event_id, [Op("events", str(board.event_id), None, event)]) == [
+                "ok"
+            ]
+            poll = asyncio.create_task(notification_service.evaluate_notifications(polling, board.event_id))
+            await wait_for_ereignis_lock(board.sessions, board.event_id)
+        # The Ereignis is gone by the time the poll goes on: nothing to warn about.
+        assert await asyncio.wait_for(poll, timeout=10) == []
+        await polling.rollback()

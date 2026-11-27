@@ -22,7 +22,7 @@ from ..crud import external_identities as identities_crud
 from ..crud import incidents as incidents_crud
 from ..crud import personnel as personnel_crud
 from ..crud import special_functions as special_functions_crud
-from ..crud.locking import lock_incident
+from ..crud.locking import ereignisse_of_incidents, lock_incident
 from ..database import async_session_maker, get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import alerting, divera_responses, duplicates, incident_display
@@ -266,7 +266,12 @@ async def attach_emergency_to_event(
     """
     # Locked, not just read: see crud.divera.lock_divera_emergency. A concurrent attach of the
     # same alarm waits here until this one has committed its incident AND the link.
-    emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
+    # The merge target's Ereignis too: one of another Ereignis is refused below.
+    emergency = await divera_crud.lock_divera_emergency(
+        db,
+        emergency_id,
+        onto=[request_data.event_id, *await ereignisse_of_incidents(db, [request_data.merge_into_incident_id])],
+    )
     if not emergency:
         raise CodedHTTPException(status.HTTP_404_NOT_FOUND, ErrorCode.ALARM_NOT_FOUND, "Divera-Alarm nicht gefunden")
 
@@ -418,9 +423,8 @@ async def bulk_attach_emergencies(
     # expire loaded objects, and a lazy reload from async code is a MissingGreenlet.
     event_is_training = event.training_flag
     rolled_back = False
-    # All alarms before the first card (lock order, crud/locking.py): a card takes the
-    # Ereignis' numbering lock, and a single attach of one of them waits for it.
-    await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids)
+    # Every alarm and its Ereignis before the first card (docs/BACKEND.md «Row locks»).
+    await divera_crud.lock_divera_emergencies(db, request_data.emergency_ids, onto=[request_data.event_id])
 
     for emergency_id in request_data.emergency_ids:
         title: str | None = None
@@ -430,7 +434,7 @@ async def bulk_attach_emergencies(
             # last, so nothing may fail after it in here.
             async with db.begin_nested():
                 # Locked like the single attach — see crud.divera.lock_divera_emergency
-                emergency = await divera_crud.lock_divera_emergency(db, emergency_id)
+                emergency = await divera_crud.lock_divera_emergency(db, emergency_id, onto=[request_data.event_id])
                 if not emergency:
                     errors.append("Ein Alarm wurde nicht gefunden")
                     continue

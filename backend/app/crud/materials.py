@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..models import Event, Incident, IncidentAssignment, IncidentGroup, IncidentGroupAssignment, Material, User
 from ..services.audit import calculate_changes, log_action
-from .locking import lock_resource
+from .locking import lock_resource, lock_resource_for_delete
 
 # ============================================
 # Shared lifecycle helpers (materials + vehicles)
@@ -475,9 +475,9 @@ async def purge_material(
     archived first, and it must never have stood on a live, non-training Einsatz or
     Auftrag. Training (and deleted) assignment rows of both kinds are removed along
     with it; the audit_log entries stay, because they are the Protokoll and a purge is
-    itself an entry in it. Row-locked first, like the archive.
+    itself an entry in it. Row-locked first, after every Ereignis (``locking.lock_resource_for_delete``).
     """
-    material = await lock_resource(db, "material", material_id)
+    material = await lock_resource_for_delete(db, "material", material_id)
 
     if not material:
         return PurgeOutcome(purged=False, refusal="not_found")

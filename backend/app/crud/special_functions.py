@@ -70,7 +70,7 @@ async def create_special_function(
     Idempotent: a function the person already holds (the same vehicle, for a driver) answers
     with the row that is there. The board ticks off its own sync, so a stale unticked box can
     send the assign twice – and the unique constraint lets NULL ``vehicle_id`` rows repeat.
-    The person's row lock (``crud/locking.py`` step 3) serialises two such assigns.
+    The person's row lock (``crud/locking.py`` rule 2) serialises two such assigns.
 
     Raises:
         PersonnelNotInEventError: unknown person, or a guest of another Ereignis

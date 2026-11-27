@@ -25,7 +25,7 @@ from .assignments import (
     sync_auto_leader,
     transfer_changed_error,
 )
-from .locking import lock_groups, lock_incidents_with_groups, lock_resources
+from .locking import lock_ereignis, lock_groups, lock_incidents_with_groups, lock_resources
 from .manual_order import plan_manual_order
 
 # Stops in these statuses count as "erledigt" for the derived progress roll-up.
@@ -120,6 +120,7 @@ async def create_group(
     request: Request,
 ) -> IncidentGroup:
     """Create a new Auftrag, appended to the end of the event's route list."""
+    await lock_ereignis(db, group.event_id)
     max_pos = await db.scalar(
         select(func.max(IncidentGroup.position)).where(
             IncidentGroup.event_id == group.event_id,
@@ -278,6 +279,7 @@ async def reorder_groups(
     if not ordered_ids:
         return 0
 
+    await lock_ereignis(db, event_id)
     result = await db.execute(
         select(IncidentGroup).where(
             IncidentGroup.event_id == event_id,

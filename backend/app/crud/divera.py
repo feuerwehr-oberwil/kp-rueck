@@ -4,11 +4,12 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import models, schemas
 from ..utils.error_codes import DomainError, ErrorCode
+from .locking import lock_ereignis
 
 
 async def create_divera_emergency(
@@ -104,46 +105,72 @@ async def get_divera_emergency_by_id(
     return result.scalar_one_or_none()
 
 
+# An alarm that is attached and detached meanwhile makes the lock start over; each retry needs
+# another committed attach of the same alarm in that instant.
+_MAX_ALARM_LOCK_ATTEMPTS = 3
+
+
+def ereignis_of_alarm() -> ColumnElement[UUID | None]:
+    """The Ereignis an alarm belongs to: the one it is attached to (or its card's), else none."""
+    card_event = select(models.Incident.event_id).where(
+        models.Incident.id == models.DiveraEmergency.created_incident_id
+    )
+    return func.coalesce(models.DiveraEmergency.attached_to_event_id, card_event.scalar_subquery())
+
+
+async def lock_ereignisse_of_alarms(db: AsyncSession, where: ColumnElement[bool]) -> set[UUID]:
+    """Lock the Ereignisse of the alarms ``where`` selects (``locking.lock_ereignis``) and return
+    them – for a write of many alarms at once. An alarm attached elsewhere meanwhile is in none
+    of them: the caller writes only alarms with ``ereignis_of_alarm()`` in the set or NULL."""
+    ereignisse = {event_id for event_id in await db.scalars(select(ereignis_of_alarm()).where(where)) if event_id}
+    await lock_ereignis(db, *ereignisse)
+    return ereignisse
+
+
+async def lock_divera_emergencies(
+    db: AsyncSession, emergency_ids: Iterable[UUID], *, onto: Iterable[UUID | None] = ()
+) -> dict[UUID, models.DiveraEmergency]:
+    """Lock alarms for a write, held to the next commit: first the Ereignisse they belong to and
+    ``onto`` (the one an attach puts them on, a merge target's) with ``locking.lock_ereignis``,
+    then the rows by id.
+
+    The attach paths read ``attached_to_event_id``, create a card, and only then write the link.
+    Without the row lock two attaches of the same alarm (a double click, two operators, the
+    auto-attach next to a manual one) both read "not attached here" and each created a card.
+    An alarm's Ereignis is read before it is locked: one that changed meanwhile rolls the
+    savepoint back – releasing its locks – and starts over. Returns the locked rows by id,
+    refreshed (``populate_existing``); unknown ids are absent.
+
+    ⚠️ The locks end at the first commit, so card and link must land in the SAME commit.
+    """
+    ids = sorted(set(emergency_ids))
+    belongs = select(models.DiveraEmergency.id, ereignis_of_alarm()).where(models.DiveraEmergency.id.in_(ids))
+    for _ in range(_MAX_ALARM_LOCK_ATTEMPTS):
+        seen = dict((await db.execute(belongs)).tuples().all())
+        savepoint = await db.begin_nested()
+        await lock_ereignis(db, *onto, *seen.values())
+        locked = {
+            emergency.id: emergency
+            for emergency in await db.scalars(
+                select(models.DiveraEmergency)
+                .where(models.DiveraEmergency.id.in_(ids))
+                .order_by(models.DiveraEmergency.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        }
+        if dict((await db.execute(belongs)).tuples().all()) == seen:
+            await savepoint.commit()  # RELEASE SAVEPOINT – the locks stay with the transaction
+            return locked
+        await savepoint.rollback()
+    raise RuntimeError("alarms kept changing Ereignis while locking; giving up")
+
+
 async def lock_divera_emergency(
-    db: AsyncSession,
-    emergency_id: UUID,
+    db: AsyncSession, emergency_id: UUID, *, onto: Iterable[UUID | None] = ()
 ) -> models.DiveraEmergency | None:
-    """Get a Divera emergency with a row lock (`SELECT … FOR UPDATE`) held to the next commit.
-
-    The attach paths read `attached_to_event_id`, create an incident, and only then write the
-    link. Without the lock two attaches of the same alarm (a double click, two operators, the
-    auto-attach next to a manual one) both read "not attached here" and each created an
-    incident — two cards for one call. With it the second waits for the first's commit and
-    then sees the link. `populate_existing` because the row may already sit in the session's
-    identity map from an earlier read, and a stale copy would defeat the point.
-
-    ⚠️ The lock ends at the first commit, so incident and link must land in the SAME commit –
-    the request's; nothing between this call and `attach_emergency_to_event` may commit.
-    """
-    result = await db.execute(
-        select(models.DiveraEmergency)
-        .where(models.DiveraEmergency.id == emergency_id)
-        .with_for_update()
-        .execution_options(populate_existing=True)
-    )
-    return result.scalar_one_or_none()
-
-
-async def lock_divera_emergencies(db: AsyncSession, emergency_ids: Iterable[UUID]) -> None:
-    """Row-lock several alarms in ascending id order, held to the next commit (a bulk attach).
-
-    Taken before the first card: a card's INSERT takes the Ereignis' numbering lock, and a
-    single attach holds its alarm while it waits for that lock. A bulk attach that took its
-    alarms one by one held the numbering lock while it waited for such an alarm – a deadlock.
-    Outside a savepoint, so a failed alarm's rollback keeps the others locked. One query: Postgres
-    locks the rows as the sort hands them out.
-    """
-    await db.execute(
-        select(models.DiveraEmergency.id)
-        .where(models.DiveraEmergency.id.in_(list(emergency_ids)))
-        .order_by(models.DiveraEmergency.id)
-        .with_for_update()
-    )
+    """``lock_divera_emergencies`` for one alarm."""
+    return (await lock_divera_emergencies(db, [emergency_id], onto=onto)).get(emergency_id)
 
 
 async def get_divera_emergency_by_divera_id(
@@ -285,18 +312,12 @@ async def archive_divera_emergency(
     emergency_id: UUID,
 ) -> models.DiveraEmergency:
     """Archive a Divera emergency (soft delete)."""
-    emergency = await get_divera_emergency_by_id(db, emergency_id)
+    emergency = await lock_divera_emergency(db, emergency_id)
     if not emergency:
         raise DomainError(ErrorCode.ALARM_NOT_FOUND, "Divera-Alarm nicht gefunden", status_code=404)
 
-    await db.execute(
-        update(models.DiveraEmergency)
-        .where(models.DiveraEmergency.id == emergency_id)
-        .values(
-            is_archived=True,
-            archived_at=datetime.now(UTC),
-        )
-    )
+    emergency.is_archived = True
+    emergency.archived_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(emergency)
 

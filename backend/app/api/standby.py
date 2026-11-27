@@ -17,6 +17,7 @@ from typing import Annotated, Any, Literal
 import asyncpg
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
@@ -39,7 +40,12 @@ _contact: dict[uuid.UUID, tuple[datetime, int]] = {}
 
 
 async def _driver(db: AsyncSession) -> asyncpg.Connection:
-    """The asyncpg connection under the request's session – same transaction, same commit."""
+    """The asyncpg connection under the request's session – same transaction, same commit.
+
+    SQLAlchemy begins the transaction on the connection only with its first statement: before
+    it, each raw statement would commit on its own, and the Ereignis lock (`standby_sync.lock_ereignis`)
+    would end with it."""
+    await db.execute(select(1))
     raw = await (await db.connection()).get_raw_connection()
     conn: asyncpg.Connection = raw.driver_connection
     return conn

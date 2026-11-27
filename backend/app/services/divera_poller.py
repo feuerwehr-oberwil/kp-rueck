@@ -289,8 +289,10 @@ async def _store_polled_responses(snapshots: dict[int, dict[str, Any]]) -> None:
     """Store the Rückmeldungen of the polled alarms; tell the boards when they changed."""
     async with async_session_maker() as db:
         event_ids, incident_ids = await divera_responses.store_snapshots(db, snapshots)
-        await divera_responses.purge_expired(db)
         await db.commit()  # this loop owns the transaction
+        # Its own transaction: each takes the locks of the Ereignisse it writes, all at once.
+        await divera_responses.purge_expired(db)
+        await db.commit()
     if event_ids or incident_ids:
         await broadcast_divera_responses_update(event_ids, incident_ids)
 

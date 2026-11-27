@@ -22,7 +22,7 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.crud.events import update_event_activity
+from app.crud.locking import lock_ereignis
 from app.models import (
     Event,
     EventAttendance,
@@ -53,7 +53,7 @@ from app.services.notification_service import (
     save_notification_settings,
 )
 from app.services.storage_usage import BYTES_PER_GB, StorageUsage
-from tests.conftest import wait_until_blocked
+from tests.conftest import wait_for_ereignis_lock, wait_until_blocked
 
 # ============================================
 # Fixtures
@@ -1810,6 +1810,72 @@ class TestFatigueNotificationConcurrency:
                 await cleanup.commit()
 
     @pytest.mark.asyncio
+    async def test_a_dismissal_of_a_warning_a_poll_is_rewriting_is_refused(self, test_engine):
+        # The operator saw «Muster». A poll widened the row with Beispiel and the dismissal, which
+        # carried no version, acknowledged Beispiel unseen.
+        from app.crud.locking import lock_ereignis
+        from app.services.notification_service import _sync_fatigue_locked, fatigue_subject_key
+        from app.utils.error_codes import DomainError, ErrorCode
+
+        maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+        event_id, user_id = uuid4(), uuid4()
+        since = datetime.now(UTC) - timedelta(hours=5)
+        people = {uuid4(): "Muster Max", uuid4(): "Beispiel Bea"}
+        muster, beispiel = (fatigue_subject_key(person_id, since) for person_id in people)
+        async with maker() as setup:
+            setup.add_all(
+                [
+                    Event(id=event_id, name="Dismissal version", training_flag=False),
+                    User(id=user_id, username=f"fatigue-{user_id}", password_hash=None, role="editor"),
+                    *(Personnel(id=i, name=name, role="Sdt", status="available") for i, name in people.items()),
+                ]
+            )
+            await setup.flush()
+            setup.add_all(
+                EventAttendance(event_id=event_id, personnel_id=i, checked_in=True, checked_in_at=since) for i in people
+            )
+            warning = Notification(
+                type="personnel_fatigue",
+                severity="warning",
+                message="Lang im Einsatz: Muster Max",
+                subject_keys=[muster],
+                event_id=event_id,
+            )
+            setup.add(warning)
+            await setup.commit()
+        seen = warning.version
+
+        try:
+            async with maker() as polling, maker() as dismissing:
+                # The poll's write, before its commit: it holds the Ereignis (evaluate_notifications).
+                await lock_ereignis(polling, event_id)
+                rewritten = await _sync_fatigue_locked(
+                    polling, event_id, NotificationSettings(fatigue_hours=4), enabled=True
+                )
+                assert rewritten is not None and rewritten.id == warning.id
+                dismissal = asyncio.create_task(
+                    dismiss_notification(dismissing, warning.id, user_id, expected_version=seen)
+                )
+                await wait_for_ereignis_lock(maker, event_id)
+                await polling.commit()
+                with pytest.raises(DomainError) as refused:
+                    await asyncio.wait_for(dismissal, timeout=10)
+                assert refused.value.code == ErrorCode.NOTIFICATION_CHANGED
+                await dismissing.rollback()
+
+            async with maker() as check:
+                row = await check.get(Notification, warning.id)
+                assert row is not None and not row.dismissed
+                assert sorted(row.subject_keys or []) == sorted([muster, beispiel])
+                assert await dismiss_notification(check, warning.id, user_id, expected_version=row.version) is not None
+        finally:
+            async with maker() as cleanup:
+                await cleanup.execute(delete(Event).where(Event.id == event_id))
+                await cleanup.execute(delete(Personnel).where(Personnel.id.in_(list(people))))
+                await cleanup.execute(delete(User).where(User.id == user_id))
+                await cleanup.commit()
+
+    @pytest.mark.asyncio
     async def test_a_poll_locks_open_warnings_in_id_order_like_the_standby_sync(self, test_engine):
         # Two open rows (one from before the grouping). The sync locks rows by id; a poll that
         # locked the newest first held it while it waited for the older one the sync held.
@@ -1998,42 +2064,28 @@ async def _bell_types(sessions: async_sessionmaker[AsyncSession], event_id: UUID
 
 
 async def test_a_hosted_takeover_waits_for_each_write_phase_of_a_bell_poll_on_a_standby_box(box_led):
-    """A hosted takeover the sync brings in mid-poll waits for the phase that is writing, and the
-    poll's next phase sees it and writes nothing. A fatigue row widened after the box lost the
-    lead would merge with the hosted dismissal and mark people acknowledged nobody saw. A status
-    update's stamp on the Ereignis row does not wait for the poll."""
+    """A hosted takeover the sync brings in mid-poll waits for the phase that is writing – both
+    take the Ereignis lock – and the poll's next phase sees it and writes nothing. A fatigue row
+    widened after the box lost the lead would merge with the hosted dismissal and mark people
+    acknowledged nobody saw."""
     sessions, event_id = box_led
-    async with sessions() as fatigue, sessions() as polling, sessions() as syncing, sessions() as stamping:
-        # Another board's poll is in the fatigue step: this poll stops there, lead in hand.
-        await fatigue.execute(
-            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"personnel_fatigue:{event_id}"}
-        )
+    async with sessions() as other_poll, sessions() as polling, sessions() as syncing:
+        # Another board's poll holds the Ereignis: this poll queues first, the takeover behind it.
+        await lock_ereignis(other_poll, event_id)
         poll = asyncio.create_task(evaluate_notifications(polling, event_id))
-        await wait_until_blocked(sessions)
-        # Every step below finishes either way, so a failure is reported instead of hanging the cleanup.
-        await stamping.execute(text("SET LOCAL lock_timeout = '2s'"))
-        try:
-            await update_event_activity(stamping, event_id)
-            stamped = True
-        except DBAPIError:
-            stamped = False
-        await stamping.rollback()
-        takeover = asyncio.create_task(
-            syncing.execute(update(EventLead).where(EventLead.event_id == event_id).values(holder="hosted"))
-        )
-        try:
-            await wait_until_blocked(sessions, count=2)
-            takeover_waited = True
-        except AssertionError:
-            takeover_waited = False
-        await fatigue.rollback()
+        await wait_for_ereignis_lock(sessions, event_id)
+
+        async def take_back() -> None:
+            await lock_ereignis(syncing, event_id)
+            await syncing.execute(update(EventLead).where(EventLead.event_id == event_id).values(holder="hosted"))
+            await syncing.commit()
+
+        takeover = asyncio.create_task(take_back())
+        await wait_for_ereignis_lock(sessions, event_id, count=2)
+        await other_poll.rollback()
         await asyncio.wait_for(takeover, timeout=10)
-        await syncing.commit()
         shown = await asyncio.wait_for(poll, timeout=10)
         await polling.commit()
-
-    assert stamped, "a status update's stamp waited for the poll"
-    assert takeover_waited, "the takeover did not wait for the poll's fatigue write"
     assert shown == []
     assert await _bell_types(sessions, event_id) == []
 

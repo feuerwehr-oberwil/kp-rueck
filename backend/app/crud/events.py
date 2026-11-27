@@ -12,6 +12,7 @@ from ..models import Event, Incident, User
 from ..services.audit import log_action
 from ..utils.error_codes import DomainError, ErrorCode
 from . import auftrag_templates as auftrag_templates_crud
+from .locking import lock_ereignis
 
 
 async def get_events(
@@ -134,6 +135,7 @@ async def archive_event(db: AsyncSession, event_id: uuid.UUID) -> Event | None:
         Archived event (with its original timestamp if it was already archived), or None if
         not found
     """
+    await lock_ereignis(db, event_id)
     event = await get_event_by_id(db, event_id)
     if not event:
         return None
@@ -220,6 +222,8 @@ async def delete_event(
     Raises:
         DomainError: ``event_not_archived`` – the event is not archived
     """
+    # Every writer of a row the cascade reaches holds this lock: it runs before or after them.
+    await lock_ereignis(db, event_id)
     event = await db.scalar(select(Event).where(Event.id == event_id).with_for_update())
     if not event:
         return False

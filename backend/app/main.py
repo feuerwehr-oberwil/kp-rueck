@@ -69,6 +69,7 @@ from .auth.config import auth_settings
 from .auth.local_autologin import verify_account_on_boot as verify_local_autologin_account
 from .background.jobs import lifespan_jobs, start_jobs, stop_jobs
 from .config import settings
+from .crud.locking import lock_request_ereignisse
 from .database import async_session_maker, commit_request, engine
 from .ensure_accounts import ensure_dev_bypass_user
 from .environment import ROLE_STANDBY, blocked_domains, deployment_role
@@ -201,8 +202,9 @@ app = FastAPI(
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
     openapi_url=None if settings.is_production else "/openapi.json",
-    # The request commits – before the response is sent (see the rule above `get_db`).
-    dependencies=[Depends(commit_request, scope="function")],
+    # The request commits – before the response is sent (see the rule above `get_db`). A write
+    # first locks the Ereignisse its path names (docs/BACKEND.md «Row locks»).
+    dependencies=[Depends(commit_request, scope="function"), Depends(lock_request_ereignisse)],
 )
 
 # Add rate limiter state and exception handler

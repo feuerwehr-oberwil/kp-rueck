@@ -32,7 +32,7 @@ from ..utils.error_codes import DomainError, ErrorCode
 from . import events as events_crud
 from . import feld as feld_crud
 from .active_resources import active_deployments
-from .locking import lock_groups, lock_incident_with_group, lock_resources
+from .locking import ereignisse_of_groups, lock_ereignis, lock_groups, lock_incident_with_group, lock_resources
 
 
 class StatusChangedError(Exception):
@@ -550,7 +550,7 @@ async def create_incident(
     """Create new incident with audit logging. Flushes; the caller (the request) commits.
 
     ``touch_event=False`` leaves the Ereignis's ``last_activity_at`` to the caller: a writer of
-    several cards stamps it once, after its last card lock (``crud/locking.py`` step 4).
+    several cards stamps it once, after the last.
 
     ``current_user=None`` is the system (the alarm auto-attach); ``audit_extra`` joins the
     audit row's changes (``{"auto_attach_divera": True}``). ``possible_duplicate_of_id`` is the
@@ -566,6 +566,9 @@ async def create_incident(
     When ``group_id`` is set (streamlined "add stop"), the new incident is
     appended to the end of that Auftrag (``group_position = max + 1``).
     """
+    # Rule 1 (crud/locking.py): free when the caller holds it already, as it must once it has
+    # locked anything else. The Auftrag's Ereignis too: one of another Ereignis is refused below.
+    await lock_ereignis(db, incident.event_id, *await ereignisse_of_groups(db, [incident.group_id]))
     # When attaching to an Auftrag on create, append at the end of the route.
     group_position = 0
     if incident.group_id is not None:
@@ -1357,6 +1360,7 @@ async def reorder_incidents(
     if not ordered_ids:
         return 0
 
+    await lock_ereignis(db, event_id)
     result = await db.execute(
         select(Incident).where(
             Incident.event_id == event_id,

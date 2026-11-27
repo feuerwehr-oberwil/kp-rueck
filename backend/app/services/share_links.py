@@ -14,10 +14,11 @@ Every route that accepts one of these links asks `event_of`, never `tokens.link_
 
 from uuid import UUID
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from ..crud.locking import lock_ereignis
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import Event
 from ..standby_sync import HOSTED, LINK_REVOKE_STEP, STANDBY
@@ -38,33 +39,19 @@ async def issue(db: AsyncSession, kind: LinkKind, event_id: UUID) -> str | None:
     return generate_link_token(kind, event_id, generation)
 
 
-async def event_of(db: AsyncSession, kind: LinkKind, token: str, *, lock: bool = False) -> UUID | None:
+async def event_of(db: AsyncSession, kind: LinkKind, token: str) -> UUID | None:
     """The Ereignis this link opens. None when it is forged, expired, of another kind or
     revoked, and when its Ereignis no longer exists (a deleted Ereignis has no generation left
     to compare, so its links open nothing).
 
-    ``lock``: for a write through the link. Until the request commits, `revoke` of this kind
-    waits (a shared advisory lock that `revoke` takes exclusively) and so does a delete of the
-    Ereignis (a KEY SHARE row lock). So the write cannot land after a revoke or a delete that
-    ran between this check and it. Neither blocks an ordinary update of the Ereignis row
-    (`last_activity_at`), which the board writes while it holds incident and resource locks –
-    a plain share lock here would deadlock against that. Take it before any other lock."""
+    A write through the link holds the Ereignis lock already (``crud.locking.lock_request_ereignisse``
+    reads the ``token``), and so do `revoke` and a delete of the Ereignis: neither can run
+    between this check and the write."""
     claims = link_claims(token, kind)
     if claims is None:
         return None
-    query = select(_GENERATION[kind]).where(Event.id == claims.event_id)
-    if lock:
-        await db.execute(
-            text("SELECT pg_advisory_xact_lock_shared(hashtext(:key))"), {"key": _lock_key(kind, claims.event_id)}
-        )
-        # `read=True` + `key_share=True` is FOR KEY SHARE; `key_share` alone is FOR NO KEY UPDATE.
-        query = query.with_for_update(read=True, key_share=True)
-    current = await db.scalar(query)
+    current = await db.scalar(select(_GENERATION[kind]).where(Event.id == claims.event_id))
     return claims.event_id if current == claims.generation else None
-
-
-def _lock_key(kind: LinkKind, event_id: UUID) -> str:
-    return f"share_link:{kind}:{event_id}"
 
 
 async def revoke(db: AsyncSession, kind: LinkKind, event_id: UUID) -> bool:
@@ -76,8 +63,9 @@ async def revoke(db: AsyncSession, kind: LinkKind, event_id: UUID) -> bool:
     it no link issued on either side before either revoke matches any more.
     """
     step = LINK_REVOKE_STEP[STANDBY if deployment_role() == ROLE_STANDBY else HOSTED]
-    # Waits for every write in flight through a link of this kind (`event_of(lock=True)`).
-    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": _lock_key(kind, event_id)})
+    # Under the Ereignis lock (`crud.locking.lock_ereignis`): a write in flight through a link
+    # of this Ereignis holds it too, so the revoke waits for it.
+    await lock_ereignis(db, event_id)
     column = _GENERATION[kind]
     revoked = await db.scalar(
         update(Event).where(Event.id == event_id).values({column: column + step}).returning(Event.id)

@@ -14,6 +14,7 @@ from sqlalchemy.pool import QueuePool
 
 from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
+from ..crud.locking import lock_ereignis
 from ..database import audit_engine, engine, get_db
 from ..environment import blocked_domains, deployment_role, deployment_role_label
 from ..middleware.rate_limit import RateLimits, limiter
@@ -277,6 +278,8 @@ async def create_demo_sandbox(
     event = Event(name=f"{DEMO_SANDBOX_PREFIX}{secrets.token_hex(2)}", training_flag=True)
     db.add(event)
     await db.flush()
+    # Nobody sees the new Ereignis before the commit; the seed writes through the live helpers.
+    await lock_ereignis(db, event.id)
     await seed_demo_event_content(db, event)
 
     logger.info(f"Created demo sandbox event {event.id} ({event.name})")

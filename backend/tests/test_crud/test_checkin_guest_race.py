@@ -9,19 +9,27 @@ import asyncio
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.crud import personnel_checkin as crud
+from app.crud.locking import lock_ereignis
 from app.models import AuditLog, Event, EventAttendance, Personnel
 from app.services import share_links
-from app.services.tokens import generate_link_token
+from app.services.tokens import generate_link_token, link_claims
+
+
+async def _door(session: AsyncSession, token: str) -> UUID | None:
+    """The route's start: the Ereignis lock its ``token`` names (``lock_request_ereignisse``), then the link."""
+    claims = link_claims(token, "checkin")
+    await lock_ereignis(session, claims.event_id if claims else None)
+    return await share_links.event_of(session, "checkin", token)
 
 
 async def _guest(engine: AsyncEngine, token: str, name: str) -> UUID:
     async with AsyncSession(bind=engine, expire_on_commit=False) as session:
-        event_id = await share_links.event_of(session, "checkin", token, lock=True)
+        event_id = await _door(session, token)
         assert event_id is not None
         person, _created = await crud.check_in_guest(session, event_id=event_id, name=name)
         await session.commit()
@@ -93,10 +101,9 @@ async def _blocked(engine: AsyncEngine, statement) -> bool:
 
 
 @pytest.mark.asyncio
-async def test_a_write_through_the_link_holds_off_revoke_and_delete_but_not_the_board(test_engine):
-    """`event_of(lock=True)` while a guest write is in flight: a revoke and a delete of the
-    Ereignis wait for it; the board's `last_activity_at` update does not (FOR KEY SHARE, not a
-    row lock that would deadlock against an assignment holding the person's row)."""
+async def test_a_write_through_the_link_holds_off_revoke_and_delete(test_engine):
+    """A guest write in flight holds the Ereignis lock: a revoke and a delete of the Ereignis
+    (both take it, ``crud.locking.lock_ereignis``) wait for it."""
     event_id = uuid4()
     async with AsyncSession(bind=test_engine, expire_on_commit=False) as setup:
         setup.add(Event(id=event_id, name="Sturm", training_flag=False))
@@ -106,18 +113,15 @@ async def test_a_write_through_the_link_holds_off_revoke_and_delete_but_not_the_
     async def revoke(session: AsyncSession) -> None:
         await share_links.revoke(session, "checkin", event_id)
 
-    async def touch(session: AsyncSession) -> None:
-        await session.execute(update(Event).where(Event.id == event_id).values(last_activity_at=func.now()))
-
     async def remove(session: AsyncSession) -> None:
+        await lock_ereignis(session, event_id)  # as `events.delete_event`
         await session.execute(delete(Event).where(Event.id == event_id))
 
     try:
         async with AsyncSession(bind=test_engine, expire_on_commit=False) as door:
-            assert await share_links.event_of(door, "checkin", token, lock=True) == event_id
+            assert await _door(door, token) == event_id
             assert await _blocked(test_engine, revoke)
             assert await _blocked(test_engine, remove)
-            assert not await _blocked(test_engine, touch)
             await crud.check_in_guest(door, event_id=event_id, name="Gast Peter")
             await door.commit()
 
@@ -127,7 +131,7 @@ async def test_a_write_through_the_link_holds_off_revoke_and_delete_but_not_the_
             assert await share_links.revoke(board, "checkin", event_id)
             await board.commit()
         async with AsyncSession(bind=test_engine) as later:
-            assert await share_links.event_of(later, "checkin", token, lock=True) is None
+            assert await _door(later, token) is None
     finally:
         async with AsyncSession(bind=test_engine) as cleanup:
             guest_ids = list(await cleanup.scalars(select(Personnel.id).where(Personnel.guest_event_id == event_id)))
