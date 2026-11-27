@@ -217,9 +217,6 @@ export function NotificationProvider({
   // closes over a stale render, and it must not depend on a re-render landing
   // first — otherwise a fast poll would toast twice.
   const unavailableRef = useRef(false)
-  // Numbers each load: only the newest one's answer is applied. An older poll answering late
-  // would bring back a version a dismissal was just refused for (409 → reload).
-  const loadSeqRef = useRef(0)
   // The settings fetch runs once on mount. If that one attempt fails we would
   // spend the whole shift on DEFAULTS rather than on the station's config, so
   // remember whether it ever landed and keep asking until it does.
@@ -303,6 +300,12 @@ export function NotificationProvider({
   )
 
   const eventId = selectedEvent?.id ?? null
+  // The Ereignis on screen, and a number per load: only the newest load of the current
+  // Ereignis applies. An older poll answering late would bring back a version a dismissal was
+  // just refused for; a 409 that lands after a switch would load the previous Ereignis.
+  const eventIdRef = useRef(eventId)
+  eventIdRef.current = eventId
+  const loadSeqRef = useRef(0)
 
   // Fetch notifications from backend
   const fetchNotifications = useCallback(async (): Promise<NotificationFetchResult> => {
@@ -357,9 +360,10 @@ export function NotificationProvider({
 
   // Manual refetch function
   const refetchNotifications = useCallback(async () => {
+    if (eventIdRef.current !== eventId) return
     const seq = ++loadSeqRef.current
     const result = await fetchNotifications()
-    if (seq !== loadSeqRef.current) return
+    if (seq !== loadSeqRef.current || eventIdRef.current !== eventId) return
 
     if (result.status === 'skipped') {
       // No event, no session — an empty bell is the correct answer here, and
@@ -405,7 +409,7 @@ export function NotificationProvider({
         ),
       )
     })
-  }, [fetchNotifications, markAvailable, markUnavailable])
+  }, [eventId, fetchNotifications, markAvailable, markUnavailable])
 
   // Dismiss a notification. Editors only – the backend refuses a viewer, so for one
   // this (and dismissAll below) is a no-op rather than a 403 and an error toast. Each
