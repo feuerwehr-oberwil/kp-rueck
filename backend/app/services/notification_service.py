@@ -17,6 +17,7 @@ from ..database import after_commit
 from ..environment import ROLE_STANDBY, deployment_role
 from ..models import Event, Incident, IncidentAssignment, Material, Notification, Personnel, Vehicle
 from ..schemas import NotificationSettings
+from ..utils.error_codes import DomainError, ErrorCode
 from ..utils.failure_latch import FailureLatch
 
 # Same German status labels the printed Lageblatt and the PDF report use, so a warning in the
@@ -900,16 +901,37 @@ async def _auto_resolve_stale_notifications(
         await db.flush()
 
 
-async def dismiss_notification(db: AsyncSession, notification_id: UUID, user_id: UUID) -> Notification | None:
-    """Dismiss a notification."""
-    result = await db.execute(select(Notification).where(Notification.id == notification_id))
+async def dismiss_notification(
+    db: AsyncSession, notification_id: UUID, user_id: UUID, *, expected_version: str | None = None
+) -> Notification | None:
+    """Dismiss a notification; ``None`` when there is none.
+
+    ``expected_version``: the ``Notification.version`` the operator saw. Compared under the
+    row lock, which a poll rewriting the row holds too (``_sync_fatigue_locked``), so the
+    dismissal sees the rewritten row. A mismatch raises ``DomainError`` (409
+    ``notification_changed``) and changes nothing: the operator must not acknowledge somebody
+    they were not shown. Without a version (an older client) the dismissal is unconditional.
+    A row dismissed already keeps who dismissed it and when: a fatigue re-alarm counts from there.
+    """
+    # Locked before the read: the UPDATE below takes this lock anyway, and taking it first makes
+    # the version compare wait for a poll that is rewriting the row.
+    result = await db.execute(
+        select(Notification)
+        .where(Notification.id == notification_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     notification = result.scalar_one_or_none()
+
+    if notification and expected_version is not None and notification.version != expected_version:
+        raise DomainError(ErrorCode.NOTIFICATION_CHANGED, "Die Meldung hat sich inzwischen geändert. Bitte neu lesen.")
 
     if notification:
         now = datetime.now(UTC)
-        notification.dismissed = True
-        notification.dismissed_at = now
-        notification.dismissed_by = user_id
+        if not notification.dismissed:
+            notification.dismissed = True
+            notification.dismissed_at = now
+            notification.dismissed_by = user_id
         # A field request announced by this entry is now «Vom KP gesehen» — and
         # still open (R13): dismissing the bell is never handling the request.
         from ..crud.feld.requests import mark_seen_by_notification

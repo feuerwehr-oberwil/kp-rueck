@@ -1,5 +1,7 @@
 """Database models for KP Rück system."""
 
+import hashlib
+import json
 import secrets
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -2044,6 +2046,16 @@ class Notification(Base):
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     dismissed_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    @property
+    def version(self) -> str:
+        """What a dismissal acknowledges, as a short fingerprint: the people a grouped row names
+        (``subject_keys``), else its text. The bell sends the one it showed with a dismiss
+        (``notification_service.dismiss_notification``), so a row rewritten meanwhile is refused.
+        Not the hours in a fatigue sentence: they tick every hour and change nobody's acknowledgement.
+        """
+        basis = sorted(self.subject_keys) if self.subject_keys is not None else self.message
+        return hashlib.sha256(json.dumps(basis, ensure_ascii=False).encode()).hexdigest()[:16]
 
     __table_args__ = (
         CheckConstraint("severity IN ('critical', 'warning', 'info')", name="valid_notification_severity"),
