@@ -23,9 +23,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import Result, Table, event, inspect, select
-from sqlalchemy.orm import ORMExecuteState, Session, UOWTransaction
+from sqlalchemy.orm import ORMExecuteState, Session, SessionTransaction, UOWTransaction
 
-from app.crud.locking import LOCK_EREIGNIS, TRY_LOCK_EREIGNIS
+from app.crud.locking import LOCK_EREIGNIS, TRY_LOCK_EREIGNIS, is_within
 from app.database import Base
 from app.ereignis_lock import ereignis_lock_key
 from app.models import Event, Incident, IncidentGroup, Notification, RekoReport
@@ -70,7 +70,7 @@ def _where() -> str:
 
 @dataclass
 class _Request:
-    held: set[int] = field(default_factory=set)
+    held: dict[int, SessionTransaction] = field(default_factory=dict)  # key → where it was taken
     created: set[uuid.UUID] = field(default_factory=set)  # Ereignisse this request inserts
     locked_rows: bool = False
     violations: list[str] = field(default_factory=list)
@@ -139,11 +139,14 @@ def armed(sync_session: Session) -> Iterator[list[str]]:
     def on_execute(orm_state: ORMExecuteState) -> Result[Any] | None:
         if orm_state.statement is LOCK_EREIGNIS or orm_state.statement is TRY_LOCK_EREIGNIS:
             key = orm_state.parameters["key"]  # type: ignore[index]
-            if key not in request.held:
+            result = orm_state.invoke_statement().freeze()
+            refused = orm_state.statement is TRY_LOCK_EREIGNIS and not result().scalar()
+            if key not in request.held and not refused:
                 if request.locked_rows:
                     request.violations.append(f"an Ereignis lock after a row lock or write at {_where()}")
-                request.held.add(key)
-            return None
+                session = orm_state.session
+                request.held[key] = session.get_nested_transaction() or session.get_transaction()  # type: ignore[assignment]
+            return result()
         is_lock = orm_state.is_select and orm_state.statement._for_update_arg is not None  # type: ignore[attr-defined]
         if not (is_lock or orm_state.is_insert or orm_state.is_update or orm_state.is_delete):
             return None
@@ -186,7 +189,25 @@ def armed(sync_session: Session) -> Iterator[list[str]]:
     def after_flush(session: Session, _ctx: UOWTransaction) -> None:
         request.created |= {obj.id for obj in session.new if isinstance(obj, Event)}
 
-    listeners = [("do_orm_execute", on_execute), ("before_flush", before_flush), ("after_flush", after_flush)]
+    def after_transaction_end(_session: Session, transaction: SessionTransaction) -> None:
+        # A commit inside the request ends its transaction (a savepoint's RELEASE does not): its
+        # locks go, and an Ereignis it created is everybody's now.
+        if transaction.parent is None:
+            request.held.clear()
+            request.created.clear()
+            request.locked_rows = False
+
+    def after_soft_rollback(_session: Session, rolled_back: SessionTransaction) -> None:
+        for key in [key for key, taken_in in request.held.items() if is_within(taken_in, rolled_back)]:
+            del request.held[key]
+
+    listeners = [
+        ("do_orm_execute", on_execute),
+        ("before_flush", before_flush),
+        ("after_flush", after_flush),
+        ("after_transaction_end", after_transaction_end),
+        ("after_soft_rollback", after_soft_rollback),
+    ]
     for name, fn in listeners:
         event.listen(sync_session, name, fn)
     try:

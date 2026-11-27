@@ -698,10 +698,11 @@ async def apply_ops(
     Ops that fail on a missing key are retried until a pass gets nowhere, so parents may come
     after their children in the list.
 
-    It takes the Ereignis lock first (`lock_ereignis`): the caller's transaction must hold no
-    other lock yet, so every other writer of the Ereignis waits for the batch, or it for them.
+    Each op takes the Ereignis lock first (`lock_ereignis`), in its own transaction: on the box
+    that is a savepoint of the round's transaction, which holds the lock from its first op on;
+    on the hosted board (`POST /api/standby/sync`) each op is a transaction of its own, so a
+    batch holds no row – a person an attendance row key-shares – while the next op waits.
     """
-    await lock_ereignis(conn, event_id)
     results: list[str] = ["refused"] * len(ops)
     todo = list(range(len(ops)))
     while todo:
@@ -713,6 +714,7 @@ async def apply_ops(
                 continue
             try:
                 async with conn.transaction():
+                    await lock_ereignis(conn, event_id)
                     results[i] = await _apply_one(conn, table, event_id, op)
             except OpRefusedError:
                 results[i] = "refused"

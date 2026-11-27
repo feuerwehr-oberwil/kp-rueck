@@ -142,8 +142,8 @@ from the box, and the box's work stays on the box.
 It reads through `kp_standby` (replication and `SELECT`, no write privilege on any table), and
 it writes only through `POST /api/standby/sync` with the key, which takes rows of one Ereignis
 at a time: the Ereignis's own tables (Einsätze, Aufträge, Mannschaft, Verlauf, Rapporte …),
-each row checked against the version the box last saw. A batch is one transaction under the
-Ereignis lock, like every other writer of that Ereignis on either system. Users, roster and settings are out of
+each row checked against the version the box last saw. Each op is a transaction of its own
+under the Ereignis lock, like every other writer of that Ereignis on either system. Users, roster and settings are out of
 its reach. Which Ereignis is not: a takeover happens on the box, offline, and the hosted board
 learns of it from the box – so whoever holds the key can declare any Ereignis taken over and
 rewrite it. That is why it lives in the vault and in the two `.env`/Variables entries, nowhere

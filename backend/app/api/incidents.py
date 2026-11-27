@@ -34,7 +34,14 @@ from ..crud import feld as feld_crud
 from ..crud import incidents as crud
 from ..crud import kp_messages as kp_messages_crud
 from ..crud import reko as reko_crud
-from ..crud.locking import ereignisse_of_incidents, lock_ereignis, lock_incident, lock_incident_with_group, lock_pair
+from ..crud.locking import (
+    ereignisse_of_incidents,
+    lock_ereignis,
+    lock_incident,
+    lock_incident_with_group,
+    lock_pair,
+    locks_its_own_ereignisse,
+)
 from ..database import get_db
 from ..middleware.rate_limit import RateLimits, limiter
 from ..services import duplicates, incident_display, incident_history
@@ -1332,6 +1339,7 @@ async def dismiss_duplicate(
 
 
 @router.post("/{incident_id}/transfer", response_model=schemas.TransferAssignmentsResponse)
+@locks_its_own_ereignisse  # source and target Ereignis together, sorted (transfer_assignments)
 async def transfer_assignments(
     incident_id: uuid.UUID,
     transfer_request: schemas.TransferAssignmentsRequest,

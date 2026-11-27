@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import schemas
 from ..auth.dependencies import CurrentEditor
 from ..config import settings
+from ..crud.locking import locks_its_own_ereignisse
 from ..database import get_db
 from ..environment import ROLE_STANDBY, deployment_role
 from ..middleware.rate_limit import RateLimits, limiter
@@ -39,13 +40,15 @@ router = APIRouter(prefix="/standby", tags=["standby"])
 _contact: dict[uuid.UUID, tuple[datetime, int]] = {}
 
 
-async def _driver(db: AsyncSession) -> asyncpg.Connection:
+async def _driver(db: AsyncSession, *, request_transaction: bool = True) -> asyncpg.Connection:
     """The asyncpg connection under the request's session – same transaction, same commit.
 
     SQLAlchemy begins the transaction on the connection only with its first statement: before
-    it, each raw statement would commit on its own, and the Ereignis lock (`standby_sync.lock_ereignis`)
-    would end with it."""
-    await db.execute(select(1))
+    it, each raw statement would commit on its own, and a lock (`standby_sync.lock_ereignis`)
+    would end with it. ``request_transaction=False`` (the box's `/sync`): each op commits on
+    its own, as `apply_ops` documents."""
+    if request_transaction:
+        await db.execute(select(1))
     raw = await (await db.connection()).get_raw_connection()
     conn: asyncpg.Connection = raw.driver_connection
     return conn
@@ -223,7 +226,7 @@ async def apply_from_box(
     Every call is also the box's heartbeat, which the band on this board reads.
     """
     _require_box(authorization)
-    conn = await _driver(db)
+    conn = await _driver(db, request_transaction=False)
     await conn.execute("SET LOCAL TIME ZONE 'UTC'")
     ops = [Op(o.table, o.id, o.row, o.expected, o.required) for o in body.ops]
     results = await apply_ops(conn, await event_tables(conn), body.event_id, ops)
@@ -267,6 +270,7 @@ async def photos_missing(
 
 
 @router.put("/photos/{incident_id}/{name}", response_model=None, include_in_schema=False)
+@locks_its_own_ereignisse  # writes a file only – no Ereignis lock over the upload
 @limiter.limit(RateLimits.STANDBY_SYNC)
 async def photo_from_box(
     incident_id: uuid.UUID,

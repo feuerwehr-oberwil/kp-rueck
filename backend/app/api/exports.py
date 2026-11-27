@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentEditor
+from ..crud.locking import locks_its_own_ereignisse
 from ..database import get_db
 from ..logging_config import get_logger
 from ..middleware.rate_limit import RateLimits, limiter
@@ -96,6 +97,7 @@ def _collect_report_photos(data: EventReportData) -> dict[uuid.UUID, list[Export
 
 
 @router.post("/events/{event_id}/audit")
+@locks_its_own_ereignisse  # reads the Ereignis; its one write is a global audit row
 @limiter.limit(RateLimits.EXPORT)
 async def export_event_audit(
     request: Request,

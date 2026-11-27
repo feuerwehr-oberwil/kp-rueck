@@ -10,7 +10,7 @@ shows who waits for whom.
 """
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
@@ -19,15 +19,18 @@ from uuid import UUID, uuid4
 import asyncpg
 import pytest
 import pytest_asyncio
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app import schemas
+from app import schemas, standby_sync
 from app.api import divera as divera_api
+from app.api import personnel as personnel_api
 from app.api import reko as reko_api
 from app.api import standby as standby_api
+from app.auth.security import create_login_tokens
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
 from app.crud import events as events_crud
@@ -41,13 +44,17 @@ from app.crud import personnel_checkin as checkin_crud
 from app.crud import reko_assignment as reko_assignment_crud
 from app.crud.feld.melden import create_field_report
 from app.crud.locking import lock_ereignis, lock_groups, lock_incident, lock_incident_with_group, lock_resource
+from app.database import get_db
 from app.ereignis_lock import ereignis_lock_key
+from app.main import app
 from app.models import (
     AuditLog,
     AuftragTemplate,
     AuftragTemplateResource,
     DiveraEmergency,
     Event,
+    EventAttendance,
+    EventLead,
     EventSpecialFunction,
     FieldRequest,
     Incident,
@@ -580,8 +587,9 @@ async def _row(conn: asyncpg.Connection, board: Board, table: str, row_id: UUID)
     return (await fetch_rows(conn, tables[table], board.event_id))[0][(table, str(row_id))]
 
 
-# The three cycles the Ereignis lock replaces. Each ran into a deadlock (or a wrong dismissal,
-# tests/test_services/test_notification_service.py) on main.
+# The three cycles the Ereignis lock replaces (the third, a wrong dismissal, is in
+# tests/test_services/test_notification_service.py). Each test drives the writers into the
+# step that closed the cycle on main – there it ends in a DeadlockDetectedError.
 
 
 async def test_a_status_update_and_an_ereignis_delete_take_turns(board: Board):
@@ -592,8 +600,9 @@ async def test_a_status_update_and_an_ereignis_delete_take_turns(board: Board):
         await lock_incident_with_group(updating, board.loose_id)
         user = await deleting.get(User, board.user_id)
         deletion = asyncio.create_task(events_crud.delete_event(deleting, board.event_id, user, _request()))
-        await wait_for_ereignis_lock(board.sessions, board.event_id)
+        await wait_until_blocked(board.sessions)
 
+        # The stamp that closed the cycle: on main the delete held the Ereignis row here.
         await asyncio.wait_for(events_crud.update_event_activity(updating, board.event_id), timeout=5)
         await updating.commit()
         assert await asyncio.wait_for(deletion, timeout=10) is True
@@ -617,8 +626,9 @@ async def test_a_merge_report_and_a_bulk_attach_that_flags_its_target_take_turns
             assert user is not None
             body = schemas.BulkAttachEmergenciesRequest(event_id=board.event_id, emergency_ids=alarm_ids[::-1])
             bulk = asyncio.create_task(divera_api.bulk_attach_emergencies(body, _request(), attaching, user))
-            await wait_for_ereignis_lock(board.sessions, board.event_id)
+            await wait_until_blocked(board.sessions)
 
+            # The report's INSERT closed the cycle: on main the bulk held the numbering lock here.
             operator = await merging.get(User, board.user_id)
             assert operator is not None
             report = await incidents_crud.create_incident(
@@ -837,7 +847,7 @@ async def test_a_card_reorder_and_an_ereignis_delete_take_turns(board: Board):
 async def test_an_ereignis_delete_and_a_hosted_sync_op_that_deletes_it_take_turns(board: Board):
     await _archive(board)
     async with board.sessions() as deleting, board.sessions() as syncing:
-        conn = await standby_api._driver(syncing)  # inside the request's transaction, as the route runs it
+        conn = await standby_api._driver(syncing, request_transaction=False)  # as the /sync route runs it
         tables = await event_tables(conn)
         event = await _row(conn, board, "events", board.event_id)
         user = await deleting.get(User, board.user_id)
@@ -888,5 +898,154 @@ async def test_a_lock_a_rolled_back_savepoint_released_is_tried_again_not_waited
             assert busy.value.code == ErrorCode.EREIGNIS_BUSY
     finally:
         async with board.sessions() as db:
+            await db.execute(delete(Event).where(Event.id == other_event))
+            await db.commit()
+
+
+def _box(monkeypatch: pytest.MonkeyPatch) -> str:
+    """The box's sync key on this (hosted) board; returns the header the box sends."""
+    monkeypatch.setattr(standby_api.settings, "standby_sync_token", "box-key")
+    return "Bearer box-key"
+
+
+async def _taken_over(board: Board) -> None:
+    async with board.sessions() as db:
+        db.add(EventLead(event_id=board.event_id, holder="standby", since=datetime.now(UTC), taken_by="Box"))
+        await db.commit()
+
+
+async def test_a_box_delete_of_the_ereignis_lands_on_the_hosted_board(board: Board, monkeypatch: pytest.MonkeyPatch):
+    # The delete cascades to the takeover row, so `/sync` answers 403 after the batch. While the
+    # batch was one transaction, that 403 rolled the delete back – on every retry.
+    authorization = _box(monkeypatch)
+    await _archive(board)
+    await _taken_over(board)
+    async with board.sessions() as db:
+        event = await _row(await _raw(db), board, "events", board.event_id)
+        body = standby_api.SyncIn(
+            event_id=board.event_id, ops=[standby_api.SyncOp(table="events", id=str(board.event_id), expected=event)]
+        )
+        with pytest.raises(HTTPException) as refused:
+            await standby_api.apply_from_box(_request(), body, BackgroundTasks(), db, authorization)
+        assert refused.value.status_code == 403
+        await db.rollback()  # get_db, on the error
+    async with board.sessions() as db:
+        assert await db.get(Event, board.event_id) is None
+
+
+async def test_a_hosted_sync_batch_holds_no_person_while_its_next_op_waits(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+):
+    # The batch's attendance INSERT key-shared person P2; a role sort locked P1, then waited for P2;
+    # the batch's next INSERT waited for P1. As one transaction the batch held P2 to its end.
+    authorization = _box(monkeypatch)
+    await _taken_over(board)
+    first, second = sorted((uuid4(), uuid4()))
+    async with board.sessions() as db:
+        db.add_all(
+            Personnel(id=person_id, name=f"Sortiert {person_id}", role="Sdt", status="available")
+            for person_id in (first, second)
+        )
+        await db.commit()
+    between, go = asyncio.Event(), asyncio.Event()
+    calls = 0
+    apply_one = standby_sync._apply_one
+
+    async def paused(*args: object) -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 2:  # between the two ops
+            between.set()
+            await go.wait()
+        return await apply_one(*args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(standby_sync, "_apply_one", paused)
+
+    def attendance(person_id: UUID) -> standby_api.SyncOp:
+        row = {"id": str(uuid4()), "event_id": str(board.event_id), "personnel_id": str(person_id), "checked_in": True}
+        return standby_api.SyncOp(table="event_attendance", id=row["id"], row=row)
+
+    try:
+        async with board.sessions() as syncing, board.sessions() as sorting:
+            body = standby_api.SyncIn(event_id=board.event_id, ops=[attendance(second), attendance(first)])
+            batch = asyncio.create_task(
+                standby_api.apply_from_box(_request(), body, BackgroundTasks(), syncing, authorization)
+            )
+            await asyncio.wait_for(between.wait(), timeout=5)
+            user = await sorting.get(User, board.user_id)
+            update = schemas.BulkCategorySortOrderUpdate(categories=[{"category": "Sdt", "sort_order": 3}])
+            assert (
+                await asyncio.wait_for(personnel_api.update_role_sort_orders(update, user, sorting), timeout=5)
+            ).updated_categories == 1
+            await sorting.commit()
+            go.set()
+            assert (await asyncio.wait_for(batch, timeout=10))["results"] == ["ok", "ok"]
+    finally:
+        go.set()
+        async with board.sessions() as db:
+            await db.execute(delete(EventAttendance).where(EventAttendance.event_id == board.event_id))
+            await db.execute(delete(Personnel).where(Personnel.id.in_([first, second])))
+            await db.commit()
+
+
+async def test_a_transfer_to_an_einsatz_of_a_lower_ereignis_waits_for_it_instead_of_refusing(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+):
+    # The request locked its path's (source) Ereignis first; the target's sorts below it, so it
+    # was only tried – and a bell poll holding it made a single operator see `ereignis_busy`.
+    other_event, target_id = uuid4(), uuid4()
+    low, high = sorted((board.event_id, other_event), key=ereignis_lock_key)
+    source_id = board.loose_id if high == board.event_id else target_id
+    target = target_id if source_id == board.loose_id else board.loose_id
+    async with board.sessions() as db:
+        db.add(Event(id=other_event, name="Nachbar", training_flag=False, created_at=datetime.now(UTC)))
+        await db.flush()
+        db.add(
+            Incident(
+                id=target_id,
+                title="Nachbar",
+                type="elementarereignis",
+                priority="medium",
+                status="active",
+                event_id=other_event,
+                created_by=board.user_id,
+            )
+        )
+        await db.flush()
+        db.add(IncidentAssignment(incident_id=source_id, resource_type="material", resource_id=board.material_id))
+        await db.commit()
+
+    async def request_db() -> AsyncGenerator[AsyncSession]:
+        async with board.sessions() as db:
+            yield db
+
+    async def awaited(write: Coroutine[None, None, None]) -> None:
+        await write
+
+    monkeypatch.setitem(app.dependency_overrides, get_db, request_db)
+    monkeypatch.setattr("app.middleware.audit.audit_session_maker", board.sessions)
+    monkeypatch.setattr("app.middleware.audit._dispatch", awaited)
+    access, _ = create_login_tokens({"sub": str(board.user_id), "role": "editor"})
+    try:
+        async with (
+            board.sessions() as polling,
+            AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+        ):
+            await lock_ereignis(polling, low)  # a bell poll of the target's Ereignis
+            transfer = asyncio.create_task(
+                client.post(
+                    f"/api/incidents/{source_id}/transfer",
+                    json={"target_incident_id": str(target)},
+                    headers={"Cookie": f"access_token={access}"},
+                )
+            )
+            await wait_for_ereignis_lock(board.sessions, low)
+            await polling.commit()
+            response = await asyncio.wait_for(transfer, timeout=10)
+        assert response.status_code == 200, response.text
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(IncidentAssignment).where(IncidentAssignment.resource_id == board.material_id))
+            await db.execute(delete(Incident).where(Incident.id == target_id))
             await db.execute(delete(Event).where(Event.id == other_event))
             await db.commit()

@@ -8,12 +8,13 @@ then run one after the other, so the order in which they lock its rows cannot de
 comes from:
 
 - a write request: the Ereignisse its path, query or link names (``lock_request_ereignisse``,
-  mounted app-wide);
+  mounted app-wide), unless the route is marked ``locks_its_own_ereignisse``;
 - the row helpers below: the Ereignisse of what they lock, before the rows;
 - a writer that finds its Ereignisse in rows collects them first: alarms
   (``crud.divera.lock_divera_emergencies``), a resource delete (``lock_resource_for_delete``),
   the Divera answers; the bell poll locks per Ereignis and phase;
-- the standby sync: ``standby_sync.lock_ereignis`` on the asyncpg connection.
+- the standby sync: ``standby_sync.lock_ereignis`` on the asyncpg connection, in each op's
+  transaction.
 
 ``tests/ereignis_lock_check.py`` fails a test request that writes or locks a row of an Ereignis
 without its lock, or that takes the lock after another lock.
@@ -26,7 +27,7 @@ lifecycle writer (archive, purge, delete) takes the resource row, so nobody is a
 """
 
 import uuid
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Callable, Iterable
 from typing import Annotated, Literal, get_args, overload
 
 from fastapi import Depends, Request
@@ -100,7 +101,7 @@ def holds_ereignis(db: AsyncSession, event_id: uuid.UUID) -> bool:
     return ereignis_lock_keys([event_id])[0] in db.info.get(_HELD, {})
 
 
-def _within(transaction: SessionTransaction | None, ended: SessionTransaction) -> bool:
+def is_within(transaction: SessionTransaction | None, ended: SessionTransaction) -> bool:
     """Whether ``transaction`` is ``ended`` or a savepoint inside it."""
     while transaction is not None:
         if transaction is ended:
@@ -120,7 +121,7 @@ def _forget_ereignis_locks(session: Session, transaction: SessionTransaction) ->
 def _forget_rolled_back_ereignis_locks(session: Session, previous_transaction: SessionTransaction) -> None:
     """A savepoint rolled back released the locks taken inside it (Postgres does)."""
     held: dict[int, SessionTransaction] = session.info.get(_HELD, {})
-    for key in [key for key, taken_in in held.items() if _within(taken_in, previous_transaction)]:
+    for key in [key for key, taken_in in held.items() if is_within(taken_in, previous_transaction)]:
         del held[key]
 
 
@@ -163,6 +164,17 @@ _EREIGNIS_OF_PATH_PARAM: dict[
     ).where(Notification.id == row_id),
 }
 _WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_LOCKS_ITS_OWN: set[Callable[..., object]] = set()
+
+
+def locks_its_own_ereignisse[F: Callable[..., object]](endpoint: F) -> F:
+    """Leave this write route out of ``lock_request_ereignisse``; put it right under ``@router.…``.
+
+    For a route that names a second Ereignis in its body and locks both itself, sorted (a
+    transfer), and for one that writes no row of an Ereignis and must not hold its lock over
+    slow work (an export, a photo upload)."""
+    _LOCKS_ITS_OWN.add(endpoint)
+    return endpoint
 
 
 def _ereignis_of_token(token: str) -> set[uuid.UUID]:
@@ -178,7 +190,8 @@ async def lock_request_ereignisse(request: Request, db: Annotated[AsyncSession, 
     /feld link or a share link) before the route runs. A route whose Ereignis comes from the body or from the
     rows it finds takes ``lock_ereignis`` itself. A parameter that names no row (a material
     group's ``group_id``) locks nothing."""
-    if request.method not in _WRITE_METHODS:
+    route = request.scope.get("route")
+    if request.method not in _WRITE_METHODS or getattr(route, "endpoint", None) in _LOCKS_ITS_OWN:
         return
     event_ids: set[uuid.UUID] = set()
     for name, value in [*request.path_params.items(), *request.query_params.items()]:
@@ -353,35 +366,19 @@ async def lock_resource_for_delete(
     """Lock what deleting or purging a resource writes: every Ereignis, then the resource row.
 
     Its rows may sit in any Ereignis – crew and Auftrag history, Fahrer, attendance, device
-    claims, the ``ON DELETE SET NULL`` references of cards and reports (``lock_every_ereignis``).
-    """
-    return await lock_every_ereignis(db, lambda: lock_resource(db, resource_type, resource_id))
-
-
-async def lock_every_resource(db: AsyncSession) -> None:
-    """Rule 2 for a writer of the whole roster (an Excel ``replace``): every material, person and
-    vehicle row, by (resource_type, id). Every assignment and check-in takes its resource's row,
-    so none lands meanwhile – not even in an Ereignis created after ``lock_every_ereignis``."""
-    for model in (Material, Personnel, Vehicle):  # the order of "material" < "personnel" < "vehicle"
-        await db.execute(select(model.id).order_by(model.id).with_for_update())
-
-
-async def lock_every_ereignis[T](db: AsyncSession, lock_row: Callable[[], Awaitable[T]]) -> T:
-    """Rule 1 for a delete whose cascade may reach any Ereignis (a resource, a user): every
-    Ereignis, sorted, then ``lock_row()``.
-
-    An Ereignis created between the look and the lock rolls the savepoint back – releasing its
-    locks – and starts over. A rare, deliberate admin action: waiting for every board's writes
-    is fine.
+    claims, the ``ON DELETE SET NULL`` references of cards and reports – so every Ereignis is
+    locked (rule 1), sorted. An Ereignis created between the look and the lock rolls the
+    savepoint back – releasing its locks – and starts over. A rare, deliberate admin action:
+    waiting for every board's writes is fine.
     """
     every = select(Event.id)
     for _ in range(_MAX_LOCK_ATTEMPTS):
         before = set(await db.scalars(every))
         savepoint = await db.begin_nested()
         await lock_ereignis(db, *before)
-        row = await lock_row()
+        resource = await lock_resource(db, resource_type, resource_id)
         if set(await db.scalars(every)) <= before:
             await savepoint.commit()
-            return row
+            return resource
         await savepoint.rollback()
     raise RuntimeError("Ereignisse kept appearing while locking; giving up")

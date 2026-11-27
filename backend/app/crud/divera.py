@@ -189,7 +189,9 @@ async def lock_divera_emergencies(
                 .execution_options(populate_existing=True)
             )
         }
-        if dict((await db.execute(belongs)).tuples().all()) == seen:
+        # Every alarm read is locked, and none changed Ereignis meanwhile (one attached elsewhere
+        # and back is left out of `locked`).
+        if locked.keys() == seen.keys() and dict((await db.execute(belongs)).tuples().all()) == seen:
             await savepoint.commit()  # RELEASE SAVEPOINT – the locks stay with the transaction
             return locked
         await savepoint.rollback()

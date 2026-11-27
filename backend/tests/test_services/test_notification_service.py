@@ -1868,6 +1868,10 @@ class TestFatigueNotificationConcurrency:
                 assert row is not None and not row.dismissed
                 assert sorted(row.subject_keys or []) == sorted([muster, beispiel])
                 assert await dismiss_notification(check, warning.id, user_id, expected_version=row.version) is not None
+                await check.commit()
+            async with maker() as reread:
+                row = await reread.get(Notification, warning.id)
+                assert row is not None and (row.dismissed, row.dismissed_by) == (True, user_id)
         finally:
             async with maker() as cleanup:
                 await cleanup.execute(delete(Event).where(Event.id == event_id))
