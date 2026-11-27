@@ -214,9 +214,15 @@ async def lock_groups(db: AsyncSession, group_ids: Iterable[uuid.UUID | None]) -
     """Row-lock Aufträge in ascending id order (deleted ones included, ``None`` skipped), after
     their Ereignisse (rule 1)."""
     ids = sorted({group_id for group_id in group_ids if group_id is not None})
-    await lock_ereignis(db, *await ereignisse_of_groups(db, ids))
+    ereignisse = await ereignisse_of_groups(db, ids)
+    await lock_ereignis(db, *ereignisse)
     for group_id in ids:
-        await db.execute(select(IncidentGroup.id).where(IncidentGroup.id == group_id).with_for_update())
+        # Not one that appeared meanwhile in an Ereignis this transaction does not hold.
+        await db.execute(
+            select(IncidentGroup.id)
+            .where(IncidentGroup.id == group_id, IncidentGroup.event_id.in_(ereignisse))
+            .with_for_update()
+        )
 
 
 async def lock_incidents_with_groups(
@@ -233,14 +239,16 @@ async def lock_incidents_with_groups(
     """
     ids = sorted(set(incident_ids))
     extra = {group_id for group_id in extra_group_ids if group_id is not None}
-    await lock_ereignis(db, *await ereignisse_of_incidents(db, ids), *await ereignisse_of_groups(db, extra))
+    ereignisse = await ereignisse_of_incidents(db, ids)
+    await lock_ereignis(db, *ereignisse, *await ereignisse_of_groups(db, extra))
     groups = await db.scalars(select(Incident.group_id).where(Incident.id.in_(ids)))
     await lock_groups(db, {*extra, *groups})
     locked: dict[uuid.UUID, Incident] = {}
     for incident_id in ids:
+        # A card that appeared after the look (a synced INSERT) is in no Ereignis held: absent.
         incident = await db.scalar(
             select(Incident)
-            .where(Incident.id == incident_id)
+            .where(Incident.id == incident_id, Incident.event_id.in_(ereignisse))
             .with_for_update()
             .execution_options(populate_existing=True)
         )
@@ -265,9 +273,13 @@ async def lock_incident(db: AsyncSession, incident_id: uuid.UUID) -> Incident | 
     lock the second write would carry the first one's old text and drop its
     Nachtrag.
     """
-    await lock_ereignis(db, *await ereignisse_of_incidents(db, [incident_id]))
+    ereignisse = await ereignisse_of_incidents(db, [incident_id])
+    await lock_ereignis(db, *ereignisse)
     incident: Incident | None = await db.scalar(
-        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
+        select(Incident)
+        .where(Incident.id == incident_id, Incident.event_id.in_(ereignisse))
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     return incident
 

@@ -715,6 +715,8 @@ async def apply_ops(
             try:
                 async with conn.transaction():
                     await lock_ereignis(conn, event_id)
+                    # Rows compare as text: timestamps in UTC, as the sync reads them.
+                    await conn.execute("SET LOCAL TIME ZONE 'UTC'")
                     results[i] = await _apply_one(conn, table, event_id, op)
             except OpRefusedError:
                 results[i] = "refused"

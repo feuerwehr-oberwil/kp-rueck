@@ -388,9 +388,13 @@ class PhotoStorageService:
             raise HTTPException(status_code=400, detail="Kein JPEG.")
         self._get_incident_dir(incident_id)
         target = self._inside_photos_dir(str(incident_id), filename)
-        partial = target.with_suffix(".part")
-        partial.write_bytes(content)
-        partial.replace(target)
+        # One partial file per writer: two uploads of the same photo at once must not share it.
+        partial = target.with_name(f"{target.name}.{uuid.uuid4().hex}.part")
+        try:
+            partial.write_bytes(content)
+            partial.replace(target)
+        finally:
+            partial.unlink(missing_ok=True)
         return True
 
     def get_photo_path(self, incident_id: uuid.UUID, filename: str) -> Path | None:

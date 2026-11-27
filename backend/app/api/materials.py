@@ -221,11 +221,20 @@ async def update_location_sort_orders(
     This endpoint allows reordering how materials are grouped by location.
     All materials with the same location will get the same sort_order value.
     """
-    # Update sort order for each location category
+    # Every row it writes first, by id (crud/locking.py rule 2): a sort in request order met a
+    # transfer or an incident delete locking the same materials sorted.
+    locked = list(
+        await db.scalars(
+            select(Material.id)
+            .where(Material.location.in_([c.category for c in sort_update.categories]))
+            .order_by(Material.id)
+            .with_for_update()
+        )
+    )
     for category_update in sort_update.categories:
         await db.execute(
             update(Material)
-            .where(Material.location == category_update.category)
+            .where(Material.id.in_(locked), Material.location == category_update.category)
             .values(location_sort_order=category_update.sort_order)
         )
 

@@ -211,6 +211,7 @@ class SyncIn(BaseModel):
 
 
 @router.post("/sync", response_model=None, include_in_schema=False)
+@locks_its_own_ereignisse  # each op takes it in its own transaction (standby_sync.apply_ops)
 @limiter.limit(RateLimits.STANDBY_SYNC)
 async def apply_from_box(
     request: Request,
@@ -227,7 +228,6 @@ async def apply_from_box(
     """
     _require_box(authorization)
     conn = await _driver(db, request_transaction=False)
-    await conn.execute("SET LOCAL TIME ZONE 'UTC'")
     ops = [Op(o.table, o.id, o.row, o.expected, o.required) for o in body.ops]
     results = await apply_ops(conn, await event_tables(conn), body.event_id, ops)
     if any(op.required and result != "ok" for op, result in zip(ops, results, strict=True)):

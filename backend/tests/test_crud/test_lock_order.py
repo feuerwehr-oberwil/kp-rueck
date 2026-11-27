@@ -988,6 +988,48 @@ async def test_a_hosted_sync_batch_holds_no_person_while_its_next_op_waits(
             await db.commit()
 
 
+def _through_the_app(board: Board, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Requests through the whole app (its app-wide dependencies too) on the board's committed
+    sessions, audit rows awaited; returns an editor's access token."""
+
+    async def request_db() -> AsyncGenerator[AsyncSession]:
+        async with board.sessions() as db:
+            yield db
+
+    async def awaited(write: Coroutine[None, None, None]) -> None:
+        await write
+
+    monkeypatch.setitem(app.dependency_overrides, get_db, request_db)
+    monkeypatch.setattr("app.middleware.audit.audit_session_maker", board.sessions)
+    monkeypatch.setattr("app.middleware.audit._dispatch", awaited)
+    access, _ = create_login_tokens({"sub": str(board.user_id), "role": "editor"})
+    return access
+
+
+async def test_a_box_delete_through_the_route_lands_whatever_its_query_names(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+):
+    # The app-wide lock read the query's `event_id` and began the request transaction: the
+    # route's ops became savepoints again, and its 403 rolled the delete back.
+    authorization = _box(monkeypatch)
+    await _archive(board)
+    await _taken_over(board)
+    _through_the_app(board, monkeypatch)
+    async with board.sessions() as db:
+        event = await _row(await _raw(db), board, "events", board.event_id)
+    body = {"event_id": str(board.event_id), "ops": [{"table": "events", "id": str(board.event_id), "expected": event}]}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/standby/sync",
+            params={"event_id": str(board.event_id)},
+            json=body,
+            headers={"Authorization": authorization},
+        )
+    assert response.status_code == 403
+    async with board.sessions() as db:
+        assert await db.get(Event, board.event_id) is None
+
+
 async def test_a_transfer_to_an_einsatz_of_a_lower_ereignis_waits_for_it_instead_of_refusing(
     board: Board, monkeypatch: pytest.MonkeyPatch
 ):
@@ -1015,17 +1057,7 @@ async def test_a_transfer_to_an_einsatz_of_a_lower_ereignis_waits_for_it_instead
         db.add(IncidentAssignment(incident_id=source_id, resource_type="material", resource_id=board.material_id))
         await db.commit()
 
-    async def request_db() -> AsyncGenerator[AsyncSession]:
-        async with board.sessions() as db:
-            yield db
-
-    async def awaited(write: Coroutine[None, None, None]) -> None:
-        await write
-
-    monkeypatch.setitem(app.dependency_overrides, get_db, request_db)
-    monkeypatch.setattr("app.middleware.audit.audit_session_maker", board.sessions)
-    monkeypatch.setattr("app.middleware.audit._dispatch", awaited)
-    access, _ = create_login_tokens({"sub": str(board.user_id), "role": "editor"})
+    access = _through_the_app(board, monkeypatch)
     try:
         async with (
             board.sessions() as polling,
