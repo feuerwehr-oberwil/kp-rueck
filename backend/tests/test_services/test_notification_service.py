@@ -28,6 +28,7 @@ from app.models import (
     Event,
     EventAttendance,
     EventLead,
+    FieldRequest,
     Incident,
     IncidentAssignment,
     Material,
@@ -2037,6 +2038,59 @@ async def test_a_standby_box_writes_no_bell_rows_into_an_ereignis_it_does_not_le
     )
     await db_session.flush()
     assert await shown() == ["field_message", "missing_location"]
+
+
+async def test_a_dismissal_locks_the_field_request_before_its_bell_row(test_engine):
+    # «Erledigt» holds the request, then takes its bell row. A dismissal that held the bell row
+    # while it waited for the request closed a deadlock cycle. No autoflush, as the app's sessions.
+    maker = async_sessionmaker(bind=test_engine, expire_on_commit=False, autoflush=False)
+    event_id, user_id, notification_id = uuid4(), uuid4(), uuid4()
+    async with maker() as setup:
+        setup.add_all(
+            [
+                Event(id=event_id, name="Dismissal lock order", training_flag=False),
+                User(id=user_id, username=f"dismiss-{user_id}", password_hash=None, role="editor"),
+            ]
+        )
+        await setup.flush()
+        incident = Incident(
+            title="Brand", type="brandbekaempfung", priority="high", status="incoming", event_id=event_id
+        )
+        setup.add(incident)
+        await setup.flush()
+        setup.add(
+            Notification(
+                id=notification_id, type="field_message", severity="info", message="Meldung", event_id=event_id
+            )
+        )
+        await setup.flush()
+        request = FieldRequest(incident_id=incident.id, kind="message", notification_id=notification_id)
+        setup.add(request)
+        await setup.commit()
+
+    try:
+        async with maker() as completing, maker() as dismissing, maker() as probe:
+            await completing.execute(select(FieldRequest).where(FieldRequest.id == request.id).with_for_update())
+            dismissal = asyncio.create_task(dismiss_notification(dismissing, notification_id, user_id))
+            await wait_until_blocked(maker)
+            # While the dismissal waits for the request, the bell row is free for «Erledigt».
+            try:
+                await probe.execute(
+                    select(Notification.id).where(Notification.id == notification_id).with_for_update(nowait=True)
+                )
+                bell_row_free = True
+            except DBAPIError:
+                bell_row_free = False
+            await probe.rollback()
+            await completing.rollback()
+            assert await asyncio.wait_for(dismissal, timeout=10) is not None
+            await dismissing.commit()
+        assert bell_row_free, "the dismissal held the bell row while it waited for the field request"
+    finally:
+        async with maker() as cleanup:
+            await cleanup.execute(delete(Event).where(Event.id == event_id))
+            await cleanup.execute(delete(User).where(User.id == user_id))
+            await cleanup.commit()
 
 
 @pytest_asyncio.fixture

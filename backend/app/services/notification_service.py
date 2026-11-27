@@ -909,12 +909,23 @@ async def dismiss_notification(
     ``expected_version``: the ``Notification.version`` the operator saw. Compared under the
     row lock, which a poll rewriting the row holds too (``_sync_fatigue_locked``), so the
     dismissal sees the rewritten row. A mismatch raises ``DomainError`` (409
-    ``notification_changed``) and changes nothing: the operator must not acknowledge somebody
-    they were not shown. Without a version (an older client) the dismissal is unconditional.
-    A row dismissed already keeps who dismissed it and when: a fatigue re-alarm counts from there.
+    ``notification_changed``); the caller's rollback undoes the «gesehen» stamp with it: the
+    operator must not acknowledge somebody they were not shown. Without a version (an older
+    client) the dismissal is unconditional. A row an operator dismissed already keeps who and
+    when (a fatigue re-alarm counts from there); an auto-resolved one takes this operator.
+
+    Locks the linked field requests first, then the notification row – the order «Erledigt»
+    and the standby sync take them in.
     """
-    # Locked before the read: the UPDATE below takes this lock anyway, and taking it first makes
-    # the version compare wait for a poll that is rewriting the row.
+    if await db.scalar(select(Notification.id).where(Notification.id == notification_id)) is None:
+        return None
+
+    # A field request announced by this entry is now «Vom KP gesehen» — and
+    # still open (R13): dismissing the bell is never handling the request.
+    from ..crud.feld.requests import mark_seen_by_notification
+
+    now = datetime.now(UTC)
+    seen = await mark_seen_by_notification(db, notification_id, now)
     result = await db.execute(
         select(Notification)
         .where(Notification.id == notification_id)
@@ -922,27 +933,22 @@ async def dismiss_notification(
         .execution_options(populate_existing=True)
     )
     notification = result.scalar_one_or_none()
+    if notification is None:
+        return None
 
-    if notification and expected_version is not None and notification.version != expected_version:
+    if expected_version is not None and notification.version != expected_version:
         raise DomainError(ErrorCode.NOTIFICATION_CHANGED, "Die Meldung hat sich inzwischen geändert. Bitte neu lesen.")
 
-    if notification:
-        now = datetime.now(UTC)
-        if not notification.dismissed:
-            notification.dismissed = True
-            notification.dismissed_at = now
-            notification.dismissed_by = user_id
-        # A field request announced by this entry is now «Vom KP gesehen» — and
-        # still open (R13): dismissing the bell is never handling the request.
-        from ..crud.feld.requests import mark_seen_by_notification
+    if notification.dismissed_by is None:
+        notification.dismissed = True
+        notification.dismissed_at = now
+        notification.dismissed_by = user_id
+    await db.flush()
+    await db.refresh(notification)
+    if seen and notification.incident_id:
+        from ..websocket_manager import broadcast_incident_update
 
-        seen = await mark_seen_by_notification(db, notification.id, now)
-        await db.flush()
-        await db.refresh(notification)
-        if seen and notification.incident_id:
-            from ..websocket_manager import broadcast_incident_update
-
-            after_commit(db, broadcast_incident_update, {"id": str(notification.incident_id)}, "update")
+        after_commit(db, broadcast_incident_update, {"id": str(notification.incident_id)}, "update")
 
     return notification
 

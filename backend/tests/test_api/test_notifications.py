@@ -16,7 +16,7 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Event, Incident, Notification
+from app.models import Event, Incident, Notification, User
 
 # ============================================
 # Fixtures
@@ -171,6 +171,20 @@ async def test_a_second_dismissal_keeps_the_first_ones_time(
     assert (await editor_client.post(url, json={"version": test_notification.version})).status_code == 204
     await db_session.refresh(test_notification)
     assert first is not None and test_notification.dismissed_at == first
+
+
+@pytest.mark.asyncio
+@pytest.mark.api
+async def test_a_dismissal_of_an_auto_resolved_row_names_the_operator(
+    editor_client: AsyncClient, test_notification: Notification, db_session: AsyncSession, test_editor: User
+):
+    # The poll resolved the warning the operator was reading: their dismissal still acknowledges it.
+    test_notification.dismissed = True
+    await db_session.commit()
+    url = f"/api/notifications/{test_notification.id}/dismiss"
+    assert (await editor_client.post(url, json={"version": test_notification.version})).status_code == 204
+    await db_session.refresh(test_notification)
+    assert test_notification.dismissed_by == test_editor.id
 
 
 @pytest.mark.asyncio

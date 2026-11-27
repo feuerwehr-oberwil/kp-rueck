@@ -217,6 +217,9 @@ export function NotificationProvider({
   // closes over a stale render, and it must not depend on a re-render landing
   // first — otherwise a fast poll would toast twice.
   const unavailableRef = useRef(false)
+  // Numbers each load: only the newest one's answer is applied. An older poll answering late
+  // would bring back a version a dismissal was just refused for (409 → reload).
+  const loadSeqRef = useRef(0)
   // The settings fetch runs once on mount. If that one attempt fails we would
   // spend the whole shift on DEFAULTS rather than on the station's config, so
   // remember whether it ever landed and keep asking until it does.
@@ -354,7 +357,9 @@ export function NotificationProvider({
 
   // Manual refetch function
   const refetchNotifications = useCallback(async () => {
+    const seq = ++loadSeqRef.current
     const result = await fetchNotifications()
+    if (seq !== loadSeqRef.current) return
 
     if (result.status === 'skipped') {
       // No event, no session — an empty bell is the correct answer here, and
