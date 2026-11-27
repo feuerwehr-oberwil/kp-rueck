@@ -123,6 +123,7 @@ async def test_the_poller_pushes_them_to_the_map_but_never_to_the_automation(ses
     monkeypatch.setattr("app.config.settings.demo_mode", True)
     monkeypatch.setattr("app.database.async_session_maker", session_factory)
     monkeypatch.setattr(poller_module, "POSITIONS_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr("app.websocket_manager.ws_manager.user_sessions", {"sid": {}})  # a board is open
     poller = TraccarPoller()
     broadcast: list[list[dict]] = []
     automated: list[list] = []
@@ -142,3 +143,15 @@ async def test_the_poller_pushes_them_to_the_map_but_never_to_the_automation(ses
     assert sorted(p["device_name"] for p in broadcast[0]) == ["Mawa", "Pio", "TLF", "Trawa"]
     assert automated == [[]]
     assert poller.cached_positions() == []
+
+
+@pytest.mark.asyncio
+async def test_with_no_board_connected_the_poller_reads_nothing_so_the_demo_can_sleep(monkeypatch):
+    monkeypatch.setattr("app.config.settings.demo_mode", True)
+    monkeypatch.setattr("app.websocket_manager.ws_manager.user_sessions", {})
+
+    def no_database():
+        raise AssertionError("the demo's positions were read with nobody watching")
+
+    monkeypatch.setattr("app.database.async_session_maker", no_database)
+    assert await TraccarPoller()._demo_positions() == []

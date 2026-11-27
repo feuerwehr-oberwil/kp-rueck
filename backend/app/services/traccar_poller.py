@@ -149,12 +149,18 @@ class TraccarPoller:
                 break
 
     async def _demo_positions(self) -> list[VehiclePosition]:
-        """On the public demo: its fixed positions with any training drive overlaid; else none."""
+        """On the public demo: its fixed positions with any training drive overlaid; else none.
+
+        None while no board is connected either: they are read from the database, and a read
+        every 10 s would keep an unused demo awake (app/demo_activity.py). Without Traccar the
+        rest of the tick touches memory only.
+        """
         from ..database import async_session_maker
+        from ..demo_activity import demo_unwatched
         from .demo_positions import demo_positions_active, demo_vehicle_positions
         from .gps_simulation import gps_simulation
 
-        if not demo_positions_active():
+        if not demo_positions_active() or demo_unwatched():
             return []
         async with async_session_maker() as db:
             return gps_simulation.overlay(await demo_vehicle_positions(db))

@@ -3,7 +3,7 @@
 Without them the demo's Lagekarte – and the website screenshots taken from it – never show a
 vehicle. Only with `DEMO_MODE=true` and no Traccar configured (`demo_positions_active`), and only
 for the map: `api/traccar.py` answers with them, and the poller (`services/traccar_poller.py`)
-broadcasts them every 10 s so an assignment moves its vehicle. The poller's cache, the GPS
+broadcasts them every 10 s while a board is connected, so an assignment moves its vehicle. The poller's cache, the GPS
 automation and the geofence never see them, so nothing changes an incident on its own.
 
 The picture follows the board: a vehicle assigned to an open Einsatz stands at it, online, and

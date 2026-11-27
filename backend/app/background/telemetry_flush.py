@@ -5,7 +5,8 @@ backend and that request ends there; the forward happens later, on a timer, from
 An Einsatz never waits on our ingest being reachable, and an offline station simply queues.
 
 Registered unconditionally but genuinely free when telemetry is off: `flush` returns at its
-first env check without touching the database. Registering it always (rather than behind the
+first env check without touching the database (the retention sweep still runs). On an unused
+demo the whole tick is skipped, so it can sleep (app/demo_activity.py). Registering it always (rather than behind the
 env flag) means an admin who switches consent on does not have to restart anything.
 """
 
@@ -16,6 +17,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.database import async_session_maker
+from app.demo_activity import demo_idle
 from app.logging_config import get_logger
 from app.telemetry.forwarder import flush
 from app.telemetry.outbox import sweep
@@ -25,6 +27,8 @@ logger = get_logger(__name__)
 
 async def flush_outbox(session_maker: Any = None) -> int:
     """Deliver what is queued and sweep what has expired. Never raises."""
+    if demo_idle():
+        return 0
     maker = session_maker or async_session_maker
     async with maker() as db:
         try:

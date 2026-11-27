@@ -1,4 +1,12 @@
-"""Background scheduler for periodic demo database reset."""
+"""The public demo's reset: on every boot, and at midnight while somebody uses it.
+
+The demo sleeps when nobody uses it (Railway Serverless, see app/demo_activity.py), and every
+wake is a cold boot – so a reset on boot gives each visitor after a pause a fresh demo, and a
+sleeping demo needs no clock at all. A demo that stays awake because visitors keep coming still
+resets at 00:00 Zurich, as before: the data is never older than a day, and the reset's
+countdown in the demo banner stays true. At midnight with no board connected the reset is
+skipped – the next wake resets anyway, and the run would only keep an empty demo awake.
+"""
 
 import shutil
 from datetime import datetime, timedelta
@@ -162,8 +170,8 @@ def _clear_photos() -> None:
 async def reset_demo() -> None:
     """Truncate every table, clear the photos, re-seed the demo and tell the open boards.
 
-    Raises on failure. The nightly job (`scheduled_demo_reset`) and `POST /api/demo/reset` both
-    call it, so a manual reset is the same reset.
+    Raises on failure. The boot (`start`), the nightly job (`scheduled_demo_reset`) and
+    `POST /api/demo/reset` all call it, so a manual reset is the same reset.
     """
     global _next_reset_time
 
@@ -190,7 +198,15 @@ async def reset_demo() -> None:
 
 
 async def scheduled_demo_reset() -> None:
-    """The nightly job: `reset_demo`, with a failure logged instead of raised."""
+    """The midnight job: `reset_demo`, with a failure logged instead of raised. Skipped while idle."""
+    global _next_reset_time
+
+    from app.demo_activity import demo_idle
+
+    if demo_idle():
+        _next_reset_time = _next_midnight_naive()
+        logger.info("Scheduled demo reset skipped: nobody connected, the next boot resets")
+        return
     logger.info("Starting scheduled demo reset...")
     try:
         await reset_demo()
@@ -202,8 +218,24 @@ async def scheduled_demo_reset() -> None:
         logger.exception("Demo reset failed")
 
 
+async def start(scheduler: AsyncIOScheduler) -> None:
+    """The demo's job (background/jobs.py): reset now, before the app serves, then nightly.
+
+    Runs inside the lifespan, so the boot waits for it: the first request after a wake – the
+    wake page's readiness probe – is answered only once the fresh demo is in place.
+    """
+    logger.info("Resetting the demo on boot...")
+    try:
+        await reset_demo()
+    except NotADisposableDatabaseError:
+        raise
+    except Exception:
+        logger.exception("Demo reset on boot failed")
+    schedule(scheduler)
+
+
 def schedule(scheduler: AsyncIOScheduler) -> None:
-    """Add the nightly reset to the app's scheduler (background/jobs.py); demo mode only."""
+    """Add the nightly reset to the app's scheduler; demo mode only."""
     global _next_reset_time
 
     _next_reset_time = _next_midnight_naive()
