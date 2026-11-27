@@ -36,14 +36,19 @@ async def dismiss_notification(
     notification_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentEditor,
+    body: schemas.NotificationDismiss | None = None,
 ) -> None:
     """
     Mark notification as dismissed (Editor only).
 
     Dismissal is global – it hides the notification for everyone on the board and marks a
-    Feld request as seen – so it is a write, not a viewer's personal preference.
+    Feld request as seen – so it is a write, not a viewer's personal preference. With the
+    `version` the bell showed, a row whose version changed since is refused (409
+    `notification_changed`); a rewrite that keeps the version (the hourly «5h → 6h») is not.
     """
-    notification = await notification_service.dismiss_notification(db, notification_id, current_user.id)
+    notification = await notification_service.dismiss_notification(
+        db, notification_id, current_user.id, expected_version=body.version if body else None
+    )
 
     if not notification:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benachrichtigung nicht gefunden")

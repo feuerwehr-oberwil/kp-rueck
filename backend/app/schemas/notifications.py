@@ -74,6 +74,20 @@ class NotificationResponse(BaseModel):
     dismissed: bool
     dismissed_at: datetime | None = None
     dismissed_by: UUID | None = None
+    #: What a dismissal acknowledges (`models.Notification.version`); send it back with the dismiss.
+    version: str
+
+
+class NotificationDismiss(BaseModel):
+    """`POST /notifications/{id}/dismiss`: the `version` the bell showed.
+
+    A row whose version changed since (a fatigue warning that names somebody new) is refused
+    with 409 `notification_changed`; a rewrite that keeps the version (the hourly «5h → 6h»)
+    is not. Without a version (an older client, a field request whose bell row
+    is not loaded) the dismissal is unconditional.
+    """
+
+    version: str | None = None
 
 
 class NotificationSettings(BaseModel):

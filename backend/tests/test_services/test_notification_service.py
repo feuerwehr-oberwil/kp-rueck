@@ -12,6 +12,7 @@ Tests notification evaluation, settings management, and notification lifecycle i
 import asyncio
 import json
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
@@ -27,6 +28,7 @@ from app.models import (
     Event,
     EventAttendance,
     EventLead,
+    FieldRequest,
     Incident,
     IncidentAssignment,
     Material,
@@ -678,6 +680,30 @@ class TestFatigueNotification:
         assert rows[0].params["count"] == 2
         assert [p["name"] for p in rows[0].params["people"]] == ["Müller Hans", "Meier Anna"]
         assert rows[0].dismissed is False
+
+    @pytest.mark.asyncio
+    async def test_the_hourly_text_change_keeps_the_version(
+        self, db_session: AsyncSession, notif_event: Event, monkeypatch: pytest.MonkeyPatch
+    ):
+        """«(5h)» becomes «(6h)» every hour: a dismissal sent with the older text still names the same people."""
+        from app.services import notification_service
+
+        await self._check_in(db_session, notif_event, "Müller Hans", hours_ago=5.5)
+        settings = NotificationSettings(fatigue_hours=4)
+        before = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+        assert before is not None and before.message.endswith("(5h)")
+        seen = before.version
+
+        class AnHourLater(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return datetime.now(tz) + timedelta(hours=1)
+
+        monkeypatch.setattr(notification_service, "datetime", AnHourLater)
+        after = await _sync_fatigue_notification(db_session, notif_event.id, settings)
+
+        assert after is not None and after.id == before.id and after.message.endswith("(6h)")
+        assert after.version == seen
 
     @pytest.mark.asyncio
     async def test_a_row_from_before_params_gets_them_on_the_next_sync(
@@ -1684,6 +1710,59 @@ class TestNotificationTypeConstraintParity:
         await db_session.commit()
 
 
+@dataclass(frozen=True)
+class MusterWarning:
+    """An open fatigue warning that names Muster, committed, while Beispiel is past the threshold
+    too: the next poll widens it. The ``muster_warning`` fixture builds it and cleans up after."""
+
+    maker: async_sessionmaker[AsyncSession]
+    event_id: UUID
+    user_id: UUID
+    warning: Notification
+    muster: str
+    beispiel: str
+
+
+@pytest_asyncio.fixture
+async def muster_warning(test_engine) -> AsyncGenerator[MusterWarning]:
+    from app.services.notification_service import fatigue_subject_key
+
+    maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
+    event_id, user_id = uuid4(), uuid4()
+    since = datetime.now(UTC) - timedelta(hours=5)
+    people = {uuid4(): "Muster Max", uuid4(): "Beispiel Bea"}
+    muster, beispiel = (fatigue_subject_key(person_id, since) for person_id in people)
+    async with maker() as setup:
+        setup.add_all(
+            [
+                Event(id=event_id, name="Muster warning", training_flag=False),
+                User(id=user_id, username=f"fatigue-{user_id}", password_hash=None, role="editor"),
+                *(Personnel(id=i, name=name, role="Sdt", status="available") for i, name in people.items()),
+            ]
+        )
+        await setup.flush()
+        setup.add_all(
+            EventAttendance(event_id=event_id, personnel_id=i, checked_in=True, checked_in_at=since) for i in people
+        )
+        warning = Notification(
+            type="personnel_fatigue",
+            severity="warning",
+            message="Lang im Einsatz: Muster Max",
+            subject_keys=[muster],
+            event_id=event_id,
+        )
+        setup.add(warning)
+        await setup.commit()
+    try:
+        yield MusterWarning(maker, event_id, user_id, warning, muster, beispiel)
+    finally:
+        async with maker() as cleanup:
+            await cleanup.execute(delete(Event).where(Event.id == event_id))
+            await cleanup.execute(delete(Personnel).where(Personnel.id.in_(list(people))))
+            await cleanup.execute(delete(User).where(User.id == user_id))
+            await cleanup.commit()
+
+
 class TestFatigueNotificationConcurrency:
     """Every board evaluates on its own poll; two at once must still leave ONE row."""
 
@@ -1751,63 +1830,65 @@ class TestFatigueNotificationConcurrency:
                 await cleanup.commit()
 
     @pytest.mark.asyncio
-    async def test_a_dismissal_committed_while_a_poll_runs_keeps_the_names_it_dismissed(self, test_engine):
+    async def test_a_dismissal_committed_while_a_poll_runs_keeps_the_names_it_dismissed(
+        self, muster_warning: MusterWarning
+    ):
         # A poll read the open warning (Muster), a dismissal of it commits (an operator, or the standby
         # sync applying one), then the poll rewrote it by id with Beispiel: acknowledged unseen.
-        from app.services.notification_service import fatigue_subject_key
-
-        maker = async_sessionmaker(bind=test_engine, expire_on_commit=False)
-        event_id, user_id = uuid4(), uuid4()
-        since = datetime.now(UTC) - timedelta(hours=5)
-        people = {uuid4(): "Muster Max", uuid4(): "Beispiel Bea"}
-        muster, beispiel = (fatigue_subject_key(person_id, since) for person_id in people)
-        async with maker() as setup:
-            setup.add_all(
-                [
-                    Event(id=event_id, name="Dismissal race", training_flag=False),
-                    User(id=user_id, username=f"fatigue-{user_id}", password_hash=None, role="editor"),
-                    *(Personnel(id=i, name=name, role="Sdt", status="available") for i, name in people.items()),
-                ]
+        maker, warning = muster_warning.maker, muster_warning.warning
+        async with maker() as dismissing, maker() as polling:
+            await dismissing.execute(
+                update(Notification)
+                .where(Notification.id == warning.id)
+                .values(dismissed=True, dismissed_by=muster_warning.user_id, dismissed_at=datetime.now(UTC))
             )
-            await setup.flush()
-            setup.add_all(
-                EventAttendance(event_id=event_id, personnel_id=i, checked_in=True, checked_in_at=since) for i in people
+            poll = asyncio.create_task(
+                _sync_fatigue_notification(polling, muster_warning.event_id, NotificationSettings(fatigue_hours=4))
             )
-            warning = Notification(
-                type="personnel_fatigue",
-                severity="warning",
-                message="Lang im Einsatz: Muster Max",
-                subject_keys=[muster],
-                event_id=event_id,
+            await wait_until_blocked(maker)
+            await dismissing.commit()
+            raised = await asyncio.wait_for(poll, timeout=10)
+
+        async with maker() as check:
+            dismissed = await check.get(Notification, warning.id)
+            assert dismissed is not None and dismissed.dismissed and dismissed.subject_keys == [muster_warning.muster]
+        assert raised is not None and raised.id != warning.id
+        assert sorted(raised.subject_keys or []) == sorted([muster_warning.muster, muster_warning.beispiel])
+
+    @pytest.mark.asyncio
+    async def test_a_dismissal_of_a_warning_a_poll_is_rewriting_is_refused(self, muster_warning: MusterWarning):
+        # The operator saw «Muster». A poll widened the row with Beispiel and the dismissal, which
+        # carried no version, acknowledged Beispiel unseen.
+        from app.services.notification_service import _sync_fatigue_locked
+        from app.utils.error_codes import DomainError, ErrorCode
+
+        maker, warning, user_id = muster_warning.maker, muster_warning.warning, muster_warning.user_id
+        seen = warning.version
+        async with maker() as polling, maker() as dismissing:
+            # The poll's rewrite, before its commit: it holds the row lock.
+            rewritten = await _sync_fatigue_locked(
+                polling, muster_warning.event_id, NotificationSettings(fatigue_hours=4), enabled=True
             )
-            setup.add(warning)
-            await setup.commit()
+            assert rewritten is not None and rewritten.id == warning.id
+            dismissal = asyncio.create_task(
+                dismiss_notification(dismissing, warning.id, user_id, expected_version=seen)
+            )
+            await wait_until_blocked(maker)
+            await polling.commit()
+            with pytest.raises(DomainError) as refused:
+                await asyncio.wait_for(dismissal, timeout=10)
+            assert refused.value.code == ErrorCode.NOTIFICATION_CHANGED
+            await dismissing.rollback()
 
-        try:
-            async with maker() as dismissing, maker() as polling:
-                await dismissing.execute(
-                    update(Notification)
-                    .where(Notification.id == warning.id)
-                    .values(dismissed=True, dismissed_by=user_id, dismissed_at=datetime.now(UTC))
-                )
-                poll = asyncio.create_task(
-                    _sync_fatigue_notification(polling, event_id, NotificationSettings(fatigue_hours=4))
-                )
-                await wait_until_blocked(maker)
-                await dismissing.commit()
-                raised = await asyncio.wait_for(poll, timeout=10)
-
-            async with maker() as check:
-                dismissed = await check.get(Notification, warning.id)
-                assert dismissed is not None and dismissed.dismissed and dismissed.subject_keys == [muster]
-            assert raised is not None and raised.id != warning.id
-            assert sorted(raised.subject_keys or []) == sorted([muster, beispiel])
-        finally:
-            async with maker() as cleanup:
-                await cleanup.execute(delete(Event).where(Event.id == event_id))
-                await cleanup.execute(delete(Personnel).where(Personnel.id.in_(list(people))))
-                await cleanup.execute(delete(User).where(User.id == user_id))
-                await cleanup.commit()
+        async with maker() as check:
+            row = await check.get(Notification, warning.id)
+            assert row is not None and not row.dismissed
+            assert sorted(row.subject_keys or []) == sorted([muster_warning.muster, muster_warning.beispiel])
+            assert await dismiss_notification(check, warning.id, user_id, expected_version=row.version) is not None
+            await check.commit()
+        async with maker() as reread:
+            row = await reread.get(Notification, warning.id)
+            assert row is not None and (row.dismissed, row.dismissed_by) == (True, user_id)
 
     @pytest.mark.asyncio
     async def test_a_poll_locks_open_warnings_in_id_order_like_the_standby_sync(self, test_engine):
@@ -1957,6 +2038,59 @@ async def test_a_standby_box_writes_no_bell_rows_into_an_ereignis_it_does_not_le
     )
     await db_session.flush()
     assert await shown() == ["field_message", "missing_location"]
+
+
+async def test_a_dismissal_locks_the_field_request_before_its_bell_row(test_engine):
+    # «Erledigt» holds the request, then takes its bell row. A dismissal that held the bell row
+    # while it waited for the request closed a deadlock cycle. No autoflush, as the app's sessions.
+    maker = async_sessionmaker(bind=test_engine, expire_on_commit=False, autoflush=False)
+    event_id, user_id, notification_id = uuid4(), uuid4(), uuid4()
+    async with maker() as setup:
+        setup.add_all(
+            [
+                Event(id=event_id, name="Dismissal lock order", training_flag=False),
+                User(id=user_id, username=f"dismiss-{user_id}", password_hash=None, role="editor"),
+            ]
+        )
+        await setup.flush()
+        incident = Incident(
+            title="Brand", type="brandbekaempfung", priority="high", status="incoming", event_id=event_id
+        )
+        setup.add(incident)
+        await setup.flush()
+        setup.add(
+            Notification(
+                id=notification_id, type="field_message", severity="info", message="Meldung", event_id=event_id
+            )
+        )
+        await setup.flush()
+        request = FieldRequest(incident_id=incident.id, kind="message", notification_id=notification_id)
+        setup.add(request)
+        await setup.commit()
+
+    try:
+        async with maker() as completing, maker() as dismissing, maker() as probe:
+            await completing.execute(select(FieldRequest).where(FieldRequest.id == request.id).with_for_update())
+            dismissal = asyncio.create_task(dismiss_notification(dismissing, notification_id, user_id))
+            await wait_until_blocked(maker)
+            # While the dismissal waits for the request, the bell row is free for «Erledigt».
+            try:
+                await probe.execute(
+                    select(Notification.id).where(Notification.id == notification_id).with_for_update(nowait=True)
+                )
+                bell_row_free = True
+            except DBAPIError:
+                bell_row_free = False
+            await probe.rollback()
+            await completing.rollback()
+            assert await asyncio.wait_for(dismissal, timeout=10) is not None
+            await dismissing.commit()
+        assert bell_row_free, "the dismissal held the bell row while it waited for the field request"
+    finally:
+        async with maker() as cleanup:
+            await cleanup.execute(delete(Event).where(Event.id == event_id))
+            await cleanup.execute(delete(User).where(User.id == user_id))
+            await cleanup.commit()
 
 
 @pytest_asyncio.fixture

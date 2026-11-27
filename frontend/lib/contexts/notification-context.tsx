@@ -9,7 +9,7 @@ import { boardDetailHref } from '@/lib/incident-detail'
 import type { FieldNudgeKind } from '@/components/kanban/field-status-nudge'
 import { useEvent } from '@/lib/contexts/event-context'
 import { useAuth } from '@/lib/contexts/auth-context'
-import { apiClient } from '@/lib/api-client'
+import { apiClient, ApiError } from '@/lib/api-client'
 import { isValidUUID } from '@/lib/utils/validation'
 import { readItem, writeItem } from '@/lib/utils/safe-storage'
 import { wsClient } from '@/lib/websocket-client'
@@ -139,13 +139,20 @@ async function fetchSettings(): Promise<NotificationSettings | null> {
   }
 }
 
-/** Two rows say the same thing – every field the bell, the sidebar or a toast reads. */
+/** The backend refused a dismissal: the row was rewritten after the operator saw it. */
+function isChangedMeanwhile(error: unknown): boolean {
+  return ApiError.isConflictError(error) && error.code === 'notification_changed'
+}
+
+/** Two rows say the same thing – every field the bell, the sidebar or a toast reads, and the
+ *  version a dismissal sends back. */
 function sameNotification(a: Notification, b: Notification): boolean {
   return (
     a.id === b.id &&
     a.type === b.type &&
     a.severity === b.severity &&
     a.message === b.message &&
+    a.version === b.version &&
     a.incident_id === b.incident_id &&
     a.dismissed === b.dismissed &&
     a.created_at.getTime() === b.created_at.getTime() &&
@@ -282,6 +289,12 @@ export function NotificationProvider({
 
 
   const eventId = selectedEvent?.id ?? null
+  // The Ereignis on screen, and a number per load: only the newest load of the current
+  // Ereignis applies. An older poll answering late would bring back a version a dismissal was
+  // just refused for; a 409 that lands after a switch would load the previous Ereignis.
+  const eventIdRef = useRef(eventId)
+  eventIdRef.current = eventId
+  const loadSeqRef = useRef(0)
 
   // Fetch notifications from backend
   const fetchNotifications = useCallback(async (): Promise<NotificationFetchResult> => {
@@ -304,72 +317,6 @@ export function NotificationProvider({
       return { status: 'failed' }
     }
   }, [authLoading, eventId, isAuthenticated])
-
-  // Dismiss a notification. Editors only – the backend refuses a viewer, so for one
-  // this (and dismissAll below) is a no-op rather than a 403 and an error toast.
-  const dismissNotification = useCallback(async (id: string) => {
-    if (!isEditor) return
-    try {
-      await apiClient.dismissNotification(id)
-      // Update local state
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, dismissed: true } : n))
-      )
-    } catch (error) {
-      console.error('Error dismissing notification:', error)
-      toast.error(translateOutsideReact('notifications.center.dismissFailedTitle'), {
-        description: translateOutsideReact('notifications.center.retryDescription'),
-      })
-    }
-  }, [isEditor])
-
-  // Dismiss all active notifications
-  const dismissAllNotifications = useCallback(async (except?: ReadonlySet<string>) => {
-    if (!isEditor) return
-    const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
-
-    if (activeNotifications.length === 0) {
-      return
-    }
-
-    try {
-      // Dismiss all notifications in parallel
-      const results = await Promise.allSettled(
-        activeNotifications.map((notification) => apiClient.dismissNotification(notification.id)),
-      )
-
-      // A rejected dismiss failed — only mark the confirmed ones as dismissed locally,
-      // otherwise they would resurrect on the next poll.
-      const dismissedIds = new Set<string>()
-      let failedCount = 0
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          dismissedIds.add(activeNotifications[index].id)
-        } else {
-          failedCount++
-        }
-      })
-
-      if (failedCount > 0) {
-        console.error(`Failed to dismiss ${failedCount} notifications`)
-        toast.error(
-          translateOutsideReact('notifications.center.dismissFailedCount', { count: failedCount }),
-          { description: translateOutsideReact('notifications.center.retryDescription') }
-        )
-      }
-
-      if (dismissedIds.size > 0) {
-        setNotifications((prev) =>
-          prev.map((n) => (dismissedIds.has(n.id) ? { ...n, dismissed: true } : n))
-        )
-      }
-    } catch (error) {
-      console.error('Error dismissing all notifications:', error)
-      toast.error(translateOutsideReact('notifications.center.dismissAllFailedTitle'), {
-        description: translateOutsideReact('notifications.center.retryDescription'),
-      })
-    }
-  }, [isEditor, notifications])
 
   // Update notification settings
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
@@ -402,7 +349,10 @@ export function NotificationProvider({
 
   // Manual refetch function
   const refetchNotifications = useCallback(async () => {
+    if (eventIdRef.current !== eventId) return
+    const seq = ++loadSeqRef.current
     const result = await fetchNotifications()
+    if (seq !== loadSeqRef.current || eventIdRef.current !== eventId) return
 
     if (result.status === 'skipped') {
       // No event, no session — an empty bell is the correct answer here, and
@@ -438,7 +388,91 @@ export function NotificationProvider({
         ),
       )
     })
-  }, [fetchNotifications, markAvailable, markUnavailable])
+  }, [eventId, fetchNotifications, markAvailable, markUnavailable])
+
+  // Dismiss a notification. Editors only – the backend refuses a viewer, so for one
+  // this (and dismissAll below) is a no-op rather than a 403 and an error toast. Each
+  // dismissal carries the version on screen: a row the poll rewrote meanwhile (a «Lang im
+  // Einsatz» warning that names somebody new) is refused, said, and shown again fresh.
+  const dismissNotification = useCallback(async (id: string) => {
+    if (!isEditor) return
+    try {
+      await apiClient.dismissNotification(id, notifications.find((n) => n.id === id)?.version)
+      // Update local state
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, dismissed: true } : n))
+      )
+    } catch (error) {
+      if (isChangedMeanwhile(error)) {
+        toast.error(translateOutsideReact('errors.codes.notification_changed'))
+        void refetchNotifications()
+        return
+      }
+      console.error('Error dismissing notification:', error)
+      toast.error(translateOutsideReact('notifications.center.dismissFailedTitle'), {
+        description: translateOutsideReact('notifications.center.retryDescription'),
+      })
+    }
+  }, [isEditor, notifications, refetchNotifications])
+
+  // Dismiss all active notifications
+  const dismissAllNotifications = useCallback(async (except?: ReadonlySet<string>) => {
+    if (!isEditor) return
+    const activeNotifications = notifications.filter((n) => !n.dismissed && !except?.has(n.id))
+
+    if (activeNotifications.length === 0) {
+      return
+    }
+
+    try {
+      // Dismiss all notifications in parallel
+      const results = await Promise.allSettled(
+        activeNotifications.map((notification) =>
+          apiClient.dismissNotification(notification.id, notification.version),
+        ),
+      )
+
+      // A rejected dismiss failed — only mark the confirmed ones as dismissed locally,
+      // otherwise they would resurrect on the next poll. One rewritten meanwhile stays
+      // open on purpose: the operator has not read its new text.
+      const dismissedIds = new Set<string>()
+      let failedCount = 0
+      let changedCount = 0
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          dismissedIds.add(activeNotifications[index].id)
+        } else if (isChangedMeanwhile(result.reason)) {
+          changedCount++
+        } else {
+          failedCount++
+        }
+      })
+
+      if (failedCount > 0) {
+        console.error(`Failed to dismiss ${failedCount} notifications`)
+        toast.error(
+          translateOutsideReact('notifications.center.dismissFailedCount', { count: failedCount }),
+          { description: translateOutsideReact('notifications.center.retryDescription') }
+        )
+      }
+
+      if (dismissedIds.size > 0) {
+        setNotifications((prev) =>
+          prev.map((n) => (dismissedIds.has(n.id) ? { ...n, dismissed: true } : n))
+        )
+      }
+
+      if (changedCount > 0) {
+        toast.error(translateOutsideReact('errors.codes.notification_changed'))
+        void refetchNotifications()
+      }
+    } catch (error) {
+      console.error('Error dismissing all notifications:', error)
+      toast.error(translateOutsideReact('notifications.center.dismissAllFailedTitle'), {
+        description: translateOutsideReact('notifications.center.retryDescription'),
+      })
+    }
+  }, [isEditor, notifications, refetchNotifications])
 
   const canFetch = !authLoading && isAuthenticated && !!eventId && isValidUUID(eventId)
 

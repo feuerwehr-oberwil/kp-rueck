@@ -5347,7 +5347,9 @@ export interface paths {
          * @description Mark notification as dismissed (Editor only).
          *
          *     Dismissal is global – it hides the notification for everyone on the board and marks a
-         *     Feld request as seen – so it is a write, not a viewer's personal preference.
+         *     Feld request as seen – so it is a write, not a viewer's personal preference. With the
+         *     `version` the bell showed, a row whose version changed since is refused (409
+         *     `notification_changed`); a rewrite that keeps the version (the hourly «5h → 6h») is not.
          */
         post: operations["dismiss_notification_api_notifications__notification_id__dismiss_post"];
         delete?: never;
@@ -10449,6 +10451,19 @@ export interface components {
             authorization_url: string;
         };
         /**
+         * NotificationDismiss
+         * @description `POST /notifications/{id}/dismiss`: the `version` the bell showed.
+         *
+         *     A row whose version changed since (a fatigue warning that names somebody new) is refused
+         *     with 409 `notification_changed`; a rewrite that keeps the version (the hourly «5h → 6h»)
+         *     is not. Without a version (an older client, a field request whose bell row
+         *     is not loaded) the dismissal is unconditional.
+         */
+        NotificationDismiss: {
+            /** Version */
+            version?: string | null;
+        };
+        /**
          * NotificationResponse
          * @description Notification response schema.
          */
@@ -10481,6 +10496,8 @@ export interface components {
             dismissed_at?: string | null;
             /** Dismissed By */
             dismissed_by?: string | null;
+            /** Version */
+            version: string;
         };
         /**
          * NotificationSettings
@@ -22295,7 +22312,11 @@ export interface operations {
                 access_token?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NotificationDismiss"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {

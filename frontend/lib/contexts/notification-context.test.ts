@@ -38,4 +38,11 @@ describe('reconcileNotifications', () => {
     expect(swapped).toEqual([prev[1], prev[0]])
     expect(swapped).not.toBe(prev)
   })
+
+  it('takes a row whose version changed under the same text', () => {
+    // A dismissal sends the version on screen; a stale one is refused again and again.
+    const prev = [row('a')]
+    const next = reconcileNotifications(prev, [row('a', { version: 'v2' })])
+    expect(next[0].version).toBe('v2')
+  })
 })

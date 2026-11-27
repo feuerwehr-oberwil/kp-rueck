@@ -731,6 +731,7 @@
       "person_still_assigned": "La personne est encore attribuée.",
       "incident_not_on_board": "Cette intervention n’est plus sur le tableau (supprimée ou fusionnée).",
       "event_not_archived": "L’événement doit être archivé avant d’être supprimé.",
+      "notification_changed": "L’annonce a changé entre-temps. Veuillez la relire.",
       "event_not_found": "Événement introuvable",
       "demo_incident_limit": "Mode démo : nombre maximal d’interventions ({max}) atteint. La démo est réinitialisée régulièrement.",
       "auftrag_not_found": "Mission introuvable ou supprimée",

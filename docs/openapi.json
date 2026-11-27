@@ -15357,7 +15357,7 @@
           "notifications"
         ],
         "summary": "Dismiss Notification",
-        "description": "Mark notification as dismissed (Editor only).\n\nDismissal is global – it hides the notification for everyone on the board and marks a\nFeld request as seen – so it is a write, not a viewer's personal preference.",
+        "description": "Mark notification as dismissed (Editor only).\n\nDismissal is global – it hides the notification for everyone on the board and marks a\nFeld request as seen – so it is a write, not a viewer's personal preference. With the\n`version` the bell showed, a row whose version changed since is refused (409\n`notification_changed`); a rewrite that keeps the version (the hourly «5h → 6h») is not.",
         "operationId": "dismiss_notification_api_notifications__notification_id__dismiss_post",
         "parameters": [
           {
@@ -15387,6 +15387,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/NotificationDismiss"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -27483,6 +27500,24 @@
         "title": "MicrosoftLoginStartResponse",
         "description": "The server-generated authorization URL; browser proof stays in an HttpOnly cookie."
       },
+      "NotificationDismiss": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "title": "NotificationDismiss",
+        "description": "`POST /notifications/{id}/dismiss`: the `version` the bell showed.\n\nA row whose version changed since (a fatigue warning that names somebody new) is refused\nwith 409 `notification_changed`; a rewrite that keeps the version (the hourly «5h → 6h»)\nis not. Without a version (an older client, a field request whose bell row\nis not loaded) the dismissal is unconditional."
+      },
       "NotificationResponse": {
         "properties": {
           "id": {
@@ -27568,6 +27603,10 @@
               }
             ],
             "title": "Dismissed By"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
           }
         },
         "type": "object",
@@ -27577,7 +27616,8 @@
           "severity",
           "message",
           "created_at",
-          "dismissed"
+          "dismissed",
+          "version"
         ],
         "title": "NotificationResponse",
         "description": "Notification response schema."
