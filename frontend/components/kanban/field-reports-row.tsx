@@ -47,9 +47,8 @@ import { DETAIL_CONTROL_INDENT, DetailGroupHeading } from '@/components/kanban/d
 import { apiClient, type ApiIncidentTimelineEvent } from '@/lib/api-client'
 import type { ApiFieldReportUpdate } from '@/lib/api/types'
 import type { Operation } from '@/lib/contexts/operations-context'
-import { useGroups } from '@/lib/contexts/groups-context'
 import { useFieldReportWrites } from '@/lib/hooks/use-field-report-writes'
-import { operationVehicleOnSite } from '@/lib/vehicle-on-site'
+import { vehicleOnSite } from '@/lib/vehicle-on-site'
 import { usePersonnel } from '@/lib/contexts/personnel-context'
 import { applyTimeEdit, toTimeInput } from '@/lib/field-time'
 import { ShellLoader, LoadingStatus } from '@/components/ui/shell-loader'
@@ -74,12 +73,11 @@ type Row = 'rekoArrived' | 'pickup'
 export function FieldReportsRow({ operation, canEdit = true, only }: FieldReportsRowProps) {
   const t = useTranslations('feld.kp')
   const { personnel } = usePersonnel()
-  const { groups, getGroupResources } = useGroups()
   const [saving, setSaving] = useState<Row | null>(null)
   // While a vehicle stands on site the crew most likely drives back itself: the
   // pickup row names it. A hint, not a lock – the pill may be wrong (owner,
   // 23.11.2026, #7).
-  const onSite = operationVehicleOnSite(operation, groups, getGroupResources)
+  const onSite = vehicleOnSite(operation)
   const [note, setNote] = useState(operation.pickupNote ?? '')
 
   const nameById = useMemo(() => new Map(personnel.map(p => [p.id, p.name])), [personnel])
@@ -150,10 +148,10 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
       // inventing one would be the guessed attribution the provenance rule
       // exists to prevent.
       line: operation.rekoArrivedAt ? t(operation.rekoArrivedByKp ? 'fromKpPlain' : 'fromRekoPlain') : null,
-      onToggle: checked => saveRekoArrived(checked ? undefined : null),
+      onToggle: checked => void saveRekoArrived(checked ? undefined : null),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.rekoArrivedAt, time)
-        if (next) saveRekoArrived(next.toISOString())
+        if (next) void saveRekoArrived(next.toISOString())
       },
     },
     {
@@ -175,10 +173,10 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
               : t('pickupVehicleOnSite', { vehicle: onSite }),
           }
         : {}),
-      onToggle: checked => save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
+      onToggle: checked => void save('pickup', { pickup_needed: checked, pickup_note: checked ? note || null : null }),
       onTimeChange: time => {
         const next = applyTimeEdit(operation.pickupRequestedAt, time)
-        if (next) save('pickup', { pickup_needed: true, pickup_note: note || null, pickup_requested_at: next.toISOString() })
+        if (next) void save('pickup', { pickup_needed: true, pickup_note: note || null, pickup_requested_at: next.toISOString() })
       },
     },
   ] as ReportRow[]).filter(row => !only || only.includes(row.key))
@@ -305,7 +303,7 @@ export function FieldReportsRow({ operation, canEdit = true, only }: FieldReport
                     onChange={e => setNote(e.target.value)}
                     onBlur={() => {
                       if ((note || '') !== (operation.pickupNote ?? '')) {
-                        save('pickup', { pickup_needed: true, pickup_note: note || null })
+                        void save('pickup', { pickup_needed: true, pickup_note: note || null })
                       }
                     }}
                     className="h-7 text-sm"

@@ -35,6 +35,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { FormMessage, formMessageId, useRequiredField } from '@/components/ui/form-message'
 import { cn } from '@/lib/utils'
 import { getApiUrl } from '@/lib/env'
+import type { Out } from '@/lib/api/wire'
 import {
   fetchDiagnostics,
   saveDiagnostics,
@@ -48,26 +49,9 @@ import {
   type FeedbackRoute,
 } from '@/lib/feedback-report'
 
-interface OutboxRow {
-  id: string
-  channel: 'error' | 'report'
-  createdAt: string | null
-  sentAt: string | null
-  attempts: number
-  lastError: string | null
-  payload: unknown
-}
-
-interface TelemetryStatus {
-  consent: 'off' | 'errors'
-  /** false = nobody has ever answered. Not the same state as a deliberate "off". */
-  decided: boolean
-  installId: string | null
-  outboundAllowed: boolean
-  ingestConfigured: boolean
-  pending: number
-  recent: OutboxRow[]
-}
+/** What this instance sends and whether it may (`GET /api/diag/telemetry`). `decided` is false
+ *  while nobody has ever answered – not the same state as a deliberate «off». */
+type TelemetryStatus = Out<'TelemetryStatus'>
 
 /** Ceiling on the description. No longer a server limit — nothing is posted any more — but a
  *  URL one: the text is prefilled into a GitHub form or a `mailto:` body, and a query string

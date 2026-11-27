@@ -47,7 +47,7 @@ export default function SetupPage() {
     // A claimed board has no setup page: back to `/`, which lands on login.
     // Unreachable backend (null) fails open into the form — the submit will
     // fail honestly if the server really is down.
-    apiClient.getSetupStatus().then((status) => {
+    void apiClient.getSetupStatus().then((status) => {
       if (status?.claimed) {
         router.replace('/');
       } else {
@@ -143,7 +143,7 @@ export default function SetupPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="station-name" className="text-sm font-semibold text-muted-foreground">
                       {t('stationNameLabel')}

@@ -275,7 +275,7 @@ export function AssignRekoDialog({
   // Load available Reko personnel when dialog opens
   useEffect(() => {
     if (open) {
-      loadAvailablePersonnel()
+      void loadAvailablePersonnel()
       setMarkMode(false)
       setPickMessage(null)
       resetMark()
@@ -502,7 +502,7 @@ export function AssignRekoDialog({
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-10">
           <p className="text-destructive">{error}</p>
-          <Button variant="outline" onClick={loadAvailablePersonnel} className="mt-4">
+          <Button variant="outline" onClick={() => void loadAvailablePersonnel()} className="mt-4">
             {t('retry')}
           </Button>
         </div>

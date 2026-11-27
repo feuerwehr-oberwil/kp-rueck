@@ -123,7 +123,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
     // resolves, the fields stay empty and the send button is disabled, so we can
     // never POST a blank message just because the fetch hadn't finished.
     let cancelled = false
-    getMessageTemplates().then(({ alarmTitle, alarmText }) => {
+    void getMessageTemplates().then(({ alarmTitle, alarmText }) => {
       if (cancelled) return
       const isTraining = selectedEvent?.training_flag ?? false
       const baseTitle = formatAlarmTitle(operation, alarmTitle)
@@ -329,7 +329,7 @@ export function DiveraSendDialog({ open, onOpenChange, operation, materials }: D
                 {t("cancel")}
               </Button>
               <Button
-                onClick={handleSend}
+                onClick={() => void handleSend()}
                 title={blockedReason ?? undefined}
                 disabled={Boolean(blockedReason) || isSending || !templatesReady}
               >

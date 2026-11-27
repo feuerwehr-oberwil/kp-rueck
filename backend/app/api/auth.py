@@ -324,14 +324,14 @@ async def refresh_token(
     return user
 
 
-@router.post("/logout", response_model=None)
+@router.post("/logout", response_model=schemas.LogoutResponse)
 async def logout(
     request: Request,
     response: Response,
     access_token: Annotated[str | None, Cookie()] = None,
     refresh_token: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
+) -> schemas.LogoutResponse:
     """
     Logout by revoking tokens and clearing cookies.
 
@@ -394,7 +394,7 @@ async def logout(
 
     response.delete_cookie(key="access_token", **cookie_kwargs)
     response.delete_cookie(key="refresh_token", **cookie_kwargs)
-    return {"message": "Erfolgreich abgemeldet"}
+    return schemas.LogoutResponse(message="Erfolgreich abgemeldet")
 
 
 @router.get("/me", response_model=schemas.UserResponse)

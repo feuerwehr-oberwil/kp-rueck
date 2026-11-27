@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SetStateAction } from 'react'
 import type { ApiIncident } from '@/lib/api-client'
 import type { BoardMutationContext } from './board-context'
-import type { Operation } from './types'
+import type { NewOperation, Operation } from './types'
 
 const api = vi.hoisted(() => ({ createIncident: vi.fn() }))
 vi.mock('@/lib/api-client', () => ({ apiClient: api, ApiError: class extends Error {} }))
@@ -39,7 +39,7 @@ function boardOnEventA() {
   return { state, context, actions: createIncidentActions(context as unknown as BoardMutationContext) }
 }
 
-const report = { location: 'Hauptstrasse 1', incidentType: 'elementarereignis', priority: 'high' } as Omit<Operation, 'id' | 'dispatchTime'>
+const report = { location: 'Hauptstrasse 1', incidentType: 'elementarereignis', priority: 'high' } as NewOperation
 
 describe('createOperation', () => {
   it('drops the answer when the board switched Ereignis while the POST was out', async () => {

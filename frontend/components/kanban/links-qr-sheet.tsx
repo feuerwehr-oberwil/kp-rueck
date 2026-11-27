@@ -135,7 +135,7 @@ export function LinksQrSheet({
     if (!open || !eventId) return
     let cancelled = false
     setLinksLoading(true)
-    Promise.all(
+    void Promise.all(
       LINK_KEYS.map(async key => {
         try {
           return [key, await generate(key, eventId)] as const
@@ -282,14 +282,14 @@ export function LinksQrSheet({
               <ExternalLink className="size-3.5" />
             </a>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleCopy(key)} disabled={!url}>
+          <Button variant="outline" size="sm" onClick={() => void handleCopy(key)} disabled={!url}>
             {copied === key ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
           </Button>
           {printerEnabled && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePrint(key)}
+              onClick={() => void handlePrint(key)}
               disabled={!url}
               title={tCommon("printQrCode")}
             >
@@ -320,10 +320,11 @@ export function LinksQrSheet({
     )
   }
 
-  const enlargedQr = enlarged && urls[enlarged] && (
+  const enlargedUrl = enlarged ? urls[enlarged] : undefined
+  const enlargedQr = enlarged && enlargedUrl && (
     <>
       <div className="rounded-lg bg-white p-3">
-        <QRCodeSVG value={urls[enlarged]!} size={240} level="M" includeMargin={false} />
+        <QRCodeSVG value={enlargedUrl} size={240} level="M" includeMargin={false} />
       </div>
       {/* The Feld QR is useless on its own now — whoever scans it is
           asked for the code next, so it belongs on the same surface. */}

@@ -216,3 +216,16 @@ class PersonnelActivity(BaseModel):
     assigned_minutes: int = 0  # Time on an incident or Auftrag since check-in (overlaps once); the rest is Pause
     current_incident_title: str | None = None  # Where they are now (short address / Auftrag name), « · »-joined
     checked_in_at: datetime | None = None
+
+
+class CheckInStats(BaseModel):
+    """The roll-call header's numbers for one Ereignis."""
+
+    #: Everybody the roll-call offers – the Mannschaft.
+    total_available: int
+    #: Present right now.
+    checked_in: int
+    #: Not present right now, whether they came and went or never came.
+    checked_out: int
+    #: Came and went. «Gegangen» is a statement, not an absence.
+    left: int

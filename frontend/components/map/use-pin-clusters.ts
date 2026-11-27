@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react"
 import type { Map as MlMap } from "maplibre-gl"
-import type { MapIncident } from "@/lib/map-incident"
+import type { LocatedIncident } from "@/lib/map-incident"
 import { STATUS_TO_GROUP } from "@/lib/types/incidents"
 import { incidentPinSize } from "@/lib/map-colors"
-import { CLUSTER_MAX_ZOOM, clusterPins, type PinCluster } from "@/lib/map-clusters"
+import { CLUSTER_MAX_ZOOM, clusterPins } from "@/lib/map-clusters"
 import { clusterableSpots, type MapSpot } from "@/lib/map-spots"
 import { CLUSTER_BUBBLE_SIZE } from "./cluster-bubble"
 import { pinBadgeCircle } from "./pin-count-badge"
 
 /** One address's pin on the Lagekarte: its incidents, their lead and its point (`lib/map-spots.ts`). */
-export type IncidentSpot = MapSpot<MapIncident>
+export type IncidentSpot = MapSpot<LocatedIncident>
 
 /** A bubble on the map: its pins' incidents, drawn at their geographic centre. */
 export interface IncidentCluster {
   key: string
   /** The spot keys merged into it – their pins and labels are left out. */
   spotKeys: string[]
-  incidents: MapIncident[]
-  lead: MapIncident
+  incidents: LocatedIncident[]
+  lead: LocatedIncident
   latitude: number
   longitude: number
 }
@@ -39,7 +39,6 @@ export function usePinClusters(
   const [clusters, setClusters] = useState<IncidentCluster[]>(NO_CLUSTERS)
   useEffect(() => {
     if (!map) return
-    const byKey = new Map(spots.map((spot) => [spot.key, spot]))
     const compute = () => {
       if (map.getZoom() >= CLUSTER_MAX_ZOOM) {
         setClusters(NO_CLUSTERS)
@@ -54,6 +53,7 @@ export function usePinClusters(
           priority: spot.lead.priority,
           statusGroup: STATUS_TO_GROUP[spot.lead.status] || "open",
           count: spot.incidents.length,
+          spot,
         }
       })
       const pinSize = incidentPinSize(false, compact)
@@ -61,13 +61,13 @@ export function usePinClusters(
         pinSize,
         bubbleSize: CLUSTER_BUBBLE_SIZE,
         badge: pinBadgeCircle(pinSize),
-      }).map((cluster: PinCluster): IncidentCluster => {
-        const joined = cluster.pins.map((pin) => byKey.get(pin.id)!)
+      }).map((cluster): IncidentCluster => {
+        const joined = cluster.pins.map((pin) => pin.spot)
         return {
           key: cluster.pins.map((pin) => pin.id).join(","),
           spotKeys: cluster.pins.map((pin) => pin.id),
           incidents: joined.flatMap((spot) => spot.incidents),
-          lead: byKey.get(cluster.lead.id)!.lead,
+          lead: cluster.lead.spot.lead,
           // The plain mean of the joined PINS – where `clusterPins` tested the bubble for
           // overlap. Weighted by incidents, a 3-incident pin would pull it onto a neighbour.
           latitude: joined.reduce((sum, spot) => sum + spot.latitude, 0) / joined.length,

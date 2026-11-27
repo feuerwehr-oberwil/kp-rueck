@@ -105,7 +105,7 @@ async function loadTransferTargets(eventId: string): Promise<Incident[]> {
 export function useIncidentDialogs() {
   const t = useTranslations("kanban")
   const { operations, isLoaded: operationsLoaded, boardNeverLoaded, materials, formatLocation, changeStatusToTop, removeMaterial, refreshOperations } = useOperations()
-  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, getGroupResources, unassignResource } = useGroups()
+  const { groups, isLoaded: groupsLoaded, loadFailed: groupsLoadFailed, unassignResource } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -114,7 +114,6 @@ export function useIncidentDialogs() {
     materials,
     groups,
     changeStatusToTop,
-    getGroupResources,
     removeMaterial,
     unassignGroupResource: unassignResource,
   })
@@ -439,9 +438,10 @@ export function IncidentDialogs({
   const pickerIncidentId = view.auftragPickerIncidentId
   const pickerIncident = pickerIncidentId ? operations.find((op) => op.id === pickerIncidentId) : undefined
   const performDistribute = (groupId: string, incidentId: string, groupName: string) => {
-    closedStopGuard.guard([incidentId], async () => {
-      const ok = await addStops(groupId, [incidentId])
-      if (ok) toast.success(tDash("distributedToast", { name: groupName }))
+    closedStopGuard.guard([incidentId], () => {
+      void addStops(groupId, [incidentId]).then((ok) => {
+        if (ok) toast.success(tDash("distributedToast", { name: groupName }))
+      })
     })
   }
   const chooseAuftrag = (groupId: string, createdName?: string) => {
@@ -513,13 +513,13 @@ export function IncidentDialogs({
               // force: the dialog has its own «Doppelbelegung? Trotzdem zuweisen»
               // confirm with the label of where the person already is. Asking
               // again through the shared prompt would be the same question twice.
-              assignPersonToOperation(personId, personName, operationId, true))}
+              void assignPersonToOperation(personId, personName, operationId, true))}
         onAssignVehicle={routeGroupId
-          ? (vehicleId) => assignVehicleToGroupWithConflict(routeGroupId, vehicleId)
+          ? (vehicleId) => void assignVehicleToGroupWithConflict(routeGroupId, vehicleId)
           : assignVehicleToIncidentWithConflict}
         onAssignMaterial={routeGroupId
           ? (materialId) => void assignGroupResource(routeGroupId, "material", materialId)
-          : ((materialId: string, operationId: string) => assignMaterialToOperation(materialId, operationId, true))}
+          : ((materialId: string, operationId: string) => void assignMaterialToOperation(materialId, operationId, true))}
         onRemovePerson={routeGroupId
           ? (_op, personnelId) => removeFromRoute("personnel", personnelId)
           : removeCrew}
@@ -556,7 +556,7 @@ export function IncidentDialogs({
         currentGroupId={pickerIncident?.groupId ?? null}
         onChoose={chooseAuftrag}
         onCreate={(name) => createGroup({ name })}
-        onRemoveFromCurrent={removeFromAuftrag}
+        onRemoveFromCurrent={() => void removeFromAuftrag()}
       />
 
       {/* Ask-first for the two distribute moves without an undo – pulling a
@@ -630,7 +630,7 @@ export function IncidentDialogs({
           availableAuftraege={groups.filter((group) =>
             auftragTakesAssignments(group.stopIds.map((id) => operations.find((o) => o.id === id))),
           )}
-          onTransfer={view.runTransfer}
+          onTransfer={(picked) => void view.runTransfer(picked)}
           isTransferring={view.isTransferring}
           resourceSummary={{
             crew: transferSource.crew.length,

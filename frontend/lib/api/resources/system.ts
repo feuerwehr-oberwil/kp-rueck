@@ -13,6 +13,8 @@ import type {
   ApiSetupStatus,
   ApiSetupClaim,
   ApiSetupResult,
+  ApiDemoOn,
+  DemoSandbox,
   DemoStatus,
 } from '../types'
 
@@ -70,7 +72,8 @@ export class SystemApi {
   }
 
   // Demo Mode
-  async getDemoStatus(): Promise<DemoStatus | null> {
+  /** The demo instance's reset schedule, or null off the demo (and when unreachable). */
+  async getDemoStatus(): Promise<ApiDemoOn | null> {
     try {
       const result = await httpRequest<DemoStatus>('/api/demo/status', { skipToast: true })
       return result.demo ? result : null
@@ -79,8 +82,8 @@ export class SystemApi {
     }
   }
 
-  async createDemoSandbox(): Promise<{ event_id: string; name: string; reused: boolean }> {
-    return httpRequest<{ event_id: string; name: string; reused: boolean }>('/api/demo/sandbox', {
+  async createDemoSandbox(): Promise<DemoSandbox> {
+    return httpRequest<DemoSandbox>('/api/demo/sandbox', {
       method: 'POST',
       skipToast: true,
     })

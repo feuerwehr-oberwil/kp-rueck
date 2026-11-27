@@ -87,7 +87,7 @@ export function DiveraIncomingBlock({
       person={person}
       canCheckIn={canCheckIn}
       busy={busy.has(person.personnel_id)}
-      onCheckIn={() => checkIn(person.personnel_id)}
+      onCheckIn={() => void checkIn(person.personnel_id)}
     />
   )
 

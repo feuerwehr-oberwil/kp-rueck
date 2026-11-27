@@ -140,12 +140,13 @@ export function MaterialSidebar({
     const readyItems = items.filter(m => !m.outOfService)
     const outOfServiceItems = items.filter(m => m.outOfService)
     const ungroupedItems = readyItems.filter(m => byType || !m.groupId)
-    const groupedItems = new Map<string, Material[]>()
+    const groupedItems = new Map<string, { group: (typeof materialGroups)[number]; materials: Material[] }>()
     for (const m of byType ? [] : readyItems.filter(m => m.groupId)) {
       const group = materialGroups.find(g => g.id === m.groupId)
       if (group) {
-        if (!groupedItems.has(group.id)) groupedItems.set(group.id, [])
-        groupedItems.get(group.id)!.push(m)
+        const entry = groupedItems.get(group.id)
+        if (entry) entry.materials.push(m)
+        else groupedItems.set(group.id, { group, materials: [m] })
       } else {
         ungroupedItems.push(m)
       }
@@ -153,8 +154,7 @@ export function MaterialSidebar({
     return (
       <div className="space-y-0.5">
         {/* Material groups/blocks */}
-        {Array.from(groupedItems.entries()).map(([groupId, groupMaterials]) => {
-          const group = materialGroups.find(g => g.id === groupId)!
+        {Array.from(groupedItems.entries()).map(([groupId, { group, materials: groupMaterials }]) => {
           const allAvailable = groupMaterials.every(m => m.status === 'available')
           const someAssigned = groupMaterials.some(m => m.status === 'assigned')
           const allAssigned = groupMaterials.every(m => m.status === 'assigned')

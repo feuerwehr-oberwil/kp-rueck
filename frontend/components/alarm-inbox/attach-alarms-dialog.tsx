@@ -206,7 +206,7 @@ export function AttachAlarmsDialog({ alarms, onClose, onAttached }: AttachAlarms
       <DuplicateHint
         candidates={shownDuplicates}
         origin={singleLat !== null && singleLng !== null ? { lat: singleLat, lng: singleLng } : null}
-        onMerge={handleMergeAttach}
+        onMerge={(candidate) => void handleMergeAttach(candidate)}
         onDismiss={() => setDismissedDuplicateKey(duplicateKey)}
         mergingId={mergingId}
         busy={attaching}
@@ -240,7 +240,7 @@ export function AttachAlarmsDialog({ alarms, onClose, onAttached }: AttachAlarms
         {t('cancel')}
       </Button>
       <Button
-        onClick={handleAttach}
+        onClick={() => void handleAttach()}
         disabled={!selectedEventId || busy}
         variant={realAlarmIntoTraining ? 'destructive' : 'default'}
       >

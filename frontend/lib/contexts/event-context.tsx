@@ -158,7 +158,7 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    refreshEvents()
+    void refreshEvents()
   }, [authLoading, isAuthenticated, refreshEvents])
 
   return (

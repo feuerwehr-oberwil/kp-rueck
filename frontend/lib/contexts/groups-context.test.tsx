@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 
-import type { ApiGroupAssignment, ApiIncidentGroup } from "@/lib/api-client"
+import type { ApiGroupAssignment, ApiIncident, ApiIncidentGroup } from "@/lib/api-client"
 
 // The Auftrag actions against the real board store: the routes load with the board
 // snapshot and every action writes them under the board's one mutation epoch.
@@ -45,6 +45,24 @@ const apiGroup = (overrides: Partial<ApiIncidentGroup> = {}): ApiIncidentGroup =
   last_announced_full: false,
   ...overrides,
 })
+
+// The fields a card needs; the rest of the wire row does not matter here.
+const apiIncident = (id: string, overrides: Partial<ApiIncident> = {}): ApiIncident =>
+  ({
+    id,
+    event_id: EVENT_ID,
+    title: `Einsatz ${id}`,
+    type: "elementarereignis",
+    priority: "medium",
+    location_address: `Hauptstrasse ${id}`,
+    location_lat: null,
+    location_lng: null,
+    status: "incoming",
+    description: "",
+    created_at: "2026-07-21T00:00:00Z",
+    updated_at: "2026-07-21T00:00:00Z",
+    ...overrides,
+  }) as ApiIncident
 
 const TLF = { id: "v1", name: "TLF", radio_call_sign: null, display_order: 1, out_of_service: false }
 
@@ -454,5 +472,43 @@ describe("what the routes mean for the board", () => {
     expect(result.current.getGroupResources(GROUP_ID).vehicles[0].name).toBe("Unbekannt")
     expect(result.current.occupiedResourceIds.personnel.has("p1")).toBe(true)
     expect(result.current.board.personnel.find((p) => p.id === "p2")?.isOnAuftrag).toBe(true)
+  })
+
+  it("puts each stop's route resources on its card, and follows an assign", async () => {
+    // «b» is a stop by the route's stopIds only: its `group_id` arrives with a later reload.
+    api.getIncidentsWithTotal.mockResolvedValue({
+      incidents: [apiIncident("a", { group_id: GROUP_ID }), apiIncident("b"), apiIncident("c")],
+      total: 3,
+    })
+    api.getIncidentGroups.mockResolvedValue([apiGroup({ stop_ids: ["a", "b"], assignments: [apiAssignment()] })])
+    const { result } = await renderLoaded()
+    const card = (id: string) => result.current.board.operations.find((op) => op.id === id)
+
+    await waitFor(() => expect(card("a")?.auftragResources?.vehicles.map((v) => v.name)).toEqual(["TLF"]))
+    expect(card("b")?.auftragResources).toBe(card("a")?.auftragResources)
+    expect(card("c")?.auftragResources).toBeNull()
+
+    const untouched = card("c")
+    api.assignGroupResource.mockResolvedValue(apiAssignment({ id: "a2", resource_type: "material", resource_id: "m1" }))
+    await act(async () => {
+      await result.current.assignResource(GROUP_ID, "material", "m1")
+    })
+    expect(card("a")?.auftragResources?.materials.map((m) => m.resourceId)).toEqual(["m1"])
+    // A card off every route keeps its identity, so its memo gate stays shut.
+    expect(card("c")).toBe(untouched)
+  })
+
+  it("keeps the card list when a route change leaves every card as it was", async () => {
+    api.getIncidentsWithTotal.mockResolvedValue({ incidents: [apiIncident("a")], total: 1 })
+    api.getIncidentGroups.mockResolvedValue([apiGroup()])
+    const { result } = await renderLoaded()
+    const before = result.current.board.operations
+
+    api.updateIncidentGroup.mockResolvedValue(apiGroup({ name: "Umbenannt" }))
+    await act(async () => {
+      await result.current.updateGroup(GROUP_ID, { name: "Umbenannt" })
+    })
+    expect(result.current.groups[0].name).toBe("Umbenannt")
+    expect(result.current.board.operations).toBe(before)
   })
 })

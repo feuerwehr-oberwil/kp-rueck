@@ -2563,7 +2563,9 @@ export interface paths {
          * Get Roster Snapshot Status
          * @description The last roster-snapshot run: outcome report, held/stale flags, the last good file.
          *
-         *     ``configured`` is false and ``status`` null on a station that never set a source.
+         *     ``configured`` is false and ``status`` null on a station that never set a source. The
+         *     status is the stored document as stored – a JSONResponse, so no model coerces or refuses
+         *     a key an older run wrote; the response_model documents it (see `schemas/integrations.py`).
          */
         get: operations["get_roster_snapshot_status_api_integrations_roster_snapshot_get"];
         put?: never;
@@ -2586,7 +2588,8 @@ export interface paths {
         /**
          * Sync Roster Snapshot
          * @description Read the roster snapshot now. A refused or held run is a 200 carrying the reason — the
-         *     report is the answer; only «no source configured» is an error.
+         *     report is the answer; only «no source configured» is an error. The stored report, as stored
+         *     (a refused run carries the previous report's keys forward), like the GET above.
          */
         post: operations["sync_roster_snapshot_api_integrations_roster_snapshot_sync_post"];
         delete?: never;
@@ -6442,6 +6445,18 @@ export interface components {
             /** Planned Until */
             planned_until?: string | null;
         };
+        /** AuditCleanupHealth */
+        AuditCleanupHealth: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "healthy" | "stopped" | "not_initialized";
+            /** Running */
+            running: boolean;
+            /** Retention Days */
+            retention_days: number;
+        };
         /**
          * AuditLogEntry
          * @description Audit log entry schema.
@@ -6818,6 +6833,36 @@ export interface components {
             event_name: string;
         };
         /**
+         * CheckInStats
+         * @description The roll-call header's numbers for one Ereignis.
+         */
+        CheckInStats: {
+            /** Total Available */
+            total_available: number;
+            /** Checked In */
+            checked_in: number;
+            /** Checked Out */
+            checked_out: number;
+            /** Left */
+            left: number;
+        };
+        /**
+         * ClientAddressResponse
+         * @description Which address the backend takes for the caller, and from where (proxy-chain check).
+         */
+        ClientAddressResponse: {
+            /** Address */
+            address: string | null;
+            /** Source */
+            source: string;
+            /** X Forwarded For */
+            x_forwarded_for: string | null;
+            /** X Real Ip */
+            x_real_ip: string | null;
+            /** Socket */
+            socket: string | null;
+        };
+        /**
          * ClientError
          * @description A bounded report of a frontend error. All fields optional/length-capped.
          */
@@ -6840,6 +6885,19 @@ export interface components {
             path?: string | null;
             /** Build */
             build?: string | null;
+        };
+        /**
+         * ComponentFailure
+         * @description A component whose check raised: the exception's type name, never its message.
+         */
+        ComponentFailure: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unhealthy" | "unknown";
+            /** Error */
+            error: string;
         };
         /**
          * ConcurrentEditor
@@ -6918,6 +6976,54 @@ export interface components {
             other_notes?: string | null;
         };
         /**
+         * DemoOff
+         * @description Not a demo instance: the banner and the reset countdown stay away.
+         */
+        DemoOff: {
+            /**
+             * Demo
+             * @constant
+             */
+            demo: false;
+        };
+        /** DemoOn */
+        DemoOn: {
+            /**
+             * Demo
+             * @constant
+             */
+            demo: true;
+            /** Next Reset */
+            next_reset: string | null;
+            /** Seconds Until Reset */
+            seconds_until_reset: number;
+            /** Reset Interval Hours */
+            reset_interval_hours: number;
+        };
+        /** DemoResetResponse */
+        DemoResetResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "reset_complete";
+        };
+        /**
+         * DemoSandboxResponse
+         * @description The visitor's own sandbox Ereignis – or, at the cap, the oldest one (`reused`).
+         */
+        DemoSandboxResponse: {
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /** Name */
+            name: string;
+            /** Reused */
+            reused: boolean;
+        };
+        /**
          * DeploymentRole
          * @description What this instance is allowed to do to the outside world (see app/environment.py).
          */
@@ -6941,6 +7047,68 @@ export interface components {
              * Format: uuid
              */
             incident_id: string;
+        };
+        /**
+         * DetailedHealthResponse
+         * @description `GET /health/detailed` (not on production).
+         */
+        DetailedHealthResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "healthy" | "degraded";
+            components: components["schemas"]["HealthComponents"];
+        };
+        /**
+         * DiagnosticsExport
+         * @description The bundle an operator attaches to a Rückmeldung (served without unset keys).
+         */
+        DiagnosticsExport: {
+            /** Generatedat */
+            generatedAt: string;
+            /** App */
+            app: string;
+            /** Release */
+            release: string;
+            /** Install */
+            install: string | null;
+            /** Device */
+            device: string;
+            /** Errors */
+            errors: components["schemas"]["RecentError"][];
+            /** Errorskept */
+            errorsKept: number;
+            /** Note */
+            note: string;
+        };
+        /**
+         * DiskReport
+         * @description Free space on the photo volume (advisory: it never changes the HTTP status).
+         */
+        DiskReport: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "low";
+            /** Free Bytes */
+            free_bytes: number;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Free Percent */
+            free_percent: number;
+        };
+        /**
+         * DiskUnknown
+         * @description The volume could not be measured.
+         */
+        DiskUnknown: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "unknown";
         };
         /**
          * DiveraAlarmRecipient
@@ -7164,6 +7332,22 @@ export interface components {
             simulated?: boolean;
         };
         /**
+         * DiveraPollingStatus
+         * @description The polling fallback, for the Verbindung indicator.
+         */
+        DiveraPollingStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Polling */
+            polling: boolean;
+            /** Last Poll */
+            last_poll: string | null;
+            /** Poll Count */
+            poll_count: number;
+            /** Error Count */
+            error_count: number;
+        };
+        /**
          * DiveraResponseKindCounts
          * @description Answers per kind, unmapped members included. One person counts once (newest alarm).
          */
@@ -7330,6 +7514,19 @@ export interface components {
             name?: string | null;
         };
         /**
+         * DiveraWebhookDuplicate
+         * @description A redelivery of an alarm already in the pool: acknowledged, nothing stored.
+         */
+        DiveraWebhookDuplicate: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Message */
+            message: string;
+        };
+        /**
          * DiveraWebhookPayload
          * @description Divera 24/7 webhook payload structure (actual format from Divera PRO).
          */
@@ -7358,6 +7555,23 @@ export interface components {
             ts_create?: number | null;
             /** Ts Update */
             ts_update?: number | null;
+        };
+        /** DiveraWebhookStored */
+        DiveraWebhookStored: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /** Message */
+            message: string;
+            /**
+             * Emergency Id
+             * Format: uuid
+             */
+            emergency_id: string;
+            /** Auto Attached Incident Id */
+            auto_attached_incident_id: string | null;
         };
         /**
          * DuplicateCandidate
@@ -8683,6 +8897,28 @@ export interface components {
             expected_status?: ("open" | "in_progress" | "done") | null;
         };
         /**
+         * FireHubEndAck
+         * @description FireHub's «Einsatzende»: noted on the incident's audit trail, nothing moved.
+         */
+        FireHubEndAck: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "ok";
+            /**
+             * Action
+             * @constant
+             */
+            action: "end";
+            /** Noted */
+            noted: boolean;
+            /** Emergency Id */
+            emergency_id: string | null;
+            /** Incident Id */
+            incident_id: string | null;
+        };
+        /**
          * FireHubOperation
          * @description The ``operation`` object of a FireHub webhook.
          *
@@ -8708,6 +8944,31 @@ export interface components {
             lat?: number | null;
             /** Lng */
             lng?: number | null;
+        };
+        /**
+         * FireHubStartAck
+         * @description FireHub's «Einsatzstart»: the generic alarm ack, plus which trigger it answers.
+         */
+        FireHubStartAck: {
+            /**
+             * Status
+             * @default ok
+             */
+            status?: string;
+            /** Created */
+            created: boolean;
+            /**
+             * Emergency Id
+             * Format: uuid
+             */
+            emergency_id: string;
+            /** Auto Attached Incident Id */
+            auto_attached_incident_id?: string | null;
+            /**
+             * Action
+             * @constant
+             */
+            action: "start";
         };
         /**
          * FireHubTrigger
@@ -8784,6 +9045,14 @@ export interface components {
         GpsSimStopRequest: {
             /** Vehicle Id */
             vehicle_id?: string | null;
+        };
+        /**
+         * GpsSimStopped
+         * @description How many simulated drives were stopped.
+         */
+        GpsSimStopped: {
+            /** Stopped */
+            stopped: number;
         };
         /**
          * GroupAnnouncementRequest
@@ -8923,6 +9192,29 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HealthComponents */
+        HealthComponents: {
+            /** Database */
+            database: components["schemas"]["PoolHealth"] | components["schemas"]["ComponentFailure"];
+            audit_pool: components["schemas"]["PoolHealth"];
+            /** Websocket */
+            websocket: components["schemas"]["WebsocketHealth"] | components["schemas"]["ComponentFailure"];
+            /** Audit Cleanup */
+            audit_cleanup: components["schemas"]["AuditCleanupHealth"] | components["schemas"]["ComponentFailure"];
+        };
+        /**
+         * HealthResponse
+         * @description `GET /health`, for load balancers and uptime monitors.
+         */
+        HealthResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "healthy";
+            /** Disk */
+            disk: components["schemas"]["DiskReport"] | components["schemas"]["DiskUnknown"];
         };
         /**
          * IncidentCreate
@@ -9467,6 +9759,11 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        /** InstallIdResult */
+        InstallIdResult: {
+            /** Installid */
+            installId: string;
+        };
         /**
          * IntakeAlarmCreated
          * @description `POST /api/intake/alarm`: the new card and the receipt that lets THIS caller read it back.
@@ -9747,6 +10044,11 @@ export interface components {
          * @description The KP's payload: one sentence, same length cap as the field's own.
          */
         KpFieldMessageCreate: {
+            /** Message */
+            message: string;
+        };
+        /** LogoutResponse */
+        LogoutResponse: {
             /** Message */
             message: string;
         };
@@ -10720,6 +11022,35 @@ export interface components {
             dismissed: boolean;
         };
         /**
+         * PoolHealth
+         * @description A database pool that answered.
+         */
+        PoolHealth: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "healthy";
+            /** Pool */
+            pool: components["schemas"]["PoolStats"] | components["schemas"]["PoolStatsUnavailable"];
+        };
+        /** PoolStats */
+        PoolStats: {
+            /** Size */
+            size: number;
+            /** Checked In */
+            checked_in: number;
+            /** Checked Out */
+            checked_out: number;
+            /** Overflow */
+            overflow: number;
+        };
+        /** PoolStatsUnavailable */
+        PoolStatsUnavailable: {
+            /** Error */
+            error: string;
+        };
+        /**
          * PrintBoardRequest
          * @description Request to print board snapshot.
          */
@@ -11449,6 +11780,28 @@ export interface components {
             present?: boolean;
         };
         /**
+         * RecentError
+         * @description One sanitised client error from the in-memory buffer (`app/telemetry/recent.py`).
+         */
+        RecentError: {
+            /** At */
+            at: string;
+            /** Kind */
+            kind: string;
+            /** Message */
+            message: string;
+            /** Stack */
+            stack: string;
+            /** Componentstack */
+            componentStack: string;
+            /** Path */
+            path: string;
+            /** Release */
+            release?: string | null;
+            /** Device */
+            device?: string | null;
+        };
+        /**
          * RegieHistoryItem
          * @description One line of «Vorhin»: a step, inject or alarm that went through the Regie.
          */
@@ -11646,6 +11999,22 @@ export interface components {
              */
             expected_ids?: string[] | null;
         };
+        /** RekoPhotoDeleted */
+        RekoPhotoDeleted: {
+            /**
+             * Success
+             * @constant
+             */
+            success: true;
+        };
+        /**
+         * RekoPhotoUploaded
+         * @description The stored name of an uploaded Reko photo (what the form keeps and later deletes).
+         */
+        RekoPhotoUploaded: {
+            /** Filename */
+            filename: string;
+        };
         /**
          * RekoReportCreate
          * @description Schema for creating Reko report.
@@ -11788,6 +12157,16 @@ export interface components {
             /** Submitted By Personnel Name */
             submitted_by_personnel_name?: string | null;
         };
+        /**
+         * RekoTransferResult
+         * @description The open Rekos moved from one person to another.
+         */
+        RekoTransferResult: {
+            /** Transferred Count */
+            transferred_count: number;
+            /** Incident Ids */
+            incident_ids: string[];
+        };
         /** ResolveIn */
         ResolveIn: {
             /**
@@ -11878,6 +12257,104 @@ export interface components {
             address?: string | null;
         };
         /**
+         * RosterLastGood
+         * @description The snapshot the roster reflects now – after a refused run, still the previous one.
+         */
+        RosterLastGood: {
+            /** Provider */
+            provider: string;
+            /** Generatedat */
+            generatedAt: string;
+            /** Sha256 */
+            sha256: string;
+            /** Count */
+            count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * RosterPostponed
+         * @description A deactivation waiting because the person is checked in or assigned on an open Ereignis.
+         */
+        RosterPostponed: {
+            /** Display Name */
+            display_name: string;
+            /** Reason */
+            reason: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * RosterSnapshotResponse
+         * @description The status card: the configuration and the last run (null on a station without one).
+         */
+        RosterSnapshotResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Intervalminutes */
+            intervalMinutes: number;
+            /** Maxdeactivatepct */
+            maxDeactivatePct: number;
+            status: components["schemas"]["RosterSnapshotStatus"] | null;
+        };
+        /**
+         * RosterSnapshotStatus
+         * @description The last roster-snapshot run, as stored.
+         */
+        RosterSnapshotStatus: {
+            /** Trigger */
+            trigger?: string | null;
+            outcome?: components["schemas"]["RosterStatusOutcome"] | null;
+            /**
+             * Unmatchedtotal
+             * @default 0
+             */
+            unmatchedTotal?: number;
+            /**
+             * Held
+             * @default false
+             */
+            held?: boolean;
+            /**
+             * Unchanged
+             * @default false
+             */
+            unchanged?: boolean;
+            /**
+             * Stale
+             * @default false
+             */
+            stale?: boolean;
+            /**
+             * Activebefore
+             * @default 0
+             */
+            activeBefore?: number;
+            /** Deactivationlimit */
+            deactivationLimit?: number | null;
+            /**
+             * Pendingdeactivations
+             * @default 0
+             */
+            pendingDeactivations?: number;
+            /** Postponed */
+            postponed?: components["schemas"]["RosterPostponed"][];
+            lastGood?: components["schemas"]["RosterLastGood"] | null;
+            /** Appliedat */
+            appliedAt?: string | null;
+            /** Lastattempt */
+            lastAttempt?: string | null;
+            /** Lastsuccess */
+            lastSuccess?: string | null;
+            /** Lasterror */
+            lastError?: string | null;
+            /** Via */
+            via?: ("index" | "direct") | null;
+            index?: components["schemas"]["StationIndexSummary"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * RosterSnapshotSyncBody
          * @description ``force`` releases a run the deactivation cap held — never the other refusals.
          */
@@ -11887,6 +12364,63 @@ export interface components {
              * @default false
              */
             force?: boolean;
+        };
+        /**
+         * RosterStatusOutcome
+         * @description The run's outcome report (`roster-snapshot-outcome/1`), its unmatched list capped.
+         */
+        RosterStatusOutcome: {
+            /**
+             * Schema
+             * @default roster-snapshot-outcome/1
+             */
+            schema?: string;
+            /** Provider */
+            provider?: string | null;
+            /** Snapshot Generated At */
+            snapshot_generated_at?: string | null;
+            /** Refused */
+            refused?: string | null;
+            /**
+             * Matched
+             * @default 0
+             */
+            matched?: number;
+            /**
+             * Created
+             * @default 0
+             */
+            created?: number;
+            /**
+             * Updated
+             * @default 0
+             */
+            updated?: number;
+            /**
+             * Deactivated
+             * @default 0
+             */
+            deactivated?: number;
+            /** Unmatched */
+            unmatched?: components["schemas"]["RosterUnmatched"][];
+            /** Unknown Ranks */
+            unknown_ranks?: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * RosterUnmatched
+         * @description One person a run could not place (`roster_snapshot.UnmatchedEntry`).
+         */
+        RosterUnmatched: {
+            /** External Id */
+            external_id?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Reason */
+            reason: string;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * SchadenplatzRapport
@@ -12383,6 +12917,35 @@ export interface components {
             /** Leads */
             leads: components["schemas"]["StandbyLead"][];
         };
+        /** StationIndexFile */
+        StationIndexFile: {
+            /** Kind */
+            kind: string;
+            /** Schema */
+            schema: string;
+            /** Read */
+            read: boolean;
+            /** Known */
+            known: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * StationIndexSummary
+         * @description The station index the run read the roster through (`station_index.summary`).
+         */
+        StationIndexSummary: {
+            /** Generatedat */
+            generatedAt: string;
+            /** Provider */
+            provider: string;
+            /** Sha256 */
+            sha256: string;
+            /** Files */
+            files: components["schemas"]["StationIndexFile"][];
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * StatusTransitionCreate
          * @description Body of POST /incidents/{id}/status.
@@ -12407,6 +12970,64 @@ export interface components {
         SyncVersion: {
             /** Version */
             version: string;
+        };
+        /** TelemetryConsentResult */
+        TelemetryConsentResult: {
+            /**
+             * Consent
+             * @enum {string}
+             */
+            consent: "off" | "errors";
+            /** Discarded */
+            discarded: number;
+        };
+        /**
+         * TelemetryOutboxRow
+         * @description A queued or sent telemetry payload, verbatim – the admin reads the actual JSON.
+         */
+        TelemetryOutboxRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Channel */
+            channel: string;
+            /** Createdat */
+            createdAt: string | null;
+            /** Sentat */
+            sentAt: string | null;
+            /** Attempts */
+            attempts: number;
+            /** Lasterror */
+            lastError: string | null;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * TelemetryStatus
+         * @description What this instance sends, and whether it may.
+         */
+        TelemetryStatus: {
+            /**
+             * Consent
+             * @enum {string}
+             */
+            consent: "off" | "errors";
+            /** Decided */
+            decided: boolean;
+            /** Installid */
+            installId: string | null;
+            /** Outboundallowed */
+            outboundAllowed: boolean;
+            /** Ingestconfigured */
+            ingestConfigured: boolean;
+            /** Pending */
+            pending: number;
+            /** Recent */
+            recent: components["schemas"]["TelemetryOutboxRow"][];
         };
         /**
          * TraccarStatusResponse
@@ -13392,6 +14013,20 @@ export interface components {
             /** Fetched At */
             fetched_at?: string | null;
         };
+        /** WebsocketHealth */
+        WebsocketHealth: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "healthy";
+            /** Connections */
+            connections: number;
+            /** Rooms */
+            rooms: {
+                [key: string]: number;
+            };
+        };
         /**
          * WsTokenResponse
          * @description A short-lived Socket.IO connect token (sweep 27 §P3.4).
@@ -13430,7 +14065,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };
@@ -13450,7 +14085,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DetailedHealthResponse"];
                 };
             };
         };
@@ -13470,7 +14105,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DeploymentRole"];
                 };
             };
         };
@@ -13490,7 +14125,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DemoOff"] | components["schemas"]["DemoOn"];
                 };
             };
         };
@@ -13512,7 +14147,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DemoSandboxResponse"];
                 };
             };
             /** @description Validation Error */
@@ -13543,7 +14178,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DemoResetResponse"];
                 };
             };
             /** @description Validation Error */
@@ -13574,7 +14209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description Validation Error */
@@ -13675,7 +14310,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description Validation Error */
@@ -13824,7 +14459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LogoutResponse"];
                 };
             };
             /** @description Validation Error */
@@ -14228,9 +14863,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DiagnosticsExport"];
                 };
             };
             /** @description Validation Error */
@@ -14261,9 +14894,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TelemetryStatus"];
                 };
             };
             /** @description Validation Error */
@@ -14298,9 +14929,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TelemetryConsentResult"];
                 };
             };
             /** @description Validation Error */
@@ -14331,9 +14960,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["InstallIdResult"];
                 };
             };
             /** @description Validation Error */
@@ -14364,9 +14991,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ClientAddressResponse"];
                 };
             };
             /** @description Validation Error */
@@ -14399,7 +15024,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DiveraWebhookStored"] | components["schemas"]["DiveraWebhookDuplicate"];
                 };
             };
             /** @description Validation Error */
@@ -14909,7 +15534,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DiveraPollingStatus"];
                 };
             };
             /** @description Validation Error */
@@ -15357,7 +15982,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FireHubStartAck"] | components["schemas"]["FireHubEndAck"];
                 };
             };
             /** @description Validation Error */
@@ -15469,7 +16094,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description Validation Error */
@@ -15502,7 +16127,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/pdf": string;
                 };
             };
             /** @description Validation Error */
@@ -15535,7 +16160,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/pdf": string;
                 };
             };
             /** @description Validation Error */
@@ -15568,7 +16193,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description Validation Error */
@@ -17239,9 +17864,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RosterSnapshotResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17276,9 +17899,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RosterSnapshotStatus"];
                 };
             };
             /** @description Validation Error */
@@ -18232,9 +18853,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CheckInStats"];
                 };
             };
             /** @description Validation Error */
@@ -19632,7 +20251,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RekoPhotoUploaded"];
                 };
             };
             /** @description Validation Error */
@@ -19668,7 +20287,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RekoPhotoDeleted"];
                 };
             };
             /** @description Validation Error */
@@ -19811,7 +20430,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RekoTransferResult"];
                 };
             };
             /** @description Validation Error */
@@ -20716,7 +21335,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "image/jpeg": string;
                 };
             };
             /** @description Validation Error */
@@ -20917,8 +21536,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "image/png": string;
                 };
+            };
+            /** @description No logo set */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -22384,7 +23010,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GpsSimStopped"];
                 };
             };
             /** @description Validation Error */

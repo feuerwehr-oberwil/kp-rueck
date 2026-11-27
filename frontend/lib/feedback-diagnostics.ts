@@ -17,21 +17,12 @@
 // that the app never shows the operator one thing and sends another holds by construction,
 // because this downloads what it displays.
 
+import type { Sparse } from '@/lib/api/wire'
 import { getApiUrl } from '@/lib/env'
 
-/** What the server hands back (`GET /api/diag/export`). Deliberately loose about `errors` —
- *  the entries are the server's shape, they travel verbatim into the file, and re-declaring
- *  them here would create a second definition to keep in sync for no gain. */
-export interface DiagnosticsBundle {
-  generatedAt: string
-  app: string
-  release: string
-  install: string | null
-  device: string
-  errors: unknown[]
-  errorsKept: number
-  note: string
-}
+/** What the server hands back (`GET /api/diag/export`); an error entry carries `release` and
+ *  `device` only when the client sent them. */
+export type DiagnosticsBundle = Sparse<'DiagnosticsExport'>
 
 /** `kp-rueck-diagnose-2026-09-10.json` — dated, so two of them in a Downloads folder are
  *  distinguishable, and prefixed with the app so a maintainer holding both apps' files can

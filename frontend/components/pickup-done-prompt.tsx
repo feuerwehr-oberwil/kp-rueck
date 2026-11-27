@@ -76,7 +76,7 @@ export function PickupDonePrompt() {
 
   useEffect(() => {
     let cancelled = false
-    apiClient.getDemoStatus().then(status => {
+    void apiClient.getDemoStatus().then(status => {
       if (!cancelled) setIsDemo(Boolean(status))
     })
     return () => {

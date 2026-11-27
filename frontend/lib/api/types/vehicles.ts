@@ -31,6 +31,8 @@ export type ApiVehiclePosition = Out<'VehiclePositionResponse'>
 /** Active simulated GPS drive (Übungssteuerung). */
 export type ApiGpsSimDrive = Out<'GpsSimDriveResponse'>
 
+export type ApiGpsSimStopped = Out<'GpsSimStopped'>
+
 export type ApiTrailPoint = Out<'TrailPointResponse'>
 
 export type ApiVehicleTrail = Out<'VehicleTrailResponse'>

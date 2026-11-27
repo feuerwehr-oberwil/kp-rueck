@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { apiClient } from "@/lib/api-client"
 import type { Material, Operation, OperationStatus } from "@/lib/contexts/operations-context"
-import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
+import type { IncidentGroup } from "@/lib/types/groups"
 import { findAuftragForStop } from "@/lib/kanban-utils"
 
 interface UseCompletionMaterialOptions {
@@ -15,7 +15,6 @@ interface UseCompletionMaterialOptions {
   /** The Auftrag runs on after this stop (`completionContinuation`): no material question. */
   midRoute: boolean
   groups: IncidentGroup[]
-  getGroupResources: (groupId: string) => GroupResources
   materials: Material[]
   changeStatusToTop: (operationId: string, status: OperationStatus, extraUpdates?: Partial<Operation>) => void
   removeMaterial: (operationId: string, materialId: string) => unknown
@@ -35,7 +34,6 @@ export function useCompletionMaterial({
   held,
   midRoute,
   groups,
-  getGroupResources,
   materials,
   changeStatusToTop,
   removeMaterial,
@@ -116,11 +114,11 @@ export function useCompletionMaterial({
     // `resolveMaterialDecision` iterates this list, so an empty one returns
     // and unassigns nothing, and the route's Geräte stay on the route.
     if (midRoute) return []
-    // The Auftrag is resolved through the routes, not through `groupId` — a
-    // just-added stop has not been told about its group yet (findAuftragForStop).
-    const auftrag = findAuftragForStop(groups, materialDecisionOperation)
-    const rows = auftrag
-      ? getGroupResources(auftrag.id).materials.map((material) => ({
+    // A stop's Geräte are its Auftrag's (`auftragResources`, resolved through the routes'
+    // stopIds – a just-added stop has not been told about its group yet).
+    const route = materialDecisionOperation.auftragResources
+    const rows = route
+      ? route.materials.map((material) => ({
           id: material.resourceId,
           assignmentId: material.assignmentId,
         }))
@@ -140,7 +138,7 @@ export function useCompletionMaterial({
         source: consumable ? ("consumable" as const) : answer ? ("rapport" as const) : null,
       }
     })
-  }, [getGroupResources, groups, materialAnswers, materialDecisionOperation, materials, midRoute])
+  }, [materialAnswers, materialDecisionOperation, materials, midRoute])
 
   /** How many units the operator genuinely still has to decide. */
   const materialDecisionOpenCount = materialDecisionItems.filter((item) => item.source === null).length

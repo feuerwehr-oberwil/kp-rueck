@@ -9,7 +9,7 @@ import { type Operation } from "@/lib/contexts/operations-context"
 import { useMaterials, type Material } from "@/lib/contexts/materials-context"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { useGroups } from "@/lib/contexts/groups-context"
-import { type IncidentGroup, type GroupResources } from "@/lib/types/groups"
+import { type IncidentGroup } from "@/lib/types/groups"
 import { useVehicleDrivers } from "@/lib/hooks/use-vehicle-drivers"
 import { columns } from "@/lib/kanban-utils"
 import { IncidentTimeRow } from "@/components/ui/incident-time"
@@ -81,7 +81,6 @@ export function IncidentDetailModal({
   onOpenChange,
   materialsOverride,
   groupsOverride,
-  groupResourcesOverride,
   viewerToken,
   showReports = false,
 }: {
@@ -90,8 +89,6 @@ export function IncidentDetailModal({
   onOpenChange: (open: boolean) => void
   materialsOverride?: Material[]
   groupsOverride?: IncidentGroup[]
-  /** groupId → route-owned resources, for token displays that have no groups context. */
-  groupResourcesOverride?: Map<string, GroupResources>
   /**
    * The share token this display was opened with, if any. Only the Reko photos
    * need it: their `<img>` carries no session cookie, so without the token the
@@ -109,7 +106,7 @@ export function IncidentDetailModal({
   // component doc. False for a viewer and for a share-token display alike.
   const { isEditor } = useAuth()
   const { materials: contextMaterials } = useMaterials()
-  const { groups: contextGroups, getGroupResources } = useGroups()
+  const { groups: contextGroups } = useGroups()
   const vehicleDrivers = useVehicleDrivers()
   // ONE fetch of the incident's history for the whole dialog — the Funkmeldungen
   // thread and the Verlauf read the same feed, exactly as the command post's two
@@ -121,12 +118,8 @@ export function IncidentDetailModal({
   const groups = groupsOverride ?? contextGroups
 
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  // Route-owned resources: from the groups context when logged in, from the
-  // caller's map on a share-token display (whose payload carries the raw
-  // Auftrag assignments but has no groups context to resolve them).
-  const auftragResources = auftrag
-    ? (groupsOverride ? groupResourcesOverride?.get(auftrag.id) ?? null : getGroupResources(auftrag.id))
-    : null
+  // Route-owned resources: on the card, from the board store or the share payload.
+  const auftragResources = operation?.auftragResources ?? null
 
   // The element that had the focus when the detail opened – see onCloseAutoFocus below.
   const openedFrom = useRef<HTMLElement | null>(null)

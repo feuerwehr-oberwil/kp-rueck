@@ -35,7 +35,7 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
   }),
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
-  useGroups: () => ({ groups: mockGroups, getGroupResources: () => null }),
+  useGroups: () => ({ groups: mockGroups }),
 }))
 // Only the «Echt-Alarm» badge reads it — the mode of the Ereignis is what turns
 // that one per-incident marker on.

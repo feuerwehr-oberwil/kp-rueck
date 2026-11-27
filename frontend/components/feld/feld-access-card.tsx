@@ -107,7 +107,7 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
   }, [eventId, key, setState])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const regenerate = async () => {
@@ -169,15 +169,14 @@ export function FeldAccessCard({ eventId, bare = false }: FeldAccessCardProps) {
             recurring case of pasting it into a chat next to the link. */}
         <button
           type="button"
-          onClick={async () => {
-            try {
-              await copyToClipboard(state.code)
-              setCopied(true)
-              toast.success(t('codeCopied'))
-              setTimeout(() => setCopied(false), 2000)
-            } catch {
-              toast.error(t('failed'))
-            }
+          onClick={() => {
+            copyToClipboard(state.code)
+              .then(() => {
+                setCopied(true)
+                toast.success(t('codeCopied'))
+                setTimeout(() => setCopied(false), 2000)
+              })
+              .catch(() => toast.error(t('failed')))
           }}
           title={t('copyCode')}
           className="group flex items-center gap-2 rounded-md text-left"

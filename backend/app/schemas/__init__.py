@@ -16,6 +16,7 @@ from .feld import *  # noqa: F403
 from .field_requests import *  # noqa: F403
 from .groups import *  # noqa: F403
 from .incidents import *  # noqa: F403
+from .integrations import *  # noqa: F403
 from .journal import *  # noqa: F403
 from .materials import *  # noqa: F403
 from .notifications import *  # noqa: F403
@@ -24,6 +25,7 @@ from .printing import *  # noqa: F403
 from .reko import *  # noqa: F403
 from .setup import *  # noqa: F403
 from .standby import *  # noqa: F403
+from .system import *  # noqa: F403
 from .training import *  # noqa: F403
 from .user import *  # noqa: F403
 from .vehicles import *  # noqa: F403

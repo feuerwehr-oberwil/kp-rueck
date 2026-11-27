@@ -149,11 +149,11 @@ export default [
     rules: { "kp/no-literal-copy": "warn" },
   },
   // A `!` hides a null the type says is possible: narrow where the value is known (a guard, an
-  // early return, a prop that takes the non-null type). Ratcheted (eslint-ratchet.json).
+  // early return, a prop that takes the non-null type). None left in product code.
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
     ignores: TESTS,
-    rules: { "@typescript-eslint/no-non-null-assertion": "warn" },
+    rules: { "@typescript-eslint/no-non-null-assertion": "error" },
   },
   // Typed lint (sweep 25.11.2026, TS.4): the rules below read the types tsconfig.json gives, so
   // every .ts/.tsx file is parsed through the TypeScript project service (about one tsc pass).
@@ -176,14 +176,15 @@ export default [
   // shows the failure. Every read rejects when no answer comes (NetworkError, lib/api/http.ts),
   // so a read is awaited, returned, caught (`.catch`, `try`) or handed to React Query – never
   // left floating in an effect or a timer, never an async function where a void callback goes
-  // (onClick, setInterval). `void p` says «this cannot reject» on purpose. Ratcheted warnings:
-  // the ones today are mostly writes and loaders that catch inside.
+  // (onClick, setInterval). `void p` says «this cannot reject» on purpose: the callee catches
+  // and says its own failure – check it, then `onClick={() => void save()}`. One that can
+  // reject gets its `.catch` (a toast or a log) where it is called. None left in product code.
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
     ignores: TESTS,
     rules: {
-      "@typescript-eslint/no-floating-promises": "warn",
-      "@typescript-eslint/no-misused-promises": "warn",
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
     },
   },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are

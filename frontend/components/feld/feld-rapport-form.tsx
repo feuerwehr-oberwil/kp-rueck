@@ -609,7 +609,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
     return (
       <div className="space-y-2">
         <p className="text-sm text-destructive">{t('loadError')}</p>
-        <Button type="button" variant="outline" size="sm" onClick={() => load()}>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
           <RefreshCw className="size-3.5" />
           {t('loadRetry')}
         </Button>
@@ -1047,7 +1047,7 @@ export function FeldRapportForm({ incidentId, transport, mount = 'feld', disable
               )}
             </div>
             {dirty && !readOnly && (
-              <Button type="button" className="w-full" disabled={isSubmitting} onClick={handleSubmit}>
+              <Button type="button" className="w-full" disabled={isSubmitting} onClick={() => void handleSubmit()}>
                 {isSubmitting ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
                 {t('sendChanges')}
               </Button>

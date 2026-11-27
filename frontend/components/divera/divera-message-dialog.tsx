@@ -277,7 +277,7 @@ export function DiveraMessageDialog({
                 {t("cancel")}
               </Button>
               <Button
-                onClick={handleSend}
+                onClick={() => void handleSend()}
                 title={blockedReason ?? undefined}
                 disabled={Boolean(blockedReason) || isSending}
               >

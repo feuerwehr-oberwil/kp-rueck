@@ -152,13 +152,13 @@ export function AuftragPickerDialog({
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") confirmCreate()
+                  if (e.key === "Enter") void confirmCreate()
                   if (e.key === "Escape") setCreating(false)
                 }}
                 placeholder={t("namePlaceholder")}
                 className="h-9 flex-1"
               />
-              <Button size="sm" onClick={confirmCreate} disabled={busy}>
+              <Button size="sm" onClick={() => void confirmCreate()} disabled={busy}>
                 {t("createConfirm")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>

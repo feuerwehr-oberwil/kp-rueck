@@ -200,10 +200,10 @@ export function AttendanceModal({
   useEffect(() => {
     if (!open) return
     setIsLoading(true)
-    load()
+    void load()
     // Live: the same `personnel_update` events the check-in link already emits, so a
     // tablet in the corridor and the board never disagree about who is here.
-    const unsubscribe = wsClient.on('personnel_update', () => load())
+    const unsubscribe = wsClient.on('personnel_update', () => void load())
     return unsubscribe
   }, [open, load])
 
@@ -238,7 +238,7 @@ export function AttendanceModal({
     } catch (error) {
       console.error('Check-in failed:', error)
       toast.error(t('writeFailed'))
-      load()
+      void load()
     }
   }
 
@@ -250,7 +250,7 @@ export function AttendanceModal({
     } catch (error) {
       console.error('Check-out failed:', error)
       toast.error(t('writeFailed'))
-      load()
+      void load()
     }
   }
 
@@ -262,7 +262,7 @@ export function AttendanceModal({
     } catch (error) {
       console.error('Clearing attendance failed:', error)
       toast.error(t('writeFailed'))
-      load()
+      void load()
     }
   }
 
@@ -386,7 +386,7 @@ export function AttendanceModal({
               person={person}
               assignedAt={person.checked_in ? (assignmentLabelFor?.(person) ?? null) : null}
               twoLines={isMobile}
-              onClick={() => cycle(person)}
+              onClick={() => void cycle(person)}
               onPlan={canCheckIn ? (kind, iso) => setPlan(person, kind, iso) : undefined}
             />
           ))}

@@ -238,7 +238,7 @@ export function useAssignmentConflicts({
       group.assignments.some((a) => a.resourceType === "vehicle" && a.resourceId === vehicleId),
     )
     if (groupConflicts.length === 0) {
-      assignVehicleToOperation(vehicleId, vehicleName, operationId)
+      void assignVehicleToOperation(vehicleId, vehicleName, operationId)
       return false
     }
     const incidentConflicts = operations.filter(

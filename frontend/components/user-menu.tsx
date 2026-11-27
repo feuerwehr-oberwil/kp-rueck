@@ -130,7 +130,7 @@ export function UserMenu({
   downloadEventExportRef.current = downloadEventExport;
   useEffect(() => {
     if (!lageblattAutoDownload || !selectedEvent || !isEditor) return;
-    const id = window.setInterval(() => downloadEventExportRef.current('lageblatt'), lageblattIntervalMin * 60 * 1000);
+    const id = window.setInterval(() => void downloadEventExportRef.current('lageblatt'), lageblattIntervalMin * 60 * 1000);
     return () => window.clearInterval(id);
   }, [lageblattAutoDownload, lageblattIntervalMin, selectedEvent, isEditor]);
   const [status, setStatus] = useState<"checking" | "connected" | "disconnected">("checking");
@@ -417,7 +417,7 @@ export function UserMenu({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    onClick={() => downloadEventExport('pdf')}
+                    onClick={() => void downloadEventExport('pdf')}
                     disabled={!selectedEvent}
                     className="cursor-pointer"
                   >
@@ -425,7 +425,7 @@ export function UserMenu({
                     <span>{t('reportPdf')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => downloadEventExport('xlsx')}
+                    onClick={() => void downloadEventExport('xlsx')}
                     disabled={!selectedEvent}
                     className="cursor-pointer"
                   >
@@ -433,7 +433,7 @@ export function UserMenu({
                     <span>{t('auditXlsx')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => downloadEventExport('lageblatt')}
+                    onClick={() => void downloadEventExport('lageblatt')}
                     disabled={!selectedEvent}
                     className="cursor-pointer"
                   >

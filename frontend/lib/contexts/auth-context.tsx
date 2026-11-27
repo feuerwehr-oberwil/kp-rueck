@@ -81,8 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearInterval(refreshIntervalRef.current);
       }
 
-      // Set up token refresh interval (7.5 hours - 30 min before 8 hour expiration)
-      refreshIntervalRef.current = setInterval(async () => {
+      // Never rejects: a failed refresh signs out.
+      const refreshSession = async () => {
         try {
           const refreshedUser = await refreshToken();
           if (refreshedUser) {
@@ -97,7 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('[Auth] Token refresh error:', error);
           setUser(null);
         }
-      }, 450 * 60 * 1000); // 7.5 hours (450 minutes - 30 min before 8 hour expiration)
+      };
+      // Set up token refresh interval (7.5 hours - 30 min before 8 hour expiration)
+      refreshIntervalRef.current = setInterval(() => void refreshSession(), 450 * 60 * 1000);
     } else {
       // User logged out - clear refresh interval
       if (refreshIntervalRef.current) {

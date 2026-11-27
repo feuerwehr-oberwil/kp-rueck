@@ -79,7 +79,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DETAIL_CONTROL_INDENT, DETAIL_MESSAGE_INDENT, DetailField, DetailFlags } from "@/components/kanban/detail-field"
 import { Axe, ChevronDown, Phone, Plus } from 'lucide-react'
-import { type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
+import { type NewOperation, type Operation, type OperationStatus } from "@/lib/contexts/operations-context"
 import { incidentTypeKeys, getIncidentTypeLabel } from "@/lib/incident-types"
 import { LocationInput } from "@/components/location/location-input"
 import {
@@ -109,14 +109,14 @@ interface NewEmergencyModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Resolves true once the card exists; false keeps the form as typed (the store toasts why). */
-  onCreateOperation: (operation: Omit<Operation, "id" | "dispatchTime">) => Promise<boolean>
+  onCreateOperation: (operation: NewOperation) => Promise<boolean>
   /** When set, the created incident is attached to this Auftrag (streamlined "+ Stop"). */
   defaultGroupId?: string | null
   /** The Ereignis the card goes into — what the duplicate lookup is scoped to. */
   eventId?: string | null
   /** «Zusammenführen»: the typed report goes into that card instead of a new one.
    *  Absent (a viewer, or a test) = no duplicate lookup at all. */
-  onMergeInto?: (operation: Omit<Operation, "id" | "dispatchTime">, targetId: string) => Promise<boolean>
+  onMergeInto?: (operation: NewOperation, targetId: string) => Promise<boolean>
 }
 
 /** A blank card. A function, not a constant: the Maps must be fresh per form. */
@@ -372,7 +372,7 @@ export function NewEmergencyModal({
               <DuplicateHint
                 candidates={shownCandidates}
                 origin={formData.coordinates ? { lat: formData.coordinates[0], lng: formData.coordinates[1] } : null}
-                onMerge={handleMerge}
+                onMerge={(candidate) => void handleMerge(candidate)}
                 onDismiss={() => setDismissedKey(duplicateKey)}
                 mergingId={mergingId}
                 showSketch={!isMobile}

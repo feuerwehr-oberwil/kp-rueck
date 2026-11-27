@@ -195,6 +195,16 @@ describe('the resources of a route on a shared display', () => {
     expect(materials[0].status).toBe('assigned')
   })
 
+  it('puts the route on its stop card by name, without the released or an unknown id', () => {
+    // veh-1 is not in the payload's fleet: a UUID on a wall is worse than nothing.
+    const [stop] = buildSituationData(withRoute).operations
+    expect(stop.auftragResources).toEqual({
+      vehicles: [],
+      personnel: [{ assignmentId: 'a-2', resourceId: 'p-route', name: 'Weber Martin', isLeader: true }],
+      materials: [],
+    })
+  })
+
   it('marks the crew of the route as on an Auftrag, not as free', () => {
     const { personnel } = buildSituationData(withRoute)
     expect(personnel.map((p) => [p.id, Boolean(p.isOnAuftrag)])).toEqual([

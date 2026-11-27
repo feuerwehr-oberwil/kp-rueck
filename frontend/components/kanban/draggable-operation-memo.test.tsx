@@ -21,8 +21,10 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/contexts/operations-context')>()),
   useOperations: () => ({ materialOnSite: new Map() }),
 }))
+// The one Auftrag the route cases below put the card on.
+const ROUTE = vi.hoisted(() => ({ id: 'auftrag-1', name: 'Sturmholz', color: null, stopIds: ['incident-1'] }))
 vi.mock('@/lib/contexts/groups-context', () => ({
-  useGroups: () => ({ groups: [], getGroupResources: () => null }),
+  useGroups: () => ({ groups: [ROUTE] }),
 }))
 vi.mock('@/lib/hooks/use-print-job-toast', () => ({ usePrintJobToast: () => vi.fn() }))
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))
@@ -89,6 +91,20 @@ function mountAndUpdate(before: Operation, after: Operation) {
 }
 
 describe('the card repaints when its content changes, not just its shape', () => {
+  it('names the route vehicle the Auftrag has now, not the one it had', () => {
+    const route = (name: string) => ({
+      vehicles: [{ assignmentId: 'ga-1', resourceId: 'v-1', name }],
+      personnel: [],
+      materials: [],
+    })
+    mountAndUpdate(
+      operation({ groupId: ROUTE.id, auftragResources: route('Pio') }),
+      operation({ groupId: ROUTE.id, auftragResources: route('MTF') }),
+    )
+    expect(screen.getByText(/· MTF/)).toBeInTheDocument()
+    expect(screen.queryByText(/· Pio/)).not.toBeInTheDocument()
+  })
+
   it('swaps a danger chip for another one — same count, different word', () => {
     mountAndUpdate(
       operation(),

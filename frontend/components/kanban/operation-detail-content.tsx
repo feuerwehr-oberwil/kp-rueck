@@ -114,7 +114,7 @@ export function OperationDetailContent({
   const { formatLocation, refreshOperations, undoMerge } = useOperations()
   const { selectedEvent } = useEvent()
   const { personnel } = usePersonnel()
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
   // Releasing a route resource here offers «Rückgängig» (lib/release-undo.ts).
   const release = useReleaseUndo()
 
@@ -128,7 +128,7 @@ export function OperationDetailContent({
   // `crud/incidents.update_incident`). Those are shown too — see
   // `OwnResourceSections`.
   const auftrag = operation?.groupId ? groups.find((g) => g.id === operation.groupId) : undefined
-  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  const auftragResources = operation?.auftragResources ?? null
   // A closed Einsatz takes nothing new (lib/assignable.ts): no «Zuweisen», no Reko, no drop target.
   const acceptsAssignments = takesAssignments(operation)
   const canAssignReko = canEdit && acceptsAssignments

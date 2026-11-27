@@ -266,7 +266,7 @@ export function useFeldRefresh(
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState !== 'visible') return
-      if (personnelId && token) reload(personnelId)
+      if (personnelId && token) void reload(personnelId)
     }
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('focus', refresh)

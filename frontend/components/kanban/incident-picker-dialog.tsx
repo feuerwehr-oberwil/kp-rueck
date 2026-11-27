@@ -580,7 +580,7 @@ export function IncidentPickerDialog({
       <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)} disabled={applying}>
         {t("cancel")}
       </Button>
-      <Button size="sm" onClick={confirm} disabled={changeCount === 0 || applying}>
+      <Button size="sm" onClick={() => void confirm()} disabled={changeCount === 0 || applying}>
         {t("apply")}
       </Button>
     </DialogFooter>

@@ -14,9 +14,6 @@ vi.mock('@/lib/contexts/personnel-context', () => ({
   usePersonnel: () => ({ personnel: [crew] }),
 }))
 vi.mock('@/lib/api-client', () => ({ apiClient: { setIncidentFieldReport: vi.fn() } }))
-vi.mock('@/lib/contexts/groups-context', () => ({
-  useGroups: () => ({ groups: [], getGroupResources: () => ({ vehicles: [], personnel: [], materials: [] }) }),
-}))
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 import { FieldMessageThread, FieldReportsRow } from '@/components/kanban/field-reports-row'

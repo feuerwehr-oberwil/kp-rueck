@@ -340,7 +340,7 @@ export default function SettingsPage() {
   // Demo mode detection
   const [demoMode, setDemoMode] = useState(false);
   useEffect(() => {
-    apiClient.getDemoStatus().then((status) => setDemoMode(status?.demo === true));
+    void apiClient.getDemoStatus().then((status) => setDemoMode(status?.demo === true));
   }, []);
 
   // The audit section: export, log, filters — see use-audit-log. Called here so
@@ -480,7 +480,7 @@ export default function SettingsPage() {
               ) : error ? (
                 <div className="pt-3">
                   <p className="text-destructive">{error}</p>
-                  <Button onClick={stationSettings.reload} className="mt-4">{t('common.retry')}</Button>
+                  <Button onClick={() => void stationSettings.reload()} className="mt-4">{t('common.retry')}</Button>
                 </div>
               ) : (
                 <DemoLock active={demoMode}>
@@ -563,7 +563,7 @@ export default function SettingsPage() {
                         size="xs"
                         className="text-muted-foreground"
                         disabled={!isEditor || isCurrentlySaving || value === field.fallback}
-                        onClick={() => updateSetting(field.key, field.fallback)}
+                        onClick={() => void updateSetting(field.key, field.fallback)}
                       >
                         {t('common.reset')}
                       </Button>
@@ -577,7 +577,7 @@ export default function SettingsPage() {
                       onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
                       onBlur={(e) => {
                         if (e.target.value !== (serverSettings[field.key] ?? field.fallback)) {
-                          updateSetting(field.key, e.target.value);
+                          void updateSetting(field.key, e.target.value);
                         }
                       }}
                       disabled={!isEditor || isCurrentlySaving}
@@ -620,7 +620,7 @@ export default function SettingsPage() {
                         size="xs"
                         className="text-muted-foreground"
                         disabled={!isEditor || isCurrentlySaving || value === fallback}
-                        onClick={() => updateSetting(key, fallback)}
+                        onClick={() => void updateSetting(key, fallback)}
                       >
                         {t('common.reset')}
                       </Button>
@@ -634,7 +634,7 @@ export default function SettingsPage() {
                       onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
                       onBlur={(e) => {
                         if (e.target.value !== (serverSettings[key] ?? fallback)) {
-                          updateSetting(key, e.target.value);
+                          void updateSetting(key, e.target.value);
                         }
                       }}
                       disabled={!isEditor || isCurrentlySaving}
@@ -710,7 +710,7 @@ export default function SettingsPage() {
                         size="xs"
                         className="text-muted-foreground"
                         disabled={!isEditor || isCurrentlySaving || value === fallback}
-                        onClick={() => updateSetting(key, fallback)}
+                        onClick={() => void updateSetting(key, fallback)}
                       >
                         {t('common.reset')}
                       </Button>
@@ -724,7 +724,7 @@ export default function SettingsPage() {
                       onChange={(e) => setSettings((prev) => ({ ...prev, [key]: e.target.value }))}
                       onBlur={(e) => {
                         if (e.target.value !== (serverSettings[key] ?? fallback)) {
-                          updateSetting(key, e.target.value);
+                          void updateSetting(key, e.target.value);
                         }
                       }}
                       disabled={!isEditor || isCurrentlySaving}

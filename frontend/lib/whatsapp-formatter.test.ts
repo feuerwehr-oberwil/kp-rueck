@@ -17,10 +17,9 @@ const routeResources = {
 describe("formatWhatsAppMessage — vehicles without a driver", () => {
   it("says «ohne Fahrer» for Einsatz and Auftrag vehicles alike when the driver map is known", () => {
     const message = formatWhatsAppMessage({
-      operation,
+      operation: { ...operation, auftragResources: routeResources },
       materials: [],
       vehicleDrivers: new Map([["v-TLF", { name: "Meier", personnelId: "p-meier" }]]),
-      groupResources: routeResources,
       template: "{vehicles}",
     })
     expect(message).toContain("TLF (Fahrer: Meier)")
@@ -45,9 +44,12 @@ describe("formatWhatsAppMessage — vehicles without a driver", () => {
 
   it("names an Auftrag vehicle with its call sign", () => {
     const message = formatWhatsAppMessage({
-      operation: { ...operation, vehicles: [] },
+      operation: {
+        ...operation,
+        vehicles: [],
+        auftragResources: { ...routeResources, vehicles: [{ assignmentId: "a1", resourceId: "v2", name: "Pio", callsign: "Omega 3" }] },
+      },
       materials: [],
-      groupResources: { ...routeResources, vehicles: [{ assignmentId: "a1", resourceId: "v2", name: "Pio", callsign: "Omega 3" }] },
       template: "{vehicles}",
     })
     expect(message).toContain("Pio · Omega 3")

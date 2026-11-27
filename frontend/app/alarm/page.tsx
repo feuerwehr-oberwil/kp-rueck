@@ -721,7 +721,7 @@ function AlarmForm({ token, eventName, trainingFlag, initial, editing, onCancel,
         {errorBox}
 
         <div className="space-y-2">
-          <Button size="lg" className="w-full text-base" onClick={handleSubmit} disabled={submitting}>
+          <Button size="lg" className="w-full text-base" onClick={() => void handleSubmit()} disabled={submitting}>
             {submitting ? (
               <>
                 <ShellLoader className="h-5 w-5" />

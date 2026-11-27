@@ -14,7 +14,8 @@ interface UseKanbanDragDropProps {
   updateOperation: (id: string, updates: Partial<Operation>) => void
   reorderColumn: (orderedIds: string[]) => void
   assignPersonToOperation: (personId: string, personName: string, operationId: string) => void
-  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => void
+  /** Never rejects: a failed assign rolls back and toasts. */
+  assignRekoPersonToOperation: (personId: string, personName: string, operationId: string) => Promise<void>
   assignMaterialToOperation: (materialId: string, operationId: string) => void
   assignVehicleToOperation?: (vehicleId: string, vehicleName: string, operationId: string) => void
   onOperationDrop?: (operationId: string) => void
@@ -120,7 +121,7 @@ export function applyResourceDrop(
       // Same rule as the Auftrag row above: nothing is refused here, the
       // wrapper asks.
       if (sourceData.type === "person" && sourceData.person.isReko) {
-        assignRekoPersonToOperation(sourceData.person.id, sourceData.person.name, targetOp.id)
+        void assignRekoPersonToOperation(sourceData.person.id, sourceData.person.name, targetOp.id)
       } else {
         assignToGroup(sourceData, groupId, assignGroupResource)
       }
@@ -133,7 +134,7 @@ export function applyResourceDrop(
     const { person } = sourceData
     // Reko personnel are assigned differently (to the reko slot, not crew)
     if (person.isReko) {
-      assignRekoPersonToOperation(person.id, person.name, operationId)
+      void assignRekoPersonToOperation(person.id, person.name, operationId)
     } else {
       assignPersonToOperation(person.id, person.name, operationId)
     }

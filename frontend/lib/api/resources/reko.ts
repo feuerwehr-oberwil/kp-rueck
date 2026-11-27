@@ -15,6 +15,8 @@ import type {
   ApiEventRekoSummariesResponse,
   ApiAvailableRekoPersonnelResponse,
   ApiShareLink,
+  ApiRekoPhotoUploaded,
+  ApiRekoTransferResult,
 } from '../types'
 import { uploadPhotoFile, type PhotoUploadProgress } from './upload'
 
@@ -109,8 +111,8 @@ export class RekoApi {
     token: string,
     file: File,
     onProgress?: PhotoUploadProgress,
-  ): Promise<{ filename: string }> {
-    return uploadPhotoFile<{ filename: string }>(
+  ): Promise<ApiRekoPhotoUploaded> {
+    return uploadPhotoFile<ApiRekoPhotoUploaded>(
       `/api/reko/${incidentId}/photos`,
       file,
       { 'X-Reko-Token': token },
@@ -121,8 +123,8 @@ export class RekoApi {
   /** The board's door onto the same upload – the WhatsApp-photo case. No token:
    *  the session identifies the operator. The photo lands on the Einsatz's one
    *  report (created as a draft when there is none yet). */
-  async uploadRekoPhotoAsEditor(incidentId: string, file: File): Promise<{ filename: string }> {
-    return uploadPhotoFile<{ filename: string }>(`/api/reko/${incidentId}/photos`, file)
+  async uploadRekoPhotoAsEditor(incidentId: string, file: File): Promise<ApiRekoPhotoUploaded> {
+    return uploadPhotoFile<ApiRekoPhotoUploaded>(`/api/reko/${incidentId}/photos`, file)
   }
 
   async deleteRekoPhoto(incidentId: string, token: string, filename: string): Promise<void> {
@@ -201,8 +203,8 @@ export class RekoApi {
     fromPersonnelId: string,
     toPersonnelId: string,
     eventId: string,
-  ): Promise<{ transferred_count: number; incident_ids: string[] }> {
-    return httpRequest<{ transferred_count: number; incident_ids: string[] }>(
+  ): Promise<ApiRekoTransferResult> {
+    return httpRequest<ApiRekoTransferResult>(
       `/api/reko/transfer-rekos?from_personnel_id=${encodeURIComponent(fromPersonnelId)}&to_personnel_id=${encodeURIComponent(toPersonnelId)}&event_id=${encodeURIComponent(eventId)}`,
       {
         method: 'POST',

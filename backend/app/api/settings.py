@@ -35,7 +35,14 @@ async def get_all_settings(current_user: CurrentUser, db: AsyncSession = Depends
 # ---------------------------------------------------------------------------
 
 
-@router.get("/branding/logo")
+@router.get(
+    "/branding/logo",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}},
+        404: {"description": "No logo set"},
+    },
+)
 async def get_report_logo(current_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Response:
     """The station logo as a PNG, or 404 when none is set."""
     png = await branding.get_report_logo(db)

@@ -11,6 +11,7 @@ import type { Operation } from "@/lib/contexts/operations-context"
 import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
 import { renderWithIntl } from "@/test-utils/render-with-intl"
 import { crewMember, assignedVehicle, makeOperation } from "@/test-utils/operation-fixtures"
+import { withAuftragResources } from "@/lib/contexts/operations/reconcile"
 
 /**
  * «Ressourcen fehlen» — press twice (owner pick UX-DESKTOP-09 B, + C's «Zu Fuss»).
@@ -56,11 +57,11 @@ function renderGate(initial: Operation, { groups = [], route = noRoute }: { grou
   function Harness() {
     const [current, setCurrent] = useState(initial)
     const controller = useIncidentStatusWorkflow({
-      operations: [current],
+      // The board store's pass: a stop of a route carries that route's resources.
+      operations: withAuftragResources([current], groups, new Map(groups.map((group) => [group.id, route]))),
       materials: [],
       groups,
       changeStatusToTop,
-      getGroupResources: () => route,
       removeMaterial: vi.fn(),
       unassignGroupResource: vi.fn(),
     })

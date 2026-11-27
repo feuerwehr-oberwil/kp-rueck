@@ -22,7 +22,7 @@ vi.mock('@/lib/contexts/operations-context', async (importOriginal) => ({
   useOperations: () => ({ materialOnSite: new Map() }),
 }))
 vi.mock('@/lib/contexts/groups-context', () => ({
-  useGroups: () => ({ groups: [], getGroupResources: () => null }),
+  useGroups: () => ({ groups: [] }),
 }))
 vi.mock('@/lib/hooks/use-print-job-toast', () => ({ usePrintJobToast: () => vi.fn() }))
 vi.mock('@/lib/api-client', () => ({ apiClient: {} }))

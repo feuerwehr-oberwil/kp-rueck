@@ -119,7 +119,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
 
   // The modules load once on mount, after the rows (`useArchivableInventory`).
   useEffect(() => {
-    loadGroups();
+    void loadGroups();
   }, []);
 
   const loadGroups = async () => {
@@ -194,13 +194,14 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
       // the location it used to sit in.
       if (material.archived_at) return;
       const location = material.location || '';
-      if (!locationMap.has(location)) {
-        locationMap.set(location, {
-          sort_order: material.location_sort_order,
-          count: 0,
-        });
+      let current = locationMap.get(location);
+      if (!current) {
+        current = {
+        sort_order: material.location_sort_order,
+        count: 0,
+      };
+        locationMap.set(location, current);
       }
-      const current = locationMap.get(location)!;
       current.count++;
     });
 
@@ -274,7 +275,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
                     `fieldState` off the Controller render props carries the validation
                     message, so the row needs neither FormItem nor FormMessage. */}
                 <Form {...form}>
-                  <form onSubmit={onSubmit} className="space-y-1 py-2" noValidate>
+                  <form onSubmit={(e) => void onSubmit(e)} className="space-y-1 py-2" noValidate>
                     <FormField
                       control={form.control}
                       name="name"
@@ -515,7 +516,7 @@ export function MaterialSettings({ demoMode = false }: { demoMode?: boolean }) {
             <MaterialGroupSettings
               groups={materialGroups}
               materials={materials}
-              onRefresh={() => { loadGroups(); inventory.reload(); }}
+              onRefresh={() => { void loadGroups(); void inventory.reload(); }}
             />
           </DemoLock>
         </TabsContent>

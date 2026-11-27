@@ -64,8 +64,9 @@ export function DisponierTransitionDialog({
 }: DisponiertTransitionDialogProps) {
   const t = useTranslations('kanban')
   const tPrint = useTranslations('print.toasts')
+  const tWhatsapp = useTranslations('notifications.whatsapp')
   const trackPrint = usePrintJobToast()
-  const { groups, getGroupResources, recordAnnouncement } = useGroups()
+  const { groups, recordAnnouncement } = useGroups()
   const { operations, changeStatusToTop, requestVehicleDriver } = useOperations()
   const { text: personText } = usePersonNaming()
   // Driver names weren't reaching the message before (the prop was never passed),
@@ -86,7 +87,7 @@ export function DisponierTransitionDialog({
   // them. Resolve the route's resources + stop position so both the Funkdurchsage
   // and the WhatsApp message reflect what's actually assigned.
   const auftrag = findAuftragForStop(groups, operation)
-  const groupRes = auftrag ? getGroupResources(auftrag.id) : null
+  const groupRes = operation?.auftragResources ?? null
   const addressPlaceholder = t('disponiert.addressPlaceholder')
 
   const radio = useMemo(() => {
@@ -176,18 +177,23 @@ export function DisponierTransitionDialog({
     : null
 
   const handleCopyWhatsApp = async () => {
-    const { whatsappIncident } = await getMessageTemplates()
-    const message = formatWhatsAppMessage({
-      operation,
-      materials,
-      // Only a loaded map may say «ohne Fahrer»; before that nothing is known.
-      vehicleDrivers: driversKnown ? effectiveVehicleDrivers : undefined,
-      groupResources: groupRes,
-      auftrag: auftragCtx,
-      template: whatsappIncident,
-      personText,
-    })
-    await copyToClipboard(message)
+    try {
+      const { whatsappIncident } = await getMessageTemplates()
+      const message = formatWhatsAppMessage({
+        operation,
+        materials,
+        // Only a loaded map may say «ohne Fahrer»; before that nothing is known.
+        vehicleDrivers: driversKnown ? effectiveVehicleDrivers : undefined,
+        auftrag: auftragCtx,
+        template: whatsappIncident,
+        personText,
+      })
+      await copyToClipboard(message)
+    } catch (error) {
+      console.error('Failed to copy WhatsApp message:', error)
+      toast.error(tWhatsapp('copyFailedTitle'), { description: tWhatsapp('copyFailedDescription') })
+      return
+    }
     setWhatsappCopied(true)
     toast.success(t('disponiert.whatsappCopied'))
     setTimeout(() => setWhatsappCopied(false), 2000)
@@ -326,7 +332,7 @@ export function DisponierTransitionDialog({
             <Button
               variant="outline"
               className="justify-start gap-2"
-              onClick={handleCopyWhatsApp}
+              onClick={() => void handleCopyWhatsApp()}
             >
               {whatsappCopied ? (
                 <Check className="h-4 w-4 text-success" />
@@ -340,7 +346,7 @@ export function DisponierTransitionDialog({
               <Button
                 variant="outline"
                 className="justify-start gap-2"
-                onClick={handlePrint}
+                onClick={() => void handlePrint()}
                 disabled={isPrinting}
               >
                 <Printer className="h-4 w-4" />

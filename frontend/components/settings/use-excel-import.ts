@@ -55,7 +55,7 @@ export function useExcelImport(activeSection: string, isEditor: boolean) {
 
   useEffect(() => {
     if (activeSection === 'import' && isEditor) {
-      fetchStock();
+      void fetchStock();
     }
   }, [activeSection, isEditor]);
 
@@ -125,7 +125,7 @@ export function useExcelImport(activeSection: string, isEditor: boolean) {
       setSelectedFile(null);
       setPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      fetchStock();
+      void fetchStock();
     } catch (err) {
       setImportError(err instanceof Error ? err.message : t('page.errors.importFailed'));
     } finally {

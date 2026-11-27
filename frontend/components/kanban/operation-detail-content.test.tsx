@@ -44,15 +44,10 @@ vi.mock("@/lib/contexts/materials-context", () => ({
 }))
 // Mutable Auftrag state, re-seeded per test: most of this file runs on a
 // standalone incident (no group), the provenance-block tests below put one in.
-type GroupsState = { groups: unknown[]; resources: Record<"vehicles" | "personnel" | "materials", unknown[]> }
-const groupsState = vi.hoisted((): GroupsState => ({
-  groups: [],
-  resources: { vehicles: [], personnel: [], materials: [] },
-}))
+const groupsState = vi.hoisted(() => ({ groups: [] as unknown[] }))
 vi.mock("@/lib/contexts/groups-context", () => ({
   useGroups: () => ({
     groups: groupsState.groups,
-    getGroupResources: () => groupsState.resources,
     unassignResource: vi.fn(),
   }),
 }))
@@ -160,7 +155,6 @@ const storage = new Map<string, string>()
 
 beforeEach(() => {
   groupsState.groups = []
-  groupsState.resources = { vehicles: [], personnel: [], materials: [] }
   storage.clear()
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => storage.get(key) ?? null,
@@ -887,15 +881,15 @@ describe("OperationDetailContent · Herkunft der Ressourcen", () => {
     crew: [{ personnelId: "p-beat", assignmentId: "a1", name: "Beat Kunz" }],
     materials: ["mat-1"],
     materialAssignments: new Map([["mat-1", "a2"]]),
+    auftragResources: {
+      vehicles: [],
+      personnel: [{ assignmentId: "ga1", resourceId: "p1", name: "Simon Keller", isLeader: true }],
+      materials: [{ assignmentId: "ga2", resourceId: "m9", name: "Generator" }],
+    },
   })
 
   const seedAuftrag = () => {
     groupsState.groups = [auftrag]
-    groupsState.resources = {
-      vehicles: [],
-      personnel: [{ assignmentId: "ga1", resourceId: "p1", name: "Simon Keller", isLeader: true }],
-      materials: [{ assignmentId: "ga2", resourceId: "m9", name: "Generator" }],
-    }
   }
 
   it("says the Auftrag once — not once per section", () => {

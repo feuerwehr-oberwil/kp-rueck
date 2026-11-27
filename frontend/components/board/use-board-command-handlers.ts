@@ -111,7 +111,7 @@ export function useBoardCommandHandlers({
     registerHandlers({
       onNewOperation: () => setNewEmergencyModalOpen(true),
       onRefresh: () => {
-        refreshOperations()
+        void refreshOperations()
       },
       onToggleLeftSidebar: () => setShowLeftSidebar(prev => !prev),
       onToggleRightSidebar: () => setShowRightSidebar(prev => !prev),
@@ -168,7 +168,7 @@ export function useBoardCommandHandlers({
         }
       },
       onDeleteIncident: () => {
-        if (selectedOperationId) handleRequestDelete(selectedOperationId)
+        if (selectedOperationId) void handleRequestDelete(selectedOperationId)
       },
       onMoveStatusForward: () => {
         if (selectedOperationId) {
@@ -286,7 +286,7 @@ export function useBoardCommandHandlers({
       onOpenDetail: (op) => {
         openIncidentDetail(op.id)
       },
-      onRequestDelete: (op) => handleRequestDelete(op.id),
+      onRequestDelete: (op) => void handleRequestDelete(op.id),
       onOpenNewEmergency: () => setNewEmergencyModalOpen(true),
       onFocusSearch: () => document.getElementById('search-input')?.focus(),
       onFocusPersonnel: () => {

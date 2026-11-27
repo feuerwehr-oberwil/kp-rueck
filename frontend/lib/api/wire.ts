@@ -18,6 +18,10 @@ export type Served<T> = T extends readonly (infer U)[] ? Served<U>[]
 /** A response model, as served. */
 export type Out<N extends keyof Schemas> = Served<Schemas[N]>
 
+/** A response the route serves with `response_model_exclude_unset` (a stored document): a
+ *  field the schema marks optional may be absent, exactly as the schema says. */
+export type Sparse<N extends keyof Schemas> = Schemas[N]
+
 /** A request model, as the client may write it (a defaulted field may be left out). */
 export type In<N extends keyof Schemas> = Schemas[N]
 

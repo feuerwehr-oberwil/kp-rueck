@@ -489,3 +489,34 @@ WHATSAPP_MESSAGE_1
 WHATSAPP_MESSAGE_2
 CHECKLIST_HIDDEN_TASKS
 CHECKLIST_NOTES
+
+# Response-model fields: the route returns a dict and FastAPI's response_model validates it by
+# key, so no Python code names the field (PR #436 typed these routes).
+noted  # unused variable (app/schemas/alarms.py:111)
+polling  # unused variable (app/schemas/divera.py:342)
+last_poll  # unused variable (app/schemas/divera.py:344)
+poll_count  # unused variable (app/schemas/divera.py:345)
+unmatched_total  # unused variable (app/schemas/integrations.py:93)
+pending_deactivations  # unused variable (app/schemas/integrations.py:100)
+last_attempt  # unused variable (app/schemas/integrations.py:104)
+last_success  # unused variable (app/schemas/integrations.py:105)
+interval_minutes  # unused variable (app/schemas/integrations.py:118)
+free_bytes  # unused variable (app/schemas/system.py:20)
+total_bytes  # unused variable (app/schemas/system.py:21)
+free_percent  # unused variable (app/schemas/system.py:22)
+disk  # unused variable (app/schemas/system.py:35)
+connections  # unused variable (app/schemas/system.py:58)
+rooms  # unused variable (app/schemas/system.py:59)
+database  # unused variable (app/schemas/system.py:76)
+audit_pool  # unused variable (app/schemas/system.py:77)
+websocket  # unused variable (app/schemas/system.py:78)
+components  # unused variable (app/schemas/system.py:86)
+reset_interval_hours  # unused variable (app/schemas/system.py:103)
+reused  # unused variable (app/schemas/system.py:114)
+errors_kept  # unused variable (app/schemas/system.py:159)
+decided  # unused variable (app/schemas/system.py:185)
+outbound_allowed  # unused variable (app/schemas/system.py:188)
+ingest_configured  # unused variable (app/schemas/system.py:189)
+x_forwarded_for  # unused variable (app/schemas/system.py:211)
+x_real_ip  # unused variable (app/schemas/system.py:212)
+socket  # unused variable (app/schemas/system.py:213)

@@ -57,7 +57,10 @@ Integrations: `/api/integrations` (GET) – capability registry (which provider 
 
 Full docs: [`openapi.json`](openapi.json) – the committed contract. To regenerate it, run
 `just openapi` (a pytest fails when it drifts; it also regenerates the frontend's
-`lib/api/schema.d.ts`). Live Swagger UI while the backend runs:
+`lib/api/schema.d.ts`). Every JSON route has a `response_model` and a download names its
+content type (`tests/test_openapi_typed.py`); a body with two forms is a union of models, a
+stored document whose keys vary is served with `response_model_exclude_unset=True`. Live
+Swagger UI while the backend runs:
 http://localhost:8000/docs
 
 **Integration seams** (provider-neutral, see [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)):

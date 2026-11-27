@@ -69,7 +69,7 @@ export function useBoardDispatch({
   } = useOperations()
   const { personnel } = usePersonnel()
   const { materials } = useMaterials()
-  const { groups, getGroupResources, unassignResource: unassignGroupResource } = useGroups()
+  const { groups, unassignResource: unassignGroupResource } = useGroups()
   const release = useReleaseUndo()
   // The run reads the board as it is when a step lands, not as it was at ↵.
   const operationsRef = useRef(operations)
@@ -155,7 +155,6 @@ export function useBoardDispatch({
 
   const runDispatch = useCommandDispatch({
     getOperation: (operationId) => operationsRef.current.find((op) => op.id === operationId),
-    getGroupResources,
     // The Doppelbelegung prompt and the driver prompt a vehicle raises when it
     // lands without a driver — each waits for the one before it — and the
     // context's own signal that an assignment may still ask (driver check,

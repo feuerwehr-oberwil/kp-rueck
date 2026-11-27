@@ -101,7 +101,7 @@ export function FallbackSettings({
             id="fallback-auto-print"
             checked={autoPrint}
             title={printerMissing ?? undefined}
-            onCheckedChange={handleAutoPrintToggle}
+            onCheckedChange={(on) => void handleAutoPrintToggle(on)}
             disabled={!loaded || !printerConfigured || isSaving('fallback.auto_print_enabled')}
           />
         </SettingRow>
@@ -121,7 +121,7 @@ export function FallbackSettings({
                 max={120}
                 value={interval}
                 onChange={(e) => setIntervalMin(e.target.value)}
-                onBlur={(e) => handleIntervalBlur(e.target.value)}
+                onBlur={(e) => void handleIntervalBlur(e.target.value)}
                 disabled={isSaving('fallback.auto_print_interval_min')}
               />
               <SettingSaveLine
@@ -155,7 +155,7 @@ export function FallbackSettings({
         hint={`${t('fallback.manualHint')}${!selectedEvent ? t('fallback.manualNoEvent') : ''}`}
         icon={<ClipboardList className="size-3.5 text-muted-foreground" />}
       >
-        <Button variant="outline" size="sm" onClick={handleManualDownload} disabled={!selectedEvent || downloading}>
+        <Button variant="outline" size="sm" onClick={() => void handleManualDownload()} disabled={!selectedEvent || downloading}>
           {t('fallback.downloadButton')}
         </Button>
       </SettingRow>

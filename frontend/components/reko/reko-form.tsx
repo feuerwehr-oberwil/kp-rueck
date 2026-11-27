@@ -599,7 +599,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
               size="lg"
               className="h-12 shrink-0"
               disabled={isMarkingArrived}
-              onClick={handleMarkArrived}
+              onClick={() => void handleMarkArrived()}
             >
               {isMarkingArrived ? <ShellLoader className="h-5 w-5" /> : <MapPin className="h-5 w-5" />}
               {t('imOnSite')}
@@ -654,7 +654,7 @@ function FieldReport({ incidentId, token, personnelId, returnTo }: {
                       : serverHasReport ? t('kpEarlier') : t('kpNothing')}
                   </span>
                 </p>
-                <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={isSaving} onClick={() => saveDraft()}>
+                <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={isSaving} onClick={() => void saveDraft()}>
                   {isSaving ? <ShellLoader className="h-4 w-4" /> : null}
                   {t('sendNowShort')}
                 </Button>

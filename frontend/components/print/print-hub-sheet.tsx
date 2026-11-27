@@ -120,7 +120,7 @@ export function PrintHubSheet({
   const { operations, personnel, materialOnSite } = useOperations()
   // With the Aufträge' material folded in: the Materialliste says «im Einsatz» for it too.
   const { materials } = useMaterials()
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
   const { selectedEvent } = useEvent()
   const { isEditor } = useAuth()
 
@@ -215,7 +215,7 @@ export function PrintHubSheet({
         setIsLoading(false)
       }
     }
-    loadData()
+    void loadData()
   }, [open, selectedEvent, tRoles])
 
   // Auftrag context per stop. Resolved here rather than in the print view so
@@ -225,17 +225,17 @@ export function PrintHubSheet({
     const map = new Map<string, PrintAuftrag>()
     for (const operation of operations) {
       const group = findAuftragForStop(groups, operation)
-      if (!group) continue
+      if (!group || !operation.auftragResources) continue
       const index = group.stopIds.indexOf(operation.id)
       map.set(operation.id, {
         name: group.name,
         stopPos: index >= 0 ? index + 1 : operation.groupPosition + 1,
         stopTotal: group.stopIds.length,
-        resources: getGroupResources(group.id),
+        resources: operation.auftragResources,
       })
     }
     return map
-  }, [operations, groups, getGroupResources])
+  }, [operations, groups])
 
   const updateThermoOption = (key: keyof ThermoPrintOptions, value: boolean) =>
     setThermoOptions((prev) => ({ ...prev, [key]: value }))
@@ -429,7 +429,7 @@ export function PrintHubSheet({
                     size="sm"
                     variant="outline"
                     className="w-full max-w-[260px] justify-start"
-                    onClick={() => handleExport(kind)}
+                    onClick={() => void handleExport(kind)}
                     disabled={!selectedEvent || exporting !== null}
                   >
                     {exporting === kind ? (

@@ -336,7 +336,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
 
   const handleDriverAssigned = () => {
     // Reload vehicle statuses after driver assignment
-    loadVehicleStatuses(true)
+    void loadVehicleStatuses(true)
     // The board's drivers (every «Fahrer» on this tab) come with its snapshot.
     void refreshOperations()
   }
@@ -403,7 +403,7 @@ export function VehicleStatusSheet({ open, onOpenChange, eventId, canEdit = fals
   }
 
   const handleManualRefresh = () => {
-    loadVehicleStatuses()
+    void loadVehicleStatuses()
   }
 
   if (!eventId) {

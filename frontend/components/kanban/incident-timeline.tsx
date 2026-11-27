@@ -41,7 +41,8 @@ export interface IncidentTimelineProps {
   isLoading: boolean
   failed: boolean
   onRetry: () => void
-  /** «Trennen» on a merge that still stands (R2) — absent for a viewer. */
+  /** «Trennen» on a merge that still stands (R2) — absent for a viewer. Never rejects: a
+   *  refused split says so itself (`undoMerge`). */
   onUnmerge?: (mergedIncidentId: string) => Promise<void>
   className?: string
 }
@@ -106,7 +107,8 @@ function TimelineRow({
     event.event_type === "journal" ||
     event.event_type === "reko_change"
   // A merged report can be split off again for as long as the merge stands.
-  const splittable = event.event_type === "merge" && event.merge_active && event.merged_incident_id && onUnmerge
+  const mergedIncidentId = event.event_type === "merge" && event.merge_active ? event.merged_incident_id : null
+  const splittable = mergedIncidentId && onUnmerge
   // A move the operator confirmed after «Gerade geändert» – the board it came from was stale.
   const stale = event.event_type === "status_change" && Boolean(event.seen_status)
   return (
@@ -128,13 +130,9 @@ function TimelineRow({
               className="shrink-0"
               title={t('timeline.splitHint')}
               disabled={splitting}
-              onClick={async () => {
+              onClick={() => {
                 setSplitting(true)
-                try {
-                  await onUnmerge(event.merged_incident_id!)
-                } finally {
-                  setSplitting(false)
-                }
+                void onUnmerge(mergedIncidentId).finally(() => setSplitting(false))
               }}
             >
               {splitting ? <ShellLoader className="size-3.5" /> : <Split className="size-3.5" />}

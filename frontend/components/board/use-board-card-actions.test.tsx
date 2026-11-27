@@ -24,7 +24,6 @@ vi.mock('@/lib/contexts/groups-context', () => ({
   useGroups: () => ({
     groups: [{ id: 'g-1', name: 'Nord', assignments: [] }],
     assignResource: board.assignResource,
-    getGroupResources: () => ({ vehicles: [], personnel: [], materials: [] }),
   }),
 }))
 vi.mock('@/lib/hooks/use-release-undo', () => ({ useReleaseUndo: () => ({}) }))

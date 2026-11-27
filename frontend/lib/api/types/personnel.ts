@@ -20,16 +20,8 @@ export type ApiCheckInResponse = Out<'PersonnelCheckInResponse'>
  */
 export type ApiAttendancePlan = { planned_from?: string | null; planned_until?: string | null }
 
-export interface ApiCheckInStats {
-  /** Everybody the roll-call offers — the Mannschaft. */
-  total_available: number
-  /** Present right now. */
-  checked_in: number
-  /** Simply not present, whether they came and went or never came. */
-  checked_out: number
-  /** Came and went. "Gegangen" is a statement, not an absence. */
-  left: number
-}
+/** The roll-call header's numbers (`GET /api/personnel/check-in/stats`). */
+export type ApiCheckInStats = Out<'CheckInStats'>
 
 export type ApiPersonnelCreate = In<'PersonnelCreate'>
 

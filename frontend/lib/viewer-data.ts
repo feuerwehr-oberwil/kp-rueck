@@ -11,10 +11,10 @@ import type { VehicleDriver } from "@/lib/hooks/use-vehicle-drivers"
 import { type ApiViewerData, type ApiViewerGroup, type ApiViewerIncident, type ApiViewerRekoSummary } from "@/lib/api-client"
 import { personResourceState } from "@/lib/resource-status"
 import { rekoDangerTypes, type Operation, type RekoSummary } from "@/lib/contexts/operations-context"
-import { auftragOccupancy, reconcileEvent, withAuftragCrew } from "@/lib/contexts/operations/reconcile"
+import { auftragOccupancy, reconcileEvent, withAuftragCrew, withAuftragResources } from "@/lib/contexts/operations/reconcile"
 import { type Person } from "@/lib/contexts/personnel-context"
 import { type Material, withAuftragDeployment } from "@/lib/contexts/materials-context"
-import { type IncidentGroup } from "@/lib/types/groups"
+import { type GroupResources, type IncidentGroup } from "@/lib/types/groups"
 import { type VehicleWithStatus, type StatusStats } from "@/lib/hooks/use-status-data"
 import { columns } from "@/lib/kanban-utils"
 import { darkenForWhiteText } from "@/lib/map-colors"
@@ -105,6 +105,7 @@ function viewerIncidentToOperation(a: ApiViewerIncident, reko?: ApiViewerRekoSum
     pickupRequestedAt: a.pickup_requested_at ? new Date(a.pickup_requested_at) : null,
     groupId: a.group_id ?? null,
     groupPosition: a.group_position ?? 0,
+    auftragResources: null,
     source: a.source,
     statusChangedAt: a.status_changed_at ? new Date(a.status_changed_at) : null,
     hasCompletedReko: a.has_completed_reko,
@@ -145,6 +146,37 @@ export function viewerGroupsToIncidentGroups(payload: ApiViewerData): IncidentGr
     // Viewers never make a Funkdurchsage, so the payload doesn't carry one.
     lastAnnounced: null,
   }))
+}
+
+/**
+ * Each Auftrag's resources, named from the payload's own roster, fleet and depot (no extra
+ * request). An id none of them knows is skipped rather than printed as a UUID: the roster is
+ * checked-in-only, the same rule the incident crew mapping follows.
+ */
+export function viewerGroupResources(payload: ApiViewerData): Map<string, GroupResources> {
+  const resolved = new Map<string, GroupResources>()
+  const nameById = new Map<string, string>()
+  for (const person of payload.personnel) nameById.set(String(person.id), person.name)
+  const callsignById = new Map<string, string>()
+  for (const vehicle of payload.vehicles) {
+    nameById.set(String(vehicle.id), vehicle.name)
+    if (vehicle.radio_call_sign) callsignById.set(String(vehicle.id), vehicle.radio_call_sign)
+  }
+  for (const material of payload.materials) nameById.set(String(material.id), material.name)
+  for (const group of payload.groups ?? []) {
+    const resources: GroupResources = { vehicles: [], personnel: [], materials: [] }
+    for (const assignment of liveGroupAssignments(group)) {
+      const resourceId = String(assignment.resource_id)
+      const name = nameById.get(resourceId)
+      if (!name) continue
+      const item = { assignmentId: String(assignment.id), resourceId, name }
+      if (assignment.resource_type === "vehicle") resources.vehicles.push({ ...item, callsign: callsignById.get(resourceId) ?? null, driverStay: assignment.driver_stay })
+      else if (assignment.resource_type === "personnel") resources.personnel.push({ ...item, isLeader: assignment.is_leader })
+      else resources.materials.push(item)
+    }
+    resolved.set(String(group.id), resources)
+  }
+  return resolved
 }
 
 /** What a route still owns: its assignments without the released ones. */
@@ -212,7 +244,9 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     }
   })
   // A route's crew and material live on the Auftrag, not on its stops.
-  const onAuftrag = auftragOccupancy(viewerGroupsToIncidentGroups(payload))
+  const groups = viewerGroupsToIncidentGroups(payload)
+  const cards = withAuftragResources(operations, groups, viewerGroupResources(payload))
+  const onAuftrag = auftragOccupancy(groups)
   const personnel = withAuftragCrew(eventScopedPersonnel, onAuftrag.personnel)
   const materials = withAuftragDeployment(eventScopedMaterials, onAuftrag.material)
 
@@ -225,7 +259,7 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
 
   const vehicleStatus: VehicleWithStatus[] = payload.vehicles
     .map((v) => {
-      const assignedOperation = operations.find((op) => op.vehicles.some((av) => av.vehicleId === String(v.id)))
+      const assignedOperation = cards.find((op) => op.vehicles.some((av) => av.vehicleId === String(v.id)))
       const gps = payload.vehicle_positions.find(
         (vp) => vp.device_name.toLowerCase() === v.name.toLowerCase()
       )
@@ -247,14 +281,14 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
 
   const byStatus: Record<string, Operation[]> = {}
   columns.forEach((col) => { byStatus[col.id] = [] })
-  operations.forEach((op) => {
+  cards.forEach((op) => {
     const col = columns.find((c) => c.id === op.status)
     if (col) byStatus[col.id].push(op)
   })
-  const activeOps = operations.filter((op) => op.status !== "complete")
+  const activeOps = cards.filter((op) => op.status !== "complete")
   const stats: StatusStats = {
     byStatus,
-    totalOperations: operations.length,
+    totalOperations: cards.length,
     activeOperations: activeOps.length,
     incomingCount: byStatus["incoming"]?.length || 0,
     completedCount: byStatus["complete"]?.length || 0,
@@ -264,5 +298,5 @@ export function buildSituationData(payload: ApiViewerData): SituationData {
     personnelAvailable: personnel.filter((p) => personResourceState(p) === "available").length,
   }
 
-  return { stats, vehicleStatus, operations, personnel, materials }
+  return { stats, vehicleStatus, operations: cards, personnel, materials }
 }

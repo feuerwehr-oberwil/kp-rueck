@@ -28,9 +28,10 @@ export type ApiSetupClaim = In<'SetupClaimRequest'>
 export type ApiSetupResult = Out<'SetupClaimResponse'>
 
 // Demo Mode Types
-export interface DemoStatus {
-  demo: boolean
-  next_reset: string | null
-  seconds_until_reset: number
-  reset_interval_hours: number
-}
+/** A demo instance and its next reset. */
+export type ApiDemoOn = Out<'DemoOn'>
+
+/** `demo: false` carries nothing else; a demo instance names its next reset. */
+export type DemoStatus = Out<'DemoOff'> | ApiDemoOn
+
+export type DemoSandbox = Out<'DemoSandboxResponse'>

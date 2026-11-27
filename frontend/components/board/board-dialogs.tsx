@@ -221,9 +221,9 @@ export function BoardDialogs({
         onDelete={isEditor ? handleOperationDelete : undefined}
         materials={materials}
         onAssignVehicle={isEditor ? handleVehicleAssign : undefined}
-        onRemoveVehicle={isEditor ? release.releaseVehicle : undefined}
-        onRemoveCrew={isEditor ? release.releaseCrew : undefined}
-        onRemoveMaterial={isEditor ? release.releaseMaterial : undefined}
+        onRemoveVehicle={isEditor ? (operationId, vehicleId) => void release.releaseVehicle(operationId, vehicleId) : undefined}
+        onRemoveCrew={isEditor ? (operationId, personnelId) => void release.releaseCrew(operationId, personnelId) : undefined}
+        onRemoveMaterial={isEditor ? (operationId, materialId) => void release.releaseMaterial(operationId, materialId) : undefined}
         canEdit={isEditor}
         diveraEnabled={isEditor && diveraEnabled}
         {...dialogs.detailActions}
@@ -260,7 +260,7 @@ export function BoardDialogs({
           eventId={selectedEvent.id}
           eventName={selectedEvent.name}
           assignmentLabelFor={assignmentLabelForPerson}
-          onAttendanceChange={refreshPersonnel}
+          onAttendanceChange={() => void refreshPersonnel()}
           canCheckIn={isEditor}
         />
       )}
@@ -381,7 +381,7 @@ export function BoardDialogs({
           incidentId={rekoAssignOperationId}
           incidentTitle={operations.find(op => op.id === rekoAssignOperationId)?.location || ''}
           onAssigned={() => {
-            refreshOperations()
+            void refreshOperations()
             setRekoAssignDialogOpen(false)
           }}
         />
@@ -402,7 +402,7 @@ export function BoardDialogs({
       <PrintHubSheet
         open={printSheetOpen}
         onOpenChange={(open) => !open && activeFooterSheet === 'print' && setActiveFooterSheet(null)}
-        onThermoPrint={handlePrintBoard}
+        onThermoPrint={(options) => void handlePrintBoard(options)}
         isThermoPrinting={isPrintingBoard}
         printerEnabled={printerEnabled}
       />

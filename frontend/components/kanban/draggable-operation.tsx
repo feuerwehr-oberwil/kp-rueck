@@ -241,7 +241,7 @@ function DraggableOperationBase({
   // flicker we are avoiding. A click only happens after hydration, so it always
   // gets the real answer. jsdom (no matchMedia) reads the width.
   const isLargeScreen = useMediaQuery(SIDE_PANEL_MEDIA_QUERY, true, widthHasSidePanel)
-  const { groups, getGroupResources } = useGroups()
+  const { groups } = useGroups()
 
   // Auftrag (route) membership chip — opening the Aufträge sheet is signalled to
   // the page via a window event, avoiding prop threading through the
@@ -253,9 +253,8 @@ function DraggableOperationBase({
   // isn't in stopIds yet (optimistic add mid-sync).
   const auftragStopIndex = auftrag ? auftrag.stopIds.indexOf(operation.id) : -1
   const auftragStopPos = auftrag ? (auftragStopIndex >= 0 ? auftragStopIndex + 1 : operation.groupPosition + 1) : 0
-  // Grouped incidents carry no resources themselves — the route owns them. Read
-  // the route's resource roll-up for the card chip summary.
-  const auftragResources = auftrag ? getGroupResources(auftrag.id) : null
+  // Grouped incidents carry no resources themselves — the route owns them.
+  const { auftragResources } = operation
   // The progress line's facts: «Stopp 1 von 4», the vehicles, «3 Pers», «1 Gerät».
   const auftragFacts = auftrag && auftragResources
     ? [
@@ -1172,6 +1171,8 @@ export const DraggableOperation = memo(DraggableOperationBase, (prevProps, nextP
     prevProps.operation.hasBeenDispatched === nextProps.operation.hasBeenDispatched &&
     prevProps.operation.groupId === nextProps.operation.groupId &&
     prevProps.operation.groupPosition === nextProps.operation.groupPosition &&
+    // The progress line names the route's vehicles and counts its crew and Geräte.
+    prevProps.operation.auftragResources === nextProps.operation.auftragResources &&
     prevProps.operation.leaderId === nextProps.operation.leaderId &&
     prevProps.operation.leaderName === nextProps.operation.leaderName &&
     sameCrew(prevProps.operation.crew, nextProps.operation.crew) &&

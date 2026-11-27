@@ -421,15 +421,15 @@ export default function EventsPage() {
           </DropdownMenuItem>
           {!isViewer && (
             <>
-              <DropdownMenuItem onClick={() => handleReportExport(event)} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => void handleReportExport(event)} className="cursor-pointer">
                 <FileText className="mr-2 h-4 w-4" />
                 {t('page.exportReport')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAuditExport(event)} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => void handleAuditExport(event)} className="cursor-pointer">
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 {t('page.exportAudit')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleEinsaetzeExport(event)} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => void handleEinsaetzeExport(event)} className="cursor-pointer">
                 <ReceiptText className="mr-2 h-4 w-4" />
                 {t('page.exportEinsaetze')}
               </DropdownMenuItem>
@@ -681,13 +681,13 @@ export default function EventsPage() {
                               {t('page.incidentCountShort', { count: event.incident_count })}
                             </span>
                             <span className="hidden w-28 shrink-0 text-right text-sm tabular-nums text-muted-foreground md:block">
-                              {formatAgoSince(new Date(event.archived_at!), tDuration, now.getTime())}
+                              {event.archived_at && formatAgoSince(new Date(event.archived_at), tDuration, now.getTime())}
                             </span>
                             {manages && (
                               <button
                                 type="button"
                                 className="shrink-0 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                                onClick={() => handleUnarchive(event)}
+                                onClick={() => void handleUnarchive(event)}
                               >
                                 {t('page.restore')}
                               </button>
@@ -727,7 +727,7 @@ export default function EventsPage() {
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !isCreating) {
-                      handleCreateEvent()
+                      void handleCreateEvent()
                     }
                   }}
                   {...fieldMessageProps('event-name', nameMissing && !newEventName.trim() ? 'error' : null)}
@@ -774,7 +774,7 @@ export default function EventsPage() {
               <Button variant="outline" onClick={createGuard.requestClose}>
                 {t('createDialog.cancel')}
               </Button>
-              <Button onClick={handleCreateEvent} disabled={isCreating}>
+              <Button onClick={() => void handleCreateEvent()} disabled={isCreating}>
                 {isCreating && <ShellLoader className="size-4" />}
                 {isCreating ? t('createDialog.creating') : t('createDialog.create')}
               </Button>

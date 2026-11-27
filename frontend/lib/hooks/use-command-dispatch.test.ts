@@ -69,7 +69,6 @@ function board(
   const deps: CommandDispatchDeps = {
     getOperation: () => current,
     getOperations: () => [current, ...rest],
-    getGroupResources: () => EMPTY,
     getGroupsHolding: () => [],
     labelOf: (op) => `Einsatz ${op.number}`,
     restore: vi.fn(async () => true),
@@ -296,15 +295,15 @@ describe("holding", () => {
       ...EMPTY,
       personnel: [{ assignmentId: "ga-1", resourceId: "p-muster", name: "Muster Peter" }],
     }
-    expect(holding(operation({ crew: [crewMember("Muster Peter", MUSTER.id)] }), MUSTER, () => EMPTY)).toEqual({ where: "crew" })
-    expect(holding(operation({ assignedReko: { id: "p-muster", name: "Muster Peter" } }), MUSTER, () => EMPTY)).toEqual({
+    expect(holding(operation({ crew: [crewMember("Muster Peter", MUSTER.id)] }), MUSTER)).toEqual({ where: "crew" })
+    expect(holding(operation({ assignedReko: { id: "p-muster", name: "Muster Peter" } }), MUSTER)).toEqual({
       where: "reko",
     })
-    expect(holding(operation({ groupId: "g-1" }), MUSTER, () => resources)).toEqual({
+    expect(holding(operation({ groupId: "g-1", auftragResources: resources }), MUSTER)).toEqual({
       where: "route",
       groupId: "g-1",
       assignmentId: "ga-1",
     })
-    expect(holding(operation(), MUSTER, () => resources)).toBeNull()
+    expect(holding(operation(), MUSTER)).toBeNull()
   })
 })

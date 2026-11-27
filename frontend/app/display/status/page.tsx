@@ -373,12 +373,13 @@ function SituationBoard({
     const roleMap = new Map<string, Person[]>()
     for (const p of sorted) {
       const role = p.role || t('otherRole')
-      if (!roleMap.has(role)) {
-        const arr: Person[] = []
-        roleMap.set(role, arr)
-        groups.push({ role, people: arr })
+      let people = roleMap.get(role)
+      if (!people) {
+        people = []
+        roleMap.set(role, people)
+        groups.push({ role, people })
       }
-      roleMap.get(role)!.push(p)
+      people.push(p)
     }
     return groups
   }, [personnel, t])
@@ -399,12 +400,13 @@ function SituationBoard({
     const groups: { category: string; items: Material[] }[] = []
     const catMap = new Map<string, Material[]>()
     for (const m of sorted) {
-      if (!catMap.has(m.category)) {
-        const arr: Material[] = []
-        catMap.set(m.category, arr)
-        groups.push({ category: m.category, items: arr })
+      let items = catMap.get(m.category)
+      if (!items) {
+        items = []
+        catMap.set(m.category, items)
+        groups.push({ category: m.category, items })
       }
-      catMap.get(m.category)!.push(m)
+      items.push(m)
     }
     return groups
   }, [materials])
@@ -497,14 +499,17 @@ function SituationBoard({
         />
         <WallScrollBody bodyRef={vehicleBodyRef} itemSelector={WALL_ITEM} className={cn("relative flex-1 overflow-y-auto", WALL_STACK_BODY)}>
           <div ref={vehicleListRef} className="p-2 xl:p-3 space-y-1.5 xl:space-y-2">
-            {vehicleStatus.map((v) => (
-              <VehicleRow
-                key={v.id}
-                vehicle={v}
-                auftrag={auftragByVehicleId.get(v.id)}
-                onClick={v.assignedOperation ? () => setSelectedOperationId(v.assignedOperation!.id) : undefined}
-              />
-            ))}
+            {vehicleStatus.map((v) => {
+              const operationId = v.assignedOperation?.id
+              return (
+                <VehicleRow
+                  key={v.id}
+                  vehicle={v}
+                  auftrag={auftragByVehicleId.get(v.id)}
+                  onClick={operationId ? () => setSelectedOperationId(operationId) : undefined}
+                />
+              )
+            })}
           </div>
           {/* Material's first groups, when its own column is too short for all of
               them. Read in order, this is where Material STARTS, so the full head
@@ -798,8 +803,8 @@ function VehicleRow({ vehicle: v, auftrag, onClick }: { vehicle: VehicleWithStat
               {tv('auftragLabel', { name: auftrag.name })}
             </span>
           </p>
-        ) : isDeployed ? (
-          <p className={cn("mt-0.5", WALL_DESTINATION)}>→ {incidentLocationLabel(v.assignedOperation!)}</p>
+        ) : v.assignedOperation ? (
+          <p className={cn("mt-0.5", WALL_DESTINATION)}>→ {incidentLocationLabel(v.assignedOperation)}</p>
         ) : null}
       </div>
       {/* Only a real Einsatz has a clock — a route-owned vehicle has no incident

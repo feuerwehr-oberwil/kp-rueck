@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { buildEventState, type EventSnapshot } from "./reconcile"
+import { buildEventState, withAuftragResources, type EventSnapshot } from "./reconcile"
+import type { GroupResources, IncidentGroup } from "@/lib/types/groups"
+import type { Operation } from "@/lib/contexts/operations-context"
+import { makeOperation } from "@/test-utils/operation-fixtures"
 
 // The provider-level golden (operations-context.snapshot.test.tsx) covers the
 // whole load; this pins the transform on its own, and that it is pure.
@@ -173,5 +176,35 @@ describe("buildEventState", () => {
     expect(second).toEqual(first)
     expect(second.ops[0]).not.toBe(first.ops[0])
     expect(first.eventScopedPersonnel[0]).not.toBe(input.personnelList[0])
+  })
+})
+
+describe("withAuftragResources", () => {
+  const route = { id: "g1", stopIds: ["stop"] } as IncidentGroup
+  // `deriveAuftragState` builds a new object on every pass, also when nothing changed.
+  const resources = (vehicle: string): Map<string, GroupResources> =>
+    new Map([["g1", { vehicles: [{ assignmentId: "a1", resourceId: "v1", name: vehicle }], personnel: [], materials: [] }]])
+
+  it("hands an untouched stop out as the same object after an unrelated edit", () => {
+    const cache = new WeakMap<Operation, Operation>()
+    const stop = makeOperation({ id: "stop", groupId: "g1" })
+    const other = makeOperation({ id: "other" })
+    const [first] = withAuftragResources([stop, other], [route], resources("TLF"), cache)
+
+    const edited = { ...other, notes: "neu" }
+    const [again] = withAuftragResources([stop, edited], [route], resources("TLF"), cache)
+
+    expect(again).toBe(first)
+    expect(again.auftragResources?.vehicles[0].name).toBe("TLF")
+  })
+
+  it("makes a new card when the route's resources change", () => {
+    const cache = new WeakMap<Operation, Operation>()
+    const stop = makeOperation({ id: "stop", groupId: "g1" })
+    const [first] = withAuftragResources([stop], [route], resources("TLF"), cache)
+    const [renamed] = withAuftragResources([stop], [route], resources("MTF"), cache)
+
+    expect(renamed).not.toBe(first)
+    expect(renamed.auftragResources?.vehicles[0].name).toBe("MTF")
   })
 })

@@ -46,8 +46,10 @@ interface AutosaveSession {
 /** Sessions by `user:incident#report` – a new draft's session is found under `#new` and,
  *  once its first save answered, under the draft's id as well. */
 const sessions = new Map<string, AutosaveSession>()
+/** A section's list reload after a save settled. Must not reject: its failure is its own. */
+type Reload = () => Promise<void> | void
 /** The sections' list reloads, per `user:incident`: any of its sessions settling reloads. */
-const reloads = new Map<string, Set<() => void>>()
+const reloads = new Map<string, Set<Reload>>()
 
 const sessionKey = (base: string, reportId: string | null) => `${base}#${reportId ?? 'new'}`
 
@@ -154,7 +156,7 @@ async function sendSession(session: AutosaveSession, incidentId: string): Promis
     for (const adopt of session.adopters) adopt(session.latest)
     if (session.version === sent) {
       setState(session, { status: 'saved', savedAt: new Date() })
-      for (const reload of reloads.get(session.base) ?? []) reload()
+      for (const reload of reloads.get(session.base) ?? []) void reload()
       releaseIfDone(session)
     } else await sendSession(session, incidentId)
   } catch (error) {
@@ -195,7 +197,7 @@ export function useRekoAutosave({ incidentId, userId, onSettled, onAdopt }: {
   incidentId: string
   userId: string | null
   /** Runs once a save of this Einsatz settled – the section reloads its list. */
-  onSettled?: () => void
+  onSettled?: Reload
   /** The open form takes a save's answer (another board's answers, own edits on top). */
   onAdopt?: (form: RekoFormData) => void
 }) {
@@ -228,7 +230,7 @@ export function useRekoAutosave({ incidentId, userId, onSettled, onAdopt }: {
   }, [session, incidentId])
   useEffect(() => {
     if (!onSettled) return
-    const set = reloads.get(base) ?? new Set<() => void>()
+    const set = reloads.get(base) ?? new Set<Reload>()
     reloads.set(base, set)
     set.add(onSettled)
     return () => {

@@ -128,7 +128,7 @@ function BriefingRow({
  * entry wraps under its own text, never under the slot.
  */
 function BriefingList({ items }: { items: { key: string; content: React.ReactNode; lead?: React.ReactNode }[] }) {
-  const slotted = items.some(item => item.lead)
+  const slotted = items.some(item => item.lead !== undefined)
   return (
     <ul>
       {items.map(item => (

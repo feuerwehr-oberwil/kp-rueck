@@ -158,14 +158,14 @@ export function FieldSaveStatus({
 
   if (part === "mark") {
     const saving = entry.status === "pending" || entry.status === "saving"
-    const savedShown = entry.status === "saved" && !!entry.savedAt && expiredSavedAt !== entry.savedAt
+    const shownSavedAt = savedAt && expiredSavedAt !== savedAt ? savedAt : null
     const failed = entry.status === "failed"
-    if (!saving && !savedShown && !failed) return null
     const label = saving
       ? t("saving")
       : failed
         ? t("failed")
-        : t("savedAt", { time: formatClockTime(entry.savedAt!) })
+        : shownSavedAt && t("savedAt", { time: formatClockTime(shownSavedAt) })
+    if (!label) return null
     return (
       <span
         role={failed ? undefined : "status"}

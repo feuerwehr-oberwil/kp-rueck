@@ -53,7 +53,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !user) {
       setCheckingBackend(true);
-      checkBackendHealth().then((isHealthy) => {
+      void checkBackendHealth().then((isHealthy) => {
         setBackendAvailable(isHealthy);
         setCheckingBackend(false);
 

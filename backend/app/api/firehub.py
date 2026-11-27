@@ -20,7 +20,8 @@ See docs/ALARM-INTEGRATIONS.md.
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -44,14 +45,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/firehub", tags=["firehub"])
 
 
-@router.post("/webhook", status_code=status.HTTP_200_OK, response_model=None)
+@router.post("/webhook", status_code=status.HTTP_200_OK, response_model=schemas.FireHubAck)
 @limiter.limit(RateLimits.WEBHOOK)
 async def receive_firehub_webhook(
     payload: schemas.FireHubWebhook,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
-) -> dict[str, Any]:
+) -> schemas.FireHubStartAck | schemas.FireHubEndAck:
     """
     Receive a FireHub Einsatzstart/Einsatzende webhook.
 
@@ -78,7 +79,7 @@ async def _handle_start(
     db: AsyncSession,
     payload: schemas.FireHubWebhook,
     background_tasks: BackgroundTasks,
-) -> dict[str, Any]:
+) -> schemas.FireHubStartAck:
     """Store (or ack a redelivery of) a FireHub operation start as a pool alarm."""
     try:
         alarm = payload.to_alarm()
@@ -126,7 +127,7 @@ async def _handle_start(
     return _start_ack(emergency.id, incident.id if incident else None, created=True)
 
 
-async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
+async def _handle_end(db: AsyncSession, source_id: str) -> schemas.FireHubEndAck:
     """Record an operation end as an audit note, without moving the card.
 
     Closing a Schadenplatz — and the personnel/vehicle release that comes with it — is the
@@ -140,7 +141,7 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
 
     if emergency is None:
         logger.info("FireHub end for unknown alarm firehub:%s — nothing to note", source_id)
-        return {"status": "ok", "action": "end", "noted": False, "emergency_id": None, "incident_id": None}
+        return schemas.FireHubEndAck(status="ok", action="end", noted=False, emergency_id=None, incident_id=None)
 
     # One end per operation: a redelivery (a lost response, a retry) acknowledges the note
     # already written and keeps its receipt time (hunt 2026-11-24). The pool row's lock makes
@@ -157,13 +158,9 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
     incident_id = emergency.created_incident_id
     if noted_before is not None:
         logger.info("FireHub end for firehub:%s already noted — redelivery acknowledged", source_id)
-        return {
-            "status": "ok",
-            "action": "end",
-            "noted": True,
-            "emergency_id": str(emergency.id),
-            "incident_id": str(incident_id) if incident_id else None,
-        }
+        return schemas.FireHubEndAck(
+            status="ok", action="end", noted=True, emergency_id=emergency.id, incident_id=incident_id
+        )
 
     await log_action(
         db,
@@ -180,21 +177,17 @@ async def _handle_end(db: AsyncSession, source_id: str) -> dict[str, Any]:
     )
     logger.info("FireHub end noted for firehub:%s (incident=%s)", source_id, incident_id)
 
-    return {
-        "status": "ok",
-        "action": "end",
-        "noted": True,
-        "emergency_id": str(emergency.id),
-        "incident_id": str(incident_id) if incident_id else None,
-    }
+    return schemas.FireHubEndAck(
+        status="ok", action="end", noted=True, emergency_id=emergency.id, incident_id=incident_id
+    )
 
 
-def _start_ack(emergency_id: Any, incident_id: Any, *, created: bool) -> dict[str, Any]:
-    """Shape the JSON ack for a start webhook (mirrors the generic AlarmAck fields)."""
-    return {
-        "status": "ok",
-        "action": "start",
-        "created": created,
-        "emergency_id": str(emergency_id),
-        "auto_attached_incident_id": str(incident_id) if incident_id else None,
-    }
+def _start_ack(emergency_id: UUID, incident_id: UUID | None, *, created: bool) -> schemas.FireHubStartAck:
+    """The ack for a start webhook: the generic AlarmAck fields plus the trigger."""
+    return schemas.FireHubStartAck(
+        status="ok",
+        action="start",
+        created=created,
+        emergency_id=emergency_id,
+        auto_attached_incident_id=incident_id,
+    )

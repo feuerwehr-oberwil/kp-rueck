@@ -276,3 +276,20 @@ class AvailableRekoPersonnelResponse(BaseModel):
 
     personnel: list[AvailableRekoPersonnel]
     currently_assigned_id: UUID | None = None
+
+
+class RekoPhotoUploaded(BaseModel):
+    """The stored name of an uploaded Reko photo (what the form keeps and later deletes)."""
+
+    filename: str
+
+
+class RekoPhotoDeleted(BaseModel):
+    success: Literal[True]
+
+
+class RekoTransferResult(BaseModel):
+    """The open Rekos moved from one person to another."""
+
+    transferred_count: int
+    incident_ids: list[UUID]

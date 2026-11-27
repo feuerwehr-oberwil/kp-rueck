@@ -82,7 +82,7 @@ export default function LoginPage() {
     // An unclaimed board has no accounts to log into — the first visit belongs
     // to the setup wizard. Checked only when this page mounts (not on every app
     // boot), and failing open: an unreachable backend keeps this a login page.
-    apiClient.getSetupStatus().then((status) => {
+    void apiClient.getSetupStatus().then((status) => {
       if (status && !status.claimed) {
         router.replace('/setup');
       }
@@ -90,7 +90,7 @@ export default function LoginPage() {
   }, [router]);
 
   useEffect(() => {
-    Promise.all([
+    void Promise.all([
       apiClient.getDemoStatus().then((status) => {
         setIsDemo(status?.demo ?? false);
       }).catch(() => {
@@ -204,7 +204,7 @@ export default function LoginPage() {
               <div className="space-y-3">
                 <Button
                   className="w-full"
-                  onClick={() => handleDemoLogin('editor')}
+                  onClick={() => void handleDemoLogin('editor')}
                   disabled={loading}
                 >
                   {pending === 'editor' ? (
@@ -217,7 +217,7 @@ export default function LoginPage() {
                 <Button
                   className="w-full"
                   variant="outline"
-                  onClick={() => handleDemoLogin('viewer')}
+                  onClick={() => void handleDemoLogin('viewer')}
                   disabled={loading}
                 >
                   {pending === 'viewer' ? (
@@ -237,7 +237,7 @@ export default function LoginPage() {
                 {msConfig && (
                   <Button
                     className="w-full"
-                    onClick={handleMicrosoftLogin}
+                    onClick={() => void handleMicrosoftLogin()}
                     disabled={loading}
                   >
                     {pending === 'microsoft' ? (
@@ -260,7 +260,7 @@ export default function LoginPage() {
                     display, the shared editor account, anyone during an outage of the
                     identity provider. A login screen is not the place to save two rows
                     of height at the cost of a step. */}
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
                     {msConfig && (
                       <div className="relative">
                         <div className="absolute inset-0 flex items-center">
