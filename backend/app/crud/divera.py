@@ -25,12 +25,6 @@ def auto_attach_target() -> Select[tuple[UUID]]:
     )
 
 
-async def lock_auto_attach_target(db: AsyncSession) -> None:
-    """Lock the Ereignis a new alarm may be attached to before its row exists (rule 1): its
-    unique (source, source_id) entry is what the standby sync's copy of it waits for."""
-    await lock_ereignis(db, await db.scalar(auto_attach_target()))
-
-
 async def create_divera_emergency(
     db: AsyncSession,
     payload: schemas.DiveraWebhookPayload,
@@ -48,7 +42,6 @@ async def create_divera_emergency(
     Raises:
         IntegrityError: If divera_id already exists (duplicate webhook)
     """
-    await lock_auto_attach_target(db)
     emergency = models.DiveraEmergency(
         divera_id=payload.id,
         divera_number=payload.number,
@@ -79,7 +72,6 @@ async def create_alarm_emergency(
     Raises:
         IntegrityError: If (source, source_id) already exists (concurrent redelivery)
     """
-    await lock_auto_attach_target(db)
     emergency = models.DiveraEmergency(
         divera_id=None,
         divera_number=alarm.number,

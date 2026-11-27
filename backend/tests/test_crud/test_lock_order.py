@@ -27,12 +27,14 @@ from sqlalchemy.pool import NullPool
 
 from app import schemas, standby_sync
 from app.api import divera as divera_api
+from app.api import materials as materials_api
 from app.api import personnel as personnel_api
 from app.api import reko as reko_api
 from app.api import standby as standby_api
 from app.auth.security import create_login_tokens
 from app.crud import assignments as assignments_crud
 from app.crud import auftrag_templates as auftrag_templates_crud
+from app.crud import divera as divera_crud
 from app.crud import events as events_crud
 from app.crud import feld as feld_crud
 from app.crud import group_assignments as group_assignments_crud
@@ -66,8 +68,9 @@ from app.models import (
     Personnel,
     User,
 )
-from app.services import duplicates, notification_service
+from app.services import alarm_attach, duplicates, notification_service
 from app.services.notification_service import dismiss_notification
+from app.services.photo_storage import PreparedPhoto, photo_storage
 from app.standby_sync import Op, apply_ops, event_tables, fetch_rows
 from app.utils.error_codes import DomainError, ErrorCode
 from tests.conftest import wait_for_ereignis_lock, wait_until_blocked
@@ -1080,4 +1083,92 @@ async def test_a_transfer_to_an_einsatz_of_a_lower_ereignis_waits_for_it_instead
             await db.execute(delete(IncidentAssignment).where(IncidentAssignment.resource_id == board.material_id))
             await db.execute(delete(Incident).where(Incident.id == target_id))
             await db.execute(delete(Event).where(Event.id == other_event))
+            await db.commit()
+
+
+async def test_an_alarm_goes_onto_an_ereignis_created_after_its_insert(board: Board):
+    # The intake picked the auto-attach Ereignis before the alarm's INSERT: one created in between
+    # (a new auto-attach Ereignis) was skipped, and the alarm stayed in the pool. As on main, the
+    # target is picked after the INSERT.
+    newer = uuid4()
+    payload = schemas.DiveraWebhookPayload(id=910_071, title="Wasser im Keller", text="", address="Hauptstrasse 1")
+    try:
+        async with board.sessions() as intake, board.sessions() as opening:
+            emergency = await divera_crud.create_divera_emergency(intake, payload)
+            opening.add(Event(id=newer, name="Unwetter", training_flag=False, auto_attach_divera=True))
+            await opening.commit()
+            incident = await alarm_attach.try_auto_attach(intake, emergency)
+            await intake.commit()
+        assert incident is not None and incident.event_id == newer
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(DiveraEmergency).where(DiveraEmergency.divera_id == 910_071))
+            await db.execute(delete(Incident).where(Incident.event_id == newer))
+            await db.execute(delete(Event).where(Event.id == newer))
+            await db.commit()
+
+
+async def test_a_status_change_does_not_wait_for_a_photo_being_compressed(
+    board: Board, monkeypatch: pytest.MonkeyPatch
+):
+    # The upload held the Ereignis lock (the app-wide dependency, then the card) while it decoded
+    # and compressed the photo: every other card's status change waited for it.
+    compressing, done = asyncio.Event(), asyncio.Event()
+
+    async def slow(_file: object) -> PreparedPhoto:
+        compressing.set()
+        await done.wait()
+        return PreparedPhoto(filename=f"{uuid4()}.jpg", data=b"\xff\xd8\xff")
+
+    monkeypatch.setattr(photo_storage, "prepare_photo", slow)
+    access = _through_the_app(board, monkeypatch)
+    try:
+        async with (
+            AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client,
+            board.sessions() as moving,
+        ):
+            upload = asyncio.create_task(
+                client.post(
+                    f"/api/incidents/{board.loose_id}/rapport/photos",
+                    files={"file": ("schadenplatz.jpg", b"\xff\xd8\xff", "image/jpeg")},
+                    headers={"Cookie": f"access_token={access}"},
+                )
+            )
+            await asyncio.wait_for(compressing.wait(), timeout=5)
+            user = await moving.get(User, board.user_id)
+            moved = await asyncio.wait_for(
+                incidents_crud.update_incident_status(moving, board.stop_id, "enroute", user, _request()), timeout=5
+            )
+            await moving.commit()
+            done.set()
+            response = await asyncio.wait_for(upload, timeout=10)
+        assert moved is not None and moved.status == "enroute"
+        assert response.status_code == 200, response.text
+    finally:
+        done.set()
+
+
+async def test_a_material_created_while_the_location_sort_waits_gets_the_new_order(board: Board):
+    # The sort locked the rows it found first and wrote only those: a material created in a
+    # location while it waited kept its old order. Per location, as on main, the UPDATE runs after the wait.
+    created = uuid4()
+    try:
+        async with board.sessions() as holder, board.sessions() as sorting, board.sessions() as adding:
+            await holder.execute(select(Material.id).where(Material.id == board.material_id).with_for_update())
+            user = await sorting.get(User, board.user_id)
+            update = schemas.BulkCategorySortOrderUpdate(
+                categories=[{"category": "Depot", "sort_order": 7}, {"category": "Halle", "sort_order": 8}]
+            )
+            sort = asyncio.create_task(materials_api.update_location_sort_orders(update, user, sorting))
+            await wait_until_blocked(board.sessions)
+            adding.add(Material(id=created, name="Leiter", type="Leiter", location="Halle", status="available"))
+            await adding.commit()
+            await holder.rollback()
+            await asyncio.wait_for(sort, timeout=10)
+            await sorting.commit()
+        async with board.sessions() as db:
+            assert await db.scalar(select(Material.location_sort_order).where(Material.id == created)) == 8
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(Material).where(Material.id == created))
             await db.commit()

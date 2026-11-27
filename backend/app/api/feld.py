@@ -60,7 +60,7 @@ from ..crud import feld as crud
 from ..crud import personnel_checkin as personnel_checkin_crud
 from ..crud import planned_assignments as planned_crud
 from ..crud.feld.melden import never_left_the_window
-from ..crud.locking import lock_incident
+from ..crud.locking import lock_incident, locks_its_own_ereignisse
 from ..database import after_commit, get_db
 from ..middleware.rate_limit import RateLimits, get_client_identifier, limiter
 from ..models import Event, Incident, IncidentGroup, Personnel, SchadenplatzReport
@@ -1142,6 +1142,7 @@ async def save_rapport(
 
 
 @router.post("/incidents/{incident_id}/photos", response_model=schemas.RapportPhotosResponse)
+@locks_its_own_ereignisse  # the image work before the card's lock (rapport.add_photo)
 @limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_photo(
     request: Request,

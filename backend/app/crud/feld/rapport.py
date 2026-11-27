@@ -857,16 +857,16 @@ async def add_photo(
 
     Under the Einsatz's row lock (both doors, KP and /feld): two uploads at once each read
     the list and wrote it back with their own file, and the later commit dropped the other
-    photo (hunt 2026-11-24). The file goes again if the write rolls back.
+    photo (hunt 2026-11-24). The file goes again if the write rolls back. The image is read
+    and compressed before the lock (the route takes no Ereignis lock for it,
+    ``locks_its_own_ereignisse``): that takes seconds, and the Ereignis's other writers wait
+    for nothing but the short write.
     """
+    photo = await photo_storage.prepare_photo(file)
     await _lock_live_incident(db, incident.id)
     report = await _get_or_create_report(db, incident.id, actor)
     await db.refresh(report)
-    filename = await photo_storage.save_photo(
-        incident_id=incident.id,
-        file=file,
-        current_photos=report.photos_json,
-    )
+    filename = await photo_storage.store_prepared(incident.id, photo, report.photos_json)
     after_rollback(db, photo_storage.delete_photo, incident.id, filename)
     report.photos_json = [*(report.photos_json or []), filename]
     _stamp_updated_by(report, actor)

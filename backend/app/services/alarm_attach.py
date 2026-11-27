@@ -27,7 +27,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import models, schemas
 from ..crud import divera as divera_crud
 from ..crud import incidents as incidents_crud
-from ..crud.locking import holds_ereignis
 from ..database import after_commit, after_rollback
 from ..websocket_manager import broadcast_divera_responses_update, broadcast_incident_update
 from . import duplicates, incident_display
@@ -169,11 +168,8 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
 
 
 async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
-    # Locked already, before the alarm's INSERT (crud.divera.lock_auto_attach_target). A newer
-    # one that appeared since is not waited for while the alarm's unique entry is held: the
-    # alarm stays in the pool.
     event_id = await db.scalar(divera_crud.auto_attach_target())
-    if event_id is None or not holds_ereignis(db, event_id):
+    if event_id is None:
         return None
     # Row-locked like the manual attach (crud.divera.lock_divera_emergency), after the Ereignis it
     # goes onto: an operator who pulls the fresh alarm onto a board in the same instant must not

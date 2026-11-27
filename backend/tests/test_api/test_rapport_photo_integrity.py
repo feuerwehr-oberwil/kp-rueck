@@ -84,7 +84,7 @@ def files_of(incident_id: UUID) -> list[Path]:
 async def test_two_uploads_at_once_both_stay_on_the_rapport(board, monkeypatch):
     client, sessions, incident_id = board
     url = f"/api/incidents/{incident_id}/rapport/photos"
-    save = photo_storage.save_photo
+    store = photo_storage.store_prepared
     inside, release = asyncio.Event(), asyncio.Event()
     calls = 0
 
@@ -94,9 +94,9 @@ async def test_two_uploads_at_once_both_stay_on_the_rapport(board, monkeypatch):
         if calls == 1:
             inside.set()
             await release.wait()
-        return await save(*args, **kwargs)
+        return await store(*args, **kwargs)
 
-    monkeypatch.setattr(photo_storage, "save_photo", first_waits)
+    monkeypatch.setattr(photo_storage, "store_prepared", first_waits)
     first = asyncio.create_task(client.post(url, files={"file": ("a.jpg", jpeg(), "image/jpeg")}))
     await inside.wait()
     # The first has read the Rapport and is storing its file; the second arrives now.

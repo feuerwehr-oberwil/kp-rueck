@@ -642,7 +642,8 @@ async def test_upload_photo_success(client: AsyncClient, test_incident: Incident
 
     # Mock photo storage
     with patch("app.api.reko.photo_storage") as mock_storage:
-        mock_storage.save_photo = AsyncMock(return_value="test-photo-123.jpg")
+        mock_storage.prepare_photo = AsyncMock()
+        mock_storage.store_prepared = AsyncMock(return_value="test-photo-123.jpg")
 
         response = await client.post(
             f"/api/reko/{test_incident.id}/photos",
@@ -695,7 +696,8 @@ async def test_editor_uploads_photo_without_token(editor_client: AsyncClient, te
     operator's own draft, which is the row the subsequent save submits.
     """
     with patch("app.api.reko.photo_storage") as mock_storage:
-        mock_storage.save_photo = AsyncMock(return_value="kp-photo.jpg")
+        mock_storage.prepare_photo = AsyncMock()
+        mock_storage.store_prepared = AsyncMock(return_value="kp-photo.jpg")
 
         response = await editor_client.post(
             f"/api/reko/{test_incident.id}/photos",
@@ -726,7 +728,8 @@ async def test_editor_uploads_photo_onto_an_existing_report(
     await db_session.commit()
 
     with patch("app.api.reko.photo_storage") as mock_storage:
-        mock_storage.save_photo = AsyncMock(return_value="kp-photo.jpg")
+        mock_storage.prepare_photo = AsyncMock()
+        mock_storage.store_prepared = AsyncMock(return_value="kp-photo.jpg")
 
         response = await editor_client.post(
             f"/api/reko/{test_incident.id}/photos?report_id={report.id}",
@@ -1130,7 +1133,8 @@ async def test_upload_photo_updates_report(
     # Upload photo
     file_content = b"fake image content"
     with patch("app.api.reko.photo_storage") as mock_storage:
-        mock_storage.save_photo = AsyncMock(return_value="uploaded-photo.jpg")
+        mock_storage.prepare_photo = AsyncMock()
+        mock_storage.store_prepared = AsyncMock(return_value="uploaded-photo.jpg")
 
         response = await client.post(
             f"/api/reko/{test_incident.id}/photos",
@@ -1163,7 +1167,8 @@ async def test_upload_photo_works_in_demo_mode(
     await client.get(f"/api/reko/form?incident_id={test_incident.id}&token={valid_token}")
 
     with patch("app.api.reko.photo_storage") as mock_storage:
-        mock_storage.save_photo = AsyncMock(return_value="demo-photo.jpg")
+        mock_storage.prepare_photo = AsyncMock()
+        mock_storage.store_prepared = AsyncMock(return_value="demo-photo.jpg")
         response = await client.post(
             f"/api/reko/{test_incident.id}/photos",
             files={"file": ("test.jpg", b"fake image content", "image/jpeg")},

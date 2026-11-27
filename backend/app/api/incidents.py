@@ -1002,6 +1002,7 @@ async def save_incident_rapport(
 
 
 @router.post("/{incident_id}/rapport/photos", response_model=schemas.RapportPhotosResponse)
+@locks_its_own_ereignisse  # the image work before the card's lock (rapport.add_photo)
 @limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_rapport_photo(
     incident_id: uuid.UUID,

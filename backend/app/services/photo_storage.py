@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -70,6 +71,14 @@ class ExportPhoto(NamedTuple):
 
 class PhotoCopyError(Exception):
     """A photo could not be copied to another incident's folder (a merge, R2)."""
+
+
+@dataclass(frozen=True)
+class PreparedPhoto:
+    """A checked, compressed upload (``PhotoStorage.prepare_photo``), not written yet."""
+
+    filename: str
+    data: bytes
 
 
 class PhotoStorageService:
@@ -218,23 +227,17 @@ class PhotoStorageService:
         file: UploadFile,
         current_photos: list[str] | None,
     ) -> str:
-        """
-        Save and compress photo for Reko report.
-
-        Args:
-            incident_id: Incident UUID
-            file: Uploaded file
-            current_photos: List of existing photo filenames (or None if empty)
-
-        Returns:
-            Filename of saved photo (UUID.jpg)
+        """Save and compress a photo for a report: ``prepare_photo``, then ``store_prepared``.
 
         Raises:
             HTTPException: If validation fails or processing errors
         """
-        # Validate photo count
-        photo_count = len(current_photos) if current_photos else 0
-        if photo_count >= self.max_photos:
+        self.check_room(current_photos)
+        return await self.store_prepared(incident_id, await self.prepare_photo(file), current_photos)
+
+    def check_room(self, current_photos: list[str] | None) -> None:
+        """Refuse (400 ``photo_limit``) a report that holds the most photos it may."""
+        if len(current_photos or []) >= self.max_photos:
             raise CodedHTTPException(
                 400,
                 ErrorCode.PHOTO_LIMIT,
@@ -242,6 +245,13 @@ class PhotoStorageService:
                 params={"max": self.max_photos},
             )
 
+    async def prepare_photo(self, file: UploadFile) -> PreparedPhoto:
+        """Read, check and compress an upload – the slow part, so a caller does it before it
+        takes any lock (``crud/locking.py``). Writes nothing.
+
+        Raises:
+            HTTPException: too large, not an image, or not decodable
+        """
         # Read in chunks and stop as soon as the limit is exceeded — 413 Payload Too Large is
         # the semantic match per RFC 9110.
         #
@@ -267,20 +277,26 @@ class PhotoStorageService:
             chunks.append(chunk)
         content = b"".join(chunks)
 
-        # Generate safe, unique filename (always use UUID to prevent attacks)
-        filename = self._sanitize_filename(file.filename or "photo.jpg")
-        incident_dir = self._get_incident_dir(incident_id)
-        file_path = incident_dir / filename
-
         # PIL decode/resize/encode of a multi-MB phone photo blocks the event
         # loop for seconds — freezing every operator request and WebSocket
-        # ping. Run validation + compression + disk write in a worker thread
-        # (same pattern as the PDF report). HTTPExceptions raised inside the
-        # thread propagate normally.
-        return await asyncio.to_thread(self._process_and_store, content, file.filename, file_path, filename)
+        # ping. Run validation + compression in a worker thread (same pattern
+        # as the PDF report). HTTPExceptions raised inside the thread propagate.
+        data = await asyncio.to_thread(self._process, content, file.filename)
+        # Generate safe, unique filename (always use UUID to prevent attacks)
+        return PreparedPhoto(filename=self._sanitize_filename(file.filename or "photo.jpg"), data=data)
 
-    def _process_and_store(self, content: bytes, original_filename: str | None, file_path: Path, filename: str) -> str:
-        """Blocking part of save_photo — must run off the event loop."""
+    async def store_prepared(
+        self, incident_id: uuid.UUID, photo: PreparedPhoto, current_photos: list[str] | None
+    ) -> str:
+        """Write a prepared photo into the incident's directory, unless the report is full
+        (``check_room``, read under the caller's lock). Returns its filename."""
+        self.check_room(current_photos)
+        file_path = self._get_incident_dir(incident_id) / photo.filename
+        await asyncio.to_thread(file_path.write_bytes, photo.data)
+        return photo.filename
+
+    def _process(self, content: bytes, original_filename: str | None) -> bytes:
+        """Blocking part of ``prepare_photo`` — must run off the event loop. Returns the JPEG."""
         # Validate file type (extension + MIME type)
         self._validate_file_type(content, original_filename)
 
@@ -315,10 +331,7 @@ class PhotoStorageService:
             logger.warning("Failed to process image: %s", e)
             raise CodedHTTPException(400, ErrorCode.PHOTO_INVALID, ErrorMessages.INVALID_FILE) from e
 
-        with open(file_path, "wb") as f:
-            f.write(compressed_data)
-
-        return filename
+        return compressed_data
 
     def store_seed_photo(self, incident_id: uuid.UUID, source: Path) -> str:
         """Write a bundled illustration for the demo seed: a processed JPEG under the seed's

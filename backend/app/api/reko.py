@@ -33,7 +33,13 @@ from ..crud import assignments as assignments_crud
 from ..crud import incidents as incidents_crud
 from ..crud import reko as crud
 from ..crud import reko_assignment as reko_assign_crud
-from ..crud.locking import lock_incident_crew, lock_incident_with_group, lock_incidents_with_groups, lock_resource
+from ..crud.locking import (
+    lock_incident_crew,
+    lock_incident_with_group,
+    lock_incidents_with_groups,
+    lock_resource,
+    locks_its_own_ereignisse,
+)
 from ..crud.manual_order import OrderChangedError
 from ..database import after_commit, after_rollback, get_db
 from ..logging_config import get_logger
@@ -655,6 +661,7 @@ async def _record_photo_change(
 
 
 @router.post("/{incident_id}/photos", response_model=None)
+@locks_its_own_ereignisse  # the image work before the card's lock (below)
 @limiter.limit(RateLimits.PHOTO_UPLOAD)
 async def upload_photo(
     request: Request,
@@ -693,17 +700,15 @@ async def upload_photo(
     user = await _require_user_or_form_token(request, incident_id, x_reko_token, access_token, db, write=True)
 
     await enforce_demo_photo_limits(db, file, RekoReport.photos_json)
+    # Read and compressed before any lock: that takes seconds (the route takes no Ereignis
+    # lock for it, `locks_its_own_ereignisse`; `_photo_report` takes the card's).
+    photo = await photo_storage.prepare_photo(file)
 
     report, author = await _photo_report(db, incident_id, user, x_reko_token)
     before = reko_history.snapshot(report)
 
-    # Save photo
-    filename = await photo_storage.save_photo(
-        # The card the report is on — after a merge, the surviving one.
-        incident_id=report.incident_id,
-        file=file,
-        current_photos=report.photos_json,
-    )
+    # Save photo – into the card the report is on (after a merge, the surviving one)
+    filename = await photo_storage.store_prepared(report.incident_id, photo, report.photos_json)
     # A refused commit must not leave the file behind with no report listing it.
     after_rollback(db, photo_storage.delete_photo, report.incident_id, filename)
 

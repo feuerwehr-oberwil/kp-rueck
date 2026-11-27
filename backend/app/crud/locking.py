@@ -96,11 +96,6 @@ async def lock_ereignis(db: AsyncSession, *event_ids: uuid.UUID | None) -> None:
         held.setdefault(key, db.sync_session.get_nested_transaction() or db.sync_session.get_transaction())  # type: ignore[arg-type]
 
 
-def holds_ereignis(db: AsyncSession, event_id: uuid.UUID) -> bool:
-    """Whether this transaction holds the Ereignis lock of ``event_id`` already."""
-    return ereignis_lock_keys([event_id])[0] in db.info.get(_HELD, {})
-
-
 def is_within(transaction: SessionTransaction | None, ended: SessionTransaction) -> bool:
     """Whether ``transaction`` is ``ended`` or a savepoint inside it."""
     while transaction is not None:
