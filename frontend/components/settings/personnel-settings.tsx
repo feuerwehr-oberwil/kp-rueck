@@ -473,7 +473,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                   {!demoMode && (
                     <Button
                       variant="outline"
-                      onClick={handleOpenSyncDialog}
+                      onClick={() => void handleOpenSyncDialog()}
                       title={syncUnavailable ? t('personnel.syncUnavailable') : undefined}
                       disabled={syncUnavailable}
                     >
@@ -673,7 +673,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
               `fieldState` off the Controller render props carries the validation message,
               so the row needs neither FormItem nor FormMessage. */}
           <Form {...form}>
-            <form onSubmit={onSubmit} className="space-y-1 py-2" noValidate>
+            <form onSubmit={(e) => void onSubmit(e)} className="space-y-1 py-2" noValidate>
               <FormField
                 control={form.control}
                 name="name"
@@ -979,7 +979,7 @@ export function PersonnelSettings({ demoMode = false, isAdmin = false }: { demoM
                     {t('common.cancel')}
                   </Button>
                   <Button
-                    onClick={handleExecuteSync}
+                    onClick={() => void handleExecuteSync()}
                     disabled={isSyncExecuting || (syncPreview.new.length === 0 && !removeStale)}
                   >
                     {isSyncExecuting && <ShellLoader className="size-4" />}

@@ -54,7 +54,7 @@ export function BoardLoadErrorPanel() {
           {t("title")}
         </h2>
         <p className="text-sm text-muted-foreground">{t("body")}</p>
-        <Button className="mt-2" onClick={retry} disabled={retrying}>
+        <Button className="mt-2" onClick={() => void retry()} disabled={retrying}>
           {retrying ? <ShellLoader /> : <RefreshCw aria-hidden="true" />}
           {t("retry")}
         </Button>

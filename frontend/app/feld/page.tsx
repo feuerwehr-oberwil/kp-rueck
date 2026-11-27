@@ -302,7 +302,7 @@ function FeldSurface() {
       admit(linkToken, { remember: true })
       writeCookie(PERSON_COOKIE, bound.personnelId, FELD_COOKIE_SCOPE)
       setViewMode('assignments')
-      loadAssignments(bound.personnelId, { token: linkToken })
+      void loadAssignments(bound.personnelId, { token: linkToken })
       setLoading(false)
       return
     }
@@ -311,7 +311,7 @@ function FeldSurface() {
     if (storedToken && storedPerson) {
       admit(storedToken)
       setViewMode('assignments')
-      loadAssignments(storedPerson, { token: storedToken })
+      void loadAssignments(storedPerson, { token: storedToken })
       setLoading(false)
       return
     }
@@ -475,7 +475,7 @@ function FeldSurface() {
     preselectApplied.current = true
     const match = assignments.find(a => a.incident_id === preselectIncidentId)
     if (!match) return
-    openAssignment(match)
+    void openAssignment(match)
   }, [assignments, preselectIncidentId, openAssignment])
 
   useFeldRefresh(selectedPerson?.personnel_id, token, loadAssignments)
@@ -551,7 +551,7 @@ function FeldSurface() {
     personnelId: selectedPerson?.personnel_id,
     functions,
     assignments,
-    reload: loadAssignments,
+    reload: personnelId => void loadAssignments(personnelId),
     onCorrected: corrected =>
       setFeld(prev => prev && {
         ...prev,
@@ -607,7 +607,7 @@ function FeldSurface() {
         loading={loading}
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
-        onSelect={handleSelectPerson}
+        onSelect={person => void handleSelectPerson(person)}
       />
     )
   }
@@ -651,7 +651,7 @@ function FeldSurface() {
           driverMessageChips={driverMessageChips}
           requestMaterials={requestMaterials}
           // A sent request shows up in «Angefordert» at once, not on the next poll.
-          onSent={() => selectedPerson && loadAssignments(selectedPerson.personnel_id, { silent: true })}
+          onSent={() => { if (selectedPerson) void loadAssignments(selectedPerson.personnel_id, { silent: true }) }}
           onReported={applyFieldReport}
           onRapportSaved={applyRapportState}
         />
@@ -700,7 +700,7 @@ function FeldSurface() {
               variant="outline"
               onClick={() => {
                 const last = lastAsked()
-                if (last) loadAssignments(last.personnelId, { token: last.token })
+                if (last) void loadAssignments(last.personnelId, { token: last.token })
               }}
             >
               {t('sync.retry')}
@@ -714,7 +714,7 @@ function FeldSurface() {
             planned={planned}
             selfId={selectedPerson?.personnel_id}
             rekoOpening={rekoOpening}
-            onOpen={openAssignment}
+            onOpen={assignment => void openAssignment(assignment)}
           />
         )}
         {/* No «Früher» row to sit above: the Danach close the live list. */}

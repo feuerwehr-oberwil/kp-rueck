@@ -144,7 +144,7 @@ export function VehicleSettings() {
                 `fieldState` off the Controller render props carries the validation
                 message, so the row needs neither FormItem nor FormMessage. */}
             <Form {...form}>
-              <form onSubmit={onSubmit} className="space-y-1 py-2" noValidate>
+              <form onSubmit={(e) => void onSubmit(e)} className="space-y-1 py-2" noValidate>
                 <FormField
                   control={form.control}
                   name="name"

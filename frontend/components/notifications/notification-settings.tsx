@@ -133,7 +133,7 @@ export function NotificationSettingsCard() {
               <Switch
                 id={id}
                 checked={checked}
-                onCheckedChange={(next) => updateSetting(key, next)}
+                onCheckedChange={(next) => void updateSetting(key, next)}
                 disabled={savingKey === key}
               />
             </SettingRow>
@@ -155,7 +155,7 @@ export function NotificationSettingsCard() {
             onBlur={(e) => {
               const val = parseInt(e.target.value)
               if (!isNaN(val) && val !== settings.toast_duration_seconds) {
-                updateSetting('toast_duration_seconds', Math.max(2, Math.min(30, val)))
+                void updateSetting('toast_duration_seconds', Math.max(2, Math.min(30, val)))
               }
             }}
             disabled={savingKey === 'toast_duration_seconds'}
@@ -185,7 +185,7 @@ export function NotificationSettingsCard() {
                       onBlur={(e) => {
                         const val = parseInt(e.target.value)
                         if (!isNaN(val) && val !== settings[key]) {
-                          updateSetting(key, val)
+                          void updateSetting(key, val)
                         }
                       }}
                       disabled={savingKey === key}
@@ -212,7 +212,7 @@ export function NotificationSettingsCard() {
                 const raw = e.target.value.trim()
                 const val = emptyIsZero && raw === '' ? 0 : parseInt(raw)
                 if (!isNaN(val) && val !== settings[key]) {
-                  updateSetting(key, val)
+                  void updateSetting(key, val)
                 }
               }}
               disabled={savingKey === key}
@@ -262,7 +262,7 @@ export function NotificationSettingsCard() {
                       onCheckedChange={(checked) => {
                         const newThresholds = { ...settings.material_depletion_threshold }
                         newThresholds[materialType] = checked ? 2 : -1
-                        updateSetting('material_depletion_threshold', newThresholds)
+                        void updateSetting('material_depletion_threshold', newThresholds)
                       }}
                       disabled={savingKey === 'material_depletion_threshold'}
                     />
@@ -282,7 +282,7 @@ export function NotificationSettingsCard() {
                     if (!isNaN(val) && val >= 0) {
                       const newThresholds = { ...settings.material_depletion_threshold }
                       newThresholds[materialType] = val
-                      updateSetting('material_depletion_threshold', newThresholds)
+                      void updateSetting('material_depletion_threshold', newThresholds)
                     }
                   }}
                   disabled={isDisabled || savingKey === 'material_depletion_threshold'}

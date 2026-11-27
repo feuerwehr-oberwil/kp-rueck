@@ -41,7 +41,8 @@ interface Props {
   settings: Record<string, string>
   serverSettings: Record<string, string>
   setSettings: React.Dispatch<React.SetStateAction<Record<string, string>>>
-  updateSetting: (key: string, value: string) => void | Promise<void>
+  /** The settings store's save: never rejects, a refusal is its toast. */
+  updateSetting: (key: string, value: string) => Promise<void>
   isEditor: boolean
   isSaving: (key: string) => boolean
   /** When the server confirmed each key – the «Gespeichert – hh:mm» under a field. */
@@ -169,7 +170,7 @@ export function DiveraAlarmSettingsCard({
           checked={enabled}
           title={blockedReason ?? (notConfigured ? t("notConfiguredHint") : undefined)}
           disabled={Boolean(blockedReason) || notConfigured || !isEditor || isSaving(ENABLED_KEY)}
-          onCheckedChange={(v) => updateSetting(ENABLED_KEY, v ? "true" : "false")}
+          onCheckedChange={(v) => void updateSetting(ENABLED_KEY, v ? "true" : "false")}
         />
       }
     >
@@ -205,7 +206,7 @@ export function DiveraAlarmSettingsCard({
                     size="xs"
                     className="text-muted-foreground"
                     disabled={!isEditor || isCurrentlySaving || value === field.fallback}
-                    onClick={() => updateSetting(field.key, field.fallback)}
+                    onClick={() => void updateSetting(field.key, field.fallback)}
                   >
                     {t("reset")}
                   </Button>
@@ -221,7 +222,7 @@ export function DiveraAlarmSettingsCard({
                   }
                   onBlur={(e) => {
                     if (e.target.value !== (serverSettings[field.key] ?? field.fallback)) {
-                      updateSetting(field.key, e.target.value)
+                      void updateSetting(field.key, e.target.value)
                     }
                   }}
                   disabled={!isEditor || isCurrentlySaving}
@@ -265,7 +266,7 @@ export function DiveraAlarmSettingsCard({
                 </SelectContent>
               </Select>
               <Button
-                onClick={handleTest}
+                onClick={() => void handleTest()}
                 title={blockedReason ?? undefined}
                 disabled={Boolean(blockedReason) || !isEditor || isTesting}
               >

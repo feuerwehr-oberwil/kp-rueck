@@ -154,12 +154,12 @@ export function EventSetupChecklist({
     copyLabel: t('feldCopyLabel'),
   }
 
-  const handleCopyCheckInLink = () => shareLink('checkin', () => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
-  const handlePrintCheckInLink = () => shareLink('checkin', () => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
-  const handleCopyAlarmLink = () => shareLink('alarm', () => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
-  const handlePrintAlarmLink = () => shareLink('alarm', () => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
-  const handleCopyFeldLink = () => shareLink('feld', () => apiClient.generateFeldLink(eventId), 'copy', feldMeta)
-  const handlePrintFeldLink = () => shareLink('feld', () => apiClient.generateFeldLink(eventId), 'print', feldMeta)
+  const handleCopyCheckInLink = () => void shareLink('checkin', () => apiClient.generateCheckInLink(eventId), 'copy', checkInMeta)
+  const handlePrintCheckInLink = () => void shareLink('checkin', () => apiClient.generateCheckInLink(eventId), 'print', checkInMeta)
+  const handleCopyAlarmLink = () => void shareLink('alarm', () => apiClient.generateAlarmLink(eventId), 'copy', alarmMeta)
+  const handlePrintAlarmLink = () => void shareLink('alarm', () => apiClient.generateAlarmLink(eventId), 'print', alarmMeta)
+  const handleCopyFeldLink = () => void shareLink('feld', () => apiClient.generateFeldLink(eventId), 'copy', feldMeta)
+  const handlePrintFeldLink = () => void shareLink('feld', () => apiClient.generateFeldLink(eventId), 'print', feldMeta)
 
   const handleTestPrint = async () => {
     try {
@@ -217,7 +217,7 @@ export function EventSetupChecklist({
         onPrintAlarmLink: handlePrintAlarmLink,
         onCopyFeldLink: handleCopyFeldLink,
         onPrintFeldLink: handlePrintFeldLink,
-        onTestPrint: handleTestPrint,
+        onTestPrint: () => void handleTestPrint(),
         onOpenFallbackSettings: () => {
           window.location.href = '/settings?section=fallback'
         },

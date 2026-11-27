@@ -102,7 +102,7 @@ export function FeldCheckIn({
   return (
     <section className="rounded-xl bg-secondary/60 p-4">
       <p className="mb-3 text-base font-semibold">{t('attendance.notHereTitle')}</p>
-      <Button size="lg" className="w-full" onClick={checkIn.checkIn} disabled={checkIn.busy}>
+      <Button size="lg" className="w-full" onClick={() => void checkIn.checkIn()} disabled={checkIn.busy}>
         {t('attendance.checkIn')}
       </Button>
       <div className="mt-2">{fromButton}</div>

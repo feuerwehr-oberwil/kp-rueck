@@ -162,7 +162,7 @@ export function QuickAddPersonnel({
             {...fieldMessageProps(nameId, nameError ? 'error' : null)}
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
-                addNewPerson()
+                void addNewPerson()
               }
             }}
             className="h-12 text-lg"
@@ -171,7 +171,7 @@ export function QuickAddPersonnel({
           <FormMessage id={formMessageId(nameId)}>{nameError}</FormMessage>
           <div className="flex gap-2">
             <Button
-              onClick={addNewPerson}
+              onClick={() => void addNewPerson()}
               disabled={addingPerson || submissionDisabled}
               className="flex-1"
             >

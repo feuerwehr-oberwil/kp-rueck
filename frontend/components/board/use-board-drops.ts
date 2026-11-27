@@ -81,7 +81,7 @@ export function useBoardDrops({ cardActions, statusWorkflow, closedStopGuard, is
   const boardAssignPerson = (personId: string, personName: string, operationId: string) => {
     const holders = groupsHolding("personnel", personId)
     if (holders.length === 0) {
-      assignPersonToOperation(personId, personName, operationId)
+      void assignPersonToOperation(personId, personName, operationId)
       return
     }
     askRouteConflict({
@@ -102,7 +102,7 @@ export function useBoardDrops({ cardActions, statusWorkflow, closedStopGuard, is
   const boardAssignMaterial = (materialId: string, operationId: string) => {
     const holders = isConsumable(materialId) ? [] : groupsHolding("material", materialId)
     if (holders.length === 0) {
-      assignMaterialToOperation(materialId, operationId)
+      void assignMaterialToOperation(materialId, operationId)
       return
     }
     const name = materials.find((m) => m.id === materialId)?.name ?? materialId

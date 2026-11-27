@@ -176,14 +176,15 @@ export default [
   // shows the failure. Every read rejects when no answer comes (NetworkError, lib/api/http.ts),
   // so a read is awaited, returned, caught (`.catch`, `try`) or handed to React Query – never
   // left floating in an effect or a timer, never an async function where a void callback goes
-  // (onClick, setInterval). `void p` says «this cannot reject» on purpose. Ratcheted warnings:
-  // the ones today are mostly writes and loaders that catch inside.
+  // (onClick, setInterval). `void p` says «this cannot reject» on purpose: the callee catches
+  // and says its own failure – check it, then `onClick={() => void save()}`. One that can
+  // reject gets its `.catch` (a toast or a log) where it is called. None left in product code.
   {
     files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
     ignores: TESTS,
     rules: {
-      "@typescript-eslint/no-floating-promises": "warn",
-      "@typescript-eslint/no-misused-promises": "warn",
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
     },
   },
   // The map door. components/map/ is the one place that imports MapLibre's values (types are

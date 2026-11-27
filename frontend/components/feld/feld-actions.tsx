@@ -418,7 +418,7 @@ export function FeldActions({
   ) : null
   const footerAction = confirming ? (
     <div className="grid gap-2">
-      <Button size="lg" className="h-12 w-full" disabled={busy} onClick={confirming === 'arrived' ? handleArrived : handleComplete}>
+      <Button size="lg" className="h-12 w-full" disabled={busy} onClick={() => void (confirming === 'arrived' ? handleArrived() : handleComplete())}>
         {isBusy(delivery, confirming) && <ShellLoader className="size-4" />}
         {confirming === 'arrived' ? t('confirmArrivedYes') : t('confirmCompleteYes')}
       </Button>
@@ -496,7 +496,7 @@ export function FeldActions({
           size="lg"
           variant={suggestSelfDrive ? 'default' : 'outline'}
           disabled={busy}
-          onClick={() => handlePickup(false)}
+          onClick={() => void handlePickup(false)}
         >
           {suggestSelfDrive && isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
           {tPickup('selfReturn')}
@@ -505,7 +505,7 @@ export function FeldActions({
           size="lg"
           variant={suggestSelfDrive ? 'outline' : 'default'}
           disabled={busy}
-          onClick={() => handlePickup(true)}
+          onClick={() => void handlePickup(true)}
         >
           {!suggestSelfDrive && isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
           {tPickup('needPickup')}
@@ -726,7 +726,7 @@ export function FeldActions({
             onChange={e => setNote(e.target.value)}
             className="text-sm"
           />
-          <Button size="lg" className="w-full" disabled={busy} onClick={() => handlePickup(true)}>
+          <Button size="lg" className="w-full" disabled={busy} onClick={() => void handlePickup(true)}>
             {isBusy(delivery, 'pickup') && <ShellLoader className="size-4" />}
             {pickupNeeded ? tPickup('updateNote') : tPickup('needPickup')}
           </Button>
@@ -770,7 +770,7 @@ export function FeldActions({
                   variant="secondary"
                   size="sm"
                   disabled={busy}
-                  onClick={() => handleMessage(chip)}
+                  onClick={() => void handleMessage(chip)}
                 >
                   {chip}
                 </Button>
@@ -790,7 +790,7 @@ export function FeldActions({
               maxLength={500}
               onChange={e => setMessage(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && messageField.check()) handleMessage(message)
+                if (e.key === 'Enter' && messageField.check()) void handleMessage(message)
               }}
               className="h-11 text-sm"
             />
@@ -798,7 +798,7 @@ export function FeldActions({
               size="icon"
               aria-label={t('send')}
               disabled={busy}
-              onClick={() => messageField.check() && handleMessage(message)}
+              onClick={() => { if (messageField.check()) void handleMessage(message) }}
             >
               {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
             </Button>
@@ -890,7 +890,7 @@ export function FeldActions({
             </Button>
             <Button
               disabled={busy}
-              onClick={() => handleAsk(panel === 'request-material' ? 'material' : 'personnel')}
+              onClick={() => void handleAsk(panel === 'request-material' ? 'material' : 'personnel')}
             >
               {isBusy(delivery, 'message') ? <ShellLoader className="size-4" /> : <Send className="size-4" />}
               {tAsk('send')}

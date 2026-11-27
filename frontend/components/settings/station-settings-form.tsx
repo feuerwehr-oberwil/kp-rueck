@@ -299,7 +299,7 @@ export function StationSettingsForm({
         <Switch
           id={config.key}
           checked={value === 'true' || value === ''}
-          onCheckedChange={(checked) => updateSetting(config.key, String(checked))}
+          onCheckedChange={(checked) => void updateSetting(config.key, String(checked))}
           disabled={!isEditor || isCurrentlySaving}
         />
       );
@@ -310,7 +310,7 @@ export function StationSettingsForm({
       return (
         <Select
           value={value}
-          onValueChange={(newValue) => updateSetting(config.key, newValue)}
+          onValueChange={(newValue) => void updateSetting(config.key, newValue)}
           disabled={!isEditor || isCurrentlySaving}
         >
           <SelectTrigger id={config.key} className="w-full">
@@ -381,7 +381,7 @@ export function StationSettingsForm({
             const next = config.decimals !== undefined ? roundDecimal(normalized, config.decimals) : normalized;
             if (next !== raw) setSettings((prev) => ({ ...prev, [config.key]: next }));
             if (next !== serverSettings[config.key]) {
-              updateSetting(config.key, next);
+              void updateSetting(config.key, next);
             }
           }}
           disabled={!isEditor || isCurrentlySaving}

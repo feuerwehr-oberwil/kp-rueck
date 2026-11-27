@@ -103,7 +103,7 @@ export function AuditLogSection({
               </Select>
             </div>
             <Button
-              onClick={handleAuditExport}
+              onClick={() => void handleAuditExport()}
               disabled={!auditExportEventId || auditExportLoading || eventsLoading}
               className="w-full sm:w-auto"
             >
@@ -172,7 +172,7 @@ export function AuditLogSection({
       ) : auditError ? (
         <>
           <p className="text-destructive">{auditError}</p>
-          <Button onClick={fetchAuditLogs} className="mt-4">{t('common.retry')}</Button>
+          <Button onClick={() => void fetchAuditLogs()} className="mt-4">{t('common.retry')}</Button>
         </>
       ) : filteredAuditEntries.length === 0 && auditSearchQuery.trim() ? (
         <SearchEmptyState query={auditSearchQuery} onClear={() => setAuditSearchQuery('')} />

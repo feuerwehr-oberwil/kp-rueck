@@ -173,7 +173,7 @@ export function PersistentNotificationSidebar() {
                 <NotificationCard
                   key={notification.id}
                   notification={notification}
-                  onDismiss={dismissNotification}
+                  onDismiss={(id) => void dismissNotification(id)}
                   onClickIncident={handleClickIncident}
                   variant="compact"
                   dismissOnClick={false}

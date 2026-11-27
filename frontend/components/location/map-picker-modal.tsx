@@ -121,7 +121,7 @@ export function MapPickerModal({
     }
     const controller = new AbortController()
     setIsGeocoding(true)
-    reverseGeocode(selectedLat, selectedLon, controller.signal)
+    void reverseGeocode(selectedLat, selectedLon, controller.signal)
       .then((address) => {
         if (!controller.signal.aborted) setGeocodedAddress(address)
       })

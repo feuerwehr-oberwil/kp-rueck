@@ -142,7 +142,7 @@ export function PhoneNotificationSheet({ open, onOpenChange, returnFocusTo }: Ph
                   <NotificationCard
                     key={notification.id}
                     notification={notification}
-                    onDismiss={isViewer ? undefined : dismissNotification}
+                    onDismiss={isViewer ? undefined : (id) => void dismissNotification(id)}
                     onClickIncident={openIncident}
                     readOnly
                   />

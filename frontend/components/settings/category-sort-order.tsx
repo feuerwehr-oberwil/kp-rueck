@@ -219,7 +219,7 @@ export function CategorySortOrder({ title, description, categories: initialCateg
       action={
         !readOnly && (
           <Button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={!hasChanges || isSaving}
             size="sm"
             className="gap-2"

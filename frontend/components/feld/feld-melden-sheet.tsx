@@ -409,7 +409,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         <SheetBody className="px-4 pb-3">
           <DuplicateHint
             candidates={shownDuplicates}
-            onMerge={mergeInto}
+            onMerge={(candidate) => void mergeInto(candidate)}
             onDismiss={() => setDismissedDuplicateKey(duplicateKey)}
             mergingId={mergingId}
             showSketch={false}
@@ -433,7 +433,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
         </SheetBody>
 
         <SheetFooter className={FOOT_CLASS}>
-          <Button size="lg" className="w-full" onClick={() => submit()} disabled={sending}>
+          <Button size="lg" className="w-full" onClick={() => void submit()} disabled={sending}>
             {sending && <ShellLoader className="size-4" />}
             {editing ? t('editSubmit') : t('submit')}
           </Button>
@@ -525,7 +525,7 @@ export function FeldMeldenSheet(props: FeldMeldenSheetProps) {
             variant="outline"
             size="sm"
             className="-mt-2 min-h-10"
-            onClick={locate}
+            onClick={() => void locate()}
             disabled={locating || sending}
           >
             {locating ? <ShellLoader className="size-4" /> : <LocateFixed className="size-4" />}

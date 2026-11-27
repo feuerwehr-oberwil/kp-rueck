@@ -403,7 +403,7 @@ function AuthenticatedDisplayMap({
   // read through an effect event, so this stays a mount effect.
   const refreshOnMount = useEffectEvent(() => refreshIncidents())
   useEffect(() => {
-    refreshOnMount()
+    void refreshOnMount()
   }, [])
 
   // id → Operation lookup for the read-only Auftrag route overlay (stops are

@@ -135,7 +135,7 @@ export function LinksQrSheet({
     if (!open || !eventId) return
     let cancelled = false
     setLinksLoading(true)
-    Promise.all(
+    void Promise.all(
       LINK_KEYS.map(async key => {
         try {
           return [key, await generate(key, eventId)] as const
@@ -282,14 +282,14 @@ export function LinksQrSheet({
               <ExternalLink className="size-3.5" />
             </a>
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleCopy(key)} disabled={!url}>
+          <Button variant="outline" size="sm" onClick={() => void handleCopy(key)} disabled={!url}>
             {copied === key ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
           </Button>
           {printerEnabled && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePrint(key)}
+              onClick={() => void handlePrint(key)}
               disabled={!url}
               title={tCommon("printQrCode")}
             >

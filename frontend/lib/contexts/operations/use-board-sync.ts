@@ -349,10 +349,9 @@ export function useBoardSync(input: BoardSyncInput) {
                 return
               }
               window.setTimeout(() => {
-                const playPromise = audio.play()
-                if (playPromise && typeof playPromise.catch === 'function') {
-                  playPromise.catch(() => tryPlay(attempt + 1))
-                }
+                // Older WebKit answers `play()` with undefined: nothing to retry then.
+                const playPromise: Promise<void> | undefined = audio.play()
+                if (playPromise !== undefined) playPromise.catch(() => tryPlay(attempt + 1))
               }, retryDelays[attempt])
             }
             tryPlay(0)
@@ -530,48 +529,51 @@ export function useBoardSync(input: BoardSyncInput) {
     let pollTimeout: NodeJS.Timeout | undefined
     let isPollingActive = false
 
+    // One poll tick, then the next one armed. Never rejects: a failed check is caught.
+    const pollTick = async () => {
+      if (!isPollingActive) return
+      const tickAction = decidePollTickAction({
+        isLoading: isLoadingRef.current || reloadScheduler.busy,
+        inCooldown: inCooldown(),
+      })
+      if (tickAction === "skip") {
+        if (isPollingActive) schedulePoll()
+        return
+      }
+      if (tickAction === "queue") {
+        // Queue a replay rather than skipping silently — the cooldown clear
+        // will pick this up. We still keep the polling cadence going.
+        pendingReplayRef.current = true
+        if (isPollingActive) schedulePoll()
+        return
+      }
+      try {
+        // Lightweight version check before full reload
+        const { version } = await apiClient.getSyncVersion(eventId)
+        // The load records the version once its snapshot is on screen – recorded here,
+        // a failed load left «same version» on the next tick, which certified the old board.
+        if (version !== lastSyncVersionRef.current) {
+          await reloadScheduler.requestAuto()
+        } else {
+          // Confirmed fresh — keep the stale-data banner honest. Without
+          // this, a healthy polling session with no changes let lastSyncAt
+          // age past the threshold and showed "Verbindung verloren".
+          // Same version as the last GOOD load: the board on screen is
+          // current, whatever a failed reload in between said.
+          setLastSyncAt(new Date())
+          setLoadError(null)
+          stopPollingIfSocketCarries()
+        }
+      } catch {
+        pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
+      }
+      if (isPollingActive) schedulePoll()
+    }
+
     const schedulePoll = () => {
       if (!isPollingActive) return
       const interval = getNextPollInterval(true)
-      pollTimeout = setTimeout(async () => {
-        if (!isPollingActive) return
-        const tickAction = decidePollTickAction({
-          isLoading: isLoadingRef.current || reloadScheduler.busy,
-          inCooldown: inCooldown(),
-        })
-        if (tickAction === "skip") {
-          if (isPollingActive) schedulePoll()
-          return
-        }
-        if (tickAction === "queue") {
-          // Queue a replay rather than skipping silently — the cooldown clear
-          // will pick this up. We still keep the polling cadence going.
-          pendingReplayRef.current = true
-          if (isPollingActive) schedulePoll()
-          return
-        }
-        try {
-          // Lightweight version check before full reload
-          const { version } = await apiClient.getSyncVersion(eventId)
-          // The load records the version once its snapshot is on screen – recorded here,
-          // a failed load left «same version» on the next tick, which certified the old board.
-          if (version !== lastSyncVersionRef.current) {
-            await reloadScheduler.requestAuto()
-          } else {
-            // Confirmed fresh — keep the stale-data banner honest. Without
-            // this, a healthy polling session with no changes let lastSyncAt
-            // age past the threshold and showed "Verbindung verloren".
-            // Same version as the last GOOD load: the board on screen is
-            // current, whatever a failed reload in between said.
-            setLastSyncAt(new Date())
-            setLoadError(null)
-            stopPollingIfSocketCarries()
-          }
-        } catch {
-          pollingBackoffRef.current = Math.min(pollingBackoffRef.current * 2, POLLING_MAX_BACKOFF)
-        }
-        if (isPollingActive) schedulePoll()
-      }, interval)
+      pollTimeout = setTimeout(() => void pollTick(), interval)
     }
 
     const startPolling = () => {

@@ -153,7 +153,7 @@ export function RekoTab({
                 <button
                   type="button"
                   className={ROW_ACTION}
-                  onClick={handleCopyDirectRekoLink}
+                  onClick={() => void handleCopyDirectRekoLink()}
                   disabled={isCopyingRekoLink}
                 >
                   {isCopyingRekoLink ? (
@@ -168,7 +168,7 @@ export function RekoTab({
                 <button
                   type="button"
                   className={ROW_ACTION}
-                  onClick={handleCopyDashboardLink}
+                  onClick={() => void handleCopyDashboardLink()}
                   disabled={isCopyingRekoLink}
                 >
                   {rekoCopied === 'dashboard' ? (

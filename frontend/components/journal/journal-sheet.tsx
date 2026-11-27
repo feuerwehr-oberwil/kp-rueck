@@ -321,6 +321,7 @@ function JournalRow({
   stacked?: boolean
   onOpenIncident?: () => void
   onCorrect?: () => void
+  /** Never rejects: a failed restore says so itself (`restoreDeletedIncident`). */
   onRestore?: () => Promise<void>
 }) {
   const t = useTranslations("journal")
@@ -382,9 +383,9 @@ function JournalRow({
         </p>
         {onRestore && (
           <Button type="button" size="sm" variant="outline" className="mt-1" disabled={restoring}
-            onClick={async () => {
+            onClick={() => {
               setRestoring(true)
-              try { await onRestore() } finally { setRestoring(false) }
+              void onRestore().finally(() => setRestoring(false))
             }}>
             {restoring ? <ShellLoader /> : <Undo2 aria-hidden="true" />}
             {t("restoreIncident")}

@@ -133,7 +133,7 @@ export default function HelpPage() {
       }
     };
 
-    loadContent();
+    void loadContent();
     return () => {
       cancelled = true;
     };

@@ -130,7 +130,8 @@ interface RekoReportFormProps {
   /** The mount's photo door, if it has one. */
   photos?: PhotoTransport
   /** The field mount's «Bericht senden». The board's mount saves as it goes and has
-   *  no submit: it passes none, and draws its sync line in its own header. */
+   *  no submit: it passes none, and draws its sync line in its own header. Must not
+   *  reject: a failed send is said by the caller. */
   onSubmit?: () => void | Promise<void>
   /** Copy only — never behaviour (the same rule the Rapport form follows). */
   mount?: 'feld' | 'kp'
@@ -252,7 +253,7 @@ export function RekoReportForm({
   // ─────────────────────────────────────────────────────────────────────────
   if (dense) {
     return (
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => void handleSubmit(e)}>
         <DetailField label={t('relevantQuestion')}>
           <div className="flex flex-wrap items-center gap-2">
             {/* The phone's pair at the board's size: two `selected`/outline
@@ -451,7 +452,7 @@ export function RekoReportForm({
   // The field mount: thumb targets, one question per block, in the rain.
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
       {/* Section 1: Basic Confirmation */}
       <div className="space-y-3">
         <div className="flex items-center gap-1">

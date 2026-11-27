@@ -124,7 +124,7 @@ export function DuplicateFlag({ operationId, targetId, canEdit = true, className
               {t('card.merge')}
             </Button>
           )}
-          <Button type="button" size="xs" variant="ghost" disabled={busy !== null} onClick={dismiss}>
+          <Button type="button" size="xs" variant="ghost" disabled={busy !== null} onClick={() => void dismiss()}>
             {busy === 'dismiss' && <ShellLoader className="size-3.5" />}
             {t('card.dismiss')}
           </Button>

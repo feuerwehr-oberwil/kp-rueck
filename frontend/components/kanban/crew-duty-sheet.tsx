@@ -136,7 +136,7 @@ function useActivity(eventId: string | null, active: boolean, signature: string)
 
   useEffect(() => {
     if (!active) return
-    const timer = setTimeout(load, 400)
+    const timer = setTimeout(() => void load(), 400)
     return () => clearTimeout(timer)
   }, [active, load, signature])
 
