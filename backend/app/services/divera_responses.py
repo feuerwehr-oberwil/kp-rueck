@@ -410,17 +410,32 @@ async def store_snapshots(db: AsyncSession, parsed_alarms: Mapping[int, dict[str
         return set(), set()
     cutoff = _now() - RETENTION
     polled = models.DiveraEmergency.divera_id.in_(list(parsed_alarms.keys()))
+    # Their Ereignisse, then the rows by id (crud/locking.py). An alarm attached elsewhere
+    # between the two is not written: its next poll writes it, under its Ereignis lock.
     locked = await divera_crud.lock_ereignisse_of_alarms(db, polled)
     result = await db.execute(
-        select(models.DiveraEmergency, models.Event.archived_at)
-        .outerjoin(models.Event, models.Event.id == models.DiveraEmergency.attached_to_event_id)
-        .where(polled, or_(divera_crud.ereignis_of_alarm().is_(None), divera_crud.ereignis_of_alarm().in_(locked)))
+        select(models.DiveraEmergency)
+        .where(polled)
+        .order_by(models.DiveraEmergency.id)
+        .with_for_update()
         .execution_options(populate_existing=True)
+    )
+    alarms = [
+        emergency
+        for emergency in result.scalars().all()
+        if emergency.attached_to_event_id is None or emergency.attached_to_event_id in locked
+    ]
+    archived = set(
+        await db.scalars(
+            select(models.Event.id).where(models.Event.id.in_(locked), models.Event.archived_at.is_not(None))
+        )
     )
     rows = [
         emergency
-        for emergency, event_archived_at in result.all()
-        if emergency.divera_id is not None and event_archived_at is None and emergency.received_at >= cutoff
+        for emergency in alarms
+        if emergency.divera_id is not None
+        and emergency.attached_to_event_id not in archived
+        and emergency.received_at >= cutoff
     ]
     if not rows:
         return set(), set()
@@ -464,9 +479,26 @@ async def purge_expired(db: AsyncSession) -> int:
         ),
     )
     locked = await divera_crud.lock_ereignisse_of_alarms(db, expired)
+    # The rows by id, as every writer of several alarms takes them (crud/locking.py rule 2).
+    ids = list(
+        await db.scalars(
+            select(models.DiveraEmergency.id)
+            .where(expired)
+            .where(
+                or_(
+                    models.DiveraEmergency.attached_to_event_id.is_(None),
+                    models.DiveraEmergency.attached_to_event_id.in_(locked),
+                )
+            )
+            .order_by(models.DiveraEmergency.id)
+            .with_for_update()
+        )
+    )
+    if not ids:
+        return 0
     result = await db.execute(
         update(models.DiveraEmergency)
-        .where(expired, or_(divera_crud.ereignis_of_alarm().is_(None), divera_crud.ereignis_of_alarm().in_(locked)))
+        .where(models.DiveraEmergency.id.in_(ids))
         .values(responses_json=null(), responses_updated_at=None)
         .execution_options(synchronize_session=False)
     )

@@ -438,7 +438,8 @@ async def create_incident(
     Verifies that the event exists before creating the incident.
     Triggers immediate sync (event-based) after creation.
     """
-    # Verify event exists
+    # Verify event exists – under its lock, so a delete cannot slip in before the card's INSERT.
+    await lock_ereignis(db, incident.event_id)
     event = await events_crud.get_event_by_id(db, incident.event_id)
     if not event:
         raise CodedHTTPException(status.HTTP_404_NOT_FOUND, ErrorCode.EVENT_NOT_FOUND, ErrorMessages.EVENT_NOT_FOUND)

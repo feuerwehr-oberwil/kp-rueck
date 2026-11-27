@@ -197,14 +197,6 @@ def armed(sync_session: Session) -> Iterator[list[str]]:
 
 
 def report(violations: list[str]) -> None:
-    """Fail the test on a violation (or, with EREIGNIS_LOCK_LOG set, append them to that file)."""
-    if not violations:
-        return
-    import os
-
-    log = os.environ.get("EREIGNIS_LOCK_LOG")
-    if log:
-        with open(log, "a") as out:
-            out.writelines(f"{os.environ.get('PYTEST_CURRENT_TEST', '?')}\t{v}\n" for v in violations)
-        return
-    raise AssertionError("Ereignis lock rule broken (docs/BACKEND.md «Row locks»):\n" + "\n".join(violations))
+    """Fail the test on a violation."""
+    if violations:
+        raise AssertionError("Ereignis lock rule broken (docs/BACKEND.md «Row locks»):\n" + "\n".join(violations))

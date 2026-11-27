@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud.locking import lock_ereignis
 from app.database import async_session_maker
 from app.models import DiveraEmergency, Event, Incident, Setting
 from app.schemas.training import AutogenRun, AutogenStateResponse, RegieRun
@@ -251,6 +252,12 @@ class TrainingAutoGenTask:
         from app.services.divera_intake import broadcast_emergency_received
         from app.websocket_manager import broadcast_incident_update
 
+        # Its lock first (crud/locking.py rule 1), then the Übung again: archived meanwhile, it
+        # takes no more alarms.
+        await lock_ereignis(db, event.id)
+        await db.refresh(event)
+        if not event.training_flag or event.archived_at is not None:
+            return
         generator = TrainingGenerator(db)
         mode = await read(db, TRAINING_AUTOGEN_MODE)
 

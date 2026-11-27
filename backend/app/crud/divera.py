@@ -121,7 +121,8 @@ def ereignis_of_alarm() -> ColumnElement[UUID | None]:
 async def lock_ereignisse_of_alarms(db: AsyncSession, where: ColumnElement[bool]) -> set[UUID]:
     """Lock the Ereignisse of the alarms ``where`` selects (``locking.lock_ereignis``) and return
     them – for a write of many alarms at once. An alarm attached elsewhere meanwhile is in none
-    of them: the caller writes only alarms with ``ereignis_of_alarm()`` in the set or NULL."""
+    of them: the caller locks the rows and writes only those whose ``attached_to_event_id`` is
+    in the set or NULL."""
     ereignisse = {event_id for event_id in await db.scalars(select(ereignis_of_alarm()).where(where)) if event_id}
     await lock_ereignis(db, *ereignisse)
     return ereignisse

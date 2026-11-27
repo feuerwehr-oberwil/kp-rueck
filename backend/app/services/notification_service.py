@@ -918,6 +918,7 @@ async def dismiss_notification(
     the dismissal sees the rewritten row. A mismatch raises ``DomainError`` (409
     ``notification_changed``) and changes nothing: the operator must not acknowledge somebody
     they were not shown. Without a version (an older client) the dismissal is unconditional.
+    A row dismissed already keeps who dismissed it and when: a fatigue re-alarm counts from there.
     """
     event_id = await db.scalar(
         select(func.coalesce(Notification.event_id, Incident.event_id))
@@ -933,7 +934,7 @@ async def dismiss_notification(
     if notification and expected_version is not None and notification.version != expected_version:
         raise DomainError(ErrorCode.NOTIFICATION_CHANGED, "Die Meldung hat sich inzwischen geändert. Bitte neu lesen.")
 
-    if notification:
+    if notification and not notification.dismissed:
         now = datetime.now(UTC)
         notification.dismissed = True
         notification.dismissed_at = now

@@ -18,6 +18,7 @@ from ..models import (
 from ..services.audit import log_action
 from ..utils.error_codes import DomainError, ErrorCode
 from .active_resources import active_resource_ids
+from .locking import lock_ereignis
 from .personnel import name_key
 
 # The tag a guest who checked themselves in at the door carries, so the board's person cards
@@ -167,6 +168,7 @@ async def check_in_personnel(
         CheckOutChangedError: ``resume`` given, but the row is no longer that departure
             (somebody checked the person in, out again, or cleared them meanwhile).
     """
+    await lock_ereignis(db, event_id)  # rule 1 (crud/locking.py), also for the training trickle
     # The person's row lock (crud/locking.py rule 2) orders this against a concurrent
     # check-out, so a resume compares against the departure that is really there.
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
@@ -300,6 +302,7 @@ async def check_in_guest(
     Returns the person's attendance and whether a guest was created. One audit row either
     way (``check_in_guest``, no user: the link is anonymous).
     """
+    await lock_ereignis(db, event_id)  # rule 1 (crud/locking.py), also for the training trickle
     await db.execute(sa_text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"checkin_guest:{event_id}"})
 
     wanted = name_key(name, None)[0]
@@ -377,6 +380,7 @@ async def check_out_personnel(
             bound (assigned or holding a function) with ``refuse_bound``.
         PersonStillBoundError: ``refuse_bound`` and the person is bound.
     """
+    await lock_ereignis(db, event_id)  # rule 1 (crud/locking.py), also for the training trickle
     # The person's row lock (crud/locking.py rule 2): a new assignment and a new function
     # take it too, so what is read below cannot change before this check-out lands.
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
@@ -476,6 +480,7 @@ async def clear_personnel_attendance(
     None if not found – a guest of another Ereignis counts as not found, as in
     check-in and check-out.
     """
+    await lock_ereignis(db, event_id)  # rule 1 (crud/locking.py), also for the training trickle
     result = await db.execute(select(Personnel).where(Personnel.id == personnel_id).with_for_update())
     person = result.scalar_one_or_none()
     # A guest of another Ereignis is nobody this one lists (`Personnel.in_scope`).
@@ -526,6 +531,7 @@ async def set_attendance_plan(
     another one). Raises ``DomainError`` for an unavailable person, like check-in, and when
     the result would end before it starts (``feld_plan_invalid``, 400).
     """
+    await lock_ereignis(db, event_id)  # rule 1 (crud/locking.py), also for the training trickle
     person = await db.scalar(select(Personnel).where(Personnel.id == personnel_id))
     if not person or person.guest_event_id not in (None, event_id):
         return None
@@ -599,6 +605,7 @@ async def check_out_all_personnel(
     Returns:
         The people who were checked out, in name order — empty when nobody was present.
     """
+    await lock_ereignis(db, event_id)  # rule 1 (crud/locking.py), also for the training trickle
     now = at or datetime.now(UTC)
 
     result = await db.execute(

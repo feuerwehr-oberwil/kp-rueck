@@ -169,14 +169,13 @@ async def try_auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -
 
 
 async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> models.Incident | None:
-    event_id = await db.scalar(
+    wants_alarms = (
         select(models.Event.id)
         .where(models.Event.auto_attach_divera.is_(True))
         .where(models.Event.training_flag.is_(False))
         .where(models.Event.archived_at.is_(None))
-        .order_by(models.Event.created_at.desc())
-        .limit(1)
     )
+    event_id = await db.scalar(wants_alarms.order_by(models.Event.created_at.desc()).limit(1))
     if event_id is None:
         return None
     # Row-locked like the manual attach (crud.divera.lock_divera_emergency), after the Ereignis it
@@ -185,6 +184,9 @@ async def _auto_attach(db: AsyncSession, emergency: models.DiveraEmergency) -> m
     if await divera_crud.lock_divera_emergency(db, emergency.id, onto=[event_id]) is None:
         return None
     if emergency.is_training or emergency.attached_to_event_id is not None:
+        return None
+    # Read again under its lock: switched off or archived meanwhile, it takes no alarm.
+    if await db.scalar(wants_alarms.where(models.Event.id == event_id)) is None:
         return None
     # The caller's commit stores card and link together – it is also what releases the row lock.
     return (await attach(db, emergency, event_id, actor=None)).incident

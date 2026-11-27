@@ -3,13 +3,14 @@
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import schemas
 from ..auth.dependencies import CurrentEditor, CurrentUser
 from ..crud import external_identities as identities_crud
 from ..crud import personnel as crud
+from ..crud.locking import lock_ereignis
 from ..database import get_db
 from ..models import Event, Personnel
 from ..utils.errors import ErrorMessages
@@ -62,6 +63,8 @@ async def create_personnel(
     With `guest_event_id` the person is a guest of that Ereignis: listed there only, never in
     the roster (the walk-in «Person hinzufügen»). 404 when that Ereignis does not exist.
     """
+    # The Ereignis' lock first, so a delete cannot slip in between the check and the INSERT.
+    await lock_ereignis(db, personnel.guest_event_id)
     if personnel.guest_event_id is not None and await db.get(Event, personnel.guest_event_id) is None:
         raise HTTPException(status_code=404, detail=ErrorMessages.EVENT_NOT_FOUND)
     try:
@@ -139,6 +142,14 @@ async def update_role_sort_orders(
     This endpoint allows reordering how personnel are grouped by role.
     All personnel with the same role will get the same sort_order value.
     """
+    # Every row it writes first, by id (crud/locking.py rule 2): two sorts in opposite order
+    # would each hold one category and wait for the other's.
+    await db.execute(
+        select(Personnel.id)
+        .where(Personnel.role.in_([c.category for c in sort_update.categories]))
+        .order_by(Personnel.id)
+        .with_for_update()
+    )
     # Update sort order for each role category
     for category_update in sort_update.categories:
         await db.execute(

@@ -13,6 +13,7 @@ from .. import schemas
 from ..auth.dependencies import CurrentAdmin
 from ..auth.security import hash_password_async
 from ..config import settings
+from ..crud.locking import lock_every_ereignis
 from ..database import get_db
 from ..models import User
 from ..services.audit import log_action
@@ -138,7 +139,8 @@ async def update_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
+    # FOR NO KEY UPDATE: the audit row of an admin editing this one key-shares it meanwhile.
+    result = await db.execute(select(User).where(User.id == user_id).with_for_update(key_share=True))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -256,8 +258,13 @@ async def delete_user(
             detail="Benutzerverwaltung ist im Demo-Modus nicht verfügbar",
         )
 
-    result = await db.execute(select(User).where(User.id == user_id).with_for_update())
-    user = result.scalar_one_or_none()
+    # A permanent delete clears the user's name from rows of any Ereignis (Reko, cards …):
+    # every Ereignis lock first (crud/locking.py rule 1). A deactivation writes the user only.
+    locked = select(User).where(User.id == user_id)
+    if permanent:
+        user = await lock_every_ereignis(db, lambda: db.scalar(locked.with_for_update()))
+    else:
+        user = await db.scalar(locked.with_for_update(key_share=True))
 
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.USER_NOT_FOUND)

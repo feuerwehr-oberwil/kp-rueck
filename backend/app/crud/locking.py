@@ -26,7 +26,7 @@ lifecycle writer (archive, purge, delete) takes the resource row, so nobody is a
 """
 
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Annotated, Literal, get_args, overload
 
 from fastapi import Depends, Request
@@ -83,7 +83,7 @@ async def lock_ereignis(db: AsyncSession, *event_ids: uuid.UUID | None) -> None:
     and taken by another writer it refuses with ``DomainError`` ``ereignis_busy`` (409, try
     again). A savepoint rolled back releases the locks taken inside it.
     """
-    held: set[int] = db.info.setdefault(_HELD, set())
+    held: dict[int, SessionTransaction] = db.info.setdefault(_HELD, {})
     for key in ereignis_lock_keys(event_ids):
         if key not in held and held and key < max(held):
             if not await db.scalar(TRY_LOCK_EREIGNIS, {"key": key}):
@@ -92,7 +92,16 @@ async def lock_ereignis(db: AsyncSession, *event_ids: uuid.UUID | None) -> None:
                 )
         else:
             await db.execute(LOCK_EREIGNIS, {"key": key})
-        held.add(key)
+        held.setdefault(key, db.sync_session.get_nested_transaction() or db.sync_session.get_transaction())  # type: ignore[arg-type]
+
+
+def _within(transaction: SessionTransaction | None, ended: SessionTransaction) -> bool:
+    """Whether ``transaction`` is ``ended`` or a savepoint inside it."""
+    while transaction is not None:
+        if transaction is ended:
+            return True
+        transaction = transaction.parent
+    return False
 
 
 @event.listens_for(Session, "after_transaction_end")
@@ -100,6 +109,14 @@ def _forget_ereignis_locks(session: Session, transaction: SessionTransaction) ->
     """The transaction ended: its Ereignis locks are gone with it."""
     if transaction.parent is None:
         session.info.pop(_HELD, None)
+
+
+@event.listens_for(Session, "after_soft_rollback")
+def _forget_rolled_back_ereignis_locks(session: Session, previous_transaction: SessionTransaction) -> None:
+    """A savepoint rolled back released the locks taken inside it (Postgres does)."""
+    held: dict[int, SessionTransaction] = session.info.get(_HELD, {})
+    for key in [key for key, taken_in in held.items() if _within(taken_in, previous_transaction)]:
+        del held[key]
 
 
 async def ereignisse_of_incidents(db: AsyncSession, incident_ids: Iterable[uuid.UUID | None]) -> set[uuid.UUID]:
@@ -331,19 +348,27 @@ async def lock_resource_for_delete(
     """Lock what deleting or purging a resource writes: every Ereignis, then the resource row.
 
     Its rows may sit in any Ereignis – crew and Auftrag history, Fahrer, attendance, device
-    claims, the ``ON DELETE SET NULL`` references of cards and reports – so every Ereignis is
-    locked (rule 1), sorted. An Ereignis created between the look and the lock rolls the
-    savepoint back – releasing its locks – and starts over. A rare, deliberate admin action:
-    waiting for every board's writes is fine.
+    claims, the ``ON DELETE SET NULL`` references of cards and reports (``lock_every_ereignis``).
+    """
+    return await lock_every_ereignis(db, lambda: lock_resource(db, resource_type, resource_id))
+
+
+async def lock_every_ereignis[T](db: AsyncSession, lock_row: Callable[[], Awaitable[T]]) -> T:
+    """Rule 1 for a delete whose cascade may reach any Ereignis (a resource, a user): every
+    Ereignis, sorted, then ``lock_row()``.
+
+    An Ereignis created between the look and the lock rolls the savepoint back – releasing its
+    locks – and starts over. A rare, deliberate admin action: waiting for every board's writes
+    is fine.
     """
     every = select(Event.id)
     for _ in range(_MAX_LOCK_ATTEMPTS):
         before = set(await db.scalars(every))
         savepoint = await db.begin_nested()
         await lock_ereignis(db, *before)
-        resource = await lock_resource(db, resource_type, resource_id)
+        row = await lock_row()
         if set(await db.scalars(every)) <= before:
             await savepoint.commit()
-            return resource
+            return row
         await savepoint.rollback()
     raise RuntimeError("Ereignisse kept appearing while locking; giving up")

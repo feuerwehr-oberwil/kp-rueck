@@ -40,7 +40,8 @@ from app.crud import personnel as personnel_crud
 from app.crud import personnel_checkin as checkin_crud
 from app.crud import reko_assignment as reko_assignment_crud
 from app.crud.feld.melden import create_field_report
-from app.crud.locking import lock_groups, lock_incident, lock_incident_with_group, lock_resource
+from app.crud.locking import lock_ereignis, lock_groups, lock_incident, lock_incident_with_group, lock_resource
+from app.ereignis_lock import ereignis_lock_key
 from app.models import (
     AuditLog,
     AuftragTemplate,
@@ -61,6 +62,7 @@ from app.models import (
 from app.services import duplicates, notification_service
 from app.services.notification_service import dismiss_notification
 from app.standby_sync import Op, apply_ops, event_tables, fetch_rows
+from app.utils.error_codes import DomainError, ErrorCode
 from tests.conftest import wait_for_ereignis_lock, wait_until_blocked
 
 
@@ -863,3 +865,28 @@ async def test_a_synced_ereignis_delete_and_a_bell_poll_take_turns(board: Board)
         # The Ereignis is gone by the time the poll goes on: nothing to warn about.
         assert await asyncio.wait_for(poll, timeout=10) == []
         await polling.rollback()
+
+
+async def test_a_lock_a_rolled_back_savepoint_released_is_tried_again_not_waited_for(board: Board):
+    # A savepoint took a lower Ereignis lock and rolled back: Postgres released it, but the
+    # transaction still counted it as held and waited for it – out of order, behind a writer
+    # that may wait for the higher one this transaction holds.
+    other_event = uuid4()
+    async with board.sessions() as db:
+        db.add(Event(id=other_event, name="Nachbar", training_flag=False, created_at=datetime.now(UTC)))
+        await db.commit()
+    low, high = sorted((board.event_id, other_event), key=ereignis_lock_key)
+    try:
+        async with board.sessions() as writing, board.sessions() as holder:
+            await lock_ereignis(writing, high)
+            savepoint = await writing.begin_nested()
+            await lock_ereignis(writing, low)
+            await savepoint.rollback()
+            await lock_ereignis(holder, low)
+            with pytest.raises(DomainError) as busy:
+                await asyncio.wait_for(lock_ereignis(writing, low), timeout=5)
+            assert busy.value.code == ErrorCode.EREIGNIS_BUSY
+    finally:
+        async with board.sessions() as db:
+            await db.execute(delete(Event).where(Event.id == other_event))
+            await db.commit()
