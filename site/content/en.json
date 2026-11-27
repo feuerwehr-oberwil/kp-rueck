@@ -46,6 +46,22 @@
     "home": "To the home page",
     "demo": "Open the demo"
   },
+  "wake": {
+    "pageTitle": "Starting the demo – KP Rück",
+    "title": "Starting the demo…",
+    "ready": "Ready – opening the demo…",
+    "steps": [
+      "Server starting",
+      "Waking the database",
+      "Preparing the demo situation"
+    ],
+    "note": "The demo sleeps when nobody uses it. Starting it usually takes 10–30 seconds.",
+    "failTitle": "The demo is not starting right now",
+    "failText": "It has not answered after 90 seconds. A second try usually works.",
+    "retry": "Try again",
+    "direct": "Go straight to the demo",
+    "noscript": "The demo sleeps when nobody uses it. The first visit can take up to 30 seconds."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· free&nbsp;· Switzerland",
     "h1": "The incident board for the command post.",
@@ -289,7 +305,7 @@
       },
       {
         "q": "How do we start?",
-        "a": "With the <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">demo</a>, without an account – pick a role and go. Then try it on an exercise; exercise mode is cleanly separated from the real thing. If it fits, the <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">setup guide</a> leads through installation and operation. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade."
+        "a": "With the <a href=\"https://kp-rueck.ch/en/demo/\" target=\"_blank\" rel=\"noopener\">demo</a>, without an account – pick a role and go. Then try it on an exercise; exercise mode is cleanly separated from the real thing. If it fits, the <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">setup guide</a> leads through installation and operation. We are happy to answer general questions; data and operation remain the responsibility of each fire brigade."
       }
     ]
   },

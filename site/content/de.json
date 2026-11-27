@@ -46,6 +46,22 @@
     "home": "Zur Startseite",
     "demo": "Demo öffnen"
   },
+  "wake": {
+    "pageTitle": "Demo wird gestartet – KP Rück",
+    "title": "Demo wird gestartet …",
+    "ready": "Bereit – die Demo öffnet sich …",
+    "steps": [
+      "Server startet",
+      "Datenbank wird geweckt",
+      "Demo-Lage wird vorbereitet"
+    ],
+    "note": "Die Demo schläft, wenn niemand sie braucht. Der Start dauert meist 10–30 Sekunden.",
+    "failTitle": "Die Demo startet gerade nicht",
+    "failText": "Nach 90 Sekunden hat sie noch nicht geantwortet. Meist hilft ein zweiter Versuch.",
+    "retry": "Nochmals versuchen",
+    "direct": "Direkt zur Demo",
+    "noscript": "Die Demo schläft, wenn niemand sie braucht. Der erste Aufruf kann bis zu 30 Sekunden dauern."
+  },
   "hero": {
     "eyebrow": "Open Source&nbsp;· kostenlos&nbsp;· Schweiz",
     "h1": "Das Einsatz&shy;board für den Kommando&shy;posten.",
@@ -311,7 +327,7 @@
       },
       {
         "q": "Wie fangen wir an?",
-        "a": "Mit der <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der\n          Übungsmodus ist sauber vom Ernstfall getrennt. Wenn es passt, führt die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">Einrichtungsanleitung</a> durch Installation und Betrieb. Allgemeine\n          Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der\n          jeweiligen Feuerwehr."
+        "a": "Mit der <a href=\"https://kp-rueck.ch/demo/\" target=\"_blank\" rel=\"noopener\">Demo</a>,\n          ohne Konto – Rolle wählen und loslegen. Danach an einer Übung ausprobieren; der\n          Übungsmodus ist sauber vom Ernstfall getrennt. Wenn es passt, führt die\n          <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">Einrichtungsanleitung</a> durch Installation und Betrieb. Allgemeine\n          Fragen beantworten wir gerne; Daten und Betrieb bleiben in der Verantwortung der\n          jeweiligen Feuerwehr."
       }
     ]
   },

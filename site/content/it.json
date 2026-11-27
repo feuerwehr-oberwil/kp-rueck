@@ -47,6 +47,22 @@
     "home": "Alla pagina iniziale",
     "demo": "Apri la demo"
   },
+  "wake": {
+    "pageTitle": "Avvio della demo – KP Rück",
+    "title": "La demo si sta avviando…",
+    "ready": "Pronta – la demo si apre…",
+    "steps": [
+      "Avvio del server",
+      "Risveglio della banca dati",
+      "Preparazione della situazione demo"
+    ],
+    "note": "La demo va in pausa quando nessuno la usa. L’avvio richiede di solito 10–30 secondi.",
+    "failTitle": "La demo non si avvia in questo momento",
+    "failText": "Dopo 90 secondi non ha ancora risposto. Di solito basta un secondo tentativo.",
+    "retry": "Riprova",
+    "direct": "Apri direttamente la demo",
+    "noscript": "La demo va in pausa quando nessuno la usa. Il primo accesso può richiedere fino a 30 secondi."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· gratuito&nbsp;· Svizzera",
     "h1": "Il tavolo operativo per il posto di comando.",
@@ -290,7 +306,7 @@
       },
       {
         "q": "Come cominciamo?",
-        "a": "Con la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">demo</a>, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. Se vi convince, la <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> accompagna la configurazione e l’esercizio. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
+        "a": "Con la <a href=\"https://kp-rueck.ch/it/demo/\" target=\"_blank\" rel=\"noopener\">demo</a>, senza account – scegliete un ruolo e via. Poi provatelo in un’esercitazione; la modalità esercitazione è nettamente separata dal caso reale. Se vi convince, la <a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> accompagna la configurazione e l’esercizio. Rispondiamo volentieri alle domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
       }
     ]
   },

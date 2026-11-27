@@ -192,9 +192,10 @@ encodiert wird im Chromium, den Playwright ohnehin mitbringt (keine zweite Abhä
 
 Die kleine Fassung und das JPEG entstehen an dem einen Shot, der im Skript `hero: true` trägt.
 
-Zwei Dinge zur Demo: jeder Besuch legt eine eigene Übungslage an, und die Demo wird täglich um
-00:00 zurückgesetzt. Ein Capture-Lauf hinterlässt also eine zusätzliche Lage, die beim nächsten
-Reset wieder verschwindet.
+Zwei Dinge zur Demo: jeder Besuch legt eine eigene Übungslage an, und die Demo wird bei jedem
+Start zurückgesetzt (sie schläft, wenn niemand sie nutzt) und, ist sie wach, um 00:00. Ein
+Capture-Lauf hinterlässt also eine zusätzliche Lage, die beim nächsten Reset wieder verschwindet.
+Schläft die Demo, dauert der erste Aufruf 10–30 Sekunden; `capture.mjs` wartet so lange.
 
 ## Kontakt
 

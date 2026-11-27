@@ -47,6 +47,22 @@
     "home": "A la pagina da partenza",
     "demo": "Avrir la demo"
   },
+  "wake": {
+    "pageTitle": "La demo vegn startada – KP Rück",
+    "title": "La demo vegn startada …",
+    "ready": "Pront – la demo vegn averta …",
+    "steps": [
+      "Il server vegn startà",
+      "La banca da datas vegn dasdada",
+      "La situaziun da demo vegn preparada"
+    ],
+    "note": "La demo dorma, sche nagin na la dovra. La partenza dura per ordinari 10–30 secundas.",
+    "failTitle": "La demo na starta momentan betg",
+    "failText": "Suenter 90 secundas n’ha ella anc betg respundì. Per ordinari gida ina segunda emprova.",
+    "retry": "Empruvar anc ina giada",
+    "direct": "Directamain a la demo",
+    "noscript": "La demo dorma, sche nagin na la dovra. L’emprim access po durar fin a 30 secundas."
+  },
   "hero": {
     "eyebrow": "Open source&nbsp;· gratuit&nbsp;· Svizra",
     "h1": "La tavla d’acziun per il post da commando.",
@@ -290,7 +306,7 @@
       },
       {
         "q": "Co cumenzar?",
-        "a": "Cun la <a href=\"https://demo.kp-rueck.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza conto – tscherner ina rolla e cumenzar. Suenter testar durant in exercizi; il modus\n          d’exercizi è separà cleramain dal cas real. Sche l’applicaziun cunvegna, maina\n          l’<a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">instrucziun d’installaziun</a> tras l’installaziun ed il manaschi. Nus\n          respundain gugent a dumondas generalas; las datas ed il manaschi restan en la\n          responsabladad dal corps da pumpiers respectiv."
+        "a": "Cun la <a href=\"https://kp-rueck.ch/rm/demo/\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza conto – tscherner ina rolla e cumenzar. Suenter testar durant in exercizi; il modus\n          d’exercizi è separà cleramain dal cas real. Sche l’applicaziun cunvegna, maina\n          l’<a href=\"https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">instrucziun d’installaziun</a> tras l’installaziun ed il manaschi. Nus\n          respundain gugent a dumondas generalas; las datas ed il manaschi restan en la\n          responsabladad dal corps da pumpiers respectiv."
       }
     ]
   },
