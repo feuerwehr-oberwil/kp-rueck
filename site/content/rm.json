@@ -164,22 +164,24 @@
     "eyebrow": "Manaschi",
     "h2": "Vossas datas restan tar vus.",
     "lede": "KP Rück è open source e funcziuna en voss magazin u en vossa atgna cloud. Acziuns, persunal, vehichels e material restan sut vossa controlla. Nagins custs da licenza, nagina dependenza d’in producider.",
-    "guide": "A l’instrucziun",
     "ways": [
       {
         "h3": "Clic dubel",
         "tag": "Per empruvar",
-        "p": "Installar Docker Desktop, far in clic dubel sin ina datoteca: il board funcziuna sin il computer en il magazin. La via la pli svelta a las atgnas datas."
+        "p": "Installar Docker Desktop, far in clic dubel sin ina datoteca: il board funcziuna sin il computer en il magazin. La via la pli svelta a las atgnas datas.",
+        "guide": "A l’instrucziun clic dubel"
       },
       {
         "h3": "Mini-PC en il magazin",
         "tag": "Funcziuna era senza internet",
-        "p": "Docker Compose sin in pitschen server en l’atgna rait, cun agen server da chartas ed il stampader en la rait locala."
+        "p": "Docker Compose sin in pitschen server en l’atgna rait, cun agen server da chartas ed il stampader en la rait locala.",
+        "guide": "A l’instrucziun mini-PC"
       },
       {
         "h3": "Hosting",
         "tag": "Nagin sto tgirar ina maschina",
-        "p": "Tar in purschider da hosting da vossa tscherna. In mini-PC da reserva en il magazin po surpigliar, sche la rait croda."
+        "p": "Tar in purschider da hosting da vossa tscherna. In mini-PC da reserva en il magazin po surpigliar, sche la rait croda.",
+        "guide": "A l’instrucziun hosting"
       }
     ],
     "note": "Sustegn per installaziun e manaschi è pussaivel suenter cunvegna – <a href=\"#kontakt\">contact</a>."

@@ -185,22 +185,24 @@
     "eyebrow": "Betrieb",
     "h2": "Eure Daten bleiben bei euch.",
     "lede": "KP Rück ist Open Source und läuft im eigenen Magazin oder in eurer eigenen Cloud. Einsätze, Personal, Fahrzeuge und Material bleiben unter eurer Kontrolle. Keine Lizenzkosten, keine Herstellerbindung.",
-    "guide": "Zur Anleitung",
     "ways": [
       {
         "h3": "Doppelklick",
         "tag": "Zum Ausprobieren",
-        "p": "Docker Desktop installieren, eine Datei doppelklicken: Das Board läuft auf dem Rechner im Magazin. Der schnellste Weg zu den eigenen Daten."
+        "p": "Docker Desktop installieren, eine Datei doppelklicken: Das Board läuft auf dem Rechner im Magazin. Der schnellste Weg zu den eigenen Daten.",
+        "guide": "Zur Doppelklick-Anleitung"
       },
       {
         "h3": "Mini-PC im Magazin",
         "tag": "Läuft auch ohne Internet",
-        "p": "Docker Compose auf einem kleinen Server im eigenen Netz, mit eigenem Kartenserver und dem Drucker im LAN."
+        "p": "Docker Compose auf einem kleinen Server im eigenen Netz, mit eigenem Kartenserver und dem Drucker im LAN.",
+        "guide": "Zur Mini-PC-Anleitung"
       },
       {
         "h3": "Gehostet",
         "tag": "Niemand betreut eine Kiste",
-        "p": "Bei einem Hosting-Anbieter eurer Wahl. Eine Standby-Box im Magazin kann den Ausfall des Netzes abfangen."
+        "p": "Bei einem Hosting-Anbieter eurer Wahl. Eine Standby-Box im Magazin kann den Ausfall des Netzes abfangen.",
+        "guide": "Zur Hosting-Anleitung"
       }
     ],
     "note": "Unterstützung bei Installation und Betrieb gibt es nach Absprache – <a href=\"#kontakt\">Kontakt</a>."
