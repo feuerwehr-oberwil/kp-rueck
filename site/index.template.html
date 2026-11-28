@@ -438,9 +438,13 @@
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
     }, { rootMargin: '0px 0px -60px' });
-    els.forEach(function (el) {
+    // Read every position (and innerHeight) before the first class change: a read after
+    // each write forces a fresh layout per element (forced reflow).
+    var fold = innerHeight * 0.9;
+    var tops = Array.prototype.map.call(els, function (el) { return el.getBoundingClientRect().top; });
+    els.forEach(function (el, i) {
       el.classList.add('reveal');
-      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      if (tops[i] < fold) el.classList.add('in');
       else io.observe(el);
     });
   }
