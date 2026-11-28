@@ -164,22 +164,24 @@
     "eyebrow": "Exploitation",
     "h2": "Vos données restent chez vous.",
     "lede": "KP Rück est open source et tourne sur votre propre machine à la caserne ou dans votre propre cloud. Interventions, personnel, véhicules et matériel restent sous votre contrôle. Pas de frais de licence, aucune dépendance à un fournisseur.",
-    "guide": "Vers le guide",
     "ways": [
       {
         "h3": "Double-clic",
         "tag": "Pour essayer",
-        "p": "Installer Docker Desktop, double-cliquer sur un fichier : le tableau tourne sur l’ordinateur de la caserne. Le chemin le plus court vers vos propres données."
+        "p": "Installer Docker Desktop, double-cliquer sur un fichier : le tableau tourne sur l’ordinateur de la caserne. Le chemin le plus court vers vos propres données.",
+        "guide": "Vers le guide double-clic"
       },
       {
         "h3": "Mini-PC à la caserne",
         "tag": "Fonctionne aussi sans Internet",
-        "p": "Docker Compose sur un petit serveur dans votre réseau, avec votre propre serveur de cartes et l’imprimante sur le réseau local."
+        "p": "Docker Compose sur un petit serveur dans votre réseau, avec votre propre serveur de cartes et l’imprimante sur le réseau local.",
+        "guide": "Vers le guide mini-PC"
       },
       {
         "h3": "Hébergé",
         "tag": "Aucune machine à gérer",
-        "p": "Chez l’hébergeur de votre choix. Un boîtier de secours à la caserne peut prendre le relais si le réseau tombe."
+        "p": "Chez l’hébergeur de votre choix. Un boîtier de secours à la caserne peut prendre le relais si le réseau tombe.",
+        "guide": "Vers le guide hébergement"
       }
     ],
     "note": "Un appui pour l’installation et l’exploitation est possible sur entente – <a href=\"#kontakt\">contact</a>."

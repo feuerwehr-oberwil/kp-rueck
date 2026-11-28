@@ -246,7 +246,7 @@
         "height": 937
       },
       "inLanguage": "en",
-      "dateModified": "2026-11-27",
+      "dateModified": "2026-11-28",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -668,19 +668,19 @@
         <p class="way-tag">To try it out</p>
         <h3>Double-click</h3>
         <p>Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Read the guide →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Read the double-click guide →</a></p>
       </div>
       <div class="own-card">
         <p class="way-tag">Keeps running without internet</p>
         <h3>Mini PC at the station</h3>
         <p>Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Read the guide →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Read the mini PC guide →</a></p>
       </div>
       <div class="own-card">
         <p class="way-tag">Nobody looks after a box</p>
         <h3>Hosted</h3>
         <p>With a hosting provider of your choice. A standby box at the station can cover a network outage.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Read the guide →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Read the hosting guide →</a></p>
       </div>
     </div>
     <p class="sec-note ways-note">Help with installation and operation is available by arrangement – <a href="#kontakt">contact</a>.</p>
@@ -908,9 +908,13 @@
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
     }, { rootMargin: '0px 0px -60px' });
-    els.forEach(function (el) {
+    // Read every position (and innerHeight) before the first class change: a read after
+    // each write forces a fresh layout per element (forced reflow).
+    var fold = innerHeight * 0.9;
+    var tops = Array.prototype.map.call(els, function (el) { return el.getBoundingClientRect().top; });
+    els.forEach(function (el, i) {
       el.classList.add('reveal');
-      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      if (tops[i] < fold) el.classList.add('in');
       else io.observe(el);
     });
   }

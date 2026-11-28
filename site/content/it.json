@@ -164,22 +164,24 @@
     "eyebrow": "Gestione",
     "h2": "I vostri dati restano vostri.",
     "lede": "KP Rück è open source e gira su una macchina nella vostra caserma o nel vostro cloud. Interventi, personale, veicoli e materiale restano sotto il vostro controllo. Nessun costo di licenza, nessun vincolo con il fornitore.",
-    "guide": "Alla guida",
     "ways": [
       {
         "h3": "Doppio clic",
         "tag": "Per provare",
-        "p": "Installare Docker Desktop, fare doppio clic su un file: il board gira sul computer in rimessa. La via più rapida verso i vostri dati."
+        "p": "Installare Docker Desktop, fare doppio clic su un file: il board gira sul computer in rimessa. La via più rapida verso i vostri dati.",
+        "guide": "Alla guida doppio clic"
       },
       {
         "h3": "Mini PC in rimessa",
         "tag": "Funziona anche senza Internet",
-        "p": "Docker Compose su un piccolo server nella vostra rete, con il vostro server di mappe e la stampante nella rete locale."
+        "p": "Docker Compose su un piccolo server nella vostra rete, con il vostro server di mappe e la stampante nella rete locale.",
+        "guide": "Alla guida mini PC"
       },
       {
         "h3": "In hosting",
         "tag": "Nessuna macchina da gestire",
-        "p": "Presso un fornitore di hosting a vostra scelta. Un mini PC di riserva in caserma può coprire la caduta della rete."
+        "p": "Presso un fornitore di hosting a vostra scelta. Un mini PC di riserva in caserma può coprire la caduta della rete.",
+        "guide": "Alla guida hosting"
       }
     ],
     "note": "Un supporto per installazione e gestione è possibile su accordo – <a href=\"#kontakt\">contatto</a>."

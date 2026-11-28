@@ -246,7 +246,7 @@
         "height": 937
       },
       "inLanguage": "fr-CH",
-      "dateModified": "2026-11-27",
+      "dateModified": "2026-11-28",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -682,19 +682,19 @@
         <p class="way-tag">Pour essayer</p>
         <h3>Double-clic</h3>
         <p>Installer Docker Desktop, double-cliquer sur un fichier : le tableau tourne sur l’ordinateur de la caserne. Le chemin le plus court vers vos propres données.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Vers le guide →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">Vers le guide double-clic →</a></p>
       </div>
       <div class="own-card">
         <p class="way-tag">Fonctionne aussi sans Internet</p>
         <h3>Mini-PC à la caserne</h3>
         <p>Docker Compose sur un petit serveur dans votre réseau, avec votre propre serveur de cartes et l’imprimante sur le réseau local.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Vers le guide →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">Vers le guide mini-PC →</a></p>
       </div>
       <div class="own-card">
         <p class="way-tag">Aucune machine à gérer</p>
         <h3>Hébergé</h3>
         <p>Chez l’hébergeur de votre choix. Un boîtier de secours à la caserne peut prendre le relais si le réseau tombe.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Vers le guide →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">Vers le guide hébergement →</a></p>
       </div>
     </div>
     <p class="sec-note ways-note">Un appui pour l’installation et l’exploitation est possible sur entente – <a href="#kontakt">contact</a>.</p>
@@ -947,9 +947,13 @@
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
     }, { rootMargin: '0px 0px -60px' });
-    els.forEach(function (el) {
+    // Read every position (and innerHeight) before the first class change: a read after
+    // each write forces a fresh layout per element (forced reflow).
+    var fold = innerHeight * 0.9;
+    var tops = Array.prototype.map.call(els, function (el) { return el.getBoundingClientRect().top; });
+    els.forEach(function (el, i) {
       el.classList.add('reveal');
-      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      if (tops[i] < fold) el.classList.add('in');
       else io.observe(el);
     });
   }

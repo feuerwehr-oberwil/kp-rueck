@@ -163,22 +163,24 @@
     "eyebrow": "Running it",
     "h2": "Your data stays with you.",
     "lede": "KP Rück is open source and runs on a machine in your own station or in your own cloud. Incidents, crews, vehicles and equipment stay under your control. No licence fees, no vendor lock-in.",
-    "guide": "Read the guide",
     "ways": [
       {
         "h3": "Double-click",
         "tag": "To try it out",
-        "p": "Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data."
+        "p": "Install Docker Desktop, double-click one file: the board runs on the computer at the station. The quickest way to your own data.",
+        "guide": "Read the double-click guide"
       },
       {
         "h3": "Mini PC at the station",
         "tag": "Keeps running without internet",
-        "p": "Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN."
+        "p": "Docker Compose on a small server in your own network, with your own tile server and the printer on the LAN.",
+        "guide": "Read the mini PC guide"
       },
       {
         "h3": "Hosted",
         "tag": "Nobody looks after a box",
-        "p": "With a hosting provider of your choice. A standby box at the station can cover a network outage."
+        "p": "With a hosting provider of your choice. A standby box at the station can cover a network outage.",
+        "guide": "Read the hosting guide"
       }
     ],
     "note": "Help with installation and operation is available by arrangement – <a href=\"#kontakt\">contact</a>."

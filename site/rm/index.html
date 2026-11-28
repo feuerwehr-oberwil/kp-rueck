@@ -246,7 +246,7 @@
         "height": 937
       },
       "inLanguage": "rm-CH",
-      "dateModified": "2026-11-27",
+      "dateModified": "2026-11-28",
       "isPartOf": {
         "@id": "https://kp-rueck.ch/#website"
       },
@@ -681,19 +681,19 @@
         <p class="way-tag">Per empruvar</p>
         <h3>Clic dubel</h3>
         <p>Installar Docker Desktop, far in clic dubel sin ina datoteca: il board funcziuna sin il computer en il magazin. La via la pli svelta a las atgnas datas.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">A l’instrucziun →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/SETUP.md#der-schnellste-weg-double-click" target="_blank" rel="noopener">A l’instrucziun clic dubel →</a></p>
       </div>
       <div class="own-card">
         <p class="way-tag">Funcziuna era senza internet</p>
         <h3>Mini-PC en il magazin</h3>
         <p>Docker Compose sin in pitschen server en l’atgna rait, cun agen server da chartas ed il stampader en la rait locala.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">A l’instrucziun →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/DEPLOYMENT.md" target="_blank" rel="noopener">A l’instrucziun mini-PC →</a></p>
       </div>
       <div class="own-card">
         <p class="way-tag">Nagin sto tgirar ina maschina</p>
         <h3>Hosting</h3>
         <p>Tar in purschider da hosting da vossa tscherna. In mini-PC da reserva en il magazin po surpigliar, sche la rait croda.</p>
-        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">A l’instrucziun →</a></p>
+        <p class="own-link"><a href="https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RAILWAY.md" target="_blank" rel="noopener">A l’instrucziun hosting →</a></p>
       </div>
     </div>
     <p class="sec-note ways-note">Sustegn per installaziun e manaschi è pussaivel suenter cunvegna – <a href="#kontakt">contact</a>.</p>
@@ -942,9 +942,13 @@
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
     }, { rootMargin: '0px 0px -60px' });
-    els.forEach(function (el) {
+    // Read every position (and innerHeight) before the first class change: a read after
+    // each write forces a fresh layout per element (forced reflow).
+    var fold = innerHeight * 0.9;
+    var tops = Array.prototype.map.call(els, function (el) { return el.getBoundingClientRect().top; });
+    els.forEach(function (el, i) {
       el.classList.add('reveal');
-      if (el.getBoundingClientRect().top < innerHeight * 0.9) el.classList.add('in');
+      if (tops[i] < fold) el.classList.add('in');
       else io.observe(el);
     });
   }
